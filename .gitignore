@@ -1,0 +1,33 @@
+# Clojure development tools cache
+.clj-kondo/
+.lsp/
+
+# VSCode/Alive REPL artifacts
+.vscode/alive/fasl/
+.vscode/alive/repl-history.json
+
+# Common Lisp compiled files
+*.fasl
+*.fas
+*.lib
+*.x86f
+*.lx64fsl
+*.lx32fsl
+*.dx64fsl
+*.dx32fsl
+
+# ASDF cache
+.fasls/
+
+# Quicklisp local projects (if any)
+quicklisp/
+
+# Editor backup files
+*~
+*.bak
+\#*\#
+.#*
+
+# OS generated files
+.DS_Store
+Thumbs.db
