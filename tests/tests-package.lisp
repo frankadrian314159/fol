@@ -1,7 +1,7 @@
 (defpackage fol.tests
-  (:use cl fiveam fol.syntax fol.singleton fol.classes fol.wrappers 
+  (:use cl fiveam fol.syntax fol.singleton fol.classes fol.wrappers
         named-readtables fol.bool fol.char fol.number fol.string
-        fol.symbol fol.persistent fol.collection fol.mop)
+        fol.symbol fol.persistent fol.collection fol.mop fol.env fol.eval)
   ;; Import logical operations INCLUDING nand and nor
   (:shadowing-import-from fol.logop not and or implies xor nand nor)
   ;; Import ALL functions from fol.arithop (arithmetic + math)

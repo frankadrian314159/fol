@@ -98,3 +98,4 @@
   nil 
   (:metaclass fol.persistent:persistent-class)
   (:documentation "The bignum number class."))
+

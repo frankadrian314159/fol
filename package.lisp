@@ -106,6 +106,25 @@
                           remove)
   (:export <module> <module>? make-module))
 
+(defpackage fol.env
+  (:use cl fol.persistent fol.collection fol.singleton)
+  (:shadowing-import-from fol.collection
+                          make-array
+                          get
+                          remove)
+  (:export <env> <env>? make-env lookup env-previous unbound-variable fol-unbound-variable fol-unbound-variable-name fol-unbound-variable-message))
+
+(defpackage fol.eval
+  (:use cl fol.env fol.singleton fol.classes)
+  (:export fol-eval
+           fol-eval-toplevel
+           make-initial-env
+           <closure>
+           closure-params
+           closure-body
+           closure-env
+           apply-function))
+
 (defpackage fol.syntax
   (:use cl)
   (:shadowing-import-from named-readtables defreadtable)
@@ -140,7 +159,8 @@
 
 (defpackage fol.compareop
   (:use cl fol.wrappers fol.classes fol.persistent)
-  (:shadow = /= < <= > >= min max))
+  (:shadow = /= < <= > >= min max)
+  (:export = /= < <= > >= min max))
 
 (defpackage fol.bool
   (:use cl fol.wrappers fol.classes fol.singleton)
@@ -184,6 +204,14 @@
    <rational>? <ratio>? <integer>? <fixnum>? <bignum>?
    ;; Value predicates only
    odd? even? zero? positive? negative? integral?))
+
+(defpackage fol.repl
+  (:use cl fol.eval fol.env fol.syntax)
+  (:shadowing-import-from named-readtables find-readtable)
+  (:export start-repl
+           repl
+           reset-repl-env
+           *repl-env*))
 
 ;;; Define the symbol unbound sentinel constant early so it can be used in classes.lisp
 (in-package fol.symbol)
