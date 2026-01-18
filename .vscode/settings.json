@@ -1,0 +1,12 @@
+{
+  "files.exclude": {
+    "**/.clj-kondo": true,
+    "**/.lsp": true,
+    "**/*.fasl": true
+  },
+  "search.exclude": {
+    "**/.clj-kondo": true,
+    "**/.lsp": true,
+    "**/*.fasl": true
+  }
+}
