@@ -1,0 +1,1 @@
+(push #p"C:/Users/Frank Adrian/projects/FOL/fol/" asdf:*central-registry*)
