@@ -61,12 +61,64 @@
                  :name name))
 
 ;;; ============================================================================
+;;; FOL Macro Representation
+;;; ============================================================================
+
+(defclass <macro> (fol.persistent:<persistent-object>)
+  ((params :initarg :params :accessor macro-params :type list)
+   (body :initarg :body :accessor macro-body :type list)
+   (env :initarg :env :accessor macro-env)
+   (rest-param :initarg :rest-param :accessor macro-rest-param :initform nil)
+   (name :initarg :name :accessor macro-name :initform nil))
+  (:metaclass fol.persistent:persistent-class)
+  (:documentation "A user-defined FOL macro. Receives unevaluated arguments,
+                   returns a form that is then evaluated."))
+
+(defun <macro>? (obj)
+  "Returns T if OBJ is a FOL macro."
+  (typep obj '<macro>))
+
+(defun make-macro (params body env &key rest-param name)
+  "Create a new FOL macro with the given parameters, body, and closure environment."
+  (make-instance '<macro>
+                 :params params
+                 :body body
+                 :env env
+                 :rest-param rest-param
+                 :name name))
+
+;;; ============================================================================
 ;;; Recur Exception (for loop/recur)
 ;;; ============================================================================
 
 (define-condition recur-signal ()
   ((args :initarg :args :accessor recur-args))
   (:documentation "Signal used to implement recur within loop."))
+
+;;; ============================================================================
+;;; Forward Declarations for Syntax-Quote Helpers
+;;; ============================================================================
+;;; These need to be defined before fol-eval methods that use them.
+
+(defun auto-gensym-symbol-p (form)
+  "Check if FORM is an auto-gensym symbol (ends with #)."
+  (cl:and (symbolp form)
+          (cl:not (keywordp form))
+          (let ((name (symbol-name form)))
+            (cl:and (> (length name) 1)
+                    (char= (char name (1- (length name))) #\#)))))
+
+(defun unquote-form-p (form)
+  "Check if FORM is an unquote form: (unquote x)"
+  (cl:and (consp form)
+          (symbolp (car form))
+          (string= (symbol-name (car form)) "UNQUOTE")))
+
+(defun unquote-splicing-form-p (form)
+  "Check if FORM is an unquote-splicing form: (unquote-splicing x)"
+  (cl:and (consp form)
+          (symbolp (car form))
+          (string= (symbol-name (car form)) "UNQUOTE-SPLICING")))
 
 ;;; ============================================================================
 ;;; Main Evaluation Function
@@ -144,6 +196,13 @@
   (declare (ignore env))
   form)
 
+;;; --- FOL Macros are Self-Evaluating ---
+
+(defmethod fol-eval ((form <macro>) env)
+  "FOL macros are self-evaluating."
+  (declare (ignore env))
+  form)
+
 ;;; --- CL Functions are Self-Evaluating ---
 
 (defmethod fol-eval ((form function) env)
@@ -154,10 +213,15 @@
 ;;; --- Symbol Lookup ---
 
 (defmethod fol-eval ((form symbol) env)
-  "Symbols are looked up in the environment. Keywords are self-evaluating."
-  (if (keywordp form)
-      form
-      (lookup env form)))
+  "Symbols are looked up in the environment. Keywords are self-evaluating.
+   Auto-gensym symbols (ending with #) are an error outside syntax-quote."
+  (cond
+    ((keywordp form) form)
+    ((auto-gensym-symbol-p form)
+     (error 'fol-eval-error
+            :message (format nil "Auto-gensym symbol ~A is only valid inside syntax-quote" form)
+            :form form))
+    (t (lookup env form))))
 
 ;;; --- Wrapped Symbol Lookup ---
 
@@ -184,6 +248,17 @@
       ((special-form-p op 'throw)  (eval-throw args env))
       ((special-form-p op 'try)    (eval-try args env))
       ((special-form-p op 'defn)   (eval-defn args env))
+      ((special-form-p op 'defmacro) (eval-defmacro args env))
+      ((special-form-p op 'syntax-quote) (eval-syntax-quote args env))
+      ;; Unquote forms are errors outside syntax-quote
+      ((special-form-p op 'unquote)
+       (error 'fol-eval-error
+              :message "unquote (~) is only valid inside syntax-quote"
+              :form form))
+      ((special-form-p op 'unquote-splicing)
+       (error 'fol-eval-error
+              :message "unquote-splicing (~@) is only valid inside syntax-quote"
+              :form form))
       (t (eval-application op args env)))))
 
 ;;; ============================================================================
@@ -310,6 +385,121 @@
          (fn-form `(fn ,name ,params ,@body)))
     (fol-eval `(def ,name ,fn-form) env)))
 
+;;; --- DEFMACRO ---
+
+(defun eval-defmacro (args env)
+  "Evaluate (defmacro name [params] body*).
+   Creates a macro that receives unevaluated arguments and returns a form to evaluate.
+   Similar to defn but creates a <macro> instead of a <function>."
+  (unless (>= (length args) 2)
+    (error 'fol-eval-error :message "defmacro requires name, params, and body"
+           :form (cons 'defmacro args)))
+  (let* ((name (extract-symbol (first args)))
+         (params (second args))
+         (body (cddr args)))
+    ;; Parse parameter list
+    (let ((param-list (if (<vector>? params)
+                          (vector-to-list params)
+                          params)))
+      (multiple-value-bind (regular-params rest-param)
+          (parse-params param-list)
+        ;; Create the macro object
+        (make-macro regular-params body env
+                    :rest-param rest-param
+                    :name name)))))
+
+;;; --- SYNTAX-QUOTE (Quasiquote with unquote, unquote-splicing, auto-gensym) ---
+
+(defun eval-syntax-quote (args env)
+  "Evaluate (syntax-quote form).
+   Expands a syntax-quoted form with support for:
+   - (unquote x) or ~x: evaluate x and insert
+   - (unquote-splicing x) or ~@x: evaluate x and splice into list
+   - symbol# (auto-gensym): generate unique symbol
+
+   Example:
+     (syntax-quote (a (unquote b) c)) with b=42 => (a 42 c)
+     (syntax-quote (a (unquote-splicing xs) b)) with xs='(1 2) => (a 1 2 b)
+     (syntax-quote (bind (x# 1) x#)) => (bind (G123 1) G123)"
+  (unless (= (length args) 1)
+    (error 'fol-arity-error :expected 1 :got (length args)
+           :form (cons 'syntax-quote args)))
+  (let ((gensym-table (make-hash-table :test 'equal)))
+    (expand-syntax-quote (first args) env gensym-table)))
+
+(defun expand-syntax-quote (form env gensym-table)
+  "Recursively expand a syntax-quoted form.
+   GENSYM-TABLE maps auto-gensym symbols (ending in #) to their generated symbols."
+  (cond
+    ;; Handle unquote: (unquote x) => evaluate x
+    ((unquote-form-p form)
+     (fol-eval (second form) env))
+
+    ;; Handle unquote-splicing at top level - error, must be inside list
+    ((unquote-splicing-form-p form)
+     (error 'fol-eval-error
+            :message "unquote-splicing (~@) not valid outside of a list"
+            :form form))
+
+    ;; Handle lists (may contain unquote-splicing)
+    ((consp form)
+     (expand-syntax-quote-list form env gensym-table))
+
+    ;; Handle auto-gensym symbols (ending with #) - must check before symbolp
+    ((auto-gensym-symbol-p form)
+     (get-or-create-gensym form gensym-table))
+
+    ;; Handle regular symbols - return as-is (quoted)
+    ((symbolp form)
+     form)
+
+    ;; Strings are self-evaluating (and are technically vectors, so check before vectorp)
+    ((stringp form)
+     form)
+
+    ;; Handle CL vectors (from reader syntax like #(a b c)) - but not strings
+    ((cl:and (vectorp form) (cl:not (<vector>? form)))
+     (let ((expanded (expand-syntax-quote-list (coerce form 'list) env gensym-table)))
+       (coerce expanded 'vector)))
+
+    ;; Handle FOL vectors
+    ((<vector>? form)
+     (let ((expanded (expand-syntax-quote-list (vector-to-list form) env gensym-table)))
+       (apply #'make-vector expanded)))
+
+    ;; Self-evaluating forms (numbers, strings, characters, keywords)
+    (t form)))
+
+(defun expand-syntax-quote-list (forms env gensym-table)
+  "Expand a list within syntax-quote, handling unquote-splicing."
+  (let ((result nil))
+    (dolist (form forms)
+      (cond
+        ;; unquote-splicing: evaluate and splice
+        ((unquote-splicing-form-p form)
+         (let ((spliced (fol-eval (second form) env)))
+           (unless (listp spliced)
+             (error 'fol-eval-error
+                    :message (format nil "unquote-splicing requires a list, got ~S" spliced)
+                    :form form))
+           (dolist (item spliced)
+             (push item result))))
+
+        ;; Regular form: expand recursively
+        (t
+         (push (expand-syntax-quote form env gensym-table) result))))
+    (nreverse result)))
+
+(defun get-or-create-gensym (symbol gensym-table)
+  "Get or create a gensym for an auto-gensym symbol.
+   The same auto-gensym symbol# within a syntax-quote maps to the same generated symbol."
+  (let ((name (symbol-name symbol)))
+    (cl:or (gethash name gensym-table)
+           (let* ((base-name (subseq name 0 (1- (length name))))
+                  (new-sym (cl:gensym (concatenate 'string base-name "__"))))
+             (setf (gethash name gensym-table) new-sym)
+             new-sym))))
+
 ;;; --- LOOP/RECUR ---
 
 (defun eval-loop (args env)
@@ -413,10 +603,17 @@
 ;;; ============================================================================
 
 (defun eval-application (op args env)
-  "Evaluate a function application (op arg*)."
-  (let ((fn (fol-eval op env))
-        (evaluated-args (mapcar (lambda (arg) (fol-eval arg env)) args)))
-    (apply-function fn evaluated-args)))
+  "Evaluate a function or macro application (op arg*).
+   For functions: evaluate args, then apply.
+   For macros: pass unevaluated args, expand, then evaluate result."
+  (let ((fn (fol-eval op env)))
+    (if (<macro>? fn)
+        ;; Macro: expand with unevaluated args, then evaluate result
+        (let ((expanded (expand-macro fn args)))
+          (fol-eval expanded env))
+        ;; Function: evaluate args first
+        (let ((evaluated-args (mapcar (lambda (arg) (fol-eval arg env)) args)))
+          (apply-function fn evaluated-args)))))
 
 (defgeneric apply-function (fn args)
   (:documentation "Apply function FN to ARGS."))
@@ -470,6 +667,66 @@
         (get coll fn)
         (error 'fol-eval-error
                :message (format nil "Cannot use symbol ~S as function on ~S" fn coll)))))
+
+;;; ============================================================================
+;;; Macro Expansion
+;;; ============================================================================
+
+(defun expand-macro (macro args)
+  "Expand a macro with the given unevaluated arguments.
+   Returns the expanded form (not yet evaluated)."
+  (let* ((params (macro-params macro))
+         (rest-param (macro-rest-param macro))
+         (body (macro-body macro))
+         (closure-env (macro-env macro))
+         (name (macro-name macro))
+         (num-params (length params))
+         (num-args (length args)))
+    ;; Check arity
+    (if rest-param
+        (unless (>= num-args num-params)
+          (error 'fol-arity-error
+                 :expected (format nil "at least ~A" num-params)
+                 :got num-args))
+        (unless (= num-args num-params)
+          (error 'fol-arity-error :expected num-params :got num-args)))
+    ;; Create environment with parameter bindings (args are NOT evaluated)
+    (let ((macro-env closure-env))
+      ;; Bind regular parameters to unevaluated args
+      (loop for param in params
+            for arg in args
+            do (setf macro-env (make-env macro-env param arg)))
+      ;; Bind rest parameter if present
+      (when rest-param
+        (setf macro-env (make-env macro-env rest-param (nthcdr num-params args))))
+      ;; Bind macro name for recursive macros if present
+      (when name
+        (setf macro-env (make-env macro-env name macro)))
+      ;; Evaluate body to produce expanded form
+      (let ((result nil))
+        (dolist (form body)
+          (setf result (fol-eval form macro-env)))
+        result))))
+
+(defun macroexpand-1 (form env)
+  "If FORM is a macro call, expand it once and return (values expanded-form t).
+   Otherwise return (values form nil)."
+  (if (cl:and (consp form) (symbolp (car form)))
+      (let ((op-value (handler-case (lookup env (car form))
+                        (fol-unbound-variable () nil))))
+        (if (<macro>? op-value)
+            (values (expand-macro op-value (cdr form)) t)
+            (values form nil)))
+      (values form nil)))
+
+(defun macroexpand (form env)
+  "Repeatedly expand FORM until it is no longer a macro call.
+   Returns the fully expanded form."
+  (loop
+    (multiple-value-bind (expanded expandedp) (macroexpand-1 form env)
+      (if expandedp
+          (setf form expanded)
+          (return form)))))
 
 ;;; ============================================================================
 ;;; Helper Functions

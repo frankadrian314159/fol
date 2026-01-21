@@ -216,6 +216,7 @@
 
 (defpackage fol.eval
   (:use cl fol.wrappers fol.classes fol.collection fol.env)
+  (:shadow macroexpand macroexpand-1)
   (:shadowing-import-from fol.collection
                           make-array
                           get
@@ -238,17 +239,23 @@
    ;; Main evaluation function
    fol-eval
    ;; Special form evaluators (for extensibility)
-   eval-quote eval-if eval-do eval-let eval-let* eval-fn eval-def
-   eval-loop eval-recur eval-throw eval-try
+   eval-quote eval-if eval-do eval-bind eval-fn eval-def eval-defn
+   eval-loop eval-recur eval-throw eval-try eval-defmacro eval-syntax-quote
    ;; Conditions
    fol-eval-error fol-eval-error-message fol-eval-error-form
    fol-arity-error fol-arity-error-expected fol-arity-error-got
    ;; Utilities
    make-function apply-function
+   ;; Macro utilities
+   make-macro expand-macro macroexpand-1 macroexpand
+   ;; Syntax-quote utilities
+   expand-syntax-quote unquote-form-p unquote-splicing-form-p auto-gensym-symbol-p
    ;; Standard environment
    make-standard-env
    ;; Function class and predicate
-   <function> <function>?))
+   <function> <function>?
+   ;; Macro class, predicate, and accessors
+   <macro> <macro>? macro-name macro-params macro-body macro-env macro-rest-param))
 
 ;;; Define the symbol unbound sentinel constant early so it can be used in classes.lisp
 (in-package fol.symbol)

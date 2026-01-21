@@ -119,15 +119,22 @@
                 :fol-get-dispatch-macro-character :fol-set-dispatch-macro-character
                 :with-readtable)
   ;; Import symbols from fol.eval
+  (:shadowing-import-from :fol.eval :macroexpand-1 :macroexpand)
   (:import-from :fol.eval
                 :fol-eval
                 :eval-quote :eval-if :eval-do :eval-bind :eval-fn :eval-def
-                :eval-loop :eval-recur :eval-throw :eval-try
+                :eval-loop :eval-recur :eval-throw :eval-try :eval-defmacro
+                :eval-syntax-quote
                 :fol-eval-error :fol-eval-error-message :fol-eval-error-form
                 :fol-arity-error :fol-arity-error-expected :fol-arity-error-got
                 :make-function :apply-function
+                :make-macro :expand-macro
+                :expand-syntax-quote :unquote-form-p :unquote-splicing-form-p
+                :auto-gensym-symbol-p
                 :make-standard-env
-                :<function> :<function>?))
+                :<function> :<function>?
+                :<macro> :<macro>? :macro-name :macro-params :macro-body
+                :macro-env :macro-rest-param))
 
 (in-package :fol.tests)
 
