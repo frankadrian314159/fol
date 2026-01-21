@@ -1,32 +1,138 @@
-(defpackage fol.tests
-  (:use cl fiveam fol.syntax fol.singleton fol.classes fol.wrappers
-        named-readtables fol.bool fol.char fol.number fol.string
-        fol.symbol fol.persistent fol.collection fol.mop fol.env fol.eval)
-  ;; Import logical operations INCLUDING nand and nor
-  (:shadowing-import-from fol.logop not and or implies xor nand nor)
-  ;; Import ALL functions from fol.arithop (arithmetic + math)
-  (:shadowing-import-from fol.arithop 
-                          + - * /                                  ; arithmetic
-                          abs                                      ; basic math
-                          sin cos tan asin acos atan atan2         ; trig
-                          sinh cosh tanh asinh acosh atanh         ; hyperbolic
-                          exp log expt sqrt                        ; exponentials
-                          rationalize numerator denominator        ; scheme-type functions
-                          real-part imag-part angle
-                          gcd lcm)
-  (:shadowing-import-from fol.compareop = /= < <= > >= min max)
-  (:shadowing-import-from fol.char char-upcase char-downcase)
-  (:shadowing-import-from fol.collection make-array get remove)
-  (:import-from fol.char alpha-char? digit-char? alphanumeric?
-                         upper-case? lower-case? whitespace?)
-  (:export run-fol-tests))
+(in-package :cl-user)
 
-(in-package fol.tests)
+;; Delete package to ensure a clean slate and avoid variance warnings
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (when (find-package :fol.tests)
+    (delete-package :fol.tests)))
 
-;;; Test suite definition
+(defpackage :fol.tests
+  (:use :cl :fiveam)
+  (:export :run-fol-tests)
+  ;; Shadow CL symbols that FOL redefines
+  (:shadowing-import-from :fol.arithop
+                          :+ :- :* :/
+                          :abs :sin :cos :tan :asin :acos :atan
+                          :sinh :cosh :tanh :asinh :acosh :atanh
+                          :exp :log :expt :sqrt
+                          :rationalize :numerator :denominator
+                          :gcd :lcm)
+  (:shadowing-import-from :fol.compareop
+                          := :/= :< :> :<= :>=
+                          :min :max)
+  (:shadowing-import-from :fol.logop
+                          :and :or :not)
+  ;; Import non-conflicting symbols from fol.arithop
+  (:import-from :fol.arithop
+                :%+ :%- :%* :%/
+                :atan2
+                :real-part :imag-part :angle
+                :%gcd :%lcm)
+  ;; Import non-conflicting symbols from fol.compareop
+  (:import-from :fol.compareop
+                :%= :%/= :%< :%> :%<= :%>=)
+  ;; Import non-conflicting symbols from fol.classes
+  (:import-from :fol.classes
+                :<bool> :<char> :<string> :<symbol> :<keyword>
+                :<number> :<complex> :<real> :<float> :<single-float> :<double-float>
+                :<rational> :<ratio> :<integer> :<fixnum> :<bignum>
+                :val)
+  ;; Import non-conflicting symbols from fol.logop
+  (:import-from :fol.logop
+                :xor
+                :%and :%or :%xor
+                :implies :nand :nor)
+  ;; Import non-conflicting symbols from fol.bool
+  (:import-from :fol.bool :<bool>?)
+  ;; Shadow CL char functions
+  (:shadowing-import-from :fol.char
+                          :char-upcase :char-downcase)
+  ;; Import non-conflicting symbols from fol.char
+  (:import-from :fol.char
+                :<char>?
+                :alpha-char? :digit-char? :alphanumeric?
+                :upper-case? :lower-case? :whitespace?)
+  ;; Import non-conflicting symbols from fol.string
+  (:import-from :fol.string :<string>?)
+  ;; Import non-conflicting symbols from fol.symbol
+  (:import-from :fol.symbol
+                :<symbol>? :<keyword>?
+                :symbol-name-str :symbol-package-str
+                :get-symbol-value :set-symbol-value :symbol-bound?
+                :as)
+  ;; Import non-conflicting symbols from fol.number
+  (:import-from :fol.number
+                :<number>? :<complex>?
+                :<real>? :<float>? :<single-float>? :<double-float>?
+                :<rational>? :<ratio>? :<integer>? :<fixnum>? :<bignum>?
+                :odd? :even? :zero? :positive? :negative? :integral?)
+  ;; Import non-conflicting symbols from fol.wrappers
+  (:import-from :fol.wrappers
+                :fol-value :fol-type-of
+                :wrap :unwrap
+                :wrap-bool :unwrap-bool
+                :wrap-char :unwrap-char
+                :wrap-string :unwrap-string
+                :wrap-symbol :unwrap-symbol
+                :wrap-number :unwrap-number
+                :fol-numberp :fol-integerp :fol-realp
+                :fol-stringp :fol-characterp :fol-symbolp :fol-booleanp)
+  ;; Import symbols from fol.collection
+  (:import-from :fol.collection
+                :<collection>? :<ordered-collection>? :<unordered-collection>?
+                :<dict>? :<set>? :<bag>? :<vector>? :<array>?
+                :make-dict :make-set :make-bag :make-vector
+                :add :contains? :size :empty?
+                :iterator :current :next :done?
+                :nth-element :set-nth)
+  ;; Shadow CL symbols that FOL redefines
+  (:shadowing-import-from :fol.collection :remove :get :make-array)
+  ;; Import symbols from fol.env
+  (:import-from :fol.env
+                :<env>? :make-env :lookup :env-previous
+                :fol-unbound-variable :fol-unbound-variable-name :fol-unbound-variable-message)
+  ;; Import symbols from fol.module
+  (:import-from :fol.module
+                :<module>? :make-module)
+  ;; Import symbols from fol.persistent
+  (:import-from :fol.persistent
+                :persistent-class :<persistent-object> :<persistent-object>?
+                :pslot-value :set-pslot-value :set-pslot-values :with-pslots)
+  ;; Import symbols from fol.mop
+  (:import-from :fol.mop
+                :class-name* :class-direct-superclasses* :class-direct-subclasses*
+                :class-precedence-list* :class-direct-slots* :class-slots*
+                :finalized-p :ensure-finalized
+                :slot-definition-name* :slot-definition-type* :slot-definition-initargs*
+                :slot-definition-initform* :slot-definition-initfunction*
+                :slot-definition-allocation* :slot-definition-readers* :slot-definition-writers*
+                :instance-class :instance-slots :slot-names :slot-exists-p* :slot-boundp* :slot-value*
+                :all-persistent-classes :subclasses* :superclasses* :find-slot-definition
+                :slot-properties :class-info :describe-class :describe-slot
+                :persistent-class-p :persistent-object-p)
+  ;; Import symbols from fol.reader
+  (:import-from :fol.reader
+                :*clojure-readtable*
+                :<readtable>? :<character-class-table>?
+                :make-readtable :make-character-class-table
+                :fol-read :fol-read-from-string
+                :fol-get-macro-character :fol-set-macro-character
+                :fol-get-dispatch-macro-character :fol-set-dispatch-macro-character
+                :with-readtable)
+  ;; Import symbols from fol.eval
+  (:import-from :fol.eval
+                :fol-eval
+                :eval-quote :eval-if :eval-do :eval-bind :eval-fn :eval-def
+                :eval-loop :eval-recur :eval-throw :eval-try
+                :fol-eval-error :fol-eval-error-message :fol-eval-error-form
+                :fol-arity-error :fol-arity-error-expected :fol-arity-error-got
+                :make-function :apply-function
+                :make-standard-env
+                :<function> :<function>?))
+
+(in-package :fol.tests)
+
 (def-suite fol-suite
-  :description "Main test suite for FOL")
+  :description "Main test suite for FOL.")
 
 (defun run-fol-tests ()
-  "Run all FOL tests."
   (run! 'fol-suite))

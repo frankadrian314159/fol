@@ -1,73 +1,103 @@
 (in-package fol.compareop)
 
 ;;; ============================================================================
+;;; Comparison Operations - Option 4 (Tagged Representation)
+;;; ============================================================================
+;;;
+;;; All operations work transparently on both raw CL values and wrapped
+;;; FOL objects. Results are returned as raw CL booleans (T/NIL).
+
+;;; ============================================================================
 ;;; Generic Equality (%=)
 ;;; ============================================================================
 
 (defgeneric %= (a b)
-  (:documentation "Pairwise equality check. Unwraps FOL instances or compares natives."))
+  (:documentation "Pairwise equality check. Works on raw or wrapped values."))
+
+;;; --- Raw CL primitives (most efficient path) ---
+
+(defmethod %= ((a number) (b number))
+  (cl:= a b))
+
+(defmethod %= ((a character) (b character))
+  (cl:char= a b))
+
+(defmethod %= ((a string) (b string))
+  (string= a b))
+
+(defmethod %= ((a symbol) (b symbol))
+  (eq a b))
+
+;;; --- Wrapped FOL objects ---
 
 (defmethod %= ((a <bool>) (b <bool>))
-  (eq (unwrap a) (unwrap b)))
+  (eq (fol-value a) (fol-value b)))
 
 (defmethod %= ((a <char>) (b <char>))
-  (cl:char= (unwrap a) (unwrap b)))
+  (cl:char= (fol-value a) (fol-value b)))
 
 (defmethod %= ((a <string>) (b <string>))
-  (string= (unwrap a) (unwrap b)))
+  (string= (fol-value a) (fol-value b)))
 
 (defmethod %= ((a <number>) (b <number>))
-  (cl:= (unwrap a) (unwrap b)))
-  
-(defmethod %= ((a t) (b t))
-  (equal a b))
+  (cl:= (fol-value a) (fol-value b)))
 
-(defmethod %= ((a <bool>) (b t))
-  (equal (unwrap a) b))
+(defmethod %= ((a <symbol>) (b <symbol>))
+  (eq (fol-value a) (fol-value b)))
 
-(defmethod %= ((a t) (b <bool>))
-  (equal a (unwrap b)))
-  
-(defmethod %= ((a <char>) (b t))
-  (equal (unwrap a) b))
+;;; --- Mixed: wrapped + raw ---
 
-(defmethod %= ((a t) (b <char>))
-  (equal a (unwrap b)))
+(defmethod %= ((a <bool>) (b symbol))
+  (eq (fol-value a) b))
 
-(defmethod %= ((a <string>) (b t))
-  (equal (unwrap a) b))
+(defmethod %= ((a symbol) (b <bool>))
+  (eq a (fol-value b)))
 
-(defmethod %= ((a t) (b <string>))
-  (equal a (unwrap b)))
+(defmethod %= ((a <char>) (b character))
+  (cl:char= (fol-value a) b))
 
-(defmethod %= ((a <number>) (b t))
-  (equal (unwrap a) b))
+(defmethod %= ((a character) (b <char>))
+  (cl:char= a (fol-value b)))
 
-(defmethod %= ((a t) (b <number>))
-  (equal a (unwrap b)))
+(defmethod %= ((a <string>) (b string))
+  (string= (fol-value a) b))
 
-(defmethod %= ((a t) (b <number>))
-  (equal a (unwrap b)))
+(defmethod %= ((a string) (b <string>))
+  (string= a (fol-value b)))
 
-(defmethod %= ((a <persistent-object>) (b t))
-  (equal (unwrap a) b))
+(defmethod %= ((a <number>) (b number))
+  (cl:= (fol-value a) b))
 
-(defmethod %= ((a t) (b <persistent-object>))
-  (equal a (unwrap b)))
+(defmethod %= ((a number) (b <number>))
+  (cl:= a (fol-value b)))
+
+(defmethod %= ((a <symbol>) (b symbol))
+  (eq (fol-value a) b))
+
+(defmethod %= ((a symbol) (b <symbol>))
+  (eq a (fol-value b)))
+
+;;; --- Persistent objects ---
 
 (defmethod %= ((a <persistent-object>) (b <persistent-object>))
   (equal (%persistent-storage a) (%persistent-storage b)))
 
-(defmethod %= ((a t) (b t))
-  (equal a b))
+;;; --- Fallback using equal ---
+
+(defmethod %= (a b)
+  (equal (fol-value a) (fol-value b)))
 
 
 ;;; ============================================================================
 ;;; Generic Inequality Helper (%/=)
 ;;; ============================================================================
 
+(defgeneric %/= (a b)
+  (:documentation "Pairwise inequality check."))
+
 (defmethod %/= (a b)
   (not (%= a b)))
+
 
 ;;; ============================================================================
 ;;; Generic Ordering (%<, %<=, %>, %>=)
@@ -78,85 +108,134 @@
 (defgeneric %> (a b) (:documentation "Binary greater-than."))
 (defgeneric %>= (a b) (:documentation "Binary greater-than-or-equal."))
 
-;;; --- Number Implementations ---
+;;; --- Raw Number Implementations ---
 
-(defmethod %< ((a <number>) (b <number>)) (cl:< (unwrap a) (unwrap b)))
-(defmethod %<= ((a <number>) (b <number>)) (cl:<= (unwrap a) (unwrap b)))
-(defmethod %> ((a <number>) (b <number>)) (cl:> (unwrap a) (unwrap b)))
-(defmethod %>= ((a <number>) (b <number>)) (cl:>= (unwrap a) (unwrap b)))
+(defmethod %< ((a number) (b number)) (cl:< a b))
+(defmethod %<= ((a number) (b number)) (cl:<= a b))
+(defmethod %> ((a number) (b number)) (cl:> a b))
+(defmethod %>= ((a number) (b number)) (cl:>= a b))
 
-;;; --- Character Implementations ---
+;;; --- Raw Character Implementations ---
 
-(defmethod %< ((a <char>) (b <char>)) (cl:char< (unwrap a) (unwrap b)))
-(defmethod %<= ((a <char>) (b <char>)) (cl:char<= (unwrap a) (unwrap b)))
-(defmethod %> ((a <char>) (b <char>)) (cl:char> (unwrap a) (unwrap b)))
-(defmethod %>= ((a <char>) (b <char>)) (cl:char>= (unwrap a) (unwrap b)))
+(defmethod %< ((a character) (b character)) (cl:char< a b))
+(defmethod %<= ((a character) (b character)) (cl:char<= a b))
+(defmethod %> ((a character) (b character)) (cl:char> a b))
+(defmethod %>= ((a character) (b character)) (cl:char>= a b))
 
-;;; --- String Implementations ---
-(defmethod %< ((a <string>) (b <string>)) (string< (unwrap a) (unwrap b)))
-(defmethod %<= ((a <string>) (b <string>)) (string<= (unwrap a) (unwrap b)))
-(defmethod %> ((a <string>) (b <string>)) (string> (unwrap a) (unwrap b)))
-(defmethod %>= ((a <string>) (b <string>)) (string>= (unwrap a) (unwrap b)))
+;;; --- Raw String Implementations ---
+
+(defmethod %< ((a string) (b string)) (if (string< a b) t nil))
+(defmethod %<= ((a string) (b string)) (if (string<= a b) t nil))
+(defmethod %> ((a string) (b string)) (if (string> a b) t nil))
+(defmethod %>= ((a string) (b string)) (if (string>= a b) t nil))
+
+;;; --- Wrapped Number Implementations ---
+
+(defmethod %< ((a <number>) (b <number>)) (cl:< (fol-value a) (fol-value b)))
+(defmethod %<= ((a <number>) (b <number>)) (cl:<= (fol-value a) (fol-value b)))
+(defmethod %> ((a <number>) (b <number>)) (cl:> (fol-value a) (fol-value b)))
+(defmethod %>= ((a <number>) (b <number>)) (cl:>= (fol-value a) (fol-value b)))
+
+;;; --- Wrapped Character Implementations ---
+
+(defmethod %< ((a <char>) (b <char>)) (cl:char< (fol-value a) (fol-value b)))
+(defmethod %<= ((a <char>) (b <char>)) (cl:char<= (fol-value a) (fol-value b)))
+(defmethod %> ((a <char>) (b <char>)) (cl:char> (fol-value a) (fol-value b)))
+(defmethod %>= ((a <char>) (b <char>)) (cl:char>= (fol-value a) (fol-value b)))
+
+;;; --- Wrapped String Implementations ---
+
+(defmethod %< ((a <string>) (b <string>)) (if (string< (fol-value a) (fol-value b)) t nil))
+(defmethod %<= ((a <string>) (b <string>)) (if (string<= (fol-value a) (fol-value b)) t nil))
+(defmethod %> ((a <string>) (b <string>)) (if (string> (fol-value a) (fol-value b)) t nil))
+(defmethod %>= ((a <string>) (b <string>)) (if (string>= (fol-value a) (fol-value b)) t nil))
 
 ;;; --- Boolean Implementations (NIL < T) ---
 
-(defmethod %< ((a <bool>) (b <bool>)) 
-  ;; True if A is False and B is True
-  (and (not (unwrap a)) (unwrap b)))
+(defmethod %< ((a <bool>) (b <bool>))
+  (and (not (fol-value a)) (fol-value b)))
 
 (defmethod %<= ((a <bool>) (b <bool>))
-  ;; True if A is False OR B is True (Implication)
-  (or (not (unwrap a)) (unwrap b)))
+  (or (not (fol-value a)) (fol-value b)))
 
 (defmethod %> ((a <bool>) (b <bool>))
-  ;; True if A is True and B is False
-  (and (unwrap a) (not (unwrap b))))
+  (and (fol-value a) (not (fol-value b))))
 
 (defmethod %>= ((a <bool>) (b <bool>))
-  ;; True if A is True OR B is False
-  (or (unwrap a) (not (unwrap b))))
+  (or (fol-value a) (not (fol-value b))))
 
-;;; --- Mixed / Native Implementations ---
-;;; To support mixed comparisons (e.g. (< (wrap 1) 2)), we define methods for (T T)
-;;; and dispatch based on run-time types for safety.
+;;; --- Mixed: wrapped + raw for numbers ---
 
-(defmethod %< ((a t) (b t))
-  (let ((ua (unwrap a))
-        (ub (unwrap b)))
+(defmethod %< ((a <number>) (b number)) (cl:< (fol-value a) b))
+(defmethod %< ((a number) (b <number>)) (cl:< a (fol-value b)))
+(defmethod %<= ((a <number>) (b number)) (cl:<= (fol-value a) b))
+(defmethod %<= ((a number) (b <number>)) (cl:<= a (fol-value b)))
+(defmethod %> ((a <number>) (b number)) (cl:> (fol-value a) b))
+(defmethod %> ((a number) (b <number>)) (cl:> a (fol-value b)))
+(defmethod %>= ((a <number>) (b number)) (cl:>= (fol-value a) b))
+(defmethod %>= ((a number) (b <number>)) (cl:>= a (fol-value b)))
+
+;;; --- Mixed: wrapped + raw for characters ---
+
+(defmethod %< ((a <char>) (b character)) (cl:char< (fol-value a) b))
+(defmethod %< ((a character) (b <char>)) (cl:char< a (fol-value b)))
+(defmethod %<= ((a <char>) (b character)) (cl:char<= (fol-value a) b))
+(defmethod %<= ((a character) (b <char>)) (cl:char<= a (fol-value b)))
+(defmethod %> ((a <char>) (b character)) (cl:char> (fol-value a) b))
+(defmethod %> ((a character) (b <char>)) (cl:char> a (fol-value b)))
+(defmethod %>= ((a <char>) (b character)) (cl:char>= (fol-value a) b))
+(defmethod %>= ((a character) (b <char>)) (cl:char>= a (fol-value b)))
+
+;;; --- Mixed: wrapped + raw for strings ---
+
+(defmethod %< ((a <string>) (b string)) (if (string< (fol-value a) b) t nil))
+(defmethod %< ((a string) (b <string>)) (if (string< a (fol-value b)) t nil))
+(defmethod %<= ((a <string>) (b string)) (if (string<= (fol-value a) b) t nil))
+(defmethod %<= ((a string) (b <string>)) (if (string<= a (fol-value b)) t nil))
+(defmethod %> ((a <string>) (b string)) (if (string> (fol-value a) b) t nil))
+(defmethod %> ((a string) (b <string>)) (if (string> a (fol-value b)) t nil))
+(defmethod %>= ((a <string>) (b string)) (if (string>= (fol-value a) b) t nil))
+(defmethod %>= ((a string) (b <string>)) (if (string>= a (fol-value b)) t nil))
+
+;;; --- Fallback with type dispatch ---
+
+(defmethod %< (a b)
+  (let ((ua (fol-value a))
+        (ub (fol-value b)))
     (cond
       ((and (numberp ua) (numberp ub)) (cl:< ua ub))
       ((and (characterp ua) (characterp ub)) (cl:char< ua ub))
-      ((and (stringp ua) (stringp ub)) (string< ua ub))
+      ((and (stringp ua) (stringp ub)) (if (string< ua ub) t nil))
       ((and (typep ua 'boolean) (typep ub 'boolean)) (and (not ua) ub))
       (t (error "Cannot compare ~A and ~A" a b)))))
 
-(defmethod %<= ((a t) (b t))
-  (let ((ua (unwrap a))
-        (ub (unwrap b)))
+(defmethod %<= (a b)
+  (let ((ua (fol-value a))
+        (ub (fol-value b)))
     (cond
       ((and (numberp ua) (numberp ub)) (cl:<= ua ub))
       ((and (characterp ua) (characterp ub)) (cl:char<= ua ub))
-      ((and (stringp ua) (stringp ub)) (string<= ua ub))
+      ((and (stringp ua) (stringp ub)) (if (string<= ua ub) t nil))
       ((and (typep ua 'boolean) (typep ub 'boolean)) (or (not ua) ub))
       (t (error "Cannot compare ~A and ~A" a b)))))
 
-(defmethod %> ((a t) (b t))
-  (let ((ua (unwrap a))
-        (ub (unwrap b)))
+(defmethod %> (a b)
+  (let ((ua (fol-value a))
+        (ub (fol-value b)))
     (cond
       ((and (numberp ua) (numberp ub)) (cl:> ua ub))
       ((and (characterp ua) (characterp ub)) (cl:char> ua ub))
-      ((and (stringp ua) (stringp ub)) (string> ua ub))
+      ((and (stringp ua) (stringp ub)) (if (string> ua ub) t nil))
       ((and (typep ua 'boolean) (typep ub 'boolean)) (and ua (not ub)))
       (t (error "Cannot compare ~A and ~A" a b)))))
 
-(defmethod %>= ((a t) (b t))
-  (let ((ua (unwrap a))
-        (ub (unwrap b)))
+(defmethod %>= (a b)
+  (let ((ua (fol-value a))
+        (ub (fol-value b)))
     (cond
       ((and (numberp ua) (numberp ub)) (cl:>= ua ub))
       ((and (characterp ua) (characterp ub)) (cl:char>= ua ub))
-      ((and (stringp ua) (stringp ub)) (string>= ua ub))
+      ((and (stringp ua) (stringp ub)) (if (string>= ua ub) t nil))
       ((and (typep ua 'boolean) (typep ub 'boolean)) (or ua (not ub)))
       (t (error "Cannot compare ~A and ~A" a b)))))
 
@@ -164,101 +243,99 @@
 ;;; ============================================================================
 ;;; Public Variadic Operators
 ;;; ============================================================================
+;;; These return raw CL booleans (T/NIL).
 
 (defgeneric = (&rest args)
   (:documentation "Returns T if all arguments are equal."))
 
 (defmethod = (&rest args)
-  (let ((result 
-         (cond
-           ((null args) t)
-           ((null (cdr args)) t)
-           (t (loop for (a b) on args
-                    while b
-                    always (%= a b))))))
-    (wrap result)))
+  (cond
+    ((null args) t)
+    ((null (cdr args)) t)
+    (t (loop for (a b) on args
+             while b
+             always (%= a b)))))
 
 (defgeneric /= (&rest args)
-  (:documentation "Returns #t if no two arguments are equal."))
+  (:documentation "Returns T if no two arguments are equal."))
 
 (defmethod /= (&rest args)
-  (let ((result 
-         (cond
-           ((null args) t)
-           ((null (cdr args)) t)
-           (t (loop for (head . tail) on args
-                    always (loop for other in tail
-                                 never (%= head other)))))))
-    (wrap result)))
+  (cond
+    ((null args) t)
+    ((null (cdr args)) t)
+    (t (loop for (head . tail) on args
+             always (loop for other in tail
+                          never (%= head other))))))
 
 (defgeneric < (&rest args)
   (:documentation "Strictly increasing."))
+
 (defmethod < (&rest args)
-  (let ((result
-         (cond
-           ((null args) t)
-           ((null (cdr args)) t)
-           (t (loop for (a b) on args
-                    while b
-                    always (%< a b))))))
-    (wrap result)))
+  (cond
+    ((null args) t)
+    ((null (cdr args)) t)
+    (t (loop for (a b) on args
+             while b
+             always (%< a b)))))
 
 (defgeneric > (&rest args)
   (:documentation "Strictly decreasing."))
+
 (defmethod > (&rest args)
-  (let ((result
-         (cond
-           ((null args) t)
-           ((null (cdr args)) t)
-           (t (loop for (a b) on args
-                    while b
-                    always (%> a b))))))
-    (wrap result)))
+  (cond
+    ((null args) t)
+    ((null (cdr args)) t)
+    (t (loop for (a b) on args
+             while b
+             always (%> a b)))))
 
 (defgeneric <= (&rest args)
   (:documentation "Non-decreasing."))
+
 (defmethod <= (&rest args)
-  (let ((result
-         (cond
-           ((null args) t)
-           ((null (cdr args)) t)
-           (t (loop for (a b) on args
-                    while b
-                    always (%<= a b))))))
-    (wrap result)))
+  (cond
+    ((null args) t)
+    ((null (cdr args)) t)
+    (t (loop for (a b) on args
+             while b
+             always (%<= a b)))))
 
 (defgeneric >= (&rest args)
   (:documentation "Non-increasing."))
+
 (defmethod >= (&rest args)
-  (let ((result
-         (cond
-           ((null args) t)
-           ((null (cdr args)) t)
-           (t (loop for (a b) on args
-                    while b
-                    always (%>= a b))))))
-    (wrap result)))
+  (cond
+    ((null args) t)
+    ((null (cdr args)) t)
+    (t (loop for (a b) on args
+             while b
+             always (%>= a b)))))
 
 
 ;;; ============================================================================
 ;;; Min and Max
 ;;; ============================================================================
+
 (defgeneric min (a &rest args) (:documentation "Minimum."))
 
 (defmethod min (a &rest args)
-  "Returns the minimum of its arguments based on the %< primitive."
-  (let ((min-val a))
+  "Returns the minimum of its arguments based on the %< primitive.
+   Returns a raw CL value (unwrapped)."
+  (let ((min-val (fol-value a)))
     (dolist (item args)
-      (when (%< item min-val)
-        (setf min-val item)))
+      (let ((item-val (fol-value item)))
+        (when (%< item-val min-val)
+          (setf min-val item-val))))
     min-val))
 
 (defgeneric max (a &rest args) (:documentation "Maximum."))
 
 (defmethod max (a &rest args)
-  "Returns the maximum of its arguments based on the %< primitive."
-  (let ((max-val a))
+  "Returns the maximum of its arguments based on the %< primitive.
+   Returns a raw CL value (unwrapped)."
+  (let ((max-val (fol-value a)))
     (dolist (item args)
-      (when (%< max-val item)
-        (setf max-val item)))
+      (let ((item-val (fol-value item)))
+        (when (%< max-val item-val)
+          (setf max-val item-val))))
     max-val))

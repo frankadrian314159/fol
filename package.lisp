@@ -21,7 +21,7 @@
 (defpackage fol.mop
   (:use cl fol.persistent)
   (:import-from closer-mop)
-  (:export 
+  (:export
    ;; Class introspection
    class-name*
    class-direct-superclasses*
@@ -62,27 +62,49 @@
 (defpackage fol.classes
   (:use cl)
   (:export <bool> <char> <string> <symbol> <keyword>
-           <number> <complex> <real> <float> 
-           <single-float> <double-float> <rational> 
+           <number> <complex> <real> <float>
+           <single-float> <double-float> <rational>
            <integer> <fixnum> <bignum> <ratio>
-           val fol-value symbol-module-name symbol-val))
+           val -fol-value symbol-module-name symbol-val))
 
-(defpackage fol.singleton
+(defpackage fol.reader
   (:use cl fol.classes)
-  (:export *true-instance* *false-instance* return-t return-f))
+  (:export <readtable>
+           make-readtable
+           <readtable>?
+           fol-set-macro-character
+           fol-get-macro-character
+           readtable-dispatch-table
+           fol-set-dispatch-macro-character
+           fol-get-dispatch-macro-character
+           <character-class-table>
+           make-character-class-table
+           <character-class-table>?
+           fol-read
+           fol-read-from-string
+           with-readtable
+           *clojure-readtable*
+           *fol-readtable*))
 
 (defpackage fol.wrappers
   (:use cl fol.classes)
-  (:shadowing-import-from fol.singleton *true-instance* *false-instance*)
-  (:export wrap unwrap 
-           wrap-bool unwrap-bool 
-           wrap-char unwrap-char 
-           wrap-string unwrap-string 
-           wrap-symbol unwrap-symbol
-           wrap-number unwrap-number))
+  (:export
+   ;; Core protocol
+   fol-value
+   fol-type-of
+   ;; Wrapping functions
+   wrap unwrap
+   wrap-bool unwrap-bool
+   wrap-char unwrap-char
+   wrap-string unwrap-string
+   wrap-symbol unwrap-symbol
+   wrap-number unwrap-number
+   ;; Type checking utilities
+   fol-numberp fol-integerp fol-realp
+   fol-stringp fol-characterp fol-symbolp fol-booleanp))
 
 (defpackage fol.collection
-  (:use cl fol.persistent fol.singleton)
+  (:use cl fol.persistent)
   (:shadow make-array get remove)
   (:export <collection> <collection>?
            <unordered-collection> <unordered-collection>?
@@ -93,97 +115,86 @@
            <vector> <vector>? make-vector
            <array> <array>? make-array
            ;; GENERIC OPERATIONS
-           get 
-           size empty? contains? 
-           add remove 
-           iterator next current done?))
+           get
+           size empty? contains?
+           add remove
+           iterator next current done?
+           ;; Additional operations
+           nth-element set-nth))
 
 (defpackage fol.module
-  (:use cl fol.persistent fol.collection fol.singleton)
-  (:shadowing-import-from fol.collection 
-                          make-array 
-                          get 
+  (:use cl fol.persistent fol.collection)
+  (:shadowing-import-from fol.collection
+                          make-array
+                          get
                           remove)
   (:export <module> <module>? make-module))
 
 (defpackage fol.env
-  (:use cl fol.persistent fol.collection fol.singleton)
+  (:use cl fol.persistent fol.collection)
   (:shadowing-import-from fol.collection
                           make-array
                           get
                           remove)
   (:export <env> <env>? make-env lookup env-previous unbound-variable fol-unbound-variable fol-unbound-variable-name fol-unbound-variable-message))
 
-(defpackage fol.eval
-  (:use cl fol.env fol.singleton fol.classes)
-  (:export fol-eval
-           fol-eval-toplevel
-           make-initial-env
-           <closure>
-           closure-params
-           closure-body
-           closure-env
-           apply-function))
-
-(defpackage fol.syntax
-  (:use cl)
-  (:shadowing-import-from named-readtables defreadtable)
-  (:shadowing-import-from fol.collection make-dict make-vector)
-  (:export fol-syntax))
-
 (defpackage fol.logop
   (:use cl fol.wrappers fol.classes)
   (:shadow not and or)
-  (:export not and or xor implies nand nor))
+  (:export not and or xor implies nand nor
+           ;; Binary primitives (for advanced use)
+           %and %or %xor))
 
 (defpackage fol.arithop
   (:use cl fol.wrappers fol.classes)
   ;; Shadow both arithmetic and math functions
-  (:shadow + - * / 
-           abs 
+  (:shadow + - * /
+           abs
            sin cos tan asin acos atan
            sinh cosh tanh asinh acosh atanh
            exp log expt sqrt
            rationalize numerator denominator
            real-part imag-part angle
            gcd lcm)
-  (:export 
+  (:export
+   ;; Basic arithmetic
    + - * /
-   abs 
+   ;; Math functions
+   abs
    sin cos tan asin acos atan atan2
    sinh cosh tanh asinh acosh atanh
    exp log expt sqrt
    rationalize numerator denominator
    real-part imag-part angle
-   gcd lcm))
+   gcd lcm
+   ;; Binary primitives (for advanced use)
+   %+ %- %* %/ %gcd %lcm))
 
 (defpackage fol.compareop
   (:use cl fol.wrappers fol.classes fol.persistent)
   (:shadow = /= < <= > >= min max)
-  (:export = /= < <= > >= min max))
+  (:export = /= < <= > >= min max
+           ;; Binary primitives (for advanced use)
+           %= %/= %< %<= %> %>=))
 
 (defpackage fol.bool
-  (:use cl fol.wrappers fol.classes fol.singleton)
-  (:shadowing-import-from fol.wrappers unwrap-bool)
+  (:use cl fol.wrappers fol.classes)
   (:export <bool>?))
 
 (defpackage fol.char
-  (:use cl fol.wrappers fol.classes fol.singleton)
-  (:shadowing-import-from fol.wrappers unwrap-char)
+  (:use cl fol.wrappers fol.classes)
   (:shadow char-upcase char-downcase)
   (:export <char>?
            char-upcase char-downcase
-           alpha-char? digit-char? alphanumeric? 
+           alpha-char? digit-char? alphanumeric?
            upper-case? lower-case? whitespace?))
 
 (defpackage fol.string
-  (:use cl fol.wrappers fol.classes fol.singleton)
-  (:shadowing-import-from fol.wrappers unwrap-string)
+  (:use cl fol.wrappers fol.classes)
   (:export <string>?))
 
 (defpackage fol.symbol
-  (:use cl fol.wrappers fol.classes fol.singleton)
-  (:shadowing-import-from fol.wrappers unwrap-symbol wrap-string unwrap-string wrap-bool)
+  (:use cl fol.wrappers fol.classes)
   (:export <symbol>? <keyword>?
            symbol-name-str
            symbol-package-str
@@ -194,24 +205,50 @@
            +symbol-unbound-sentinel+))
 
 (defpackage fol.number
-  (:use cl fol.wrappers fol.classes fol.singleton)
-  (:shadowing-import-from fol.wrappers unwrap-number)
-  ;; Remove all the :shadow for math functions
-  (:export 
+  (:use cl fol.wrappers fol.classes)
+  (:export
    ;; Type predicates
-   <number>? <complex>? <real>? 
-   <float>? <single-float>? <double-float>? 
+   <number>? <complex>? <real>?
+   <float>? <single-float>? <double-float>?
    <rational>? <ratio>? <integer>? <fixnum>? <bignum>?
-   ;; Value predicates only
+   ;; Value predicates
    odd? even? zero? positive? negative? integral?))
 
-(defpackage fol.repl
-  (:use cl fol.eval fol.env fol.syntax)
-  (:shadowing-import-from named-readtables find-readtable)
-  (:export start-repl
-           repl
-           reset-repl-env
-           *repl-env*))
+(defpackage fol.eval
+  (:use cl fol.wrappers fol.classes fol.collection fol.env)
+  (:shadowing-import-from fol.collection
+                          make-array
+                          get
+                          remove)
+  (:shadowing-import-from fol.logop
+                          not and or)
+  (:shadowing-import-from fol.arithop
+                          + - * /
+                          abs sin cos tan asin acos atan
+                          sinh cosh tanh asinh acosh atanh
+                          exp log expt sqrt
+                          rationalize numerator denominator
+                          gcd lcm)
+  (:shadowing-import-from fol.compareop
+                          = /= < <= > >= min max)
+  (:import-from fol.logop xor implies nand nor)
+  (:import-from fol.arithop atan2 real-part imag-part angle)
+  (:shadowing-import-from fol.symbol <symbol>?)
+  (:export
+   ;; Main evaluation function
+   fol-eval
+   ;; Special form evaluators (for extensibility)
+   eval-quote eval-if eval-do eval-bind eval-fn eval-def
+   eval-loop eval-recur eval-throw eval-try
+   ;; Conditions
+   fol-eval-error fol-eval-error-message fol-eval-error-form
+   fol-arity-error fol-arity-error-expected fol-arity-error-got
+   ;; Utilities
+   make-function apply-function
+   ;; Standard environment
+   make-standard-env
+   ;; Function class and predicate
+   <function> <function>?))
 
 ;;; Define the symbol unbound sentinel constant early so it can be used in classes.lisp
 (in-package fol.symbol)

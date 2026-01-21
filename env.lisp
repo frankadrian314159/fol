@@ -20,13 +20,15 @@
           (make-env parent-env 'var1 val1 ...)"
   (let ((map (fset:empty-map)))
     (loop for (key val) on pairs by #'cddr
-          do (setf map (fset:with map key val)))
+          do (setf map (fset:with map 
+                                  (fol.wrappers:fol-value key) 
+                                  (fol.wrappers:fol-value val))))
     (make-instance '<env> :items map :previous previous)))
 
 (defgeneric <env>? (obj)
   (:documentation "Returns T if OBJ is a FOL <env>."))
-(defmethod <env>? (obj) (fol.singleton:return-f))
-(defmethod <env>? ((obj <env>)) (fol.singleton:return-t))
+(defmethod <env>? (obj) nil)
+(defmethod <env>? ((obj <env>)) t)
 
 ;;; ============================================================================
 ;;; Environment Lookup
@@ -44,7 +46,7 @@
   (let ((items (fol.persistent:pslot-value env 'fol.collection::items)))
     ;; Try to find in current environment using multiple-value-bind
     ;; to distinguish between "key not found" and "key bound to nil"
-    (multiple-value-bind (value found) (fset:lookup items variable-name)
+    (multiple-value-bind (value found) (fset:lookup items (fol.wrappers:fol-value variable-name))
       (cond
         ;; Found in current environment and not the sentinel value
         ((and found (not (eq value fol.symbol:+symbol-unbound-sentinel+)))

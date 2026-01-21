@@ -1,638 +1,674 @@
-(in-package fol.tests)
-(in-readtable fol-syntax)
+(in-package :fol.tests)
 
-(in-suite fol-suite)
+(def-suite arithop-suite
+  :description "Tests for FOL arithmetic operations"
+  :in fol-suite)
 
-;;; ============================================================================
-;;; Addition Tests
-;;; ============================================================================
-
-(test addition-identity
-  "Test addition identity and zero-argument case"
-  ;; No arguments should return 0
-  (is (= 0 (unwrap (+))))
-  ;; Single argument should return itself
-  (is (= 5 (unwrap (+ (wrap 5)))))
-  (is (= 3.14 (unwrap (+ (wrap 3.14)))))
-  (is (= 1/2 (unwrap (+ (wrap 1/2))))))
-
-(test addition-two-args
-  "Test binary addition with various type combinations"
-  ;; Integer + Integer
-  (is (= 5 (unwrap (+ (wrap 2) (wrap 3)))))
-  (is (typep (+ (wrap 2) (wrap 3)) '<integer>))
-  ;; Integer + Ratio
-  (is (= 5/2 (unwrap (+ (wrap 2) (wrap 1/2)))))
-  (is (typep (+ (wrap 2) (wrap 1/2)) '<ratio>))
-  ;; Integer + Float
-  (is (= 2.5 (unwrap (+ (wrap 2) (wrap 0.5)))))
-  (is (typep (+ (wrap 2) (wrap 0.5)) '<single-float>))
-  ;; Ratio + Ratio
-  (is (= 3/4 (unwrap (+ (wrap 1/4) (wrap 1/2)))))
-  (is (typep (+ (wrap 1/4) (wrap 1/2)) '<ratio>))
-  ;; Float + Float
-  (is (= 3.0 (unwrap (+ (wrap 1.5) (wrap 1.5)))))
-  (is (typep (+ (wrap 1.5) (wrap 1.5)) '<single-float>))
-  ;; Double + Double
-  (is (= 2.0d0 (unwrap (+ (wrap 1.0d0) (wrap 1.0d0)))))
-  (is (typep (+ (wrap 1.0d0) (wrap 1.0d0)) '<double-float>))
-  ;; Complex + Complex
-  (is (= #C(2 2) (unwrap (+ (wrap #C(1 1)) (wrap #C(1 1))))))
-  (is (typep (+ (wrap #C(1 1)) (wrap #C(1 1))) '<complex>)))
-
-(test addition-multi-args
-  "Test addition with multiple arguments"
-  ;; Three integers
-  (is (= 6 (unwrap (+ (wrap 1) (wrap 2) (wrap 3)))))
-  ;; Four integers
-  (is (= 10 (unwrap (+ (wrap 1) (wrap 2) (wrap 3) (wrap 4)))))
-  ;; Many integers
-  (is (= 15 (unwrap (+ (wrap 1) (wrap 2) (wrap 3) (wrap 4) (wrap 5)))))
-  ;; Mixed types - should promote to highest precision
-  (is (= 3.5 (unwrap (+ (wrap 1) (wrap 2) (wrap 0.5)))))
-  (is (typep (+ (wrap 1) (wrap 2) (wrap 0.5)) '<single-float>)))
-
-(test addition-negative
-  "Test addition with negative numbers"
-  (is (= 0 (unwrap (+ (wrap 5) (wrap -5)))))
-  (is (= -5 (unwrap (+ (wrap -2) (wrap -3)))))
-  (is (= 1 (unwrap (+ (wrap -4) (wrap 5)))))
-  (is (= -1 (unwrap (+ (wrap 4) (wrap -5))))))
-
-(test addition-bignum
-  "Test addition with bignums"
-  (is (= 20000000000000000000 
-         (unwrap (+ (wrap 10000000000000000000) (wrap 10000000000000000000)))))
-  (is (typep (+ (wrap 10000000000000000000) (wrap 10000000000000000000)) '<bignum>)))
+(in-suite arithop-suite)
 
 ;;; ============================================================================
-;;; Subtraction Tests
+;;; Binary Primitive Operations (%+, %-, %*, %/)
 ;;; ============================================================================
 
-(test subtraction-unary
-  "Test unary negation"
-  (is (= -5 (unwrap (- (wrap 5)))))
-  (is (= 5 (unwrap (- (wrap -5)))))
-  (is (= -3.14 (unwrap (- (wrap 3.14)))))
-  (is (= -1/2 (unwrap (- (wrap 1/2))))))
+(test binary-addition-raw
+  "Test %+ with raw CL numbers"
+  ;; Integers
+  (is (cl:= 5 (%+ 2 3)))
+  (is (cl:= 0 (%+ 0 0)))
+  (is (cl:= -1 (%+ 2 -3)))
+  (is (cl:= 0 (%+ -5 5)))
+  ;; Floats
+  (is (cl:= 5.5 (%+ 2.5 3.0)))
+  (is (cl:< (cl:abs (cl:- (%+ 0.1 0.2) 0.3)) 0.0001))
+  ;; Ratios
+  (is (cl:= 1 (%+ 1/2 1/2)))
+  (is (cl:= 5/6 (%+ 1/2 1/3)))
+  ;; Mixed numeric types
+  (is (cl:= 3.5 (%+ 1 2.5)))
+  (is (cl:= 5/2 (%+ 2 1/2)))
+  ;; Large numbers
+  (is (cl:= 20000000000 (%+ 10000000000 10000000000))))
 
-(test subtraction-two-args
-  "Test binary subtraction"
-  ;; Integer - Integer
-  (is (= 1 (unwrap (- (wrap 3) (wrap 2)))))
-  (is (= -1 (unwrap (- (wrap 2) (wrap 3)))))
-  ;; Integer - Ratio
-  (is (= 3/2 (unwrap (- (wrap 2) (wrap 1/2)))))
-  ;; Float - Float
-  (is (= 0.5 (unwrap (- (wrap 1.5) (wrap 1.0)))))
-  ;; Complex - Complex
-  (is (= #C(1 0) (unwrap (- (wrap #C(2 1)) (wrap #C(1 1)))))))
+(test binary-addition-wrapped
+  "Test %+ with wrapped FOL numbers"
+  (let ((w2 (wrap 2))
+        (w3 (wrap 3)))
+    (is (cl:= 5 (%+ w2 w3)))
+    (is (cl:= 5 (%+ w2 3)))
+    (is (cl:= 5 (%+ 2 w3)))))
 
-(test subtraction-multi-args
-  "Test subtraction with multiple arguments"
-  ;; 10 - 2 - 3 = 5
-  (is (= 5 (unwrap (- (wrap 10) (wrap 2) (wrap 3)))))
-  ;; 20 - 5 - 3 - 2 = 10
-  (is (= 10 (unwrap (- (wrap 20) (wrap 5) (wrap 3) (wrap 2)))))
-  ;; With floats: 10.0 - 2.5 - 1.5 = 6.0
-  (is (= 6.0 (unwrap (- (wrap 10.0) (wrap 2.5) (wrap 1.5))))))
+(test binary-subtraction-raw
+  "Test %- with raw CL numbers"
+  (is (cl:= -1 (%- 2 3)))
+  (is (cl:= 0 (%- 5 5)))
+  (is (cl:= 5 (%- 2 -3)))
+  (is (cl:= -10 (%- -5 5)))
+  (is (cl:= 1.5 (%- 4.0 2.5)))
+  (is (cl:= 1/6 (%- 1/2 1/3))))
 
-(test subtraction-zero
-  "Test subtraction with zero"
-  (is (= 5 (unwrap (- (wrap 5) (wrap 0)))))
-  (is (= -5 (unwrap (- (wrap 0) (wrap 5))))))
+(test binary-subtraction-wrapped
+  "Test %- with wrapped FOL numbers"
+  (let ((w5 (wrap 5))
+        (w3 (wrap 3)))
+    (is (cl:= 2 (%- w5 w3)))
+    (is (cl:= 2 (%- w5 3)))
+    (is (cl:= 2 (%- 5 w3)))))
 
-(test subtraction-bignum
-  "Test subtraction with bignums"
-  (is (= 0 (unwrap (- (wrap 10000000000000000000) (wrap 10000000000000000000)))))
-  (is (= 5000000000000000000 
-         (unwrap (- (wrap 10000000000000000000) (wrap 5000000000000000000))))))
+(test binary-multiplication-raw
+  "Test %* with raw CL numbers"
+  (is (cl:= 6 (%* 2 3)))
+  (is (cl:= 0 (%* 0 100)))
+  (is (cl:= -6 (%* 2 -3)))
+  (is (cl:= 6 (%* -2 -3)))
+  (is (cl:= 6.0 (%* 2.0 3.0)))
+  (is (cl:= 1/6 (%* 1/2 1/3))))
 
-;;; ============================================================================
-;;; Multiplication Tests
-;;; ============================================================================
+(test binary-multiplication-wrapped
+  "Test %* with wrapped FOL numbers"
+  (let ((w2 (wrap 2))
+        (w3 (wrap 3)))
+    (is (cl:= 6 (%* w2 w3)))
+    (is (cl:= 6 (%* w2 3)))
+    (is (cl:= 6 (%* 2 w3)))))
 
-(test multiplication-identity
-  "Test multiplication identity"
-  ;; No arguments should return 1
-  (is (= 1 (unwrap (*)))) 
-  ;; Single argument should return itself
-  (is (= 5 (unwrap (* (wrap 5)))))
-  (is (= 3.14 (unwrap (* (wrap 3.14))))))
+(test binary-division-raw
+  "Test %/ with raw CL numbers"
+  (is (cl:= 2 (%/ 6 3)))
+  (is (cl:= 2/3 (%/ 2 3)))
+  (is (cl:= -2 (%/ 6 -3)))
+  (is (cl:= 2.0 (%/ 6.0 3.0)))
+  (is (cl:= 3/2 (%/ 1/2 1/3))))
 
-(test multiplication-two-args
-  "Test binary multiplication"
-  ;; Integer * Integer
-  (is (= 6 (unwrap (* (wrap 2) (wrap 3)))))
-  (is (typep (* (wrap 2) (wrap 3)) '<integer>))
-  ;; Integer * Ratio
-  (is (= 1 (unwrap (* (wrap 2) (wrap 1/2)))))
-  (is (typep (* (wrap 2) (wrap 1/2)) '<integer>))
-  ;; Ratio * Ratio
-  (is (= 1/4 (unwrap (* (wrap 1/2) (wrap 1/2)))))
-  (is (typep (* (wrap 1/2) (wrap 1/2)) '<ratio>))
-  ;; Float * Float
-  (is (= 2.25 (unwrap (* (wrap 1.5) (wrap 1.5)))))
-  (is (typep (* (wrap 1.5) (wrap 1.5)) '<single-float>))
-  ;; Complex * Complex
-  (is (= #C(0 2) (unwrap (* (wrap #C(1 1)) (wrap #C(1 1)))))))
+(test binary-division-wrapped
+  "Test %/ with wrapped FOL numbers"
+  (let ((w6 (wrap 6))
+        (w3 (wrap 3)))
+    (is (cl:= 2 (%/ w6 w3)))
+    (is (cl:= 2 (%/ w6 3)))
+    (is (cl:= 2 (%/ 6 w3)))))
 
-(test multiplication-multi-args
-  "Test multiplication with multiple arguments"
-  ;; 2 * 3 * 4 = 24
-  (is (= 24 (unwrap (* (wrap 2) (wrap 3) (wrap 4)))))
-  ;; 1 * 2 * 3 * 4 * 5 = 120
-  (is (= 120 (unwrap (* (wrap 1) (wrap 2) (wrap 3) (wrap 4) (wrap 5))))))
-
-(test multiplication-zero
-  "Test multiplication by zero"
-  (is (= 0 (unwrap (* (wrap 5) (wrap 0)))))
-  (is (= 0 (unwrap (* (wrap 0) (wrap 5)))))
-  (is (= 0.0 (unwrap (* (wrap 5.0) (wrap 0.0))))))
-
-(test multiplication-negative
-  "Test multiplication with negative numbers"
-  (is (= -6 (unwrap (* (wrap 2) (wrap -3)))))
-  (is (= 6 (unwrap (* (wrap -2) (wrap -3)))))
-  (is (= -10 (unwrap (* (wrap -5) (wrap 2))))))
-
-(test multiplication-bignum
-  "Test multiplication with bignums"
-  (is (= 100000000000000000000000000000000000000 
-         (unwrap (* (wrap 10000000000000000000) (wrap 10000000000000000000)))))
-  (is (typep (* (wrap 10000000000000000000) (wrap 10000000000000000000)) '<bignum>)))
+(test binary-division-by-zero
+  "Test %/ division by zero signals error"
+  (signals error (%/ 1 0)))
 
 ;;; ============================================================================
-;;; Division Tests
+;;; Variadic Arithmetic Operations (+, -, *, /)
 ;;; ============================================================================
 
-(test division-unary
-  "Test reciprocal (unary division)"
-  (is (= 1/2 (unwrap (/ (wrap 2)))))
-  (is (= 1/4 (unwrap (/ (wrap 4)))))
-  (is (= 0.5 (unwrap (/ (wrap 2.0)))))
-  (is (typep (/ (wrap 2)) '<ratio>))
-  (is (typep (/ (wrap 2.0)) '<single-float>)))
+(test variadic-addition
+  "Test + with varying number of arguments"
+  ;; Zero arguments - identity
+  (is (cl:= 0 (+)))
+  ;; One argument - returns value
+  (is (cl:= 5 (+ 5)))
+  (is (cl:= 5 (+ (wrap 5))))
+  ;; Two arguments
+  (is (cl:= 7 (+ 3 4)))
+  ;; Multiple arguments
+  (is (cl:= 15 (+ 1 2 3 4 5)))
+  (is (cl:= 10.5 (+ 1 2.5 3 4)))
+  ;; Mixed raw and wrapped
+  (is (cl:= 10 (+ 1 (wrap 2) 3 (wrap 4)))))
 
-(test division-two-args
-  "Test binary division"
-  ;; Integer / Integer -> Ratio
-  (is (= 3/2 (unwrap (/ (wrap 3) (wrap 2)))))
-  (is (typep (/ (wrap 3) (wrap 2)) '<ratio>))
-  ;; Integer / Integer (exact)
-  (is (= 2 (unwrap (/ (wrap 4) (wrap 2)))))
-  (is (typep (/ (wrap 4) (wrap 2)) '<integer>))
-  ;; Ratio / Integer
-  (is (= 1/4 (unwrap (/ (wrap 1/2) (wrap 2)))))
-  ;; Float / Float
-  (is (= 2.0 (unwrap (/ (wrap 4.0) (wrap 2.0)))))
-  (is (typep (/ (wrap 4.0) (wrap 2.0)) '<single-float>))
-  ;; Complex / Complex
-  (is (= #C(1 0) (unwrap (/ (wrap #C(2 2)) (wrap #C(2 2)))))))
+(test variadic-subtraction
+  "Test - with varying number of arguments"
+  ;; One argument - negation
+  (is (cl:= -5 (- 5)))
+  (is (cl:= 5 (- -5)))
+  (is (cl:= -5 (- (wrap 5))))
+  ;; Two arguments
+  (is (cl:= 1 (- 5 4)))
+  ;; Multiple arguments - left-to-right reduction
+  (is (cl:= -5 (- 10 5 5 5)))
+  (is (cl:= 0 (- 10 5 3 2))))
 
-(test division-multi-args
-  "Test division with multiple arguments"
-  ;; 20 / 2 / 5 = 2
-  (is (= 2 (unwrap (/ (wrap 20) (wrap 2) (wrap 5)))))
-  ;; 100 / 2 / 5 / 2 = 5
-  (is (= 5 (unwrap (/ (wrap 100) (wrap 2) (wrap 5) (wrap 2))))))
+(test variadic-multiplication
+  "Test * with varying number of arguments"
+  ;; Zero arguments - identity
+  (is (cl:= 1 (*)))
+  ;; One argument - returns value
+  (is (cl:= 5 (* 5)))
+  ;; Two arguments
+  (is (cl:= 12 (* 3 4)))
+  ;; Multiple arguments
+  (is (cl:= 120 (* 1 2 3 4 5)))
+  ;; With zero
+  (is (cl:= 0 (* 1 2 0 4 5))))
 
-(test division-one
-  "Test division by one"
-  (is (= 5 (unwrap (/ (wrap 5) (wrap 1)))))
-  (is (= 3.14 (unwrap (/ (wrap 3.14) (wrap 1.0))))))
-
-(test division-bignum
-  "Test division with bignums"
-  (is (= 1 (unwrap (/ (wrap 10000000000000000000) (wrap 10000000000000000000)))))
-  (is (= 2 (unwrap (/ (wrap 10000000000000000000) (wrap 5000000000000000000))))))
+(test variadic-division
+  "Test / with varying number of arguments"
+  ;; One argument - reciprocal
+  (is (cl:= 1/2 (/ 2)))
+  (is (cl:= 0.5 (/ 2.0)))
+  ;; Two arguments
+  (is (cl:= 3 (/ 12 4)))
+  ;; Multiple arguments - left-to-right reduction
+  (is (cl:= 2 (/ 24 3 4)))
+  (is (cl:= 1 (/ 24 4 3 2))))
 
 ;;; ============================================================================
-;;; Mixed Operation Tests
+;;; abs Function
 ;;; ============================================================================
 
-(test mixed-operations
-  "Test combinations of operations"
-  ;; (2 + 3) * 4 = 20
-  (is (= 20 (unwrap (* (+ (wrap 2) (wrap 3)) (wrap 4)))))
-  ;; (10 - 2) / 4 = 2
-  (is (= 2 (unwrap (/ (- (wrap 10) (wrap 2)) (wrap 4)))))
-  ;; 2 * 3 + 4 * 5 = 26
-  (is (= 26 (unwrap (+ (* (wrap 2) (wrap 3)) (* (wrap 4) (wrap 5)))))))
+(test abs-integers
+  "Test abs with integers"
+  (is (cl:= 5 (abs 5)))
+  (is (cl:= 5 (abs -5)))
+  (is (cl:= 0 (abs 0)))
+  (is (cl:= 42 (abs -42)))
+  (is (cl:= 5 (abs (wrap -5)))))
 
-(test type-promotion
-  "Test type promotion in mixed operations"
-  ;; Integer + Float -> Float
-  (is (typep (+ (wrap 1) (wrap 1.0)) '<single-float>))
-  ;; Integer + Ratio -> Ratio
-  (is (typep (+ (wrap 1) (wrap 1/2)) '<ratio>))
-  ;; Ratio + Float -> Float
-  (is (typep (+ (wrap 1/2) (wrap 1.0)) '<single-float>))
-  ;; Single-Float + Double-Float -> Double-Float
-  (is (typep (+ (wrap 1.0f0) (wrap 1.0d0)) '<double-float>)))
+(test abs-floats
+  "Test abs with floats"
+  (is (cl:= 5.5 (abs 5.5)))
+  (is (cl:= 5.5 (abs -5.5)))
+  (is (cl:= 0.0 (abs 0.0)))
+  (is (cl:= 3.14 (abs -3.14))))
 
-  ;;; ============================================================================
-;;; ABS (Absolute Value) Tests
-;;; ============================================================================
-
-(test abs-integer
-  "Test absolute value on integers"
-  (is (= 5 (unwrap (abs (wrap 5)))))
-  (is (= 5 (unwrap (abs (wrap -5)))))
-  (is (= 0 (unwrap (abs (wrap 0)))))
-  (is (= 42 (unwrap (abs (wrap 42)))))
-  (is (= 42 (unwrap (abs (wrap -42)))))
-  (is (typep (abs (wrap 5)) '<integer>)))
-
-(test abs-float
-  "Test absolute value on floats"
-  (is (= 3.14 (unwrap (abs (wrap 3.14)))))
-  (is (= 3.14 (unwrap (abs (wrap -3.14)))))
-  (is (= 0.0 (unwrap (abs (wrap 0.0)))))
-  (is (typep (abs (wrap 3.14)) '<single-float>)))
-
-(test abs-rational
-  "Test absolute value on rationals"
-  (is (= 1/2 (unwrap (abs (wrap 1/2)))))
-  (is (= 1/2 (unwrap (abs (wrap -1/2)))))
-  (is (= 3/4 (unwrap (abs (wrap -3/4)))))
-  (is (typep (abs (wrap 1/2)) '<ratio>)))
+(test abs-ratios
+  "Test abs with ratios"
+  (is (cl:= 1/2 (abs 1/2)))
+  (is (cl:= 1/2 (abs -1/2)))
+  (is (cl:= 3/4 (abs -3/4))))
 
 (test abs-complex
-  "Test absolute value (magnitude) on complex numbers"
+  "Test abs (magnitude) with complex numbers"
   ;; |3+4i| = 5
-  (is (= 5 (unwrap (abs (wrap #C(3 4))))))
-  (is (= 5 (unwrap (abs (wrap #C(-3 -4))))))
+  (is (cl:= 5 (abs #C(3 4))))
+  (is (cl:= 5 (abs #C(-3 -4))))
   ;; |1+0i| = 1
-  (is (= 1 (unwrap (abs (wrap #C(1 0))))))
+  (is (cl:= 1 (abs #C(1 0))))
   ;; |0+1i| = 1
-  (is (= 1 (unwrap (abs (wrap #C(0 1)))))))
+  (is (cl:= 1 (abs #C(0 1)))))
 
 (test abs-bignum
-  "Test absolute value on bignums"
-  (is (= 10000000000000000000 
-         (unwrap (abs (wrap 10000000000000000000)))))
-  (is (= 10000000000000000000 
-         (unwrap (abs (wrap -10000000000000000000))))))
+  "Test abs with bignums"
+  (is (cl:= 10000000000000000000 (abs 10000000000000000000)))
+  (is (cl:= 10000000000000000000 (abs -10000000000000000000))))
 
 ;;; ============================================================================
-;;; Trigonometric Function Tests
+;;; Trigonometric Functions
 ;;; ============================================================================
 
-(test sin-basic
-  "Test sine function"
+(test sin-function
+  "Test sin function"
   ;; sin(0) = 0
-  (is (= 0 (unwrap (sin (wrap 0)))))
+  (is (cl:< (cl:abs (sin 0)) 0.0001))
   ;; sin(π/2) ≈ 1
-  (is (cl:< (cl:abs (cl:- 1.0 (unwrap (sin (wrap (/ pi 2)))))) 0.0001))
+  (is (cl:< (cl:abs (cl:- (sin (cl:/ cl:pi 2)) 1)) 0.0001))
   ;; sin(π) ≈ 0
-  (is (cl:< (cl:abs (unwrap (sin (wrap pi)))) 0.0001))
-  ;; sin(-x) = -sin(x)
-  (is (cl:< (cl:abs (cl:+ (unwrap (sin (wrap 1.0)))
-                  (unwrap (sin (wrap -1.0))))) 0.0001)))
+  (is (cl:< (cl:abs (sin cl:pi)) 0.0001))
+  ;; sin(-x) = -sin(x) (odd function)
+  (is (cl:< (cl:abs (cl:+ (sin 1.0) (sin -1.0))) 0.0001))
+  ;; Wrapped value
+  (is (cl:< (cl:abs (sin (wrap 0))) 0.0001)))
 
-(test cos-basic
-  "Test cosine function"
+(test cos-function
+  "Test cos function"
   ;; cos(0) = 1
-  (is (= 1 (unwrap (cos (wrap 0)))))
+  (is (cl:< (cl:abs (cl:- (cos 0) 1)) 0.0001))
   ;; cos(π/2) ≈ 0
-  (is (cl:< (cl:abs (unwrap (cos (wrap (/ pi 2))))) 0.0001))
+  (is (cl:< (cl:abs (cos (cl:/ cl:pi 2))) 0.0001))
   ;; cos(π) ≈ -1
-  (is (cl:< (cl:abs (cl:+ 1.0 (unwrap (cos (wrap pi))))) 0.0001))
-  ;; cos(-x) = cos(x)
-  (is (cl:< (cl:abs (cl:- (unwrap (cos (wrap 1.0)))
-                  (unwrap (cos (wrap -1.0))))) 0.0001)))
+  (is (cl:< (cl:abs (cl:- (cos cl:pi) -1)) 0.0001))
+  ;; cos(-x) = cos(x) (even function)
+  (is (cl:< (cl:abs (cl:- (cos 1.0) (cos -1.0))) 0.0001))
+  ;; Wrapped value
+  (is (cl:< (cl:abs (cl:- (cos (wrap 0)) 1)) 0.0001)))
 
-(test tan-basic
-  "Test tangent function"
+(test tan-function
+  "Test tan function"
   ;; tan(0) = 0
-  (is (= 0 (unwrap (tan (wrap 0)))))
+  (is (cl:< (cl:abs (tan 0)) 0.0001))
   ;; tan(π/4) ≈ 1
-  (is (cl:< (cl:abs (cl:- 1.0 (unwrap (tan (wrap (/ pi 4)))))) 0.0001))
-  ;; tan(-x) = -tan(x)
-  (is (cl:< (cl:abs (cl:+ (unwrap (tan (wrap 1.0)))
-                  (unwrap (tan (wrap -1.0))))) 0.0001)))
+  (is (cl:< (cl:abs (cl:- (tan (cl:/ cl:pi 4)) 1)) 0.0001))
+  ;; tan(-x) = -tan(x) (odd function)
+  (is (cl:< (cl:abs (cl:+ (tan 1.0) (tan -1.0))) 0.0001))
+  ;; Wrapped value
+  (is (cl:< (cl:abs (tan (wrap 0))) 0.0001)))
 
-(test asin-basic
-  "Test arcsine function"
+(test asin-function
+  "Test asin function"
   ;; asin(0) = 0
-  (is (= 0 (unwrap (asin (wrap 0)))))
+  (is (cl:< (cl:abs (asin 0)) 0.0001))
   ;; asin(1) ≈ π/2
-  (is (cl:< (cl:abs (cl:- (cl:/ pi 2) (unwrap (asin (wrap 1))))) 0.0001))
+  (is (cl:< (cl:abs (cl:- (asin 1) (cl:/ cl:pi 2))) 0.0001))
   ;; asin(-1) ≈ -π/2
-  (is (cl:< (cl:abs (cl:+ (cl:/ pi 2) (unwrap (asin (wrap -1))))) 0.0001))
-  ;; asin(1/2) ≈ π/6
-  (is (cl:< (cl:abs (cl:- (cl:/ pi 6) (unwrap (asin (wrap 0.5))))) 0.0001)))
+  (is (cl:< (cl:abs (cl:- (asin -1) (cl:/ cl:pi -2))) 0.0001))
+  ;; asin(0.5) ≈ π/6
+  (is (cl:< (cl:abs (cl:- (asin 0.5) (cl:/ cl:pi 6))) 0.0001)))
 
-(test acos-basic
-  "Test arccosine function"
+(test acos-function
+  "Test acos function"
   ;; acos(1) = 0
-  (is (cl:< (cl:abs (unwrap (acos (wrap 1)))) 0.0001))
+  (is (cl:< (cl:abs (acos 1)) 0.0001))
   ;; acos(0) ≈ π/2
-  (is (cl:< (cl:abs (cl:- (cl:/ pi 2) (unwrap (acos (wrap 0))))) 0.0001))
+  (is (cl:< (cl:abs (cl:- (acos 0) (cl:/ cl:pi 2))) 0.0001))
   ;; acos(-1) ≈ π
-  (is (cl:< (cl:abs (cl:- pi (unwrap (acos (wrap -1))))) 0.0001)))
+  (is (cl:< (cl:abs (cl:- (acos -1) cl:pi)) 0.0001)))
 
-(test atan-basic
-  "Test arctangent function (single argument)"
+(test atan-function
+  "Test atan function (single argument)"
   ;; atan(0) = 0
-  (is (= 0 (unwrap (atan (wrap 0)))))
+  (is (cl:< (cl:abs (atan 0)) 0.0001))
   ;; atan(1) ≈ π/4
-  (is (cl:< (cl:abs (cl:- (cl:/ pi 4) (unwrap (atan (wrap 1))))) 0.0001))
+  (is (cl:< (cl:abs (cl:- (atan 1) (cl:/ cl:pi 4))) 0.0001))
   ;; atan(-1) ≈ -π/4
-  (is (cl:< (cl:abs (cl:+ (cl:/ pi 4) (unwrap (atan (wrap -1))))) 0.0001)))
+  (is (cl:< (cl:abs (cl:- (atan -1) (cl:/ cl:pi -4))) 0.0001)))
 
-(test atan2-basic
-  "Test two-argument arctangent function"
+(test atan2-function
+  "Test atan2 function (two-argument arctangent)"
   ;; atan2(0, 1) = 0 (positive x-axis)
-  (is (cl:< (cl:abs (unwrap (atan2 (wrap 0) (wrap 1)))) 0.0001))
+  (is (cl:< (cl:abs (atan2 0 1)) 0.0001))
   ;; atan2(1, 1) ≈ π/4 (first quadrant)
-  (is (cl:< (cl:abs (cl:- (cl:/ pi 4) (unwrap (atan2 (wrap 1) (wrap 1))))) 0.0001))
+  (is (cl:< (cl:abs (cl:- (atan2 1 1) (cl:/ cl:pi 4))) 0.0001))
   ;; atan2(1, 0) ≈ π/2 (positive y-axis)
-  (is (cl:< (cl:abs (cl:- (cl:/ pi 2) (unwrap (atan2 (wrap 1) (wrap 0))))) 0.0001))
+  (is (cl:< (cl:abs (cl:- (atan2 1 0) (cl:/ cl:pi 2))) 0.0001))
   ;; atan2(1, -1) ≈ 3π/4 (second quadrant)
-  (is (cl:< (cl:abs (cl:- (cl:* 3 (cl:/ pi 4)) (unwrap (atan2 (wrap 1) (wrap -1))))) 0.0001))
+  (is (cl:< (cl:abs (cl:- (atan2 1 -1) (cl:* 3 (cl:/ cl:pi 4)))) 0.0001))
   ;; atan2(-1, -1) ≈ -3π/4 (third quadrant)
-  (is (cl:< (cl:abs (cl:+ (cl:* 3 (cl:/ pi 4)) (unwrap (atan2 (wrap -1) (wrap -1))))) 0.0001)))
+  (is (cl:< (cl:abs (cl:- (atan2 -1 -1) (cl:* -3 (cl:/ cl:pi 4)))) 0.0001))
+  ;; Mixed wrapped/raw
+  (is (cl:< (cl:abs (cl:- (atan2 (wrap 1) 1) (cl:/ cl:pi 4))) 0.0001))
+  (is (cl:< (cl:abs (cl:- (atan2 1 (wrap 1)) (cl:/ cl:pi 4))) 0.0001)))
 
 (test trig-identity
   "Test trigonometric identity: sin²(x) + cos²(x) = 1"
   (let ((x 0.7))
-    (is (cl:< (cl:abs (cl:- 1.0 
-                   (cl:+ (cl:* (unwrap (sin (wrap x))) (unwrap (sin (wrap x))))
-                         (cl:* (unwrap (cos (wrap x))) (unwrap (cos (wrap x)))))))
-           0.0001))))
+    (is (cl:< (cl:abs (cl:- 1.0
+                           (cl:+ (cl:* (sin x) (sin x))
+                                 (cl:* (cos x) (cos x)))))
+              0.0001))))
 
 ;;; ============================================================================
-;;; Hyperbolic Function Tests
+;;; Hyperbolic Functions
 ;;; ============================================================================
 
-(test sinh-basic
-  "Test hyperbolic sine function"
+(test sinh-function
+  "Test sinh function"
   ;; sinh(0) = 0
-  (is (= 0 (unwrap (sinh (wrap 0)))))
+  (is (cl:< (cl:abs (sinh 0)) 0.0001))
   ;; sinh(1) ≈ 1.1752
-  (is (cl:< (cl:abs (cl:- 1.1752 (unwrap (sinh (wrap 1))))) 0.001))
-  ;; sinh(-x) = -sinh(x)
-  (is (cl:< (cl:abs (cl:+ (unwrap (sinh (wrap 1.0)))
-                  (unwrap (sinh (wrap -1.0))))) 0.0001)))
+  (is (cl:< (cl:abs (cl:- (sinh 1) 1.1752)) 0.001))
+  ;; sinh(-x) = -sinh(x) (odd function)
+  (is (cl:< (cl:abs (cl:+ (sinh 1.0) (sinh -1.0))) 0.0001)))
 
-(test cosh-basic
-  "Test hyperbolic cosine function"
+(test cosh-function
+  "Test cosh function"
   ;; cosh(0) = 1
-  (is (= 1 (unwrap (cosh (wrap 0)))))
+  (is (cl:< (cl:abs (cl:- (cosh 0) 1)) 0.0001))
   ;; cosh(1) ≈ 1.5431
-  (is (cl:< (cl:abs (cl:- 1.5431 (unwrap (cosh (wrap 1))))) 0.001))
-  ;; cosh(-x) = cosh(x)
-  (is (cl:< (cl:abs (cl:- (unwrap (cosh (wrap 1.0)))
-                  (unwrap (cosh (wrap -1.0))))) 0.0001)))
+  (is (cl:< (cl:abs (cl:- (cosh 1) 1.5431)) 0.001))
+  ;; cosh(-x) = cosh(x) (even function)
+  (is (cl:< (cl:abs (cl:- (cosh 1.0) (cosh -1.0))) 0.0001)))
 
-(test tanh-basic
-  "Test hyperbolic tangent function"
+(test tanh-function
+  "Test tanh function"
   ;; tanh(0) = 0
-  (is (= 0 (unwrap (tanh (wrap 0)))))
+  (is (cl:< (cl:abs (tanh 0)) 0.0001))
   ;; tanh(1) ≈ 0.7616
-  (is (cl:< (cl:abs (cl:- 0.7616 (unwrap (tanh (wrap 1))))) 0.001))
-  ;; tanh(-x) = -tanh(x)
-  (is (cl:< (cl:abs (cl:+ (unwrap (tanh (wrap 1.0)))
-                  (unwrap (tanh (wrap -1.0))))) 0.0001))
+  (is (cl:< (cl:abs (cl:- (tanh 1) 0.7616)) 0.001))
+  ;; tanh(-x) = -tanh(x) (odd function)
+  (is (cl:< (cl:abs (cl:+ (tanh 1.0) (tanh -1.0))) 0.0001))
   ;; tanh approaches ±1 as x → ±∞
-  (is (cl:< (cl:abs (cl:- 1.0 (unwrap (tanh (wrap 10))))) 0.001))
-  (is (cl:< (cl:abs (cl:+ 1.0 (unwrap (tanh (wrap -10))))) 0.001)))
+  (is (cl:< (cl:abs (cl:- (tanh 10) 1.0)) 0.001))
+  (is (cl:< (cl:abs (cl:+ (tanh -10) 1.0)) 0.001)))
 
-(test asinh-basic
-  "Test inverse hyperbolic sine function"
+(test asinh-function
+  "Test asinh function"
   ;; asinh(0) = 0
-  (is (= 0 (unwrap (asinh (wrap 0)))))
+  (is (cl:< (cl:abs (asinh 0)) 0.0001))
   ;; asinh(sinh(1)) ≈ 1
-  (is (cl:< (cl:abs (cl:- 1.0 (unwrap (asinh (sinh (wrap 1)))))) 0.0001))
-  ;; asinh(-x) = -asinh(x)
-  (is (cl:< (cl:abs (cl:+ (unwrap (asinh (wrap 1.0)))
-                  (unwrap (asinh (wrap -1.0))))) 0.0001)))
+  (is (cl:< (cl:abs (cl:- (asinh (sinh 1)) 1.0)) 0.0001))
+  ;; asinh(-x) = -asinh(x) (odd function)
+  (is (cl:< (cl:abs (cl:+ (asinh 1.0) (asinh -1.0))) 0.0001)))
 
-(test acosh-basic
-  "Test inverse hyperbolic cosine function"
+(test acosh-function
+  "Test acosh function"
   ;; acosh(1) = 0
-  (is (cl:< (cl:abs (unwrap (acosh (wrap 1)))) 0.0001))
+  (is (cl:< (cl:abs (acosh 1)) 0.0001))
   ;; acosh(cosh(1)) ≈ 1
-  (is (cl:< (cl:abs (cl:- 1.0 (unwrap (acosh (cosh (wrap 1)))))) 0.0001))
+  (is (cl:< (cl:abs (cl:- (acosh (cosh 1)) 1.0)) 0.0001))
   ;; acosh(2) ≈ 1.317
-  (is (cl:< (cl:abs (cl:- 1.317 (unwrap (acosh (wrap 2))))) 0.01)))
+  (is (cl:< (cl:abs (cl:- (acosh 2) 1.317)) 0.01)))
 
-(test atanh-basic
-  "Test inverse hyperbolic tangent function"
+(test atanh-function
+  "Test atanh function"
   ;; atanh(0) = 0
-  (is (= 0 (unwrap (atanh (wrap 0)))))
+  (is (cl:< (cl:abs (atanh 0)) 0.0001))
   ;; atanh(tanh(0.5)) ≈ 0.5
-  (is (cl:< (cl:abs (cl:- 0.5 (unwrap (atanh (tanh (wrap 0.5)))))) 0.0001))
+  (is (cl:< (cl:abs (cl:- (atanh (tanh 0.5)) 0.5)) 0.0001))
   ;; atanh(0.5) ≈ 0.5493
-  (is (cl:< (cl:abs (cl:- 0.5493 (unwrap (atanh (wrap 0.5))))) 0.001)))
+  (is (cl:< (cl:abs (cl:- (atanh 0.5) 0.5493)) 0.001)))
 
 (test hyperbolic-identity
   "Test hyperbolic identity: cosh²(x) - sinh²(x) = 1"
   (let ((x 0.7))
-    (is (cl:< (cl:abs (cl:- 1.0 
-                   (cl:- (cl:* (unwrap (cosh (wrap x))) (unwrap (cosh (wrap x))))
-                         (cl:* (unwrap (sinh (wrap x))) (unwrap (sinh (wrap x)))))))
-           0.0001))))
+    (is (cl:< (cl:abs (cl:- 1.0
+                           (cl:- (cl:* (cosh x) (cosh x))
+                                 (cl:* (sinh x) (sinh x)))))
+              0.0001))))
 
 ;;; ============================================================================
-;;; Exponential and Logarithmic Function Tests
+;;; Exponential and Logarithmic Functions
 ;;; ============================================================================
 
-(test exp-basic
-  "Test exponential function"
+(test exp-function
+  "Test exp function"
   ;; exp(0) = 1
-  (is (= 1 (unwrap (exp (wrap 0)))))
+  (is (cl:< (cl:abs (cl:- (exp 0) 1)) 0.0001))
   ;; exp(1) ≈ e ≈ 2.71828
-  (is (cl:< (cl:abs (cl:- 2.71828 (unwrap (exp (wrap 1))))) 0.0001))
-  ;; exp(2) ≈ 7.389
-  (is (cl:< (cl:abs (cl:- 7.389 (unwrap (exp (wrap 2))))) 0.01))
+  (is (cl:< (cl:abs (cl:- (exp 1) 2.71828)) 0.0001))
+  ;; exp(2) ≈ e² ≈ 7.389
+  (is (cl:< (cl:abs (cl:- (exp 2) 7.389)) 0.001))
   ;; exp(ln(5)) ≈ 5
-  (is (cl:< (cl:abs (cl:- 5.0 (unwrap (exp (log (wrap 5)))))) 0.0001)))
+  (is (cl:< (cl:abs (cl:- (exp (log 5)) 5.0)) 0.0001))
+  ;; Wrapped value
+  (is (cl:< (cl:abs (cl:- (exp (wrap 0)) 1)) 0.0001)))
 
-(test log-basic
-  "Test natural logarithm function"
+(test log-function
+  "Test log function (natural logarithm)"
   ;; log(1) = 0
-  (is (= 0 (unwrap (log (wrap 1)))))
-  ;; log(e) ≈ 1
-  (is (cl:< (cl:abs (cl:- 1.0 (unwrap (log (exp (wrap 1)))))) 0.0001))
+  (is (cl:< (cl:abs (log 1)) 0.0001))
+  ;; log(e) ≈ 1, where e ≈ 2.71828
+  (is (cl:< (cl:abs (cl:- (log 2.71828) 1.0)) 0.0001))
   ;; log(10) ≈ 2.3026
-  (is (cl:< (cl:abs (cl:- 2.3026 (unwrap (log (wrap 10))))) 0.001))
+  (is (cl:< (cl:abs (cl:- (log 10) 2.3026)) 0.001))
   ;; log(exp(3)) ≈ 3
-  (is (cl:< (cl:abs (cl:- 3.0 (unwrap (log (exp (wrap 3)))))) 0.0001)))
+  (is (cl:< (cl:abs (cl:- (log (exp 3)) 3.0)) 0.0001))
+  ;; Wrapped value
+  (is (cl:< (cl:abs (log (wrap 1))) 0.0001)))
 
 (test log-exp-inverse
   "Test that log and exp are inverse functions"
-  (is (cl:< (cl:abs (cl:- 5.0 (unwrap (exp (log (wrap 5)))))) 0.0001))
-  (is (cl:< (cl:abs (cl:- 2.5 (unwrap (log (exp (wrap 2.5)))))) 0.0001)))
+  (is (cl:< (cl:abs (cl:- (exp (log 5)) 5.0)) 0.0001))
+  (is (cl:< (cl:abs (cl:- (log (exp 2.5)) 2.5)) 0.0001)))
 
-(test expt-basic
-  "Test exponentiation function"
+(test expt-integers
+  "Test expt with integer arguments"
   ;; 2^3 = 8
-  (is (= 8 (unwrap (expt (wrap 2) (wrap 3)))))
+  (is (cl:= 8 (expt 2 3)))
   ;; 3^2 = 9
-  (is (= 9 (unwrap (expt (wrap 3) (wrap 2)))))
+  (is (cl:= 9 (expt 3 2)))
   ;; 10^0 = 1
-  (is (= 1 (unwrap (expt (wrap 10) (wrap 0)))))
+  (is (cl:= 1 (expt 10 0)))
   ;; 5^1 = 5
-  (is (= 5 (unwrap (expt (wrap 5) (wrap 1)))))
+  (is (cl:= 5 (expt 5 1)))
   ;; 2^-1 = 1/2
-  (is (= 1/2 (unwrap (expt (wrap 2) (wrap -1)))))
-  ;; 4^(1/2) = 2
-  (is (= 2.0 (unwrap (expt (wrap 4) (wrap 0.5))))))
+  (is (cl:= 1/2 (expt 2 -1)))
+  ;; 2^10 = 1024
+  (is (cl:= 1024 (expt 2 10))))
 
-(test expt-float
-  "Test exponentiation with floats"
+(test expt-floats
+  "Test expt with float arguments"
+  ;; 4^0.5 = 2 (square root)
+  (is (cl:< (cl:abs (cl:- (expt 4 0.5) 2.0)) 0.0001))
+  ;; 8^(1/3) ≈ 2 (cube root)
+  (is (cl:< (cl:abs (cl:- (expt 8 (cl:/ 1 3)) 2.0)) 0.0001))
   ;; 2.0^3 = 8.0
-  (is (= 8.0 (unwrap (expt (wrap 2.0) (wrap 3)))))
+  (is (cl:= 8.0 (expt 2.0 3)))
   ;; 3^0.5 ≈ 1.732 (√3)
-  (is (cl:< (cl:abs (cl:- 1.732 (unwrap (expt (wrap 3) (wrap 0.5))))) 0.01)))
+  (is (cl:< (cl:abs (cl:- (expt 3 0.5) 1.732)) 0.01)))
 
 (test expt-negative-base
-  "Test exponentiation with negative bases"
+  "Test expt with negative bases"
   ;; (-2)^2 = 4
-  (is (= 4 (unwrap (expt (wrap -2) (wrap 2)))))
+  (is (cl:= 4 (expt -2 2)))
   ;; (-2)^3 = -8
-  (is (= -8 (unwrap (expt (wrap -2) (wrap 3)))))
+  (is (cl:= -8 (expt -2 3)))
   ;; (-1)^2 = 1
-  (is (= 1 (unwrap (expt (wrap -1) (wrap 2))))))
+  (is (cl:= 1 (expt -1 2)))
+  ;; (-1)^100 = 1
+  (is (cl:= 1 (expt -1 100)))
+  ;; (-1)^101 = -1
+  (is (cl:= -1 (expt -1 101))))
 
-(test sqrt-basic
-  "Test square root function"
-  ;; sqrt(0) = 0
-  (is (= 0 (unwrap (sqrt (wrap 0)))))
-  ;; sqrt(1) = 1
-  (is (= 1 (unwrap (sqrt (wrap 1)))))
-  ;; sqrt(4) = 2
-  (is (= 2 (unwrap (sqrt (wrap 4)))))
-  ;; sqrt(9) = 3
-  (is (= 3 (unwrap (sqrt (wrap 9)))))
-  ;; sqrt(2) ≈ 1.414
-  (is (cl:< (cl:abs (cl:- 1.414 (unwrap (sqrt (wrap 2))))) 0.01))
-  ;; sqrt(10) ≈ 3.162
-  (is (cl:< (cl:abs (cl:- 3.162 (unwrap (sqrt (wrap 10))))) 0.01)))
+(test expt-wrapped
+  "Test expt with wrapped values"
+  (is (cl:= 8 (expt (wrap 2) 3)))
+  (is (cl:= 8 (expt 2 (wrap 3))))
+  (is (cl:= 8 (expt (wrap 2) (wrap 3)))))
 
-(test sqrt-exact
-  "Test square root with exact integer results"
-  (is (= 2 (unwrap (sqrt (wrap 4)))))
-  (is (= 3 (unwrap (sqrt (wrap 9)))))
-  (is (= 10 (unwrap (sqrt (wrap 100)))))
-  (is (typep (sqrt (wrap 4)) '<float>)))
+(test sqrt-integers
+  "Test sqrt with perfect squares"
+  (is (cl:= 0 (sqrt 0)))
+  (is (cl:= 1 (sqrt 1)))
+  (is (cl:= 2 (sqrt 4)))
+  (is (cl:= 3 (sqrt 9)))
+  (is (cl:= 10 (sqrt 100))))
 
-(test sqrt-float
-  "Test square root with float results"
-  (is (cl:< (cl:abs (cl:- 1.414 (unwrap (sqrt (wrap 2))))) 0.01))
-  (is (typep (sqrt (wrap 2)) '<float>)))
+(test sqrt-non-perfect-squares
+  "Test sqrt with non-perfect squares"
+  (is (cl:< (cl:abs (cl:- (sqrt 2) 1.41421356)) 0.0001))
+  (is (cl:< (cl:abs (cl:- (sqrt 3) 1.73205081)) 0.0001))
+  (is (cl:< (cl:abs (cl:- (sqrt 10) 3.16227766)) 0.0001)))
 
-(test sqrt-rational
-  "Test square root with rationals"
+(test sqrt-ratios
+  "Test sqrt with rational numbers"
   ;; sqrt(1/4) = 1/2
-  (is (= 1/2 (unwrap (sqrt (wrap 1/4)))))
+  (is (cl:= 0.5 (sqrt 1/4)))
   ;; sqrt(9/4) = 3/2
-  (is (= 3/2 (unwrap (sqrt (wrap 9/4))))))
+  (is (cl:= 1.5 (sqrt 9/4))))
 
-(test sqrt-complex
-  "Test square root of negative numbers (returns complex)"
-  ;; sqrt(-1) = i
-  (let ((result (unwrap (sqrt (wrap -1)))))
-    (is (typep result 'complex))
-    (is (cl:< (cl:abs (realpart result)) 0.0001))
-    (is (cl:< (cl:abs (cl:- 1.0 (cl:abs (imagpart result)))) 0.0001))))
+(test sqrt-negative
+  "Test sqrt of negative numbers returns complex"
+  (let ((result (sqrt -1)))
+    (is (complexp result))
+    (is (cl:< (cl:abs (cl:realpart result)) 0.0001))
+    (is (cl:< (cl:abs (cl:- (cl:abs (cl:imagpart result)) 1.0)) 0.0001)))
+  (let ((result (sqrt -4)))
+    (is (complexp result))
+    (is (cl:< (cl:abs (cl:realpart result)) 0.0001))
+    (is (cl:< (cl:abs (cl:- (cl:abs (cl:imagpart result)) 2.0)) 0.0001))))
+
+(test sqrt-wrapped
+  "Test sqrt with wrapped values"
+  (is (cl:= 2 (sqrt (wrap 4))))
+  (is (cl:= 3 (sqrt (wrap 9)))))
 
 ;;; ============================================================================
-;;; Type Preservation Tests
+;;; Rational and Complex Number Functions
 ;;; ============================================================================
 
-(test math-type-preservation
-  "Test that mathematical functions preserve or promote types appropriately"
-  ;; Integer operations
-  (is (typep (abs (wrap 5)) '<integer>))
-  (is (typep (expt (wrap 2) (wrap 3)) '<integer>))
-  (is (typep (sqrt (wrap 4)) '<float>))
-  
-  ;; Float results
-  (is (typep (sin (wrap 1)) '<float>))
-  (is (typep (exp (wrap 1)) '<float>))
-  (is (typep (sqrt (wrap 2)) '<float>))
-  
-  ;; Rational preservation
-  (is (typep (abs (wrap 1/2)) '<ratio>))
-  (is (typep (sqrt (wrap 1/4)) '<float>)))
+(test rationalize-without-tolerance
+  "Test rationalize without tolerance"
+  (is (cl:= 1/2 (rationalize 1/2)))
+  (is (cl:= 5 (rationalize 5)))
+  (is (rationalp (rationalize 0.5))))
+
+(test rationalize-with-tolerance
+  "Test rationalize with tolerance (Scheme-style)"
+  (is (cl:= 1/3 (rationalize 0.3333333 0.0001)))
+  (is (cl:= 1/3 (rationalize 0.3 0.1)))
+  (is (cl:= 2 (rationalize 2.1 0.2))))
+
+(test rationalize-wrapped
+  "Test rationalize with wrapped values"
+  (is (cl:= 1/3 (rationalize (wrap 0.3333333) 0.0001)))
+  (is (cl:= 1/3 (rationalize 0.3333333 (wrap 0.0001)))))
+
+(test numerator-function
+  "Test numerator function"
+  (is (cl:= 1 (numerator 1/2)))
+  (is (cl:= 3 (numerator 3/4)))
+  (is (cl:= 5 (numerator 5)))
+  (is (cl:= -1 (numerator -1/2)))
+  (is (cl:= 7 (numerator 7/11)))
+  ;; Wrapped value
+  (is (cl:= 1 (numerator (wrap 1/2)))))
+
+(test denominator-function
+  "Test denominator function"
+  (is (cl:= 2 (denominator 1/2)))
+  (is (cl:= 4 (denominator 3/4)))
+  (is (cl:= 1 (denominator 5)))
+  (is (cl:= 2 (denominator -1/2)))
+  (is (cl:= 11 (denominator 7/11)))
+  ;; Wrapped value
+  (is (cl:= 2 (denominator (wrap 1/2)))))
+
+(test real-part-function
+  "Test real-part function"
+  (is (cl:= 3 (real-part 3)))
+  (is (cl:= 3.5 (real-part 3.5)))
+  (is (cl:= 3 (real-part #C(3 4))))
+  (is (cl:= 0 (real-part #C(0 5))))
+  (is (cl:= -2 (real-part #C(-2 3))))
+  ;; Wrapped value
+  (is (cl:= 3 (real-part (wrap #C(3 4))))))
+
+(test imag-part-function
+  "Test imag-part function"
+  (is (cl:= 0 (imag-part 3)))
+  (is (cl:= 0 (imag-part 3.5)))
+  (is (cl:= 4 (imag-part #C(3 4))))
+  (is (cl:= 5 (imag-part #C(0 5))))
+  (is (cl:= -3 (imag-part #C(2 -3))))
+  ;; Wrapped value
+  (is (cl:= 4 (imag-part (wrap #C(3 4))))))
+
+(test angle-function
+  "Test angle function (phase of complex number)"
+  ;; Positive real: angle = 0
+  (is (cl:< (cl:abs (angle 1)) 0.0001))
+  (is (cl:< (cl:abs (angle 5)) 0.0001))
+  ;; Negative real: angle = π
+  (is (cl:< (cl:abs (cl:- (angle -1) cl:pi)) 0.0001))
+  ;; Positive imaginary: angle = π/2
+  (is (cl:< (cl:abs (cl:- (angle #C(0 1)) (cl:/ cl:pi 2))) 0.0001))
+  ;; First quadrant: angle = π/4
+  (is (cl:< (cl:abs (cl:- (angle #C(1 1)) (cl:/ cl:pi 4))) 0.0001))
+  ;; Negative imaginary: angle = -π/2
+  (is (cl:< (cl:abs (cl:- (angle #C(0 -1)) (cl:/ cl:pi -2))) 0.0001)))
+
+;;; ============================================================================
+;;; GCD and LCM Functions
+;;; ============================================================================
+
+(test gcd-zero-args
+  "Test gcd with zero arguments"
+  (is (cl:= 0 (gcd))))
+
+(test gcd-one-arg
+  "Test gcd with one argument"
+  (is (cl:= 5 (gcd 5)))
+  (is (cl:= 5 (gcd -5)))
+  (is (cl:= 0 (gcd 0))))
+
+(test gcd-two-args
+  "Test gcd with two arguments"
+  (is (cl:= 6 (gcd 12 18)))
+  (is (cl:= 1 (gcd 7 11)))
+  (is (cl:= 5 (gcd 0 5)))
+  (is (cl:= 5 (gcd 5 0)))
+  (is (cl:= 4 (gcd 8 12)))
+  (is (cl:= 6 (gcd -12 18)))
+  (is (cl:= 6 (gcd 12 -18)))
+  (is (cl:= 6 (gcd -12 -18))))
+
+(test gcd-multiple-args
+  "Test gcd with multiple arguments"
+  (is (cl:= 2 (gcd 12 18 8)))
+  (is (cl:= 1 (gcd 12 18 7)))
+  (is (cl:= 3 (gcd 12 18 9)))
+  (is (cl:= 6 (gcd 12 18 24 30))))
+
+(test gcd-wrapped
+  "Test gcd with wrapped values"
+  (is (cl:= 6 (gcd (wrap 12) 18)))
+  (is (cl:= 6 (gcd 12 (wrap 18))))
+  (is (cl:= 6 (gcd (wrap 12) (wrap 18)))))
+
+(test lcm-zero-args
+  "Test lcm with zero arguments"
+  (is (cl:= 1 (lcm))))
+
+(test lcm-one-arg
+  "Test lcm with one argument"
+  (is (cl:= 5 (lcm 5)))
+  (is (cl:= 5 (lcm -5)))
+  (is (cl:= 0 (lcm 0))))
+
+(test lcm-two-args
+  "Test lcm with two arguments"
+  (is (cl:= 36 (lcm 12 18)))
+  (is (cl:= 77 (lcm 7 11)))
+  (is (cl:= 0 (lcm 0 5)))
+  (is (cl:= 0 (lcm 5 0)))
+  (is (cl:= 24 (lcm 8 12)))
+  (is (cl:= 36 (lcm -12 18)))
+  (is (cl:= 36 (lcm 12 -18))))
+
+(test lcm-multiple-args
+  "Test lcm with multiple arguments"
+  (is (cl:= 72 (lcm 12 18 8)))
+  (is (cl:= 252 (lcm 12 18 7)))
+  (is (cl:= 36 (lcm 12 18 9))))
+
+(test lcm-wrapped
+  "Test lcm with wrapped values"
+  (is (cl:= 36 (lcm (wrap 12) 18)))
+  (is (cl:= 36 (lcm 12 (wrap 18)))))
+
+(test binary-gcd-lcm
+  "Test binary %gcd and %lcm operations"
+  (is (cl:= 6 (%gcd 12 18)))
+  (is (cl:= 36 (%lcm 12 18)))
+  (is (cl:= 6 (%gcd (wrap 12) (wrap 18))))
+  (is (cl:= 36 (%lcm (wrap 12) (wrap 18)))))
+
+;;; ============================================================================
+;;; Error Cases
+;;; ============================================================================
+
+(test arithmetic-type-errors
+  "Test that arithmetic operations signal errors for non-numbers"
+  (signals error (%+ "a" "b"))
+  (signals error (%- "a" "b"))
+  (signals error (%* "a" "b"))
+  (signals error (%/ "a" "b"))
+  (signals error (abs "not a number"))
+  (signals error (sin "not a number"))
+  (signals error (sqrt "not a number"))
+  (signals error (expt "a" "b")))
 
 ;;; ============================================================================
 ;;; Edge Cases and Special Values
 ;;; ============================================================================
 
-(test math-special-values
-  "Test mathematical functions with special values"
-  ;; Zero
-  (is (= 0 (unwrap (sin (wrap 0)))))
-  (is (= 1 (unwrap (cos (wrap 0)))))
-  (is (= 1 (unwrap (exp (wrap 0)))))
-  (is (= 0 (unwrap (log (wrap 1)))))
-  (is (= 0 (unwrap (sqrt (wrap 0)))))
-  
-  ;; One
-  (is (= 1 (unwrap (expt (wrap 10) (wrap 0)))))
-  (is (= 1 (unwrap (sqrt (wrap 1)))))
-  
-  ;; Negative values
-  (is (= 5 (unwrap (abs (wrap -5)))))
-  (is (= -8 (unwrap (expt (wrap -2) (wrap 3))))))
+(test very-large-numbers
+  "Test arithmetic with very large numbers (bignums)"
+  (let ((big1 (cl:expt 10 100))
+        (big2 (cl:expt 10 100)))
+    (is (cl:= (cl:* 2 big1) (%+ big1 big2)))
+    (is (cl:= 0 (%- big1 big2)))
+    (is (cl:= (cl:expt 10 200) (%* big1 big2)))
+    (is (cl:= 1 (%/ big1 big2)))))
 
-;;; ============================================================================
-;;; Error Handling Tests
-;;; ============================================================================
+(test very-small-ratios
+  "Test arithmetic with very small ratios"
+  (let ((small1 (cl:/ 1 (cl:expt 10 100)))
+        (small2 (cl:/ 1 (cl:expt 10 100))))
+    (is (cl:= (cl:/ 2 (cl:expt 10 100)) (%+ small1 small2)))
+    (is (cl:= 0 (%- small1 small2)))
+    (is (cl:= 1 (%/ small1 small2)))))
 
-(test math-error-handling
-  "Test that mathematical functions error on non-numeric inputs"
-  (signals error (abs (wrap #\a)))
-  (signals error (sin (wrap "hello")))
-  (signals error (exp *true-instance*))
-  (signals error (sqrt (wrap #\x)))
-  (signals error (expt (wrap 2) (wrap "3"))))
+(test mixed-operations
+  "Test combinations of operations"
+  ;; (2 + 3) * 4 = 20
+  (is (cl:= 20 (* (+ 2 3) 4)))
+  ;; (10 - 2) / 4 = 2
+  (is (cl:= 2 (/ (- 10 2) 4)))
+  ;; 2 * 3 + 4 * 5 = 26
+  (is (cl:= 26 (+ (* 2 3) (* 4 5)))))
 
-;;; ============================================================================
-;;; Scheme-type Function Tests
-;;; ============================================================================
-
-(test rationalize-tests
-  "Test simplest rational calculation according to R4RS"
-  (is (= 1/3 (unwrap (rationalize (wrap 0.3) (wrap 1/10)))))
-  (is (= 3/10 (unwrap (rationalize (wrap 0.3)))))
-  (is (= 2 (unwrap (rationalize (wrap 2.1) (wrap 0.2))))))
-
-(test rational-parts-tests
-  "Test numerator and denominator"
-  (is (= 2 (unwrap (numerator (wrap 2/3)))))
-  (is (= 3 (unwrap (denominator (wrap 2/3)))))
-  (is (= 5 (unwrap (numerator (wrap 5)))))
-  (is (= 1 (unwrap (denominator (wrap 5))))))
-
-(test complex-parts-tests
-  "Test real-part, imag-part and angle (phase)"
-  (is (= 3 (unwrap (real-part (wrap #C(3 4))))))
-  (is (= 4 (unwrap (imag-part (wrap #C(3 4))))))
-  (is (= 0 (unwrap (angle (wrap 1)))))
-  ;; Check angle of i is pi/2
-  (is (cl:< (cl:abs (cl:- (cl:/ pi 2) (unwrap (angle (wrap #C(0 1)))))) 0.0001)))
-
-
-  (test gcd-tests
-  "Test greatest common divisor functionality"
-  (is (= 0 (unwrap (gcd))))
-  (is (= 5 (unwrap (gcd (wrap 5)))))
-  (is (= 5 (unwrap (gcd (wrap 10) (wrap 15)))))
-  (is (= 2 (unwrap (gcd (wrap 12) (wrap 10) (wrap 6)))))
-  (is (= 1 (unwrap (gcd (wrap 7) (wrap 11)))))
-  (is (= 4 (unwrap (gcd (wrap -8) (wrap 12))))))
-
-(test lcm-tests
-  "Test least common multiple functionality"
-  (is (= 1 (unwrap (lcm))))
-  (is (= 5 (unwrap (lcm (wrap 5)))))
-  (is (= 30 (unwrap (lcm (wrap 10) (wrap 15)))))
-  (is (= 60 (unwrap (lcm (wrap 12) (wrap 10) (wrap 6)))))
-  (is (= 0 (unwrap (lcm (wrap 7) (wrap 0)))))
-  (is (= 24 (unwrap (lcm (wrap -8) (wrap 6))))))
+(test complex-arithmetic
+  "Test arithmetic with complex numbers"
+  ;; Addition
+  (is (cl:= #C(4 6) (%+ #C(1 2) #C(3 4))))
+  ;; Subtraction
+  (is (cl:= #C(-2 -2) (%- #C(1 2) #C(3 4))))
+  ;; Multiplication: (1+2i)(3+4i) = 3 + 4i + 6i + 8i² = 3 + 10i - 8 = -5 + 10i
+  (is (cl:= #C(-5 10) (%* #C(1 2) #C(3 4))))
+  ;; Division
+  (is (cl:= #C(1 0) (%/ #C(2 2) #C(2 2)))))

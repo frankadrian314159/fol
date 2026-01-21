@@ -164,14 +164,20 @@
 ;;; Convenience Macros
 ;;; ============================================================================
 
-(defmacro with-pslots (slot-names object &body body)
+(defmacro with-pslots (slot-specs object &body body)
   "Bind slot names from a persistent object for convenient access.
    Similar to WITH-SLOTS but for persistent objects.
-   Example: (with-pslots (x y) point (list x y))"
+   SLOT-SPECS is a list where each element is either:
+     - a symbol (binds to that slot name)
+     - a list (var-name slot-name) to bind to a different variable name
+   Example: (with-pslots (x y) point (list x y))
+   Example: (with-pslots ((px x) (py y)) point (list px py))"
   (let ((obj-var (gensym "OBJ")))
     `(let ((,obj-var ,object))
-       (let ,(loop for slot in slot-names
-                   collect `(,slot (pslot-value ,obj-var ',slot)))
+       (let ,(loop for spec in slot-specs
+                   collect (if (consp spec)
+                               `(,(first spec) (pslot-value ,obj-var ',(second spec)))
+                               `(,spec (pslot-value ,obj-var ',spec))))
          ,@body))))
 
 ;;; ============================================================================

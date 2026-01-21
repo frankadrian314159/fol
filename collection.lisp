@@ -1,6 +1,20 @@
 (in-package fol.collection)
 
 ;;; ============================================================================
+;;; Collection Classes - Option C (Hybrid Approach)
+;;; ============================================================================
+;;;
+;;; Collections store raw CL values internally for efficiency.
+;;; When retrieving elements, raw values are returned and can be used
+;;; directly with FOL operations (which accept both raw and wrapped values).
+;;;
+;;; Key design decisions:
+;;; - Internal storage uses raw CL primitives (no wrapper objects)
+;;; - Retrieval returns raw values (use fol-type-of for type reflection)
+;;; - Insertion accepts both raw and wrapped values (extracts raw via fol-value)
+;;; - Wrap only when you need persistence metadata on an element
+
+;;; ============================================================================
 ;;; Collection Base Class
 ;;; ============================================================================
 
@@ -9,10 +23,10 @@
   (:metaclass persistent-class)
   (:documentation "Abstract base class for all persistent collections.
                    Inherits storage capabilities from <persistent-object>."))
-  
+
 (defgeneric <collection>? (obj) (:documentation "Returns T if OBJ is a FOL <collection>."))
-(defmethod <collection>? (obj) (return-f))
-(defmethod <collection>? ((obj <collection>)) (return-t))
+(defmethod <collection>? (obj) nil)
+(defmethod <collection>? ((obj <collection>)) t)
 
 
 ;;; ============================================================================
@@ -25,8 +39,8 @@
   (:documentation "Abstract base class for all persistent unordered collections (sets, bags, maps)."))
 
 (defgeneric <unordered-collection>? (obj) (:documentation "Returns T if OBJ is a FOL <unordered-collection>."))
-(defmethod <unordered-collection>? (obj) (return-f))
-(defmethod <unordered-collection>? ((obj <unordered-collection>)) (return-t))
+(defmethod <unordered-collection>? (obj) nil)
+(defmethod <unordered-collection>? ((obj <unordered-collection>)) t)
 
 
 ;;; ============================================================================
@@ -39,8 +53,8 @@
   (:documentation "Abstract base class for all persistent ordered collections (sequences)."))
 
 (defgeneric <ordered-collection>? (obj) (:documentation "Returns T if OBJ is a FOL <ordered-collection>."))
-(defmethod <ordered-collection>? (obj) (return-f))
-(defmethod <ordered-collection>? ((obj <ordered-collection>)) (return-t))
+(defmethod <ordered-collection>? (obj) nil)
+(defmethod <ordered-collection>? ((obj <ordered-collection>)) t)
 
 
 ;;; ============================================================================
@@ -48,22 +62,25 @@
 ;;; ============================================================================
 
 (defclass <dict> (<unordered-collection>)
-  ((items :initarg :items 
+  ((items :initarg :items
           :initform (fset:empty-map)
           :documentation "The underlying FSet map holding the key-value pairs."))
   (:metaclass persistent-class)
   (:documentation "A persistent dictionary mapping keys to values."))
 
 (defun make-dict (&rest pairs)
-  "Create a new <dict> populated with the given key-value pairs."
+  "Create a new <dict> populated with the given key-value pairs.
+   Values are stored as raw CL primitives (unwrapped)."
   (let ((map (fset:empty-map)))
     (loop for (key val) on pairs by #'cddr
-          do (setf map (fset:with map key val)))
+          do (setf map (fset:with map
+                                  (fol.wrappers:fol-value key)
+                                  (fol.wrappers:fol-value val))))
     (make-instance '<dict> :items map)))
 
 (defgeneric <dict>? (obj) (:documentation "Returns T if OBJ is a FOL <dict>."))
-(defmethod <dict>? (obj) (return-f))
-(defmethod <dict>? ((obj <dict>)) (return-t))
+(defmethod <dict>? (obj) nil)
+(defmethod <dict>? ((obj <dict>)) t)
 
 (defmethod print-object ((obj <dict>) stream)
   (format stream "{")
@@ -73,8 +90,8 @@
       (unless first (format stream " "))
       (setf first nil)
       (flet ((safe-print (item)
-               (cond ((eq item fol.singleton:*true-instance*) (format stream "#t"))
-                     ((eq item fol.singleton:*false-instance*) (format stream "#f"))
+               (cond ((eq item t) (format stream "#t"))
+                     ((eq item nil) (format stream "#f"))
                      ((keywordp item) (format stream "~S" item))
                      ((symbolp item)  (format stream "'~S" item))
                      (t (format stream "~S" item)))))
@@ -91,20 +108,22 @@
 (defclass <bag> (<dict>)
   ()
   (:metaclass persistent-class)
-  (:documentation "A persistent bag (multiset) implemented as a dictionary where 
+  (:documentation "A persistent bag (multiset) implemented as a dictionary where
                    keys are elements and values are their counts."))
 
 (defun make-bag (&rest elements)
-  "Create a new <bag> from the given elements."
+  "Create a new <bag> from the given elements.
+   Elements are stored as raw CL primitives."
   (let ((map (fset:empty-map)))
     (dolist (item elements)
-      (let ((count (fset:lookup map item)))
-        (setf map (fset:with map item (if count (1+ count) 1)))))
+      (let* ((raw-item (fol.wrappers:fol-value item))
+             (count (fset:lookup map raw-item)))
+        (setf map (fset:with map raw-item (if count (1+ count) 1)))))
     (make-instance '<bag> :items map)))
 
 (defgeneric <bag>? (obj) (:documentation "Returns T if OBJ is a FOL <bag>."))
-(defmethod <bag>? (obj) (return-f))
-(defmethod <bag>? ((obj <bag>)) (return-t))
+(defmethod <bag>? (obj) nil)
+(defmethod <bag>? ((obj <bag>)) t)
 
 (defmethod print-object ((obj <bag>) stream)
   (format stream "#M{")
@@ -114,8 +133,8 @@
       (dotimes (i count)
         (unless first (format stream " "))
         (setf first nil)
-        (cond ((eq elem fol.singleton:*true-instance*) (format stream "#t"))
-              ((eq elem fol.singleton:*false-instance*) (format stream "#f"))
+        (cond ((eq elem t) (format stream "#t"))
+              ((eq elem nil) (format stream "#f"))
               ((keywordp elem) (format stream "~S" elem))
               ((symbolp elem)  (format stream "'~S" elem))
               (t (format stream "~S" elem))))))
@@ -132,26 +151,27 @@
   (:documentation "A persistent set implemented as a dictionary where keys are elements and values are T."))
 
 (defun make-set (&rest elements)
-  "Create a new <set> from the given elements. Stores elements as keys with T values."
+  "Create a new <set> from the given elements.
+   Elements are stored as raw CL primitives."
   (let ((map (fset:empty-map)))
     (dolist (item elements)
-      (setf map (fset:with map item t)))
+      (setf map (fset:with map (fol.wrappers:fol-value item) t)))
     (make-instance '<set> :items map)))
 
 (defgeneric <set>? (obj) (:documentation "Returns T if OBJ is a FOL <set>."))
-(defmethod <set>? (obj) (return-f))
-(defmethod <set>? ((obj <set>)) (return-t))
+(defmethod <set>? (obj) nil)
+(defmethod <set>? ((obj <set>)) t)
 
 (defmethod print-object ((obj <set>) stream)
   (format stream "#{")
   (let ((items (pslot-value obj 'items))
         (first t))
     (fset:do-map (key val items)
-      (declare (ignore val)) 
+      (declare (ignore val))
       (unless first (format stream " "))
       (setf first nil)
-      (cond ((eq key fol.singleton:*true-instance*) (format stream "#t"))
-            ((eq key fol.singleton:*false-instance*) (format stream "#f"))
+      (cond ((eq key t) (format stream "#t"))
+            ((eq key nil) (format stream "#f"))
             ((keywordp key) (format stream "~S" key))
             ((symbolp key)  (format stream "'~S" key))
             (t (format stream "~S" key)))))
@@ -163,19 +183,22 @@
 ;;; ============================================================================
 
 (defclass <vector> (<ordered-collection>)
-  ((items :initarg :items 
+  ((items :initarg :items
           :initform (fset:empty-seq)
           :documentation "The underlying FSet sequence."))
   (:metaclass persistent-class)
   (:documentation "A persistent ordered vector implemented using FSet sequences."))
 
 (defun make-vector (&rest elements)
-  "Create a new <vector> from the given elements."
-  (make-instance '<vector> :items (fset:convert 'fset:seq elements)))
+  "Create a new <vector> from the given elements.
+   Elements are stored as raw CL primitives."
+  (make-instance '<vector>
+                 :items (fset:convert 'fset:seq
+                                      (mapcar #'fol.wrappers:fol-value elements))))
 
 (defgeneric <vector>? (obj) (:documentation "Returns T if OBJ is a FOL <vector>."))
-(defmethod <vector>? (obj) (return-f))
-(defmethod <vector>? ((obj <vector>)) (return-t))
+(defmethod <vector>? (obj) nil)
+(defmethod <vector>? ((obj <vector>)) t)
 
 (defmethod print-object ((obj <vector>) stream)
   (format stream "[")
@@ -184,8 +207,8 @@
     (fset:do-seq (item items)
       (unless first (format stream " "))
       (setf first nil)
-      (cond ((eq item fol.singleton:*true-instance*) (format stream "#t"))
-            ((eq item fol.singleton:*false-instance*) (format stream "#f"))
+      (cond ((eq item t) (format stream "#t"))
+            ((eq item nil) (format stream "#f"))
             ((keywordp item) (format stream "~S" item))
             ((symbolp item)  (format stream "'~S" item))
             (t (format stream "~S" item)))))
@@ -197,7 +220,7 @@
 ;;; ============================================================================
 
 (defclass <array> (<vector>)
-  ((dimensions :initarg :dimensions 
+  ((dimensions :initarg :dimensions
                :initform (make-vector)
                :documentation "A <vector> of positive integers defining the shape."))
   (:metaclass persistent-class)
@@ -206,35 +229,63 @@
 (defun make-array (dims &rest elements)
   "Create a new <array>.
    DIMS: A FOL <vector> of integers (e.g. [2 2]).
-   ELEMENTS: The data to populate the array (flat sequence)."
-  (make-instance '<array> 
-                 :dimensions dims 
-                 :items (fset:convert 'fset:seq elements)))
+   ELEMENTS: The data to populate the array (flat sequence).
+   Elements are stored as raw CL primitives."
+  (make-instance '<array>
+                 :dimensions dims
+                 :items (fset:convert 'fset:seq
+                                      (mapcar #'fol.wrappers:fol-value elements))))
 
 (defgeneric <array>? (obj) (:documentation "Returns T if OBJ is a FOL <array>."))
-(defmethod <array>? (obj) (return-f))
-(defmethod <array>? ((obj <array>)) (return-t))
+(defmethod <array>? (obj) nil)
+(defmethod <array>? ((obj <array>)) t)
 
+
+;;; ============================================================================
 ;;; GENERIC GET (Shadows cl:get)
-(defgeneric get (obj indices &optional default)
-  (:documentation "Retrieve element at INDICES (a <vector>). Returns DEFAULT if out of bounds."))
+;;; ============================================================================
+
+(defgeneric get (obj key &optional default)
+  (:documentation "Retrieve element at KEY. Returns raw CL value.
+   For arrays, KEY is a <vector> of indices.
+   For dicts, KEY is any value.
+   Returns DEFAULT if not found."))
+
+(defmethod get ((dict <dict>) key &optional default)
+  "Look up KEY in DICT and return the associated value, or DEFAULT if not found.
+   KEY can be raw or wrapped; it's unwrapped for lookup."
+  (multiple-value-bind (val found)
+      (fset:lookup (pslot-value dict 'fol.collection::items)
+                   (fol.wrappers:fol-value key))
+    (if found val default)))
+
+(defmethod get ((vec <vector>) (index integer) &optional default)
+  "Get element at INDEX from vector. Returns raw value."
+  (let ((seq (pslot-value vec 'items)))
+    (if (and (>= index 0) (< index (fset:size seq)))
+        (fset:lookup seq index)
+        default)))
+
+(defmethod get ((vec <vector>) (index fol.classes:<number>) &optional default)
+  "Get element at INDEX from vector. INDEX can be wrapped."
+  (get vec (fol.wrappers:fol-value index) default))
 
 (defmethod get ((arr <array>) (indices <vector>) &optional default)
+  "Get element from array at INDICES (a vector of integers)."
   (let* ((dim-seq (pslot-value (pslot-value arr 'dimensions) 'items))
          (idx-seq (pslot-value indices 'items))
          (dims (fset:convert 'list dim-seq))
          (idxs (fset:convert 'list idx-seq)))
-    
+
     ;; Check Rank (Number of indices must match number of dimensions)
     (unless (= (length dims) (length idxs))
       (return-from get default))
-    
+
     ;; Calculate Flat Index (Column Major Order)
-    ;;    Formula: i1 + d1 * (i2 + d2 * (i3 + ...))
     (let ((flat-index 0)
           (multiplier 1)
           (valid t))
-      
+
       (loop for i in idxs
             for d in dims
             do (if (or (< i 0) (>= i d))
@@ -242,16 +293,11 @@
                    (progn
                      (incf flat-index (* i multiplier))
                      (setf multiplier (* multiplier d)))))
-      
+
       (if (not valid)
           default
-          ;; 3. Retrieve from storage (inherited 'items' slot from <vector>)
           (let ((val (fset:lookup (pslot-value arr 'items) flat-index)))
-            ;; fset:lookup returns nil if index is missing in sparse seq
             (or val default))))))
-
-
-
 
 
 ;;; ============================================================================
@@ -262,60 +308,66 @@
 (defgeneric size (collection)
   (:documentation "Returns the number of elements in the collection."))
 
-(defmethod size ((c <collection>) )
+(defmethod size ((c <collection>))
   (fset:size (pslot-value c 'items)))
 
 ;;; 2. EMPTY?
 (defgeneric empty? (collection)
-  (:documentation "Returns #t if the collection is empty, #f otherwise."))
+  (:documentation "Returns T if the collection is empty, NIL otherwise."))
 
 (defmethod empty? ((c <collection>))
   (if (fset:empty? (pslot-value c 'items))
-      (return-t)
-      (return-f)))
+      t
+      nil))
 
 ;;; 3. CONTAINS?
 (defgeneric contains? (collection item)
-  (:documentation "Returns #t if ITEM is in COLLECTION."))
+  (:documentation "Returns T if ITEM is in COLLECTION.
+   ITEM can be raw or wrapped; it's unwrapped for comparison."))
 
 (defmethod contains? ((c <unordered-collection>) item)
-  ;; For sets/bags/dicts, simple lookup.
-  (multiple-value-bind (val found) (fset:lookup (pslot-value c 'items) item)
+  (multiple-value-bind (val found)
+      (fset:lookup (pslot-value c 'items) (fol.wrappers:fol-value item))
     (declare (ignore val))
-    (if found (return-t) (return-f))))
+    (if found t nil)))
 
 (defmethod contains? ((v <vector>) item)
-  ;; Convert FSet sequence to list and use CL:POSITION
-  ;; FSet doesn't provide a position function for sequences
-  (let* ((seq (pslot-value v 'items))
+  (let* ((raw-item (fol.wrappers:fol-value item))
+         (seq (pslot-value v 'items))
          (as-list (fset:convert 'list seq)))
-    (if (cl:position item as-list :test #'equal)
-        (return-t)
-        (return-f))))
+    (if (cl:position raw-item as-list :test #'equal)
+        t
+        nil)))
 
 ;;; 4. ADD (Functional Insertion)
 (defgeneric add (collection item &optional value)
-  (:documentation "Returns a new collection with ITEM added."))
+  (:documentation "Returns a new collection with ITEM added.
+   ITEM and VALUE are unwrapped before storage."))
 
 (defmethod add ((d <dict>) key &optional value)
   (unless value (error "Adding to a <dict> requires a value."))
-  (let ((new-map (fset:with (pslot-value d 'items) key value)))
+  (let ((new-map (fset:with (pslot-value d 'items)
+                            (fol.wrappers:fol-value key)
+                            (fol.wrappers:fol-value value))))
     (make-instance (class-of d) :items new-map)))
 
 (defmethod add ((s <set>) item &optional value)
   (declare (ignore value))
-  (let ((new-map (fset:with (pslot-value s 'items) item t)))
+  (let ((new-map (fset:with (pslot-value s 'items)
+                            (fol.wrappers:fol-value item) t)))
     (make-instance (class-of s) :items new-map)))
 
 (defmethod add ((b <bag>) item &optional value)
   (declare (ignore value))
-  (let* ((map (pslot-value b 'items))
-         (count (or (fset:lookup map item) 0)))
-    (make-instance (class-of b) :items (fset:with map item (1+ count)))))
+  (let* ((raw-item (fol.wrappers:fol-value item))
+         (map (pslot-value b 'items))
+         (count (or (fset:lookup map raw-item) 0)))
+    (make-instance (class-of b) :items (fset:with map raw-item (1+ count)))))
 
 (defmethod add ((v <vector>) item &optional value)
   (declare (ignore value))
-  (let ((new-seq (fset:with-last (pslot-value v 'items) item)))
+  (let ((new-seq (fset:with-last (pslot-value v 'items)
+                                 (fol.wrappers:fol-value item))))
     (make-instance (class-of v) :items new-seq)))
 
 (defmethod add ((a <array>) item &optional value)
@@ -324,33 +376,38 @@
 
 ;;; 5. REMOVE (Functional Deletion)
 (defgeneric remove (collection item)
-  (:documentation "Returns a new collection with ITEM removed."))
+  (:documentation "Returns a new collection with ITEM removed.
+   ITEM is unwrapped before comparison."))
 
 (defmethod remove ((d <dict>) key)
-  (make-instance (class-of d) :items (fset:less (pslot-value d 'items) key)))
+  (make-instance (class-of d)
+                 :items (fset:less (pslot-value d 'items)
+                                   (fol.wrappers:fol-value key))))
 
 (defmethod remove ((s <set>) item)
-  (make-instance (class-of s) :items (fset:less (pslot-value s 'items) item)))
+  (make-instance (class-of s)
+                 :items (fset:less (pslot-value s 'items)
+                                   (fol.wrappers:fol-value item))))
 
 (defmethod remove ((b <bag>) item)
-  (let* ((map (pslot-value b 'items))
-         (count (fset:lookup map item)))
+  (let* ((raw-item (fol.wrappers:fol-value item))
+         (map (pslot-value b 'items))
+         (count (fset:lookup map raw-item)))
     (cond
       ((null count) b)
-      ((<= count 1) (make-instance (class-of b) :items (fset:less map item)))
-      (t (make-instance (class-of b) :items (fset:with map item (1- count)))))))
+      ((<= count 1) (make-instance (class-of b) :items (fset:less map raw-item)))
+      (t (make-instance (class-of b) :items (fset:with map raw-item (1- count)))))))
 
 (defmethod remove ((v <vector>) item)
-  (let* ((seq (pslot-value v 'items))
+  (let* ((raw-item (fol.wrappers:fol-value item))
+         (seq (pslot-value v 'items))
          (as-list (fset:convert 'list seq))
-         (idx (cl:position item as-list :test #'equal)))
+         (idx (cl:position raw-item as-list :test #'equal)))
     (if idx
         (make-instance (class-of v) :items (fset:less seq idx))
         v)))
 
 ;;; 6. ITERATOR PROTOCOL
-;;; We implement this using a simple List Iterator helper class
-;;; because FSet's internal iterator API is not strictly standardized/exported.
 
 (defclass <list-iterator> ()
   ((items :initarg :items :accessor iter-items))
@@ -360,10 +417,7 @@
   (:documentation "Returns an iterator for the collection."))
 
 (defmethod iterator ((c <collection>))
-  ;; Convert FSet collection to a standard list
-  ;; - Maps become alists: ((k . v) ...)
-  ;; - Sets/Seqs become lists: (e1 e2 ...)
-  (make-instance '<list-iterator> 
+  (make-instance '<list-iterator>
                  :items (fset:convert 'list (pslot-value c 'items))))
 
 (defgeneric next (iterator)
@@ -374,15 +428,45 @@
   iter)
 
 (defgeneric current (iterator)
-  (:documentation "Returns the current element/key of the iterator."))
+  (:documentation "Returns the current element/key of the iterator (raw value)."))
 
 (defmethod current ((iter <list-iterator>))
   (car (iter-items iter)))
 
 (defgeneric done? (iterator)
-  (:documentation "Returns #t if the iterator is exhausted."))
+  (:documentation "Returns T if the iterator is exhausted."))
 
 (defmethod done? ((iter <list-iterator>))
   (if (null (iter-items iter))
-      (return-t)
-      (return-f)))
+      t
+      nil))
+
+
+;;; ============================================================================
+;;; Additional Collection Operations
+;;; ============================================================================
+
+(defgeneric nth-element (collection n)
+  (:documentation "Get the Nth element from an ordered collection.
+   Returns raw value. N can be raw or wrapped."))
+
+(defmethod nth-element ((v <vector>) (n integer))
+  (get v n nil))
+
+(defmethod nth-element ((v <vector>) (n fol.classes:<number>))
+  (get v (fol.wrappers:fol-value n) nil))
+
+(defgeneric set-nth (collection n value)
+  (:documentation "Returns a new collection with element at N replaced by VALUE.
+   N and VALUE are unwrapped before use."))
+
+(defmethod set-nth ((v <vector>) (n integer) value)
+  (let* ((seq (pslot-value v 'items))
+         (raw-value (fol.wrappers:fol-value value)))
+    (if (and (>= n 0) (< n (fset:size seq)))
+        (make-instance (class-of v)
+                       :items (fset:with seq n raw-value))
+        (error "Index ~A out of bounds for vector of size ~A" n (fset:size seq)))))
+
+(defmethod set-nth ((v <vector>) (n fol.classes:<number>) value)
+  (set-nth v (fol.wrappers:fol-value n) value))

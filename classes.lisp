@@ -9,7 +9,7 @@
 ;;; --- Boolean Classes ---
 
 (defclass <bool> (fol.persistent:<persistent-object>)
-  ((val :initarg :val :accessor fol-value :type boolean))
+  ((val :initarg :val :accessor -fol-value :type boolean))
   (:metaclass fol.persistent:persistent-class)
   (:documentation "The base boolean class holding a native Lisp boolean."))
 
@@ -17,21 +17,21 @@
 ;;; --- Character Classes ---
 
 (defclass <char> (fol.persistent:<persistent-object>)
-  ((val :initarg :val :accessor fol-value :type character))
+  ((val :initarg :val :accessor -fol-value :type character))
   (:metaclass fol.persistent:persistent-class)
   (:documentation "The character class holding a native Lisp character."))
 
 ;;; --- String Class ---
 
 (defclass <string> (fol.persistent:<persistent-object>)
-  ((val :initarg :val :accessor fol-value :type string))
+  ((val :initarg :val :accessor -fol-value :type string))
   (:metaclass fol.persistent:persistent-class)
   (:documentation "The string class holding a native Lisp string."))
 
 ;;; --- Symbol Class ---
 
 (defclass <symbol> (<string>)
-  ((val :initarg :val :accessor fol-value :type symbol)
+  ((val :initarg :val :accessor -fol-value :type symbol)
    (module-name :initarg :module-name :accessor symbol-module-name :initform nil :type (or null string))
    (value :initarg :value :accessor symbol-val :initform fol.symbol:+symbol-unbound-sentinel+ :type t))
   (:metaclass fol.persistent:persistent-class)
@@ -45,7 +45,7 @@
 ;;; --- Number Classes ---
 
 (defclass <number> (fol.persistent:<persistent-object>) 
-  ((val :initarg :val :accessor fol-value :type number)) 
+  ((val :initarg :val :accessor -fol-value :type number))
   (:metaclass fol.persistent:persistent-class)
   (:documentation "The base number class."))
 

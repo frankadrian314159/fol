@@ -1,51 +1,120 @@
 (in-package fol.logop)
 
 ;;; ============================================================================
+;;; Logical Operations - Option 4 (Tagged Representation)
+;;; ============================================================================
+;;;
+;;; All operations work transparently on both raw CL values and wrapped
+;;; FOL objects. Results are returned as raw CL values.
+;;;
+;;; - Booleans: logical operations (AND, OR, NOT, XOR)
+;;; - Integers: bitwise operations (LOGAND, LOGIOR, LOGNOT, LOGXOR)
+
+;;; ============================================================================
 ;;; Primitive Dyadic Logical Operations
 ;;; ============================================================================
 
 (defgeneric %and (a b)
-  (:documentation "Binary AND operation."))
+  (:documentation "Binary AND operation. Logical for booleans, bitwise for integers."))
 
 (defgeneric %or (a b)
-  (:documentation "Binary OR operation."))
+  (:documentation "Binary OR operation. Logical for booleans, bitwise for integers."))
 
 (defgeneric %xor (a b)
-  (:documentation "Binary XOR operation."))
+  (:documentation "Binary XOR operation. Logical for booleans, bitwise for integers."))
 
-;;; --- Boolean Implementations ---
+;;; --- Raw Boolean Implementations ---
+
+(defmethod %and ((a (eql t)) (b (eql t))) t)
+(defmethod %and ((a (eql t)) (b (eql nil))) nil)
+(defmethod %and ((a (eql nil)) (b (eql t))) nil)
+(defmethod %and ((a (eql nil)) (b (eql nil))) nil)
+
+(defmethod %or ((a (eql t)) (b (eql t))) t)
+(defmethod %or ((a (eql t)) (b (eql nil))) t)
+(defmethod %or ((a (eql nil)) (b (eql t))) t)
+(defmethod %or ((a (eql nil)) (b (eql nil))) nil)
+
+(defmethod %xor ((a (eql t)) (b (eql t))) nil)
+(defmethod %xor ((a (eql t)) (b (eql nil))) t)
+(defmethod %xor ((a (eql nil)) (b (eql t))) t)
+(defmethod %xor ((a (eql nil)) (b (eql nil))) nil)
+
+;;; --- Raw Integer Implementations (Bitwise) ---
+
+(defmethod %and ((a integer) (b integer))
+  (cl:logand a b))
+
+(defmethod %or ((a integer) (b integer))
+  (cl:logior a b))
+
+(defmethod %xor ((a integer) (b integer))
+  (cl:logxor a b))
+
+;;; --- Wrapped Boolean Implementations ---
 
 (defmethod %and ((a <bool>) (b <bool>))
-  "Logical AND for booleans."
-  (cl:and (unwrap-bool a) (unwrap-bool b)))
+  (cl:and (fol-value a) (fol-value b)))
 
 (defmethod %or ((a <bool>) (b <bool>))
-  "Logical OR for booleans."
-  (cl:or (unwrap-bool a) (unwrap-bool b)))
+  (cl:or (fol-value a) (fol-value b)))
 
 (defmethod %xor ((a <bool>) (b <bool>))
-  "Logical XOR for booleans."
-  (cl:not (cl:eq (unwrap-bool a) (unwrap-bool b))))
+  (cl:not (cl:eq (fol-value a) (fol-value b))))
 
-;;; --- Integer Implementations (Bitwise) ---
+;;; --- Wrapped Integer Implementations ---
 
 (defmethod %and ((a <integer>) (b <integer>))
-  "Bitwise AND for integers."
-  (cl:logand (unwrap-number a) (unwrap-number b)))
+  (cl:logand (fol-value a) (fol-value b)))
 
 (defmethod %or ((a <integer>) (b <integer>))
-  "Bitwise OR for integers."
-  (cl:logior (unwrap-number a) (unwrap-number b)))
+  (cl:logior (fol-value a) (fol-value b)))
 
 (defmethod %xor ((a <integer>) (b <integer>))
-  "Bitwise XOR for integers."
-  (cl:logxor (unwrap-number a) (unwrap-number b)))
+  (cl:logxor (fol-value a) (fol-value b)))
 
-;;; --- Mixed / Native Implementations ---
+;;; --- Mixed: wrapped + raw for booleans ---
 
-(defmethod %and ((a t) (b t))
-  (let ((ua (unwrap a))
-        (ub (unwrap b)))
+(defmethod %and ((a <bool>) (b (eql t))) (fol-value a))
+(defmethod %and ((a <bool>) (b (eql nil))) nil)
+(defmethod %and ((a (eql t)) (b <bool>)) (fol-value b))
+(defmethod %and ((a (eql nil)) (b <bool>)) nil)
+
+(defmethod %or ((a <bool>) (b (eql t))) t)
+(defmethod %or ((a <bool>) (b (eql nil))) (fol-value a))
+(defmethod %or ((a (eql t)) (b <bool>)) t)
+(defmethod %or ((a (eql nil)) (b <bool>)) (fol-value b))
+
+(defmethod %xor ((a <bool>) (b (eql t))) (cl:not (fol-value a)))
+(defmethod %xor ((a <bool>) (b (eql nil))) (fol-value a))
+(defmethod %xor ((a (eql t)) (b <bool>)) (cl:not (fol-value b)))
+(defmethod %xor ((a (eql nil)) (b <bool>)) (fol-value b))
+
+;;; --- Mixed: wrapped + raw for integers ---
+
+(defmethod %and ((a <integer>) (b integer))
+  (cl:logand (fol-value a) b))
+
+(defmethod %and ((a integer) (b <integer>))
+  (cl:logand a (fol-value b)))
+
+(defmethod %or ((a <integer>) (b integer))
+  (cl:logior (fol-value a) b))
+
+(defmethod %or ((a integer) (b <integer>))
+  (cl:logior a (fol-value b)))
+
+(defmethod %xor ((a <integer>) (b integer))
+  (cl:logxor (fol-value a) b))
+
+(defmethod %xor ((a integer) (b <integer>))
+  (cl:logxor a (fol-value b)))
+
+;;; --- Fallback with type dispatch ---
+
+(defmethod %and (a b)
+  (let ((ua (fol-value a))
+        (ub (fol-value b)))
     (cond
       ((and (typep ua 'boolean) (typep ub 'boolean))
        (cl:and ua ub))
@@ -53,9 +122,9 @@
        (cl:logand ua ub))
       (t (error "Cannot AND ~A and ~A" a b)))))
 
-(defmethod %or ((a t) (b t))
-  (let ((ua (unwrap a))
-        (ub (unwrap b)))
+(defmethod %or (a b)
+  (let ((ua (fol-value a))
+        (ub (fol-value b)))
     (cond
       ((and (typep ua 'boolean) (typep ub 'boolean))
        (cl:or ua ub))
@@ -63,9 +132,9 @@
        (cl:logior ua ub))
       (t (error "Cannot OR ~A and ~A" a b)))))
 
-(defmethod %xor ((a t) (b t))
-  (let ((ua (unwrap a))
-        (ub (unwrap b)))
+(defmethod %xor (a b)
+  (let ((ua (fol-value a))
+        (ub (fol-value b)))
     (cond
       ((and (typep ua 'boolean) (typep ub 'boolean))
        (cl:not (cl:eq ua ub)))
@@ -81,19 +150,27 @@
 (defgeneric not (obj)
   (:documentation "Returns the logical negation of a boolean or bitwise NOT of an integer."))
 
+;;; --- Raw values ---
+
+(defmethod not ((obj (eql t))) nil)
+(defmethod not ((obj (eql nil))) t)
+(defmethod not ((obj integer)) (cl:lognot obj))
+
+;;; --- Wrapped values ---
+
 (defmethod not ((obj <bool>))
-  "Logical NOT for booleans."
-  (wrap (cl:not (unwrap-bool obj))))
+  (cl:not (fol-value obj)))
 
 (defmethod not ((obj <integer>))
-  "Bitwise NOT for integers (one's complement)."
-  (wrap (cl:lognot (unwrap-number obj))))
+  (cl:lognot (fol-value obj)))
+
+;;; --- Fallback ---
 
 (defmethod not (obj)
-  (let ((u (unwrap obj)))
+  (let ((u (fol-value obj)))
     (cond
-      ((typep u 'boolean) (wrap (cl:not u)))
-      ((integerp u) (wrap (cl:lognot u)))
+      ((typep u 'boolean) (cl:not u))
+      ((integerp u) (cl:lognot u))
       (t (error "NOT requires a boolean or integer, got ~A" obj)))))
 
 
@@ -106,20 +183,20 @@
 
 (defmethod and (&rest args)
   (cond
-    ;; No arguments: identity is true for logical, -1 for bitwise
-    ((null args) (wrap t))
-    ;; One argument: return it
-    ((null (cdr args)) (car args))
+    ;; No arguments: identity is true for logical
+    ((null args) t)
+    ;; One argument: return the value
+    ((null (cdr args)) (fol-value (car args)))
     ;; Multiple arguments: determine type and fold
     (t
-     (let ((first-unwrapped (unwrap (car args))))
+     (let ((first-unwrapped (fol-value (car args))))
        (cond
          ;; All booleans: logical AND
          ((typep first-unwrapped 'boolean)
-          (wrap (every #'(lambda (x) (unwrap-bool x)) args)))
-         ;; All integers: bitwise AND - reduce on unwrapped values
+          (every #'(lambda (x) (fol-value x)) args))
+         ;; All integers: bitwise AND
          ((integerp first-unwrapped)
-          (wrap (reduce #'cl:logand args :key #'unwrap-number)))
+          (reduce #'cl:logand args :key #'fol-value))
          (t (error "AND requires all arguments to be the same type")))))))
 
 
@@ -128,20 +205,20 @@
 
 (defmethod or (&rest args)
   (cond
-    ;; No arguments: identity is false for logical, 0 for bitwise
-    ((null args) (wrap nil))
-    ;; One argument: return it
-    ((null (cdr args)) (car args))
+    ;; No arguments: identity is false for logical
+    ((null args) nil)
+    ;; One argument: return the value
+    ((null (cdr args)) (fol-value (car args)))
     ;; Multiple arguments: determine type and fold
     (t
-     (let ((first-unwrapped (unwrap (car args))))
+     (let ((first-unwrapped (fol-value (car args))))
        (cond
          ;; All booleans: logical OR
          ((typep first-unwrapped 'boolean)
-          (wrap (some #'(lambda (x) (unwrap-bool x)) args)))
-         ;; All integers: bitwise OR - reduce on unwrapped values
+          (if (some #'(lambda (x) (fol-value x)) args) t nil))
+         ;; All integers: bitwise OR
          ((integerp first-unwrapped)
-          (wrap (reduce #'cl:logior args :key #'unwrap-number)))
+          (reduce #'cl:logior args :key #'fol-value))
          (t (error "OR requires all arguments to be the same type")))))))
 
 
@@ -151,22 +228,22 @@
 (defmethod xor (&rest args)
   (cond
     ;; No arguments: identity is false for logical, 0 for bitwise
-    ((null args) (wrap nil))
-    ;; One argument: return it
-    ((null (cdr args)) (car args))
+    ((null args) nil)
+    ;; One argument: return the value
+    ((null (cdr args)) (fol-value (car args)))
     ;; Multiple arguments: determine type and fold
     (t
-     (let ((first-unwrapped (unwrap (car args))))
+     (let ((first-unwrapped (fol-value (car args))))
        (cond
          ;; All booleans: logical XOR (odd number of trues)
          ((typep first-unwrapped 'boolean)
-          (wrap (reduce (lambda (a b) (cl:not (eq a b)))
-                        args
-                        :key #'unwrap-bool
-                        :initial-value nil)))
-         ;; All integers: bitwise XOR - reduce on unwrapped values
+          (reduce (lambda (a b) (cl:not (eq a b)))
+                  args
+                  :key #'fol-value
+                  :initial-value nil))
+         ;; All integers: bitwise XOR
          ((integerp first-unwrapped)
-          (wrap (reduce #'cl:logxor args :key #'unwrap-number)))
+          (reduce #'cl:logxor args :key #'fol-value))
          (t (error "XOR requires all arguments to be the same type")))))))
 
 
@@ -177,27 +254,48 @@
 (defgeneric implies (a b)
   (:documentation "Logical implication (If A then B). For booleans: (OR (NOT A) B). For integers: bitwise equivalent."))
 
+;;; --- Raw values ---
+
+(defmethod implies ((a (eql t)) (b (eql t))) t)
+(defmethod implies ((a (eql t)) (b (eql nil))) nil)
+(defmethod implies ((a (eql nil)) (b (eql t))) t)
+(defmethod implies ((a (eql nil)) (b (eql nil))) t)
+
+(defmethod implies ((a integer) (b integer))
+  (cl:logior (cl:lognot a) b))
+
+;;; --- Wrapped values ---
+
 (defmethod implies ((a <bool>) (b <bool>))
-  "Logical implication for booleans."
-  (wrap (cl:or (cl:not (unwrap-bool a)) 
-               (unwrap-bool b))))
+  (cl:or (cl:not (fol-value a)) (fol-value b)))
 
 (defmethod implies ((a <integer>) (b <integer>))
-  "Bitwise implication for integers: (~A) | B"
-  (wrap (cl:logior (cl:lognot (unwrap-number a))
-                   (unwrap-number b))))
+  (cl:logior (cl:lognot (fol-value a)) (fol-value b)))
+
+;;; --- Mixed ---
+
+(defmethod implies ((a <bool>) (b (eql t))) t)
+(defmethod implies ((a <bool>) (b (eql nil))) (cl:not (fol-value a)))
+(defmethod implies ((a (eql t)) (b <bool>)) (fol-value b))
+(defmethod implies ((a (eql nil)) (b <bool>)) t)
+
+(defmethod implies ((a <integer>) (b integer))
+  (cl:logior (cl:lognot (fol-value a)) b))
+
+(defmethod implies ((a integer) (b <integer>))
+  (cl:logior (cl:lognot a) (fol-value b)))
+
+;;; --- Fallback ---
 
 (defmethod implies (a b)
-  (let ((ua (unwrap a))
-        (ub (unwrap b)))
+  (let ((ua (fol-value a))
+        (ub (fol-value b)))
     (cond
       ((and (typep ua 'boolean) (typep ub 'boolean))
-       (wrap (cl:or (cl:not ua) ub)))
+       (cl:or (cl:not ua) ub))
       ((and (integerp ua) (integerp ub))
-       (wrap (cl:logior (cl:lognot ua) ub)))
+       (cl:logior (cl:lognot ua) ub))
       (t (error "IMPLIES requires matching types (both boolean or both integer), got ~A and ~A" a b)))))
-
-
 
 
 ;;; ============================================================================
@@ -210,19 +308,19 @@
 (defmethod nand (&rest args)
   (cond
     ;; No arguments: NOT(AND()) = NOT(true) = false
-    ((null args) (wrap nil))
+    ((null args) nil)
     ;; One argument: NOT(arg)
     ((null (cdr args)) (not (car args)))
     ;; Multiple arguments: NOT(AND(args...))
     (t
-     (let ((first-unwrapped (unwrap (car args))))
+     (let ((first-unwrapped (fol-value (car args))))
        (cond
          ;; All booleans: logical NAND
          ((typep first-unwrapped 'boolean)
-          (wrap (cl:not (every #'(lambda (x) (unwrap-bool x)) args))))
-         ;; All integers: bitwise NAND - reduce on unwrapped values
+          (cl:not (every #'(lambda (x) (fol-value x)) args)))
+         ;; All integers: bitwise NAND
          ((integerp first-unwrapped)
-          (wrap (cl:lognot (reduce #'cl:logand args :key #'unwrap-number))))
+          (cl:lognot (reduce #'cl:logand args :key #'fol-value)))
          (t (error "NAND requires all arguments to be the same type")))))))
 
 
@@ -232,17 +330,17 @@
 (defmethod nor (&rest args)
   (cond
     ;; No arguments: NOT(OR()) = NOT(false) = true
-    ((null args) (wrap t))
+    ((null args) t)
     ;; One argument: NOT(arg)
     ((null (cdr args)) (not (car args)))
     ;; Multiple arguments: NOT(OR(args...))
     (t
-     (let ((first-unwrapped (unwrap (car args))))
+     (let ((first-unwrapped (fol-value (car args))))
        (cond
          ;; All booleans: logical NOR
          ((typep first-unwrapped 'boolean)
-          (wrap (cl:not (some #'(lambda (x) (unwrap-bool x)) args))))
-         ;; All integers: bitwise NOR - reduce on unwrapped values
+          (cl:not (some #'(lambda (x) (fol-value x)) args)))
+         ;; All integers: bitwise NOR
          ((integerp first-unwrapped)
-          (wrap (cl:lognot (reduce #'cl:logior args :key #'unwrap-number))))
+          (cl:lognot (reduce #'cl:logior args :key #'fol-value)))
          (t (error "NOR requires all arguments to be the same type")))))))

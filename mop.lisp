@@ -62,6 +62,14 @@
   (ensure-finalized class)
   (closer-mop:class-direct-slots class))
 
+(defmethod class-direct-slots* ((class standard-class))
+  "Fallback for standard CL classes."
+  (closer-mop:class-direct-slots class))
+
+(defmethod class-direct-slots* ((class class))
+  "General fallback for any class type (including implementation-specific classes)."
+  (closer-mop:class-direct-slots class))
+
 (defmethod class-direct-slots* ((class symbol))
   (class-direct-slots* (find-class class)))
 
@@ -70,6 +78,14 @@
 
 (defmethod class-slots* ((class persistent-class))
   (ensure-finalized class)
+  (closer-mop:class-slots class))
+
+(defmethod class-slots* ((class standard-class))
+  "Fallback for standard CL classes."
+  (closer-mop:class-slots class))
+
+(defmethod class-slots* ((class class))
+  "General fallback for any class type (including implementation-specific classes)."
   (closer-mop:class-slots class))
 
 (defmethod class-slots* ((class symbol))
@@ -251,9 +267,11 @@
                         class-or-instance
                         (class-of class-or-instance))))
          (slot-def (find-slot-definition class slot-name))
-         ;; Find direct slot definition for readers/writers
-         (direct-slot (find slot-name (class-direct-slots* class)
-                            :key #'closer-mop:slot-definition-name)))
+         ;; Find direct slot definition for readers/writers by searching precedence list
+         (direct-slot (some (lambda (c)
+                              (find slot-name (class-direct-slots* c)
+                                    :key #'closer-mop:slot-definition-name))
+                            (class-precedence-list* class))))
     (when slot-def
       (list :name (slot-definition-name* slot-def)
             :type (slot-definition-type* slot-def)
