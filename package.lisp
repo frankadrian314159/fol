@@ -238,7 +238,7 @@
    ;; Main evaluation function
    fol-eval
    ;; Special form evaluators (for extensibility)
-   eval-quote eval-if eval-do eval-bind eval-fn eval-def
+   eval-quote eval-if eval-do eval-let eval-let* eval-fn eval-def
    eval-loop eval-recur eval-throw eval-try
    ;; Conditions
    fol-eval-error fol-eval-error-message fol-eval-error-form
