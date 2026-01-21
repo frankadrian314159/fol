@@ -5,6 +5,7 @@
 # VSCode/Alive REPL artifacts
 .vscode/alive/fasl/
 .vscode/alive/repl-history.json
+tmp.lisp
 
 # Common Lisp compiled files
 *.fasl

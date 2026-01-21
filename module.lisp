@@ -4,17 +4,15 @@
 ;;; Module Class
 ;;; ============================================================================
 
-(defclass <module> (fol.collection:<dict>)
-  ()
 ;;; Global Registry
-(defvar *modules* (make-hash-table :test 'equal)
+(defvar +module-registry+ (make-hash-table :test 'equal)
   "Global registry mapping module names (strings) to <module> instances.")
 
 (defun find-module (name)
-  (gethash (string name) *modules*))
+  (gethash (string name) +module-registry+))
 
 (defun register-module (name module)
-  (setf (gethash (string name) *modules*) module))
+  (setf (gethash (string name) +module-registry+) module))
 
 (defclass <module> (fol.env:<env>)
   ((name :initarg :name
@@ -26,23 +24,18 @@
             :documentation "Set of exported symbols."))
   (:metaclass fol.persistent:persistent-class)
   (:documentation "A module represents a namespace mapping symbols to values.
-                   It inherits from <dict>, so it is a persistent collection."))
                    It inherits from <env> to serve as an evaluation context."))
 
-(defun make-module (&rest pairs)
 (defun make-module (name &rest pairs)
-  "Create a new <module>, optionally populated with initial bindings.
-   Usage: (make-module 'key1 val1 'key2 val2 ...)"
-  ;; Reuse the dict logic, but wrap it in our <module> class
+  "Create a new <module> optionally populated with initial bindings.
    Usage: (make-module 'my-mod 'key1 val1 'key2 val2 ...)"
   (let ((map (fset:empty-map)))
     (loop for (key val) on pairs by #'cddr
-          do (setf map (fset:with map 
-                                  (fol.wrappers:fol-value key) 
+          do (setf map (fset:with map
+                                  (fol.wrappers:fol-value key)
                                   (fol.wrappers:fol-value val))))
-    (make-instance '<module> :items map)))
-    (let ((m (make-instance '<module> 
-                            :name name 
+    (let ((m (make-instance '<module>
+                            :name name
                             :items map
                             :previous nil)))
       (register-module name m)
@@ -76,10 +69,5 @@
     (fol.persistent:set-pslot-value target-env 'fol.collection::items target-items)))
 
 ;;; Printer
-;;; We might want modules to print differently than raw dicts (e.g. #<MODULE { ... }>)
 (defmethod print-object ((obj <module>) stream)
-  (format stream "#<MODULE ")
-  ;; Call the <dict> printer to print the contents { ... }
-  (call-next-method) 
-  (format stream ">"))
   (format stream "#<MODULE ~A>" (module-name obj)))
