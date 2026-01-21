@@ -34,6 +34,7 @@
 (defmethod fol-value ((obj (eql t))) t)
 (defmethod fol-value ((obj (eql nil))) nil)
 (defmethod fol-value ((obj function)) obj)
+(defmethod fol-value ((obj cons)) obj)
 ;; Pass-through for persistent objects that are not wrappers (e.g. collections)
 (defmethod fol-value ((obj fol.persistent:<persistent-object>)) obj)
 
@@ -70,8 +71,9 @@
 (defmethod fol-type-of ((obj complex)) '<complex>)
 (defmethod fol-type-of ((obj character)) '<char>)
 (defmethod fol-type-of ((obj string)) '<string>)
-(defmethod fol-type-of ((obj symbol)) 
+(defmethod fol-type-of ((obj symbol))
   (if (keywordp obj) '<keyword> '<symbol>))
+(defmethod fol-type-of ((obj cons)) '<list>)
 
 ;;; --- Wrapped FOL objects -> FOL types (from class name) ---
 (defmethod fol-type-of ((obj <bool>)) '<bool>)

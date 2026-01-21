@@ -424,11 +424,10 @@
 ;;; Edge Cases
 ;;; ---------------------------------------------------------------------------
 
-(test eval-empty-list-error
-  "Test that empty list causes an error."
+(test eval-empty-list-is-nil
+  "Test that empty list evaluates to nil (standard Lisp semantics)."
   (let ((env (make-env)))
-    (signals error
-      (fol-eval '() env))))
+    (is (eq nil (fol-eval '() env)))))
 
 (test eval-nil-value-lookup
   "Test looking up a variable bound to nil."

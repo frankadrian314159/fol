@@ -9,9 +9,12 @@
 ;;;
 ;;; - Booleans: logical operations (AND, OR, NOT, XOR)
 ;;; - Integers: bitwise operations (LOGAND, LOGIOR, LOGNOT, LOGXOR)
+;;;
+;;; IMPORTANT: AND and OR are macros that short-circuit evaluation.
+;;; This means they behave like CL:AND and CL:OR for control flow.
 
 ;;; ============================================================================
-;;; Primitive Dyadic Logical Operations
+;;; Primitive Dyadic Logical Operations (for non-short-circuit contexts)
 ;;; ============================================================================
 
 (defgeneric %and (a b)
@@ -116,9 +119,9 @@
   (let ((ua (fol-value a))
         (ub (fol-value b)))
     (cond
-      ((and (typep ua 'boolean) (typep ub 'boolean))
+      ((cl:and (typep ua 'boolean) (typep ub 'boolean))
        (cl:and ua ub))
-      ((and (integerp ua) (integerp ub))
+      ((cl:and (integerp ua) (integerp ub))
        (cl:logand ua ub))
       (t (error "Cannot AND ~A and ~A" a b)))))
 
@@ -126,9 +129,9 @@
   (let ((ua (fol-value a))
         (ub (fol-value b)))
     (cond
-      ((and (typep ua 'boolean) (typep ub 'boolean))
+      ((cl:and (typep ua 'boolean) (typep ub 'boolean))
        (cl:or ua ub))
-      ((and (integerp ua) (integerp ub))
+      ((cl:and (integerp ua) (integerp ub))
        (cl:logior ua ub))
       (t (error "Cannot OR ~A and ~A" a b)))))
 
@@ -136,9 +139,9 @@
   (let ((ua (fol-value a))
         (ub (fol-value b)))
     (cond
-      ((and (typep ua 'boolean) (typep ub 'boolean))
+      ((cl:and (typep ua 'boolean) (typep ub 'boolean))
        (cl:not (cl:eq ua ub)))
-      ((and (integerp ua) (integerp ub))
+      ((cl:and (integerp ua) (integerp ub))
        (cl:logxor ua ub))
       (t (error "Cannot XOR ~A and ~A" a b)))))
 
@@ -177,6 +180,12 @@
 ;;; ============================================================================
 ;;; Public Variadic Logical Operators
 ;;; ============================================================================
+;;;
+;;; NOTE: These are generic functions, not macros. They do NOT short-circuit.
+;;; For booleans: logical AND/OR
+;;; For integers: bitwise AND/OR (logand/logior)
+;;;
+;;; If you need short-circuit evaluation in Lisp code, use CL:AND and CL:OR.
 
 (defgeneric and (&rest args)
   (:documentation "Variadic AND. Logical AND for booleans, bitwise AND for integers."))
@@ -221,6 +230,10 @@
           (reduce #'cl:logior args :key #'fol-value))
          (t (error "OR requires all arguments to be the same type")))))))
 
+
+;;; ============================================================================
+;;; Variadic XOR (no short-circuit semantics)
+;;; ============================================================================
 
 (defgeneric xor (&rest args)
   (:documentation "Variadic XOR. Logical XOR for booleans, bitwise XOR for integers."))
@@ -291,9 +304,9 @@
   (let ((ua (fol-value a))
         (ub (fol-value b)))
     (cond
-      ((and (typep ua 'boolean) (typep ub 'boolean))
+      ((cl:and (typep ua 'boolean) (typep ub 'boolean))
        (cl:or (cl:not ua) ub))
-      ((and (integerp ua) (integerp ub))
+      ((cl:and (integerp ua) (integerp ub))
        (cl:logior (cl:lognot ua) ub))
       (t (error "IMPLIES requires matching types (both boolean or both integer), got ~A and ~A" a b)))))
 

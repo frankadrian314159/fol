@@ -263,8 +263,8 @@
            :form (cons 'fn args)))
   (let (name params body)
     ;; Check if first arg is a name (symbol, not vector/list)
-    (if (and (symbolp (first args))
-             (not (null (first args)))
+    (if (cl:and (symbolp (first args))
+             (cl:not (null (first args)))
              (>= (length args) 2))
         (progn
           (setf name (first args))
@@ -369,12 +369,14 @@
   (let ((body nil)
         (catch-clause nil)
         (finally-clause nil))
-    ;; Parse clauses
+    ;; Parse clauses - use string comparison for package independence
     (dolist (form args)
       (cond
-        ((and (consp form) (eq (car form) 'catch))
+        ((cl:and (consp form) (symbolp (car form))
+              (string= (symbol-name (car form)) "CATCH"))
          (setf catch-clause form))
-        ((and (consp form) (eq (car form) 'finally))
+        ((cl:and (consp form) (symbolp (car form))
+              (string= (symbol-name (car form)) "FINALLY"))
          (setf finally-clause form))
         (t (push form body))))
     (setf body (nreverse body))
@@ -476,7 +478,7 @@
 (defun special-form-p (op name)
   "Check if OP matches the special form NAME, comparing by symbol name.
    This allows forms from any package to be recognized as special forms."
-  (and (symbolp op)
+  (cl:and (symbolp op)
        (string= (symbol-name op) (symbol-name name))))
 
 (defun extract-symbol (form)
@@ -506,7 +508,8 @@
     (dolist (p param-list)
       (let ((sym (extract-symbol p)))
         (cond
-          ((eq sym '&)
+          ;; Compare by name for package independence
+          ((string= (symbol-name sym) "&")
            (setf saw-ampersand t))
           (saw-ampersand
            (setf rest-param sym)
