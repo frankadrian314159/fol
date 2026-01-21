@@ -124,13 +124,16 @@
                 :fol-eval
                 :eval-quote :eval-if :eval-do :eval-bind :eval-fn :eval-def
                 :eval-loop :eval-recur :eval-throw :eval-try :eval-defmacro
-                :eval-syntax-quote
+                :eval-syntax-quote :eval-make-dynamic :eval-binding
                 :fol-eval-error :fol-eval-error-message :fol-eval-error-form
                 :fol-arity-error :fol-arity-error-expected :fol-arity-error-got
                 :make-function :apply-function
                 :make-macro :expand-macro
                 :expand-syntax-quote :unquote-form-p :unquote-splicing-form-p
                 :auto-gensym-symbol-p
+                :<dynamic-var> :<dynamic-var>? :make-dynamic-var
+                :dynamic-var-name :dynamic-var-value :dynamic-var-root-value
+                :dynamic-var-push :dynamic-var-pop
                 :make-standard-env
                 :<function> :<function>?
                 :<macro> :<macro>? :macro-name :macro-params :macro-body

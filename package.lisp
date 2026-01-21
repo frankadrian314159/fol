@@ -241,6 +241,7 @@
    ;; Special form evaluators (for extensibility)
    eval-quote eval-if eval-do eval-bind eval-fn eval-def eval-defn
    eval-loop eval-recur eval-throw eval-try eval-defmacro eval-syntax-quote
+   eval-make-dynamic eval-binding
    ;; Conditions
    fol-eval-error fol-eval-error-message fol-eval-error-form
    fol-arity-error fol-arity-error-expected fol-arity-error-got
@@ -250,6 +251,10 @@
    make-macro expand-macro macroexpand-1 macroexpand
    ;; Syntax-quote utilities
    expand-syntax-quote unquote-form-p unquote-splicing-form-p auto-gensym-symbol-p
+   ;; Dynamic variable utilities
+   <dynamic-var> <dynamic-var>? make-dynamic-var
+   dynamic-var-name dynamic-var-value dynamic-var-root-value
+   dynamic-var-push dynamic-var-pop
    ;; Standard environment
    make-standard-env
    ;; Function class and predicate

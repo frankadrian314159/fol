@@ -1,5 +1,5 @@
 (defsystem "fol"
-  :description "Functional Object Lisp with FSet-based Persistent Objects."
+  :description "Functional Object Lisp."
   :depends-on ("fset" "closer-mop")
   :components ((:file "package")
                (:file "persistent" :depends-on ("package"))

@@ -88,6 +88,55 @@
                  :name name))
 
 ;;; ============================================================================
+;;; FOL Dynamic Variable Representation
+;;; ============================================================================
+;;; Dynamic variables provide dynamically-scoped bindings that can be temporarily
+;;; rebound using the `binding` form. The value stack allows nested bindings.
+
+(defclass <dynamic-var> ()
+  ((name :initarg :name :accessor dynamic-var-name :type symbol
+         :documentation "The name of this dynamic variable.")
+   (root-value :initarg :root-value :accessor dynamic-var-root-value
+               :documentation "The root (default) value of this dynamic variable.")
+   (value-stack :initform nil :accessor dynamic-var-value-stack :type list
+                :documentation "Stack of bound values. When non-empty, the car is the current value."))
+  (:documentation "A dynamic variable with a value stack for nested bindings.
+                   When the stack is empty, root-value is used.
+                   The `binding` form pushes values onto the stack."))
+
+(defun <dynamic-var>? (obj)
+  "Returns T if OBJ is a FOL dynamic variable."
+  (typep obj '<dynamic-var>))
+
+(defun make-dynamic-var (name &optional (root-value nil))
+  "Create a new dynamic variable with the given name and optional root value."
+  (make-instance '<dynamic-var>
+                 :name name
+                 :root-value root-value))
+
+(defmethod fol-value ((dvar <dynamic-var>))
+  "Dynamic variables are NOT unwrapped - return the object itself.
+   This ensures they can be stored in environments and auto-dereferenced on lookup."
+  dvar)
+
+(defun dynamic-var-value (dvar)
+  "Get the current value of a dynamic variable.
+   Returns the top of the value stack if non-empty, otherwise the root value."
+  (let ((stack (dynamic-var-value-stack dvar)))
+    (if stack
+        (car stack)
+        (dynamic-var-root-value dvar))))
+
+(defun dynamic-var-push (dvar value)
+  "Push a new value onto the dynamic variable's value stack."
+  (push value (dynamic-var-value-stack dvar)))
+
+(defun dynamic-var-pop (dvar)
+  "Pop a value from the dynamic variable's value stack.
+   Returns the popped value."
+  (pop (dynamic-var-value-stack dvar)))
+
+;;; ============================================================================
 ;;; Recur Exception (for loop/recur)
 ;;; ============================================================================
 
@@ -203,6 +252,13 @@
   (declare (ignore env))
   form)
 
+;;; --- FOL Dynamic Variables return their current value ---
+
+(defmethod fol-eval ((form <dynamic-var>) env)
+  "Dynamic variables evaluate to their current value."
+  (declare (ignore env))
+  (dynamic-var-value form))
+
 ;;; --- CL Functions are Self-Evaluating ---
 
 (defmethod fol-eval ((form function) env)
@@ -214,20 +270,47 @@
 
 (defmethod fol-eval ((form symbol) env)
   "Symbols are looked up in the environment. Keywords are self-evaluating.
-   Auto-gensym symbols (ending with #) are an error outside syntax-quote."
+   Auto-gensym symbols (ending with #) are an error outside syntax-quote.
+   If the looked-up value is a <dynamic-var>, it is automatically dereferenced."
   (cond
     ((keywordp form) form)
     ((auto-gensym-symbol-p form)
      (error 'fol-eval-error
             :message (format nil "Auto-gensym symbol ~A is only valid inside syntax-quote" form)
             :form form))
-    (t (lookup env form))))
+    (t (let ((value (handler-case (lookup env form)
+                      (fol-unbound-variable ()
+                        ;; Not in local env, check global CL binding
+                        (if (boundp form)
+                            (symbol-value form)
+                            ;; Neither local nor global - signal unbound error
+                            (error 'fol-unbound-variable
+                                   :name form
+                                   :message (format nil "Variable ~A is unbound" form)))))))
+         ;; Auto-dereference dynamic variables
+         (if (<dynamic-var>? value)
+             (dynamic-var-value value)
+             value)))))
 
 ;;; --- Wrapped Symbol Lookup ---
 
 (defmethod fol-eval ((form <symbol>) env)
-  "Wrapped symbols are looked up using their raw symbol value."
-  (lookup env (fol-value form)))
+  "Wrapped symbols are looked up using their raw symbol value.
+   If the looked-up value is a <dynamic-var>, it is automatically dereferenced."
+  (let* ((sym (fol-value form))
+         (value (handler-case (lookup env sym)
+                  (fol-unbound-variable ()
+                    ;; Not in local env, check global CL binding
+                    (if (boundp sym)
+                        (symbol-value sym)
+                        ;; Neither local nor global - signal unbound error
+                        (error 'fol-unbound-variable
+                               :name sym
+                               :message (format nil "Variable ~A is unbound" sym)))))))
+    ;; Auto-dereference dynamic variables
+    (if (<dynamic-var>? value)
+        (dynamic-var-value value)
+        value)))
 
 ;;; --- List Forms (Special Forms and Function Application) ---
 
@@ -250,6 +333,8 @@
       ((special-form-p op 'defn)   (eval-defn args env))
       ((special-form-p op 'defmacro) (eval-defmacro args env))
       ((special-form-p op 'syntax-quote) (eval-syntax-quote args env))
+      ((special-form-p op 'make-dynamic) (eval-make-dynamic args env))
+      ((special-form-p op 'binding) (eval-binding args env))
       ;; Unquote forms are errors outside syntax-quote
       ((special-form-p op 'unquote)
        (error 'fol-eval-error
@@ -362,15 +447,14 @@
 
 (defun eval-def (args env)
   "Evaluate (def name value). Evaluates the value and returns it.
-   Note: With immutable environments, actual binding must be handled
-   by a REPL or module system that captures the returned value."
+   Sets the global symbol value using defparameter."
   (unless (= (length args) 2)
     (error 'fol-arity-error :expected 2 :got (length args)
            :form (cons 'def args)))
-  ;; Validate that the first arg is a valid symbol name
-  (extract-symbol (first args))
-  ;; Evaluate and return the value
-  (fol-eval (second args) env))
+  (let ((name (extract-symbol (first args)))
+        (value (fol-eval (second args) env)))
+    (cl:eval `(cl:defparameter ,name ',value))
+    value))
 
 ;;; --- DEFN ---
 
@@ -499,6 +583,104 @@
                   (new-sym (cl:gensym (concatenate 'string base-name "__"))))
              (setf (gethash name gensym-table) new-sym)
              new-sym))))
+
+;;; --- DYNAMIC VARIABLES (make-dynamic, binding) ---
+
+(defun eval-make-dynamic (args env)
+  "Evaluate (make-dynamic name value?).
+   Creates and returns a new dynamic variable with the given name and optional initial value.
+   The name is NOT evaluated - it is treated as a literal symbol (like def).
+   The dynamic variable can be bound in an environment and will be auto-dereferenced on lookup.
+   Use `binding` to temporarily rebind the value.
+
+   Example:
+     (def *counter* (make-dynamic *counter* 0))
+     (binding (*counter* 10) *counter*)  ; => 10"
+  (let ((len (length args)))
+    (unless (<= 1 len 2)
+      (error 'fol-arity-error :expected "1 or 2" :got len
+             :form (cons 'make-dynamic args)))
+    ;; Name is NOT evaluated - treated as a literal symbol (like def)
+    (let ((name (extract-symbol (first args)))
+          (init-value (if (= len 2)
+                          (fol-eval (second args) env)
+                          nil)))
+      (make-dynamic-var name init-value))))
+
+(defun eval-binding (args env)
+  "Evaluate (binding [bindings] body*).
+   Temporarily rebinds dynamic variables for the duration of body evaluation.
+   Bindings are pairs: [dvar1 val1 dvar2 val2 ...].
+   Each dvar must evaluate to a <dynamic-var>.
+   Values are pushed onto the dynamic var's stack and popped after body executes.
+   Uses unwind-protect to ensure values are popped even if body signals an error.
+
+   Example:
+     (def *x* (make-dynamic '*x* 1))
+     (binding (*x* 10)
+       *x*)  ; => 10
+     *x*    ; => 1 (restored)"
+  (unless (>= (length args) 1)
+    (error 'fol-eval-error :message "binding requires at least bindings"
+           :form (cons 'binding args)))
+  (let ((bindings-form (first args))
+        (body (rest args)))
+    ;; Handle both list and vector bindings
+    (let ((binding-list (if (<vector>? bindings-form)
+                            (vector-to-list bindings-form)
+                            bindings-form)))
+      ;; Collect dynamic vars and their new values
+      (let ((dvars nil)
+            (new-values nil))
+        ;; First, evaluate all the dynamic var references and values
+        (loop for (dvar-form val-form) on binding-list by #'cddr
+              do (let ((dvar (cond
+                               ((<dynamic-var>? dvar-form) dvar-form)
+                               ((cl:and (typep dvar-form 'standard-object)
+                                        (let ((n (class-name (class-of dvar-form))))
+                                          (cl:and n (string= (symbol-name n) "<DYNAMIC-VAR>"))))
+                                dvar-form)
+                               ((symbolp dvar-form) 
+                                (let ((val (handler-case (lookup env dvar-form)
+                                             (fol-unbound-variable () :unbound))))
+                                  (cond
+                                    ((eq val :unbound)
+                                     (if (boundp dvar-form) (symbol-value dvar-form) dvar-form))
+                                    ((cl:and (eq val dvar-form) (boundp dvar-form))
+                                     (symbol-value dvar-form))
+                                    (t val))))
+                               ((<symbol>? dvar-form) 
+                                (let* ((sym (fol-value dvar-form))
+                                       (val (handler-case (lookup env sym)
+                                              (fol-unbound-variable () :unbound))))
+                                  (cond
+                                    ((eq val :unbound)
+                                     (if (boundp sym) (symbol-value sym) sym))
+                                    ((cl:and (eq val sym) (boundp sym))
+                                     (symbol-value sym))
+                                    (t val))))
+                               (t (fol-eval dvar-form env))))
+                       (val (fol-eval val-form env)))
+                   (unless (<dynamic-var>? dvar)
+                     (when (cl:and (symbolp dvar) (cl:not (boundp dvar)))
+                       (error 'fol-eval-error :message (format nil "Variable ~A is unbound" dvar) :form dvar-form))
+                     (error 'fol-eval-error
+                            :message (format nil "binding requires dynamic variables, got ~S" dvar)
+                            :form dvar-form))
+                   (push dvar dvars)
+                   (push val new-values)))
+        (setf dvars (nreverse dvars))
+        (setf new-values (nreverse new-values))
+        ;; Push all values onto their respective stacks
+        (mapc #'dynamic-var-push dvars new-values)
+        ;; Evaluate body with unwind-protect to ensure cleanup
+        (unwind-protect
+             (let ((result nil))
+               (dolist (form body)
+                 (setf result (fol-eval form env)))
+               result)
+          ;; Cleanup: pop all values from their stacks
+          (mapc #'dynamic-var-pop dvars))))))
 
 ;;; --- LOOP/RECUR ---
 
@@ -736,7 +918,7 @@
   "Check if OP matches the special form NAME, comparing by symbol name.
    This allows forms from any package to be recognized as special forms."
   (cl:and (symbolp op)
-       (string= (symbol-name op) (symbol-name name))))
+       (string-equal (symbol-name op) (symbol-name name))))
 
 (defun extract-symbol (form)
   "Extract a raw symbol from FORM (handles wrapped symbols)."

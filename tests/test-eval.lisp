@@ -832,3 +832,132 @@
     ;; Bare x# should error
     (signals fol-eval-error
       (fol-eval 'x# env))))
+
+;;; ---------------------------------------------------------------------------
+;;; Dynamic Variables (make-dynamic, binding)
+;;; ---------------------------------------------------------------------------
+
+(test make-dynamic-creates-dynamic-var
+  "Test that make-dynamic creates a dynamic variable."
+  (let ((env (make-env)))
+    (let ((dvar (fol-eval '(make-dynamic *x*) env)))
+      (is-true (<dynamic-var>? dvar))
+      (is (eq '*x* (dynamic-var-name dvar))))))
+
+(test make-dynamic-with-initial-value
+  "Test make-dynamic with an initial value."
+  (let ((env (make-env)))
+    (let ((dvar (fol-eval '(make-dynamic *x* 42) env)))
+      (is-true (<dynamic-var>? dvar))
+      (is (cl:= 42 (dynamic-var-root-value dvar)))
+      (is (cl:= 42 (dynamic-var-value dvar))))))
+
+(test dynamic-var-auto-dereference
+  "Test that dynamic variables are automatically dereferenced on lookup."
+  (let ((env (make-env)))
+    ;; Create a dynamic var and bind it in the environment
+    (let* ((dvar (fol-eval '(make-dynamic *counter* 100) env))
+           (env2 (make-env env '*counter* dvar)))
+      ;; Looking up *counter* should return the value, not the dvar
+      (is (cl:= 100 (fol-eval '*counter* env2))))))
+
+(test binding-temporarily-rebinds
+  "Test that binding temporarily rebinds a dynamic variable."
+  (let ((env (make-env)))
+    ;; Create and bind a dynamic var
+    (let* ((dvar (fol-eval '(make-dynamic *x* 1) env))
+           (env2 (make-env env '*x* dvar)))
+      ;; Outside binding, value is 1
+      (is (cl:= 1 (fol-eval '*x* env2)))
+      ;; Inside binding, value is 10
+      (is (cl:= 10 (fol-eval '(binding (*x* 10) *x*) env2)))
+      ;; After binding, value is restored to 1
+      (is (cl:= 1 (fol-eval '*x* env2))))))
+
+(test binding-nested
+  "Test nested binding forms."
+  (let ((env (make-env)))
+    (let* ((dvar (fol-eval '(make-dynamic *x* 1) env))
+           (env2 (make-env env '*x* dvar)))
+      ;; Nested bindings should stack
+      (is (cl:= 30 (fol-eval '(binding (*x* 10)
+                                (binding (*x* 20)
+                                  (binding (*x* 30)
+                                    *x*)))
+                             env2)))
+      ;; After all bindings, value is restored
+      (is (cl:= 1 (fol-eval '*x* env2))))))
+
+(test binding-multiple-vars
+  "Test binding multiple dynamic variables at once."
+  (let ((env (make-standard-env)))
+    (let* ((dvar-x (fol-eval '(make-dynamic *x* 1) env))
+           (dvar-y (fol-eval '(make-dynamic *y* 2) env))
+           (env2 (make-env env '*x* dvar-x '*y* dvar-y)))
+      ;; Bind both at once
+      (is (cl:= 30 (fol-eval '(binding (*x* 10 *y* 20)
+                                (+ *x* *y*))
+                             env2)))
+      ;; Both restored after
+      (is (cl:= 1 (fol-eval '*x* env2)))
+      (is (cl:= 2 (fol-eval '*y* env2))))))
+
+(test binding-restores-on-error
+  "Test that binding restores values even when body signals an error."
+  (let ((env (make-env)))
+    (let* ((dvar (fol-eval '(make-dynamic *x* 1) env))
+           (env2 (make-env env '*x* dvar)))
+      ;; Binding that throws an error
+      (signals fol-eval-error
+        (fol-eval '(binding (*x* 999)
+                     (throw "error!"))
+                  env2))
+      ;; Value should be restored despite the error
+      (is (cl:= 1 (fol-eval '*x* env2))))))
+
+(test binding-requires-dynamic-var
+  "Test that binding requires actual dynamic variables."
+  (let ((env (make-env nil 'x 42)))
+    ;; Trying to bind a non-dynamic variable should error
+    (signals fol-eval-error
+      (fol-eval '(binding (x 10) x) env))))
+
+(test binding-evaluates-values
+  "Test that binding evaluates the new values."
+  (let ((env (make-standard-env)))
+    (let* ((dvar (fol-eval '(make-dynamic *x* 0) env))
+           (env2 (make-env env '*x* dvar)))
+      ;; The value expression should be evaluated
+      (is (cl:= 6 (fol-eval '(binding (*x* (+ 1 2 3))
+                               *x*)
+                            env2))))))
+
+(test binding-body-sequence
+  "Test that binding body is evaluated as a sequence."
+  (let ((env (make-standard-env)))
+    (let* ((dvar (fol-eval '(make-dynamic *x* 0) env))
+           (env2 (make-env env '*x* dvar)))
+      ;; Multiple body forms, returns last
+      (is (cl:= 3 (fol-eval '(binding (*x* 10)
+                               1
+                               2
+                               3)
+                            env2))))))
+
+(test dynamic-var-in-function
+  "Test that dynamic variables work correctly across function calls."
+  (let ((env (make-standard-env)))
+    ;; Create dynamic var
+    (let* ((dvar (fol-eval '(make-dynamic *multiplier* 1) env))
+           (env2 (make-env env '*multiplier* dvar)))
+      ;; Define a function that uses the dynamic var
+      (let* ((fn (fol-eval '(fn (x) (* x *multiplier*)) env2))
+             (env3 (make-env env2 'scale fn)))
+        ;; Without rebinding, multiplier is 1
+        (is (cl:= 5 (fol-eval '(scale 5) env3)))
+        ;; With rebinding, multiplier is 10
+        (is (cl:= 50 (fol-eval '(binding (*multiplier* 10)
+                                  (scale 5))
+                               env3)))
+        ;; After binding, back to 1
+        (is (cl:= 5 (fol-eval '(scale 5) env3)))))))
