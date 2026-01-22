@@ -3,6 +3,12 @@
 (def-suite eval-suite :in fol-suite)
 (def-suite* :fol.eval-tests :in eval-suite)
 
+;;; Helper to parse FOL syntax (vectors, maps, etc.) from strings
+(defun fol-form (string)
+  "Parse STRING using the FOL reader and return the form.
+   This allows tests to use FOL syntax like [1 2 3] and {:a 1} in test cases."
+  (fol-read-from-string string))
+
 ;;; ---------------------------------------------------------------------------
 ;;; Self-Evaluating Forms
 ;;; ---------------------------------------------------------------------------
@@ -199,6 +205,79 @@
     (is (cl:= 6 (fol-eval '(bind (a 1 b (+ a 1) c (+ a b)) (+ a b c)) env)))))
 
 ;;; ---------------------------------------------------------------------------
+;;; Destructuring in bind
+;;; ---------------------------------------------------------------------------
+
+(test eval-bind-destructure-vector-simple
+  "Test sequential destructuring with vector pattern."
+  (let ((env (make-standard-env)))
+    (is (cl:= 3 (fol-eval (fol-form "(bind [[a b] [1 2]] (+ a b))") env)))))
+
+(test eval-bind-destructure-vector-nested
+  "Test nested sequential destructuring."
+  (let ((env (make-standard-env)))
+    (is (cl:= 6 (fol-eval (fol-form "(bind [[a [b c]] [1 [2 3]]] (+ a b c))") env)))))
+
+(test eval-bind-destructure-vector-rest
+  "Test sequential destructuring with rest binding."
+  (let ((env (make-standard-env)))
+    ;; rest should be a list containing (3 4 5)
+    (is (cl:= 3 (fol-eval (fol-form "(bind [[a b & rest] [1 2 3 4 5]] (size rest))") env)))
+    (is (cl:= 1 (fol-eval (fol-form "(bind [[a b & rest] [1 2 3 4 5]] a)") env)))
+    (is (cl:= 2 (fol-eval (fol-form "(bind [[a b & rest] [1 2 3 4 5]] b)") env)))))
+
+(test eval-bind-destructure-vector-as
+  "Test sequential destructuring with :as whole binding."
+  (let ((env (make-standard-env)))
+    (is (cl:= 5 (fol-eval (fol-form "(bind [[a b :as all] [1 2 3 4 5]] (size all))") env)))
+    (is (cl:= 1 (fol-eval (fol-form "(bind [[a b :as all] [1 2 3 4 5]] a)") env)))))
+
+(test eval-bind-destructure-map-keys
+  "Test associative destructuring with :keys."
+  (let ((env (make-standard-env)))
+    (is (cl:= 3 (fol-eval (fol-form "(bind [{:keys [a b]} {:a 1 :b 2}] (+ a b))") env)))))
+
+(test eval-bind-destructure-map-explicit
+  "Test associative destructuring with explicit key mapping."
+  (let ((env (make-standard-env)))
+    (is (cl:= 3 (fol-eval (fol-form "(bind [{x :a y :b} {:a 1 :b 2}] (+ x y))") env)))))
+
+(test eval-bind-destructure-map-as
+  "Test associative destructuring with :as whole binding."
+  (let ((env (make-standard-env)))
+    (is (cl:= 2 (fol-eval (fol-form "(bind [{:keys [a] :as m} {:a 1 :b 2}] (size m))") env)))
+    (is (cl:= 1 (fol-eval (fol-form "(bind [{:keys [a] :as m} {:a 1 :b 2}] a)") env)))))
+
+(test eval-bind-destructure-with-list
+  "Test destructuring with FOL list values."
+  (let ((env (make-standard-env)))
+    (is (cl:= 3 (fol-eval (fol-form "(bind [[a b] (list 1 2)] (+ a b))") env)))))
+
+(test eval-bind-destructure-mixed
+  "Test multiple bindings with some destructured."
+  (let ((env (make-standard-env)))
+    (is (cl:= 10 (fol-eval (fol-form "(bind [x 1 [a b] [2 3] y 4] (+ x a b y))") env)))))
+
+(test eval-bind-destructure-multiple-values
+  "Test destructuring with CL multiple values."
+  (let ((env (make-standard-env)))
+    ;; floor returns quotient and remainder as multiple values
+    ;; floor(17, 3) = 5 remainder 2, so q=5, r=2, sum=7
+    (is (cl:= 7 (fol-eval (fol-form "(bind [[q r] (floor 17 3)] (+ q r))") env)))))
+
+(test eval-bind-destructure-multiple-values-truncate
+  "Test that extra multiple values are ignored."
+  (let ((env (make-standard-env)))
+    ;; Only bind first two values, ignore the rest
+    (is (cl:= 5 (fol-eval (fol-form "(bind [[a b] (floor 17 3)] a)") env)))))
+
+(test eval-bind-destructure-multiple-values-with-rest
+  "Test destructuring multiple values with rest binding."
+  (let ((env (make-standard-env)))
+    ;; Capture all values with rest
+    (is (cl:= 2 (fol-eval (fol-form "(bind [[q & rest] (floor 17 3)] (first rest))") env)))))
+
+;;; ---------------------------------------------------------------------------
 ;;; FN Special Form
 ;;; ---------------------------------------------------------------------------
 
@@ -213,6 +292,17 @@
   (let ((env (make-standard-env)))
     (is (cl:= 42 (fol-eval '((fn (x) x) 42) env)))
     (is (cl:= 30 (fol-eval '((fn (x y) (+ x y)) 10 20) env)))))
+
+(test eval-lambda-synonym
+  "Test that λ works as a synonym for fn."
+  (let ((env (make-standard-env)))
+    ;; λ should create functions just like fn
+    (is-true (<function>? (fol-eval '(λ (x) x) env)))
+    (is (cl:= 42 (fol-eval '((λ (x) x) 42) env)))
+    (is (cl:= 30 (fol-eval '((λ (x y) (+ x y)) 10 20) env)))
+    ;; λ with closure
+    (let ((env2 (make-env env 'y 10)))
+      (is (cl:= 15 (fol-eval '((λ (x) (+ x y)) 5) env2))))))
 
 (test eval-fn-closure
   "Test that fn captures its environment."
@@ -1034,3 +1124,146 @@
       (fol-eval '(lazy-seq) env))
     (signals fol-arity-error
       (fol-eval '(lazy-seq a b) env))))
+
+;;; ---------------------------------------------------------------------------
+;;; Function Parameter Destructuring
+;;; ---------------------------------------------------------------------------
+
+(test fn-destructure-vector-param
+  "Test function with vector destructuring in parameter."
+  (let ((env (make-standard-env)))
+    ;; Function that destructures its first argument
+    (is (cl:= 3 (fol-eval (fol-form "((fn [[a b]] (+ a b)) [1 2])") env)))))
+
+(test fn-destructure-nested-vector
+  "Test function with nested vector destructuring."
+  (let ((env (make-standard-env)))
+    (is (cl:= 6 (fol-eval (fol-form "((fn [[a [b c]]] (+ a b c)) [1 [2 3]])") env)))))
+
+(test fn-destructure-with-rest
+  "Test function with rest binding in destructuring pattern."
+  (let ((env (make-standard-env)))
+    ;; Get the size of rest
+    (is (cl:= 3 (fol-eval (fol-form "((fn [[a & rest]] (size rest)) [1 2 3 4])") env)))
+    (is (cl:= 1 (fol-eval (fol-form "((fn [[a & rest]] a) [1 2 3 4])") env)))))
+
+(test fn-destructure-with-as
+  "Test function with :as binding in destructuring pattern."
+  (let ((env (make-standard-env)))
+    ;; :as binds the whole collection
+    (is (cl:= 4 (fol-eval (fol-form "((fn [[a b :as all]] (size all)) [1 2 3 4])") env)))
+    (is (cl:= 1 (fol-eval (fol-form "((fn [[a b :as all]] a) [1 2 3 4])") env)))))
+
+(test fn-destructure-map-keys
+  "Test function with map :keys destructuring."
+  (let ((env (make-standard-env)))
+    (is (cl:= 3 (fol-eval (fol-form "((fn [{:keys [a b]}] (+ a b)) {:a 1 :b 2})") env)))))
+
+(test fn-destructure-map-explicit
+  "Test function with explicit key mapping in map destructuring."
+  (let ((env (make-standard-env)))
+    (is (cl:= 3 (fol-eval (fol-form "((fn [{x :a y :b}] (+ x y)) {:a 1 :b 2})") env)))))
+
+(test fn-destructure-mixed-params
+  "Test function with mix of simple and destructured params."
+  (let ((env (make-standard-env)))
+    ;; x is simple, [a b] is destructured
+    (is (cl:= 6 (fol-eval (fol-form "((fn [x [a b]] (+ x a b)) 1 [2 3])") env)))))
+
+(test fn-destructure-rest-with-destructuring
+  "Test function with destructuring pattern as rest parameter."
+  (let ((env (make-standard-env)))
+    ;; First param is simple, rest is destructured as a list
+    (is (cl:= 2 (fol-eval (fol-form "((fn [x & rest] (first rest)) 1 2 3)") env)))))
+
+(test defn-destructure-params
+  "Test defn with destructuring parameters."
+  (let ((env (make-standard-env)))
+    ;; Define function with destructuring
+    (fol-eval (fol-form "(defn sum-pair [[a b]] (+ a b))") env)
+    (is (cl:= 5 (fol-eval (fol-form "(sum-pair [2 3])") env)))))
+
+;;; ---------------------------------------------------------------------------
+;;; Macro Parameter Destructuring
+;;; ---------------------------------------------------------------------------
+
+(test macro-destructure-vector-param
+  "Test macro with vector destructuring in parameter."
+  (let ((env (make-standard-env)))
+    ;; Macro that destructures its parameter
+    (let* ((macro (fol-eval (fol-form "(defmacro with-pair [[a b] & body]
+                               (list 'bind (list 'x a 'y b) (cons 'do body)))")
+                            env))
+           (env2 (make-env env 'with-pair macro)))
+      ;; (with-pair [1 2] (+ x y)) expands to (bind (x 1 y 2) (do (+ x y)))
+      (is (cl:= 3 (fol-eval (fol-form "(with-pair [1 2] (+ x y))") env2))))))
+
+(test macro-destructure-extracts-form-parts
+  "Test macro that destructures to extract parts of forms."
+  (let ((env (make-standard-env)))
+    ;; A macro that extracts the first two elements and returns them as a list
+    (let* ((macro (fol-eval (fol-form "(defmacro get-first-two [[a b & rest]]
+                               (list 'list b a))")
+                            env))
+           (env2 (make-env env 'get-first-two macro)))
+      ;; (get-first-two (1 2 3)) => (2 1) - swapped first two elements
+      (is (equal '(2 1) (fol-eval '(get-first-two (1 2 3)) env2))))))
+
+(test macro-destructure-nested
+  "Test macro with nested destructuring in parameter."
+  (let ((env (make-standard-env)))
+    ;; Macro that destructures nested structure
+    ;; Pattern [[[a]]] extracts [[a]] as param, which extracts [a], then a
+    ;; So with ((1)) as arg: [[a]] matches ((1)), [a] matches (1), a matches 1
+    (let* ((macro (fol-eval (fol-form "(defmacro extract-nested [[[a]]]
+                               a)")
+                            env))
+           (env2 (make-env env 'extract-nested macro)))
+      ;; (extract-nested ((1))) => 1 (the atom)
+      (is (cl:= 1 (fol-eval '(extract-nested ((1))) env2))))))
+
+(test macro-destructure-with-rest
+  "Test macro destructuring with rest binding."
+  (let ((env (make-standard-env)))
+    ;; Macro that captures some args in destructuring and rest
+    (let* ((macro (fol-eval (fol-form "(defmacro take-two-and-rest [[a b & more]]
+                               (list 'list a b (list 'quote more)))")
+                            env))
+           (env2 (make-env env 'take-two-and-rest macro)))
+      (let ((result (fol-eval '(take-two-and-rest (1 2 3 4 5)) env2)))
+        (is (cl:= 1 (cl:first result)))
+        (is (cl:= 2 (cl:second result)))
+        ;; The rest is a FOL list, check its elements
+        (let ((rest-list (cl:third result)))
+          (is (<list>? rest-list))
+          (is (cl:= 3 (size rest-list)))
+          (is (cl:= 3 (first rest-list)))
+          (is (cl:= 4 (second rest-list)))
+          (is (cl:= 5 (third rest-list))))))))
+
+(test macro-destructure-map-keys
+  "Test macro with map destructuring using :keys."
+  (let ((env (make-standard-env)))
+    ;; Note: This tests destructuring of the *unevaluated* form
+    ;; So we pass a literal dict form as the macro argument
+    (let* ((macro (fol-eval (fol-form "(defmacro extract-keys [{:keys [a b]}]
+                               (list '+ a b))")
+                            env))
+           (env2 (make-env env 'extract-keys macro)))
+      ;; (extract-keys {:a 1 :b 2}) - the {:a 1 :b 2} is passed as unevaluated
+      ;; so the macro sees the dict literal and can destructure it
+      (is (cl:= 3 (fol-eval (fol-form "(extract-keys {:a 1 :b 2})") env2))))))
+
+(test macro-destructure-practical-let-macro
+  "Test practical use: let macro with destructuring bindings."
+  (let ((env (make-standard-env)))
+    ;; A let macro that supports one destructured binding pair
+    ;; (my-let [pattern value] body) => (bind [pattern value] body)
+    (let* ((macro (fol-eval (fol-form "(defmacro my-let [[pattern value] & body]
+                               (list 'bind (list pattern value) (cons 'do body)))")
+                            env))
+           (env2 (make-env env 'my-let macro)))
+      ;; Test with simple binding
+      (is (cl:= 10 (fol-eval (fol-form "(my-let [x 10] x)") env2)))
+      ;; Test with destructured binding pattern inside the let
+      (is (cl:= 3 (fol-eval (fol-form "(my-let [[a b] [1 2]] (+ a b))") env2))))))

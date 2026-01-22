@@ -57,20 +57,21 @@
   (let ((readtable (make-instance '<readtable> :items (fset:empty-map))))
 
     ;; Process char-fn-pairs using set-macro-character
+    ;; Note: fol-set-macro-character returns a new readtable (persistent)
     (loop for (key fn) on char-fn-pairs by #'cddr
           do (unless (functionp fn)
                (error "Expected a function, got ~A" fn))
              (cond
                ;; Single character
                ((characterp key)
-                (fol-set-macro-character readtable key fn))
+                (setf readtable (fol-set-macro-character readtable key fn)))
 
                ;; List of characters
                ((listp key)
                 (dolist (char key)
                   (unless (characterp char)
                     (error "Expected a character in list, got ~A" char))
-                  (fol-set-macro-character readtable char fn)))
+                  (setf readtable (fol-set-macro-character readtable char fn))))
 
                ;; Symbol referring to a character class
                ((symbolp key)
@@ -80,7 +81,7 @@
                   (unless char-class
                     (error "Character class ~A not found in character class table" key))
                   (dolist (char char-class)
-                    (fol-set-macro-character readtable char fn))))
+                    (setf readtable (fol-set-macro-character readtable char fn)))))
 
                ;; Invalid type
                (t
@@ -132,11 +133,10 @@
     (error "Function must be a function, got ~A" function))
 
   ;; Add the function to the readtable (which is a dict)
+  ;; Since readtable is persistent, set-pslot-value returns a new object
   (let ((items (fol.persistent:pslot-value readtable 'fol.collection::items)))
     (setf items (fset:with items char function))
-    (fol.persistent:set-pslot-value readtable 'fol.collection::items items))
-
-  readtable)
+    (fol.persistent:set-pslot-value readtable 'fol.collection::items items)))
 
 (defgeneric fol-get-macro-character (readtable char)
   (:documentation "Get the macro character function from the readtable.
@@ -201,10 +201,10 @@
     (error "Function must be a function, got ~A" function))
 
   ;; Get or create the dispatch table
+  ;; Note: set-pslot-value returns a new readtable (persistent)
   (let ((dispatch-table (readtable-dispatch-table readtable)))
     (unless dispatch-table
-      (setf dispatch-table (fol.collection:make-dict))
-      (fol.persistent:set-pslot-value readtable 'dispatch-table dispatch-table))
+      (setf dispatch-table (fol.collection:make-dict)))
 
     ;; Get or create the sub-table for this dispatch character
     (let ((sub-table (fol.collection:get dispatch-table disp-char)))
@@ -216,9 +216,7 @@
 
       ;; Update the dispatch table
       (setf dispatch-table (fol.collection:add dispatch-table disp-char sub-table))
-      (fol.persistent:set-pslot-value readtable 'dispatch-table dispatch-table)))
-
-  readtable)
+      (fol.persistent:set-pslot-value readtable 'dispatch-table dispatch-table))))
 
 (defgeneric fol-get-dispatch-macro-character (readtable disp-char sub-char)
   (:documentation "Get the dispatch macro character function from the readtable.
@@ -281,29 +279,39 @@
   t)
 
 ;;; ============================================================================
-;;; Atom Accumulation and Parsing
+;;; Atom Reading and Parsing
 ;;; ============================================================================
-(defparameter *atom-accumulator*
-  (make-array 0 :element-type 'character
-              :fill-pointer 0
-              :adjustable t)
-  "Shared accumulator for building atoms during reading")
+
+(defun read-atom (stream chr)
+  "Read a complete atom (symbol or number) starting with CHR.
+   Continues reading until a delimiter or whitespace."
+  (let ((chars (make-array 32 :element-type 'character :fill-pointer 0 :adjustable t)))
+    ;; Add the first character
+    (vector-push-extend chr chars)
+    ;; Keep reading constituent characters
+    (loop for next-chr = (peek-char nil stream nil nil)
+          while (and next-chr
+                     (not (member next-chr '(#\Space #\Tab #\Newline #\Return
+                                             #\( #\) #\[ #\] #\{ #\}
+                                             #\; #\" #\' #\` #\, #\@))))
+          do (vector-push-extend (read-char stream) chars))
+    ;; Convert to symbol or number
+    (let ((atom-string (coerce chars 'string)))
+      (or (parse-number atom-string)
+          (if (char= (char atom-string 0) #\:)
+              ;; Keyword
+              (intern (string-upcase (subseq atom-string 1)) :keyword)
+              ;; Regular symbol
+              (intern (string-upcase atom-string)))))))
 
 (defun accumulate-atom (stream chr)
-  "Accumulate a character into the current atom being read"
-  (declare (ignore stream))
-  (vector-push-extend chr *atom-accumulator*)
-  (values))
+  "Read a complete atom starting with CHR."
+  (read-atom stream chr))
 
 (defun terminate-atom (stream chr)
-  "Terminate the current atom and return it as a symbol or number"
+  "Terminating characters - not used directly in fol-read."
   (declare (ignore stream chr))
-  (when (> (fill-pointer *atom-accumulator*) 0)
-    (let* ((atom-string (copy-seq *atom-accumulator*))
-           (result (or (parse-number atom-string)
-                       (intern (string-upcase atom-string)))))
-      (setf (fill-pointer *atom-accumulator*) 0)
-      result)))
+  nil)
 
 (defun parse-number (string)
   "Try to parse a string as a number. Returns NIL if not a valid number."
@@ -333,7 +341,7 @@
   "Read a Clojure vector starting with ["
   (declare (ignore chr))
   (let ((elements (fol-read-delimited-list #\] stream *clojure-readtable*)))
-    (make-array (length elements) :initial-contents elements)))
+    (apply #'fol.collection:make-vector elements)))
 
 (defun read-map (stream chr)
   "Read a Clojure map starting with {"
@@ -341,10 +349,7 @@
   (let ((pairs (fol-read-delimited-list #\} stream *clojure-readtable*)))
     (unless (evenp (length pairs))
       (error "Map literal must contain an even number of forms"))
-    (let ((hash-table (make-hash-table :test 'equal)))
-      (loop for (key value) on pairs by #'cddr
-            do (setf (gethash key hash-table) value))
-      hash-table)))
+    (apply #'fol.collection:make-dict pairs)))
 
 (defun read-string (stream chr)
   "Read a Clojure string starting with \""
@@ -421,11 +426,7 @@
   "Read a Clojure set starting with #{"
   (declare (ignore char arg))
   (let ((elements (fol-read-delimited-list #\} stream *clojure-readtable*)))
-    ;; Convert list to a hash table representing a set (keys with value T)
-    (let ((set (make-hash-table :test 'equal)))
-      (dolist (elem elements)
-        (setf (gethash elem set) t))
-      (cons 'set set))))
+    (apply #'fol.collection:make-set elements)))
 
 (defun read-regex-dispatch (stream char arg)
   "Read a Clojure regex starting with #\""
@@ -472,11 +473,7 @@
       (error "Expected '{' after #M, got ~C" next-char))
     (read-char stream)  ; Consume the {
     (let ((elements (fol-read-delimited-list #\} stream *clojure-readtable*)))
-      ;; Convert list to a hash table representing a multiset (element -> count)
-      (let ((bag (make-hash-table :test 'equal)))
-        (dolist (elem elements)
-          (incf (gethash elem bag 0)))
-        (cons 'multiset bag)))))
+      (apply #'fol.collection:make-bag elements))))
 
 (defun read-dispatch-general (stream chr)
   "General dispatch function for # character - delegates to specific dispatch handlers"
@@ -549,30 +546,31 @@
       ;; Set up dispatch macro characters for #
       ;; The #\# character is now mapped to read-dispatch-general
       ;; which will look up the appropriate sub-character handler
+      ;; Note: fol-set-dispatch-macro-character returns a new readtable (persistent)
 
       ;; #{ - set literal
-      (fol-set-dispatch-macro-character readtable #\# #\{ #'read-set-dispatch)
+      (setf readtable (fol-set-dispatch-macro-character readtable #\# #\{ #'read-set-dispatch))
 
       ;; #M{ - multiset (bag) literal
-      (fol-set-dispatch-macro-character readtable #\# #\M #'read-multiset-dispatch)
+      (setf readtable (fol-set-dispatch-macro-character readtable #\# #\M #'read-multiset-dispatch))
 
       ;; #" - regex literal
-      (fol-set-dispatch-macro-character readtable #\# #\" #'read-regex-dispatch)
+      (setf readtable (fol-set-dispatch-macro-character readtable #\# #\" #'read-regex-dispatch))
 
       ;; #' - var quote
-      (fol-set-dispatch-macro-character readtable #\# #\' #'read-var-quote-dispatch)
+      (setf readtable (fol-set-dispatch-macro-character readtable #\# #\' #'read-var-quote-dispatch))
 
       ;; #( - anonymous function
-      (fol-set-dispatch-macro-character readtable #\# #\( #'read-fn-dispatch)
+      (setf readtable (fol-set-dispatch-macro-character readtable #\# #\( #'read-fn-dispatch))
 
       ;; #_ - ignore next form
-      (fol-set-dispatch-macro-character readtable #\# #\_ #'read-ignore-dispatch)
+      (setf readtable (fol-set-dispatch-macro-character readtable #\# #\_ #'read-ignore-dispatch))
 
       ;; #? - reader conditional
-      (fol-set-dispatch-macro-character readtable #\# #\? #'read-conditional-dispatch)
+      (setf readtable (fol-set-dispatch-macro-character readtable #\# #\? #'read-conditional-dispatch))
 
       ;; ## - symbolic value
-      (fol-set-dispatch-macro-character readtable #\# #\# #'read-symbolic-value-dispatch)
+      (setf readtable (fol-set-dispatch-macro-character readtable #\# #\# #'read-symbolic-value-dispatch))
 
       readtable)
   "The standard Clojure readtable with full support for:
@@ -633,7 +631,7 @@
                    ;; Found a reader function for this character
                    (reader-fn
                     (read-char stream) ; Consume the character
-                    (funcall reader-fn chr))
+                    (funcall reader-fn stream chr))
 
                    ;; No reader function - this is an error
                    (t

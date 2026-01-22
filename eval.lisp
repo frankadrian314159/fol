@@ -325,6 +325,7 @@
       ((special-form-p op 'do)     (eval-do args env))
       ((special-form-p op 'bind)   (eval-bind args env))
       ((special-form-p op 'fn)     (eval-fn args env))
+      ((special-form-p op 'λ)      (eval-fn args env))  ; λ is a synonym for fn
       ((special-form-p op 'def)    (eval-def args env))
       ((special-form-p op 'loop)   (eval-loop args env))
       ((special-form-p op 'recur)  (eval-recur args env))
@@ -387,11 +388,204 @@
       (setf result (fol-eval form env)))
     result))
 
+;;; --- DESTRUCTURING ---
+
+(defun destructure-pattern (pattern value)
+  "Destructure VALUE according to PATTERN, returning an alist of (symbol . value) pairs.
+   Supports:
+   - Simple symbol: binds the whole value
+   - Vector [a b c]: sequential destructuring for lists/vectors
+   - Vector with &: [a b & rest] captures remaining elements
+   - Vector with :as: [a b :as whole] also binds the whole collection
+   - Map {:keys [a b]}: binds a and b from map keys :a and :b
+   - Map {a :key}: binds a to the value at :key
+   - Map with :as: {a :key :as whole} also binds the whole map
+   - Nested patterns: [[a b] c] for nested destructuring"
+  (cond
+    ;; Simple symbol - bind the whole value
+    ((symbolp pattern)
+     (if (null pattern)
+         nil  ; nil pattern binds nothing
+         (list (cons pattern value))))
+
+    ;; FOL <symbol> wrapper
+    ((<symbol>? pattern)
+     (list (cons (fol-value pattern) value)))
+
+    ;; Vector pattern - sequential destructuring
+    ((<vector>? pattern)
+     (destructure-sequential (vector-to-list pattern) value))
+
+    ;; CL list pattern - sequential destructuring (for quoted patterns)
+    ((cl:listp pattern)
+     (destructure-sequential pattern value))
+
+    ;; Dict pattern - associative destructuring
+    ((<dict>? pattern)
+     (destructure-associative pattern value))
+
+    (t (error 'fol-eval-error
+              :message (format nil "Invalid destructuring pattern: ~S" pattern)
+              :form pattern))))
+
+(defun destructure-sequential (pattern-list value)
+  "Destructure VALUE as a sequence according to PATTERN-LIST.
+   Handles & for rest binding and :as for whole binding."
+  (let ((bindings nil)
+        (seq-value (cond
+                     ((<vector>? value) (vector-to-list value))
+                     ((<list>? value) (fol-list-to-cl-list value))
+                     ((cl:listp value) value)
+                     (t (error 'fol-eval-error
+                               :message (format nil "Cannot destructure non-sequential value: ~S" value)
+                               :form value))))
+        (current-idx 0)
+        (rest-mode nil)
+        (as-binding nil))
+    ;; Process pattern elements
+    (loop for remaining on pattern-list
+          for pat = (car remaining)
+          do (cond
+               ;; :as keyword - next element is the whole-binding symbol
+               ((eq pat :as)
+                (let ((as-sym (cadr remaining)))
+                  (when as-sym
+                    (setf as-binding (cons (extract-symbol as-sym) value))))
+                (return))
+
+               ;; & keyword - switch to rest mode (compare by name for cross-package support)
+               ((cl:and (symbolp pat) (string= (symbol-name pat) "&"))
+                (setf rest-mode t))
+
+               ;; In rest mode - bind remaining elements
+               (rest-mode
+                (let ((rest-val (nthcdr current-idx seq-value)))
+                  ;; Always convert to FOL list (like Clojure's rest which returns a seq)
+                  (setf rest-val (apply #'make-list rest-val))
+                  (setf bindings (append bindings (destructure-pattern pat rest-val))))
+                (setf rest-mode nil))
+
+               ;; Normal element - destructure at current index
+               (t
+                (let ((elem-val (cl:nth current-idx seq-value)))
+                  (setf bindings (append bindings (destructure-pattern pat elem-val))))
+                (incf current-idx))))
+    ;; Add :as binding if present
+    (when as-binding
+      (push as-binding bindings))
+    bindings))
+
+(defun destructure-associative (pattern value)
+  "Destructure VALUE as a map according to dict PATTERN.
+   Handles :keys, :strs, :syms shortcuts and :as for whole binding."
+  (let ((bindings nil)
+        (as-binding nil))
+    ;; Check for :keys shortcut in the pattern
+    (let ((keys-val (get pattern :keys nil)))
+      (when keys-val
+        ;; :keys [a b c] -> bind a to :a, b to :b, etc.
+        (let ((key-list (cond
+                          ((<vector>? keys-val) (vector-to-list keys-val))
+                          ((cl:listp keys-val) keys-val)
+                          (t (list keys-val)))))
+          (dolist (k key-list)
+            (let* ((sym (extract-symbol k))
+                   (keyword (intern (symbol-name sym) :keyword))
+                   (val (get value keyword nil)))
+              (push (cons sym val) bindings))))))
+
+    ;; Check for :strs shortcut (string keys)
+    (let ((strs-val (get pattern :strs nil)))
+      (when strs-val
+        (let ((str-list (cond
+                          ((<vector>? strs-val) (vector-to-list strs-val))
+                          ((cl:listp strs-val) strs-val)
+                          (t (list strs-val)))))
+          (dolist (s str-list)
+            (let* ((sym (extract-symbol s))
+                   (str-key (symbol-name sym))
+                   (val (get value str-key nil)))
+              (push (cons sym val) bindings))))))
+
+    ;; Check for :syms shortcut (symbol keys)
+    (let ((syms-val (get pattern :syms nil)))
+      (when syms-val
+        (let ((sym-list (cond
+                          ((<vector>? syms-val) (vector-to-list syms-val))
+                          ((cl:listp syms-val) syms-val)
+                          (t (list syms-val)))))
+          (dolist (s sym-list)
+            (let* ((sym (extract-symbol s))
+                   (val (get value sym nil)))
+              (push (cons sym val) bindings))))))
+
+    ;; Check for :as whole binding
+    (let ((as-val (get pattern :as nil)))
+      (when as-val
+        (setf as-binding (cons (extract-symbol as-val) value))))
+
+    ;; Process explicit key->binding pairs in the pattern
+    ;; Pattern: {local-var :map-key} means bind local-var to value at :map-key
+    (let ((items (slot-value pattern 'fol.collection::items)))
+      (fset:do-map (k v items)
+        ;; Skip special keys
+        (unless (member k '(:keys :strs :syms :as :or))
+          ;; k is the local variable name, v is the key to look up in value
+          (let* ((local-sym (extract-symbol k))
+                 (lookup-key v)
+                 (val (get value lookup-key nil)))
+            ;; Support nested destructuring
+            (if (or (<vector>? local-sym) (<dict>? local-sym) (cl:listp local-sym))
+                (setf bindings (append bindings (destructure-pattern k val)))
+                (push (cons local-sym val) bindings))))))
+
+    ;; Add :as binding if present
+    (when as-binding
+      (push as-binding bindings))
+
+    (nreverse bindings)))
+
+(defun fol-list-to-cl-list (fol-list)
+  "Convert a FOL <list> to a CL list."
+  (let ((result nil)
+        (current fol-list))
+    (loop while (and current (> (list-size current) 0))
+          do (push (list-first current) result)
+             (setf current (list-rest current)))
+    (nreverse result)))
+
 ;;; --- LET ---
+
+(defun sequential-pattern-p (pattern)
+  "Return T if PATTERN is a sequential destructuring pattern (vector or list)."
+  (or (<vector>? pattern)
+      (cl:and (cl:listp pattern) (not (null pattern)))))
+
+(defun capture-value-for-destructuring (val-form env pattern)
+  "Evaluate VAL-FORM and return a value suitable for destructuring against PATTERN.
+   For sequential patterns, captures multiple return values if the expression
+   returns more than one value. For single-value returns of sequences, returns
+   the sequence directly for element-by-element destructuring."
+  (if (sequential-pattern-p pattern)
+      (let ((mv-result (multiple-value-list (fol-eval val-form env))))
+        ;; If multiple values returned, use the list of values for destructuring
+        ;; If single value that's already a sequence, use it directly
+        (if (> (length mv-result) 1)
+            mv-result  ; Multiple values: destructure the values themselves
+            (car mv-result)))  ; Single value: unwrap and destructure it
+      ;; Non-sequential pattern: just get the primary value
+      (fol-eval val-form env)))
 
 (defun eval-bind (args env)
   "Evaluate (bind [bindings] body*).
-   Bindings are pairs: [var1 val1 var2 val2 ...].
+   Bindings are pairs: [pattern1 val1 pattern2 val2 ...].
+   Supports destructuring patterns (vectors, maps) like Clojure:
+   - Simple: [x 1] binds x to 1
+   - Sequential: [[a b] [1 2]] binds a to 1, b to 2
+   - Rest: [[a & rest] [1 2 3]] binds a to 1, rest to (2 3)
+   - As: [[a :as all] [1 2]] binds a to 1, all to [1 2]
+   - Map: [{:keys [a b]} {:a 1 :b 2}] binds a to 1, b to 2
+   - Multiple values: [[a b c] (values 1 2 3)] binds a=1, b=2, c=3
    Each binding is visible to subsequent bindings (sequential)."
   (unless (>= (length args) 1)
     (error 'fol-eval-error :message "bind requires at least bindings"
@@ -404,10 +598,13 @@
                             bindings)))
       ;; Bind sequentially, each binding visible to the next
       (let ((current-env env))
-        (loop for (var val-form) on binding-list by #'cddr
-              do (let ((val (fol-eval val-form current-env)))
-                   (setf current-env (make-env current-env
-                                               (extract-symbol var) val))))
+        (loop for (pattern val-form) on binding-list by #'cddr
+              do (let ((val (capture-value-for-destructuring val-form current-env pattern)))
+                   ;; Use destructuring to get all bindings from pattern
+                   (let ((destructured (destructure-pattern pattern val)))
+                     (dolist (binding destructured)
+                       (setf current-env (make-env current-env
+                                                   (car binding) (cdr binding)))))))
         ;; Evaluate body in final environment
         (let ((result nil))
           (dolist (form body)
@@ -828,7 +1025,8 @@
   (apply fn args))
 
 (defmethod apply-function ((fn <function>) args)
-  "Apply a FOL function to args."
+  "Apply a FOL function to args.
+   Supports destructuring in parameter patterns."
   (let* ((params (function-params fn))
          (rest-param (function-rest-param fn))
          (body (function-body fn))
@@ -846,13 +1044,13 @@
           (error 'fol-arity-error :expected num-params :got num-args)))
     ;; Create environment with parameter bindings
     (let ((fn-env closure-env))
-      ;; Bind regular parameters
+      ;; Bind regular parameters (with destructuring support)
       (loop for param in params
             for arg in args
-            do (setf fn-env (make-env fn-env param arg)))
-      ;; Bind rest parameter if present
+            do (setf fn-env (bind-param-with-destructuring param arg fn-env)))
+      ;; Bind rest parameter if present (with destructuring support)
       (when rest-param
-        (setf fn-env (make-env fn-env rest-param (nthcdr num-params args))))
+        (setf fn-env (bind-param-with-destructuring rest-param (nthcdr num-params args) fn-env)))
       ;; Bind function name for recursion if present
       (when name
         (setf fn-env (make-env fn-env name fn)))
@@ -879,7 +1077,8 @@
 
 (defun expand-macro (macro args)
   "Expand a macro with the given unevaluated arguments.
-   Returns the expanded form (not yet evaluated)."
+   Returns the expanded form (not yet evaluated).
+   Supports destructuring in parameter patterns."
   (let* ((params (macro-params macro))
          (rest-param (macro-rest-param macro))
          (body (macro-body macro))
@@ -897,13 +1096,13 @@
           (error 'fol-arity-error :expected num-params :got num-args)))
     ;; Create environment with parameter bindings (args are NOT evaluated)
     (let ((macro-env closure-env))
-      ;; Bind regular parameters to unevaluated args
+      ;; Bind regular parameters to unevaluated args (with destructuring support)
       (loop for param in params
             for arg in args
-            do (setf macro-env (make-env macro-env param arg)))
-      ;; Bind rest parameter if present
+            do (setf macro-env (bind-param-with-destructuring param arg macro-env)))
+      ;; Bind rest parameter if present (with destructuring support)
       (when rest-param
-        (setf macro-env (make-env macro-env rest-param (nthcdr num-params args))))
+        (setf macro-env (bind-param-with-destructuring rest-param (nthcdr num-params args) macro-env)))
       ;; Bind macro name for recursive macros if present
       (when name
         (setf macro-env (make-env macro-env name macro)))
@@ -963,22 +1162,48 @@
 
 (defun parse-params (param-list)
   "Parse a parameter list, returning (values regular-params rest-param).
-   Handles & for rest parameters."
+   Handles & for rest parameters.
+   Parameters can be symbols or destructuring patterns (vectors, maps)."
   (let ((regular nil)
         (rest-param nil)
         (saw-ampersand nil))
     (dolist (p param-list)
-      (let ((sym (extract-symbol p)))
-        (cond
-          ;; Compare by name for package independence
-          ((string= (symbol-name sym) "&")
-           (setf saw-ampersand t))
-          (saw-ampersand
-           (setf rest-param sym)
-           (setf saw-ampersand nil))
-          (t
-           (push sym regular)))))
+      (cond
+        ;; Check for & symbol
+        ((cl:and (symbolp p) (string= (symbol-name p) "&"))
+         (setf saw-ampersand t))
+        ((cl:and (<symbol>? p) (string= (symbol-name (fol-value p)) "&"))
+         (setf saw-ampersand t))
+        ;; After &, capture rest param (can also be a destructuring pattern)
+        (saw-ampersand
+         (setf rest-param p)
+         (setf saw-ampersand nil))
+        ;; Regular param - can be symbol or destructuring pattern
+        (t
+         (push p regular))))
     (values (nreverse regular) rest-param)))
+
+(defun bind-param-with-destructuring (param value env)
+  "Bind PARAM to VALUE in ENV, supporting destructuring.
+   PARAM can be a symbol or a destructuring pattern (vector, map).
+   Returns the new environment with all bindings."
+  (cond
+    ;; Simple symbol - just bind directly
+    ((symbolp param)
+     (make-env env param value))
+    ;; Wrapped symbol - extract and bind
+    ((<symbol>? param)
+     (make-env env (fol-value param) value))
+    ;; Destructuring pattern - use destructure-pattern
+    ((or (<vector>? param) (<dict>? param) (cl:listp param))
+     (let ((bindings (destructure-pattern param value)))
+       (dolist (binding bindings)
+         (setf env (make-env env (car binding) (cdr binding))))
+       env))
+    (t
+     (error 'fol-eval-error
+            :message (format nil "Invalid parameter: ~S" param)
+            :form param))))
 
 ;;; ============================================================================
 ;;; Standard Environment
@@ -1046,10 +1271,11 @@
             'identity #'cl:identity
             'print #'cl:print
             'princ #'cl:princ
-            ;; FOL list operations (for lazy-seq support)
+            ;; FOL list/collection operations
             'conj #'fol.collection:conj
             'first #'fol.collection:first
             'rest #'fol.collection:rest
             'second #'fol.collection:second
             'third #'fol.collection:third
-            'nth #'fol.collection:nth))
+            'nth #'fol.collection:nth
+            'size #'fol.collection:size))
