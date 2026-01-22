@@ -87,10 +87,9 @@
                 :add :conj :contains? :size :empty? :seq
                 :iterator :current :next :done?
                 :nth-element :set-nth
-                :fol-cons :fol-first :fol-rest
                 :list-first :list-rest :list-size)
   ;; Shadow CL symbols that FOL redefines
-  (:shadowing-import-from :fol.collection :remove :get :make-array :make-list)
+  (:shadowing-import-from :fol.collection :remove :get :make-array :make-list :first :rest :second :third :nth)
   ;; Import symbols from fol.env
   (:import-from :fol.env
                 :<env>? :make-env :lookup :env-previous

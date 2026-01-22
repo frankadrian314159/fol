@@ -688,12 +688,12 @@
 (defun eval-lazy-seq (args env)
   "Evaluate (lazy-seq body).
    Creates a lazy sequence that delays evaluation of body until realized.
-   The body should return a seq (typically via fol-cons) or nil.
+   The body should return a seq (typically via conj) or nil.
 
    Example:
      ;; Infinite sequence of integers starting from n
      (defn integers (n)
-       (lazy-seq (fol-cons n (integers (+ n 1)))))
+       (lazy-seq (conj (integers (+ n 1)) n)))
 
      ;; First 5 integers starting from 0
      (take 5 (integers 0))  ; => (0 1 2 3 4)"
@@ -1047,6 +1047,9 @@
             'print #'cl:print
             'princ #'cl:princ
             ;; FOL list operations (for lazy-seq support)
-            'fol-cons #'fol.collection:fol-cons
-            'fol-first #'fol.collection:fol-first
-            'fol-rest #'fol.collection:fol-rest))
+            'conj #'fol.collection:conj
+            'first #'fol.collection:first
+            'rest #'fol.collection:rest
+            'second #'fol.collection:second
+            'third #'fol.collection:third
+            'nth #'fol.collection:nth))

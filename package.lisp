@@ -1,3 +1,12 @@
+;;; Delete packages in reverse dependency order to ensure clean reload
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (dolist (pkg '(:fol.eval :fol.env :fol.module :fol.collection
+                 :fol.number :fol.symbol :fol.string :fol.char :fol.bool
+                 :fol.compareop :fol.arithop :fol.logop
+                 :fol.wrappers :fol.reader :fol.classes :fol.mop :fol.persistent))
+    (when (find-package pkg)
+      (delete-package pkg))))
+
 (defpackage fol.persistent
   (:use cl)
   (:import-from closer-mop
@@ -105,7 +114,7 @@
 
 (defpackage fol.collection
   (:use cl fol.persistent)
-  (:shadow make-array make-list get remove)
+  (:shadow make-array make-list get remove first rest second third nth)
   (:export <collection> <collection>?
            <unordered-collection> <unordered-collection>?
            <ordered-collection> <ordered-collection>?
@@ -123,7 +132,7 @@
            add conj remove
            iterator next current done?
            ;; List-specific operations
-           fol-cons fol-first fol-rest
+           first rest second third nth
            list-first list-rest list-size
            ;; Additional operations
            nth-element set-nth))
@@ -134,7 +143,12 @@
                           make-array
                           make-list
                           get
-                          remove)
+                          remove
+                          first
+                          rest
+                          second
+                          third
+                          nth)
   (:export <module> <module>? make-module
            module-name module-exports module-export module-import
            find-module register-module +module-registry+
@@ -146,7 +160,12 @@
                           make-array
                           make-list
                           get
-                          remove)
+                          remove
+                          first
+                          rest
+                          second
+                          third
+                          nth)
   (:export <env> <env>? make-env lookup env-previous unbound-variable fol-unbound-variable fol-unbound-variable-name fol-unbound-variable-message))
 
 (defpackage fol.logop
@@ -238,7 +257,12 @@
                           make-array
                           make-list
                           get
-                          remove)
+                          remove
+                          first
+                          rest
+                          second
+                          third
+                          nth)
   (:shadowing-import-from fol.logop
                           not and or)
   (:shadowing-import-from fol.arithop

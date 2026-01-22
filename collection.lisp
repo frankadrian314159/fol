@@ -284,29 +284,44 @@
 
 ;;; --- List-specific operations ---
 
-(defgeneric fol-cons (item list)
-  (:documentation "Return a new list with ITEM prepended to LIST.
-   This is the fundamental list-building operation (like Clojure's cons)."))
+(defgeneric conj (collection item &rest more-items)
+  (:documentation "Returns a new collection with ITEM(s) added in the natural position.
+   Like Clojure's conj:
+   - For lists: adds to the front (most efficient)
+   - For vectors: adds to the end (most efficient)
+   - For sets: adds the element
+   - For bags: adds the element (increments count)
+   - For dicts: ITEM should be a cons pair (key . value)
+   - For lazy-seqs: adds to the front
 
-(defmethod fol-cons (item (lst <list>))
-  "Prepend ITEM to LST, returning a new <list>."
-  (make-instance '<list>
-                 :first-elem (fol.wrappers:fol-value item)
-                 :rest-list lst
-                 :list-size (1+ (list-size lst))))
+   Multiple items can be added at once: (conj coll item1 item2 item3)
+   Items are added left-to-right, so for lists the rightmost item ends up first."))
 
-(defgeneric fol-first (list)
+(defmethod conj ((lst <list>) item &rest more-items)
+  "Add items to the front of a list."
+  (let ((result (make-instance '<list>
+                               :first-elem (fol.wrappers:fol-value item)
+                               :rest-list lst
+                               :list-size (1+ (list-size lst)))))
+    (dolist (it more-items)
+      (setf result (make-instance '<list>
+                                  :first-elem (fol.wrappers:fol-value it)
+                                  :rest-list result
+                                  :list-size (1+ (list-size result)))))
+    result))
+
+(defgeneric first (list)
   (:documentation "Return the first element of LIST, or NIL if empty."))
 
-(defmethod fol-first ((lst <list>))
+(defmethod first ((lst <list>))
   "Return the first element of LST."
   (list-first lst))
 
-(defgeneric fol-rest (list)
+(defgeneric rest (list)
   (:documentation "Return the rest of the list (all but first element).
    Returns an empty list if LIST has 0 or 1 elements."))
 
-(defmethod fol-rest ((lst <list>))
+(defmethod rest ((lst <list>))
   "Return the rest of the list."
   (or (list-rest lst)
       (make-instance '<list> :first-elem nil :rest-list nil :list-size 0)))
@@ -314,29 +329,35 @@
 ;;; --- Methods for CL lists (cons cells) ---
 ;;; These enable lazy-seq to work with CL lists returned from thunks.
 
-(defmethod fol-first ((lst cons))
+(defmethod first ((lst cons))
   "Return the first element of a CL list."
   (car lst))
 
-(defmethod fol-first ((lst null))
+(defmethod first ((lst null))
   "Return nil for empty list."
   nil)
 
-(defmethod fol-rest ((lst cons))
+(defmethod rest ((lst cons))
   "Return the rest of a CL list."
   (cdr lst))
 
-(defmethod fol-rest ((lst null))
+(defmethod rest ((lst null))
   "Return nil for empty list."
   nil)
 
-(defmethod fol-cons (item (lst cons))
-  "Prepend ITEM to a CL list, returning a CL list."
-  (cl:cons (fol.wrappers:fol-value item) lst))
+(defmethod conj ((lst cons) item &rest more-items)
+  "Prepend items to a CL list, returning a CL list."
+  (let ((result (cl:cons (fol.wrappers:fol-value item) lst)))
+    (dolist (it more-items)
+      (setf result (cl:cons (fol.wrappers:fol-value it) result)))
+    result))
 
-(defmethod fol-cons (item (lst null))
-  "Prepend ITEM to nil, returning a CL list."
-  (cl:cons (fol.wrappers:fol-value item) nil))
+(defmethod conj ((lst null) item &rest more-items)
+  "Add items to nil, creating a CL list."
+  (let ((result (cl:cons (fol.wrappers:fol-value item) nil)))
+    (dolist (it more-items)
+      (setf result (cl:cons (fol.wrappers:fol-value it) result)))
+    result))
 
 ;;; --- Generic protocol implementations for <list> ---
 
@@ -361,7 +382,7 @@
 (defmethod add ((lst <list>) item &optional value)
   "Add ITEM to the front of the list (like cons)."
   (declare (ignore value))
-  (fol-cons item lst))
+  (conj lst item))
 
 (defmethod remove ((lst <list>) item)
   "Return a new list with the first occurrence of ITEM removed."
@@ -372,10 +393,10 @@
                  ((zerop (list-size current)) current)
                  ;; Found the item - skip it
                  ((equal (list-first current) raw-item)
-                  (fol-rest current))
+                  (rest current))
                  ;; Not found yet - cons and continue
-                 (t (fol-cons (list-first current)
-                              (remove-first (fol-rest current)))))))
+                 (t (conj (remove-first (rest current))
+                          (list-first current))))))
       (remove-first lst))))
 
 (defmethod get ((lst <list>) (index integer) &optional default)
@@ -497,18 +518,18 @@
         (seq realized)
         nil)))
 
-(defmethod fol-first ((ls <lazy-seq>))
+(defmethod first ((ls <lazy-seq>))
   "Get first element, realizing if needed."
   (let ((realized (realize-lazy-seq ls)))
     (if realized
-        (fol-first realized)
+        (first realized)
         nil)))
 
-(defmethod fol-rest ((ls <lazy-seq>))
+(defmethod rest ((ls <lazy-seq>))
   "Get rest of sequence, realizing if needed."
   (let ((realized (realize-lazy-seq ls)))
     (if realized
-        (fol-rest realized)
+        (rest realized)
         (make-instance '<list> :first-elem nil :rest-list nil :list-size 0))))
 
 (defmethod size ((ls <lazy-seq>))
@@ -534,11 +555,14 @@
         (contains? realized item)
         nil)))
 
-(defmethod fol-cons (item (tail <lazy-seq>))
-  "Cons an item onto a lazy sequence.
+(defmethod conj ((ls <lazy-seq>) item &rest more-items)
+  "Add items to the front of a lazy sequence.
    Returns a CL cons cell where first is the item and rest is the lazy-seq.
-   The lazy-seq is only realized when fol-first/fol-rest is called on it."
-  (cl:cons (fol.wrappers:fol-value item) tail))
+   The lazy-seq is only realized when first/rest is called on it."
+  (let ((result (cl:cons (fol.wrappers:fol-value item) ls)))
+    (dolist (it more-items)
+      (setf result (cl:cons (fol.wrappers:fol-value it) result)))
+    result))
 
 ;;; --- Iterator for <lazy-seq> ---
 
@@ -560,7 +584,7 @@
                          current)))
       (if (or (null realized) (empty? realized))
           (setf (iter-done-lazy iter) t)
-          (setf (iter-current-lazy iter) (fol-rest realized)))))
+          (setf (iter-current-lazy iter) (rest realized)))))
   iter)
 
 (defmethod current ((iter <lazy-seq-iterator>))
@@ -571,7 +595,7 @@
                          (realize-lazy-seq current)
                          current)))
       (when (and realized (not (empty? realized)))
-        (fol-first realized)))))
+        (first realized)))))
 
 (defmethod done? ((iter <lazy-seq-iterator>))
   "Return T if the iterator is exhausted."
@@ -584,6 +608,59 @@
         (if (or (null realized) (empty? realized))
             (progn (setf (iter-done-lazy iter) t) t)
             nil))))
+
+
+;;; ============================================================================
+;;; Sequence Accessors: second, third, nth
+;;; ============================================================================
+;;; These work on any seqable (lists, vectors, lazy-seqs, CL lists).
+
+(defgeneric second (coll)
+  (:documentation "Return the second element of COLL, or NIL if not present."))
+
+(defmethod second ((coll t))
+  "Default implementation: (first (rest coll))"
+  (first (rest coll)))
+
+(defgeneric third (coll)
+  (:documentation "Return the third element of COLL, or NIL if not present."))
+
+(defmethod third ((coll t))
+  "Default implementation: (first (rest (rest coll)))"
+  (first (rest (rest coll))))
+
+(defgeneric nth (n coll)
+  (:documentation "Return the Nth element (0-indexed) of COLL, or NIL if not present.
+   Like Clojure's nth, this is 0-indexed."))
+
+(defmethod nth ((n integer) (lst <list>))
+  "Get Nth element from a <list>."
+  (get lst n nil))
+
+(defmethod nth ((n integer) (v <vector>))
+  "Get Nth element from a <vector>."
+  (get v n nil))
+
+(defmethod nth ((n integer) (ls <lazy-seq>))
+  "Get Nth element from a <lazy-seq>."
+  (let ((current ls))
+    (dotimes (i n)
+      (setf current (rest current))
+      (when (null current)
+        (return-from nth nil)))
+    (first current)))
+
+(defmethod nth ((n integer) (lst cons))
+  "Get Nth element from a CL list."
+  (cl:nth n lst))
+
+(defmethod nth ((n integer) (lst null))
+  "Nth of nil is nil."
+  nil)
+
+(defmethod nth ((n fol.classes:<number>) coll)
+  "Allow wrapped numbers as index."
+  (nth (fol.wrappers:fol-value n) coll))
 
 
 ;;; ============================================================================
@@ -835,27 +912,8 @@
   (declare (ignore item value))
   (error "Cannot add elements to fixed-dimension <array>."))
 
-;;; 5. CONJ (Clojure-style addition)
-(defgeneric conj (collection item &rest more-items)
-  (:documentation "Returns a new collection with ITEM(s) added in the natural position.
-   Like Clojure's conj:
-   - For lists: adds to the front (most efficient)
-   - For vectors: adds to the end (most efficient)
-   - For sets: adds the element
-   - For bags: adds the element (increments count)
-   - For dicts: ITEM should be a cons pair (key . value)
-   - For arrays: signals an error
-   - For lazy-seqs: adds to the front (like cons)
-
-   Multiple items can be added at once: (conj coll item1 item2 item3)
-   Items are added left-to-right, so for lists the rightmost item ends up first."))
-
-(defmethod conj ((lst <list>) item &rest more-items)
-  "Add items to the front of a list."
-  (let ((result (fol-cons item lst)))
-    (dolist (it more-items)
-      (setf result (fol-cons it result)))
-    result))
+;;; 5. CONJ (Clojure-style addition for non-list collections)
+;;; Note: conj for lists, CL cons, null, and lazy-seq is defined earlier in the file.
 
 (defmethod conj ((v <vector>) item &rest more-items)
   "Add items to the end of a vector."
@@ -893,28 +951,6 @@
   "Arrays do not support conj."
   (declare (ignore item more-items))
   (error "Cannot conj to a fixed-dimension <array>. Use set-nth to modify elements."))
-
-(defmethod conj ((ls <lazy-seq>) item &rest more-items)
-  "Add items to the front of a lazy sequence."
-  (let ((result (fol-cons item ls)))
-    (dolist (it more-items)
-      (setf result (fol-cons it result)))
-    result))
-
-;;; Also support conj on CL lists for consistency
-(defmethod conj ((lst cons) item &rest more-items)
-  "Add items to the front of a CL list."
-  (let ((result (cl:cons (fol.wrappers:fol-value item) lst)))
-    (dolist (it more-items)
-      (setf result (cl:cons (fol.wrappers:fol-value it) result)))
-    result))
-
-(defmethod conj ((lst null) item &rest more-items)
-  "Add items to nil, creating a CL list."
-  (let ((result (cl:cons (fol.wrappers:fol-value item) nil)))
-    (dolist (it more-items)
-      (setf result (cl:cons (fol.wrappers:fol-value it) result)))
-    result))
 
 ;;; 6. REMOVE (Functional Deletion)
 (defgeneric remove (collection item)

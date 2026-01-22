@@ -540,9 +540,9 @@
   (let ((lst (make-list 1 2 3)))
     (is-true (<list>? lst))
     (is (= 3 (size lst)))
-    (is (= 1 (fol-first lst)))
-    (is (= 2 (fol-first (fol-rest lst))))
-    (is (= 3 (fol-first (fol-rest (fol-rest lst)))))))
+    (is (= 1 (first lst)))
+    (is (= 2 (first (rest lst))))
+    (is (= 3 (first (rest (rest lst)))))))
 
 (test list-is-ordered-collection
   "Test that list is an ordered collection."
@@ -559,49 +559,49 @@
     (is (= 5 (list-size lst)))))
 
 (test list-first-operation
-  "Test fol-first operation."
+  "Test first operation."
   (let ((lst (make-list :a :b :c)))
-    (is (eq :a (fol-first lst))))
+    (is (eq :a (first lst))))
   ;; First of empty list is nil
   (let ((empty (make-list)))
-    (is (eq nil (fol-first empty)))))
+    (is (eq nil (first empty)))))
 
 (test list-rest-operation
-  "Test fol-rest operation."
+  "Test rest operation."
   (let ((lst (make-list 1 2 3)))
-    (let ((rst (fol-rest lst)))
+    (let ((rst (rest lst)))
       (is-true (<list>? rst))
       (is (= 2 (size rst)))
-      (is (= 2 (fol-first rst)))))
+      (is (= 2 (first rst)))))
   ;; Rest of empty list is empty list
   (let ((empty (make-list)))
-    (let ((rst (fol-rest empty)))
+    (let ((rst (rest empty)))
       (is-true (<list>? rst))
       (is (= 0 (size rst))))))
 
 (test list-cons-operation
-  "Test fol-cons operation."
+  "Test conj operation."
   (let* ((lst (make-list 2 3))
-         (new-lst (fol-cons 1 lst)))
+         (new-lst (conj lst 1)))
     (is (= 3 (size new-lst)))
-    (is (= 1 (fol-first new-lst)))
-    (is (= 2 (fol-first (fol-rest new-lst))))
+    (is (= 1 (first new-lst)))
+    (is (= 2 (first (rest new-lst))))
     ;; Original unchanged
     (is (= 2 (size lst)))))
 
 (test list-cons-to-empty
-  "Test fol-cons to empty list."
+  "Test conj to empty list."
   (let* ((empty (make-list))
-         (lst (fol-cons :first empty)))
+         (lst (conj empty :first)))
     (is (= 1 (size lst)))
-    (is (eq :first (fol-first lst)))))
+    (is (eq :first (first lst)))))
 
 (test list-add-is-cons
   "Test that add on list prepends (like cons)."
   (let* ((lst (make-list 2 3))
          (new-lst (add lst 1)))
     (is (= 3 (size new-lst)))
-    (is (= 1 (fol-first new-lst)))))
+    (is (= 1 (first new-lst)))))
 
 (test list-remove
   "Test list remove operation."
@@ -609,8 +609,8 @@
          (removed (remove lst 2)))
     ;; Removes first occurrence only
     (is (= 4 (size removed)))
-    (is (= 1 (fol-first removed)))
-    (is (= 3 (fol-first (fol-rest removed))))
+    (is (= 1 (first removed)))
+    (is (= 3 (first (rest removed))))
     ;; Original unchanged
     (is (= 5 (size lst)))))
 
@@ -703,12 +703,12 @@
 (test list-immutability
   "Test that list operations don't mutate original."
   (let* ((lst1 (make-list 1 2 3))
-         (lst2 (fol-cons 0 lst1))
-         (lst3 (fol-rest lst1))
+         (lst2 (conj lst1 0))
+         (lst3 (rest lst1))
          (lst4 (add lst1 :new))
          (lst5 (remove lst1 2)))
     (is (= 3 (size lst1)))
-    (is (= 1 (fol-first lst1)))
+    (is (= 1 (first lst1)))
     (is (= 4 (size lst2)))
     (is (= 2 (size lst3)))
     (is (= 4 (size lst4)))
@@ -719,8 +719,8 @@
   (let* ((wrapped-num (wrap-number 42))
          (lst (make-list wrapped-num)))
     ;; Value should be stored as raw 42, not wrapped
-    (is (= 42 (fol-first lst)))
-    (is (numberp (fol-first lst)))))
+    (is (= 42 (first lst)))
+    (is (numberp (first lst)))))
 
 (test list-various-element-types
   "Test list with various element types."
@@ -737,8 +737,8 @@
   (let* ((inner (make-list 1 2))
          (outer (make-list inner 3)))
     (is (= 2 (size outer)))
-    (is-true (<list>? (fol-first outer)))
-    (is (= 2 (size (fol-first outer))))))
+    (is-true (<list>? (first outer)))
+    (is (= 2 (size (first outer))))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Seq Tests
@@ -766,9 +766,9 @@
          (s (seq v)))
     (is-true (<list>? s))
     (is (= 3 (size s)))
-    (is (= 1 (fol-first s)))
-    (is (= 2 (fol-first (fol-rest s))))
-    (is (= 3 (fol-first (fol-rest (fol-rest s)))))))
+    (is (= 1 (first s)))
+    (is (= 2 (first (rest s))))
+    (is (= 3 (first (rest (rest s)))))))
 
 (test seq-dict
   "Test seq on dict returns a list of pairs."
@@ -777,8 +777,8 @@
     (is-true (<list>? s))
     (is (= 2 (size s)))
     ;; Each element should be a cons pair
-    (is-true (consp (fol-first s)))
-    (is-true (consp (fol-first (fol-rest s))))))
+    (is-true (consp (first s)))
+    (is-true (consp (first (rest s))))))
 
 (test seq-set
   "Test seq on set returns a list of elements."
@@ -840,7 +840,7 @@
   (let* ((called nil)
          (ls (make-lazy-seq (lambda () (setf called t) (make-list 1 2 3)))))
     (is-false called)
-    (is (= 1 (fol-first ls)))
+    (is (= 1 (first ls)))
     (is-true called)
     (is-true (lazy-seq-realized-p ls))))
 
@@ -849,10 +849,10 @@
   (let* ((called nil)
          (ls (make-lazy-seq (lambda () (setf called t) (make-list 1 2 3)))))
     (is-false called)
-    (let ((rst (fol-rest ls)))
+    (let ((rst (rest ls)))
       (is-true called)
       (is-true (<list>? rst))
-      (is (= 2 (fol-first rst))))))
+      (is (= 2 (first rst))))))
 
 (test lazy-seq-realized-on-seq
   "Test that lazy-seq is realized when seq is called."
@@ -868,13 +868,13 @@
   (let* ((call-count 0)
          (ls (make-lazy-seq (lambda () (incf call-count) (make-list 1 2 3)))))
     ;; First access
-    (fol-first ls)
+    (first ls)
     (is (= 1 call-count))
     ;; Second access - should use cached result
-    (fol-first ls)
+    (first ls)
     (is (= 1 call-count))
     ;; Third access
-    (fol-rest ls)
+    (rest ls)
     (is (= 1 call-count))))
 
 (test lazy-seq-empty
@@ -882,28 +882,28 @@
   (let ((ls (make-lazy-seq (lambda () nil))))
     (is-true (empty? ls))
     (is (eq nil (seq ls)))
-    (is (eq nil (fol-first ls)))))
+    (is (eq nil (first ls)))))
 
 (test lazy-seq-nested
   "Test lazy-seq that returns another lazy-seq."
   (let* ((inner (make-lazy-seq (lambda () (make-list 1 2 3))))
          (outer (make-lazy-seq (lambda () inner))))
     ;; Outer returns inner lazy-seq, which should be automatically realized
-    (is (= 1 (fol-first outer)))
+    (is (= 1 (first outer)))
     (is (= 3 (size outer)))))
 
 (test lazy-seq-cons
-  "Test fol-cons onto a lazy-seq."
+  "Test conj onto a lazy-seq."
   (let* ((ls (make-lazy-seq (lambda () (make-list 2 3))))
-         (consed (fol-cons 1 ls)))
+         (consed (conj ls 1)))
     ;; Consing onto lazy-seq returns a CL cons cell for efficiency
     ;; (the lazy-seq is only realized when its elements are accessed)
     (is-true (consp consed))
-    ;; fol-first returns the consed item
-    (is (= 1 (fol-first consed)))
-    ;; fol-rest returns the lazy-seq, and fol-first on that realizes it
-    (is-true (<lazy-seq>? (fol-rest consed)))
-    (is (= 2 (fol-first (fol-rest consed))))))
+    ;; first returns the consed item
+    (is (= 1 (first consed)))
+    ;; rest returns the lazy-seq, and first on that realizes it
+    (is-true (<lazy-seq>? (rest consed)))
+    (is (= 2 (first (rest consed))))))
 
 (test lazy-seq-size
   "Test size on lazy-seq (realizes entire sequence)."
@@ -938,7 +938,7 @@
   "Test that realized lazy-seq prints its contents."
   (let ((ls (make-lazy-seq (lambda () (make-list 1 2 3)))))
     ;; Realize it
-    (fol-first ls)
+    (first ls)
     ;; Should print like a list
     (let ((printed (format nil "~A" ls)))
       (is (search "1" printed))
@@ -954,8 +954,8 @@
   (let* ((lst (make-list 2 3))
          (result (conj lst 1)))
     (is (= 3 (size result)))
-    (is (= 1 (fol-first result)))
-    (is (= 2 (fol-first (fol-rest result))))))
+    (is (= 1 (first result)))
+    (is (= 2 (first (rest result))))))
 
 (test conj-list-multiple
   "Test conj with multiple items on list."
@@ -963,16 +963,16 @@
          (result (conj lst 1 2 3)))
     ;; Items are added left-to-right, so 3 ends up first
     (is (= 5 (size result)))
-    (is (= 3 (fol-first result)))
-    (is (= 2 (fol-first (fol-rest result))))
-    (is (= 1 (fol-first (fol-rest (fol-rest result)))))))
+    (is (= 3 (first result)))
+    (is (= 2 (first (rest result))))
+    (is (= 1 (first (rest (rest result)))))))
 
 (test conj-list-empty
   "Test conj to empty list."
   (let* ((empty (make-list))
          (result (conj empty :first)))
     (is (= 1 (size result)))
-    (is (eq :first (fol-first result)))))
+    (is (eq :first (first result)))))
 
 (test conj-vector-single
   "Test conj adds to end of vector."
@@ -1076,18 +1076,18 @@
   "Test conj adds to front of lazy-seq."
   (let* ((ls (make-lazy-seq (lambda () (make-list 2 3))))
          (result (conj ls 1)))
-    (is (= 1 (fol-first result)))
-    (is (= 2 (fol-first (fol-rest result))))))
+    (is (= 1 (first result)))
+    (is (= 2 (first (rest result))))))
 
 (test conj-lazy-seq-multiple
   "Test conj with multiple items on lazy-seq."
   (let* ((ls (make-lazy-seq (lambda () (make-list 4))))
          (result (conj ls 1 2 3)))
     ;; Items added left-to-right, so 3 is first
-    (is (= 3 (fol-first result)))
-    (is (= 2 (fol-first (fol-rest result))))
-    (is (= 1 (fol-first (fol-rest (fol-rest result)))))
-    (is (= 4 (fol-first (fol-rest (fol-rest (fol-rest result))))))))
+    (is (= 3 (first result)))
+    (is (= 2 (first (rest result))))
+    (is (= 1 (first (rest (rest result)))))
+    (is (= 4 (first (rest (rest (rest result))))))))
 
 (test conj-immutability
   "Test conj does not mutate original collection."
