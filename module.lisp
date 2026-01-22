@@ -72,3 +72,18 @@
 ;;; Printer
 (defmethod print-object ((obj <module>) stream)
   (format stream "#<MODULE ~A>" (module-name obj)))
+
+;;; ============================================================================
+;;; Standard Modules
+;;; ============================================================================
+
+(defun ensure-standard-modules ()
+  "Ensure the standard modules exist in the registry.
+   Creates %keyword (for all keywords) and fol-user (default user module)."
+  (unless (find-module "%keyword")
+    (make-module "%keyword"))
+  (unless (find-module "fol-user")
+    (make-module "fol-user")))
+
+;; Initialize standard modules when this file is loaded
+(ensure-standard-modules)

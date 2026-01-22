@@ -4,7 +4,8 @@
 ;;; Symbol Tests - Comprehensive test suite for FOL symbol operations
 ;;; ============================================================================
 
-(def-suite* :fol.symbol-tests)
+(def-suite symbol-suite :in fol-suite)
+(def-suite* :fol.symbol-tests :in symbol-suite)
 
 ;;; ---------------------------------------------------------------------------
 ;;; Symbol Type Predicate Tests
@@ -359,3 +360,106 @@
   (is-true (<symbol>? t))
   (is-false (<keyword>? nil))
   (is-false (<keyword>? t)))
+
+;;; ---------------------------------------------------------------------------
+;;; Symbol Interning Tests (fol-intern)
+;;; ---------------------------------------------------------------------------
+
+(test parse-qualified-name-simple
+  "Test parsing simple unqualified names."
+  (multiple-value-bind (mod sym) (parse-qualified-name "foo")
+    (is (null mod))
+    (is (string= "foo" sym))))
+
+(test parse-qualified-name-keyword
+  "Test parsing keyword names starting with colon."
+  (multiple-value-bind (mod sym) (parse-qualified-name ":bar")
+    (is (string= +keyword-module+ mod))
+    (is (string= "bar" sym))))
+
+(test parse-qualified-name-clojure-style
+  "Test parsing Clojure-style module-qualified names (module/symbol)."
+  (multiple-value-bind (mod sym) (parse-qualified-name "mymod/baz")
+    (is (string= "mymod" mod))
+    (is (string= "baz" sym))))
+
+(test parse-qualified-name-cl-style
+  "Test parsing CL-style module-qualified names (module::symbol)."
+  (multiple-value-bind (mod sym) (parse-qualified-name "other::qux")
+    (is (string= "other" mod))
+    (is (string= "qux" sym))))
+
+(test parse-qualified-name-empty
+  "Test parsing empty string."
+  (multiple-value-bind (mod sym) (parse-qualified-name "")
+    (is (null mod))
+    (is (string= "" sym))))
+
+(test fol-intern-keyword
+  "Test interning keywords (names starting with colon)."
+  (let ((sym (fol-intern ":foo")))
+    (is-true (<keyword>? sym))
+    (is (eq :FOO (fol-value sym)))
+    (is (string= +keyword-module+ (fol.classes:symbol-module-name sym)))))
+
+(test fol-intern-simple-default-module
+  "Test interning unqualified symbols uses default module."
+  (let ((sym (fol-intern "bar")))
+    (is-true (<symbol>? sym))
+    (is-false (<keyword>? sym))
+    (is (string= "BAR" (symbol-name (fol-value sym))))
+    (is (string= +default-module+ (fol.classes:symbol-module-name sym)))))
+
+(test fol-intern-with-explicit-module
+  "Test interning with explicit module name."
+  (let ((sym (fol-intern "baz" "mymodule")))
+    (is-true (<symbol>? sym))
+    (is (string= "BAZ" (symbol-name (fol-value sym))))
+    (is (string= "mymodule" (fol.classes:symbol-module-name sym)))))
+
+(test fol-intern-clojure-qualified
+  "Test interning Clojure-style qualified names."
+  (let ((sym (fol-intern "somemod/func")))
+    (is-true (<symbol>? sym))
+    (is (string= "FUNC" (symbol-name (fol-value sym))))
+    (is (string= "somemod" (fol.classes:symbol-module-name sym)))))
+
+(test fol-intern-cl-qualified
+  "Test interning CL-style qualified names."
+  (let ((sym (fol-intern "othermod::var")))
+    (is-true (<symbol>? sym))
+    (is (string= "VAR" (symbol-name (fol-value sym))))
+    (is (string= "othermod" (fol.classes:symbol-module-name sym)))))
+
+(test fol-intern-keyword-ignores-module
+  "Test that keywords always go to %keyword module regardless of explicit module."
+  (let ((sym (fol-intern ":keyword" "ignored-module")))
+    (is-true (<keyword>? sym))
+    (is (string= +keyword-module+ (fol.classes:symbol-module-name sym)))))
+
+(test fol-intern-current-module
+  "Test that *current-module* is used when set."
+  (let ((*current-module* "current-test-module"))
+    (let ((sym (fol-intern "myvar")))
+      (is (string= "current-test-module" (fol.classes:symbol-module-name sym))))))
+
+(test fol-intern-explicit-overrides-current
+  "Test that explicit module overrides *current-module*."
+  (let ((*current-module* "current-mod"))
+    (let ((sym (fol-intern "myvar" "explicit-mod")))
+      (is (string= "explicit-mod" (fol.classes:symbol-module-name sym))))))
+
+(test fol-intern-qualified-overrides-all
+  "Test that qualified names override both explicit and current module."
+  (let ((*current-module* "current-mod"))
+    (let ((sym (fol-intern "qualified/name" "explicit-mod")))
+      (is (string= "qualified" (fol.classes:symbol-module-name sym))))))
+
+(test fol-intern-case-insensitive
+  "Test that symbol names are uppercased."
+  (let ((lower (fol-intern "lowercase"))
+        (upper (fol-intern "UPPERCASE"))
+        (mixed (fol-intern "MixedCase")))
+    (is (string= "LOWERCASE" (symbol-name (fol-value lower))))
+    (is (string= "UPPERCASE" (symbol-name (fol-value upper))))
+    (is (string= "MIXEDCASE" (symbol-name (fol-value mixed))))))

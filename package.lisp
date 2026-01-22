@@ -120,7 +120,7 @@
            ;; GENERIC OPERATIONS
            get seq
            size empty? contains?
-           add remove
+           add conj remove
            iterator next current done?
            ;; List-specific operations
            fol-cons fol-first fol-rest
@@ -135,7 +135,10 @@
                           make-list
                           get
                           remove)
-  (:export <module> <module>? make-module))
+  (:export <module> <module>? make-module
+           module-name module-exports module-export module-import
+           find-module register-module +module-registry+
+           ensure-standard-modules))
 
 (defpackage fol.env
   (:use cl fol.persistent fol.collection)
@@ -210,7 +213,13 @@
            set-symbol-value
            symbol-bound?
            as
-           +symbol-unbound-sentinel+))
+           +symbol-unbound-sentinel+
+           ;; Module constants and interning
+           +keyword-module+
+           +default-module+
+           *current-module*
+           fol-intern
+           parse-qualified-name))
 
 (defpackage fol.number
   (:use cl fol.wrappers fol.classes)

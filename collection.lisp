@@ -835,7 +835,88 @@
   (declare (ignore item value))
   (error "Cannot add elements to fixed-dimension <array>."))
 
-;;; 5. REMOVE (Functional Deletion)
+;;; 5. CONJ (Clojure-style addition)
+(defgeneric conj (collection item &rest more-items)
+  (:documentation "Returns a new collection with ITEM(s) added in the natural position.
+   Like Clojure's conj:
+   - For lists: adds to the front (most efficient)
+   - For vectors: adds to the end (most efficient)
+   - For sets: adds the element
+   - For bags: adds the element (increments count)
+   - For dicts: ITEM should be a cons pair (key . value)
+   - For arrays: signals an error
+   - For lazy-seqs: adds to the front (like cons)
+
+   Multiple items can be added at once: (conj coll item1 item2 item3)
+   Items are added left-to-right, so for lists the rightmost item ends up first."))
+
+(defmethod conj ((lst <list>) item &rest more-items)
+  "Add items to the front of a list."
+  (let ((result (fol-cons item lst)))
+    (dolist (it more-items)
+      (setf result (fol-cons it result)))
+    result))
+
+(defmethod conj ((v <vector>) item &rest more-items)
+  "Add items to the end of a vector."
+  (let ((result (add v item)))
+    (dolist (it more-items)
+      (setf result (add result it)))
+    result))
+
+(defmethod conj ((s <set>) item &rest more-items)
+  "Add items to a set."
+  (let ((result (add s item)))
+    (dolist (it more-items)
+      (setf result (add result it)))
+    result))
+
+(defmethod conj ((b <bag>) item &rest more-items)
+  "Add items to a bag."
+  (let ((result (add b item)))
+    (dolist (it more-items)
+      (setf result (add result it)))
+    result))
+
+(defmethod conj ((d <dict>) item &rest more-items)
+  "Add key-value pairs to a dict. Each item should be a cons pair (key . value)."
+  (unless (consp item)
+    (error "conj on <dict> requires a cons pair (key . value), got ~A" item))
+  (let ((result (add d (car item) (cdr item))))
+    (dolist (it more-items)
+      (unless (consp it)
+        (error "conj on <dict> requires cons pairs (key . value), got ~A" it))
+      (setf result (add result (car it) (cdr it))))
+    result))
+
+(defmethod conj ((a <array>) item &rest more-items)
+  "Arrays do not support conj."
+  (declare (ignore item more-items))
+  (error "Cannot conj to a fixed-dimension <array>. Use set-nth to modify elements."))
+
+(defmethod conj ((ls <lazy-seq>) item &rest more-items)
+  "Add items to the front of a lazy sequence."
+  (let ((result (fol-cons item ls)))
+    (dolist (it more-items)
+      (setf result (fol-cons it result)))
+    result))
+
+;;; Also support conj on CL lists for consistency
+(defmethod conj ((lst cons) item &rest more-items)
+  "Add items to the front of a CL list."
+  (let ((result (cl:cons (fol.wrappers:fol-value item) lst)))
+    (dolist (it more-items)
+      (setf result (cl:cons (fol.wrappers:fol-value it) result)))
+    result))
+
+(defmethod conj ((lst null) item &rest more-items)
+  "Add items to nil, creating a CL list."
+  (let ((result (cl:cons (fol.wrappers:fol-value item) nil)))
+    (dolist (it more-items)
+      (setf result (cl:cons (fol.wrappers:fol-value it) result)))
+    result))
+
+;;; 6. REMOVE (Functional Deletion)
 (defgeneric remove (collection item)
   (:documentation "Returns a new collection with ITEM removed.
    ITEM is unwrapped before comparison."))

@@ -58,7 +58,9 @@
                 :<symbol>? :<keyword>?
                 :symbol-name-str :symbol-package-str
                 :get-symbol-value :set-symbol-value :symbol-bound?
-                :as)
+                :as
+                :+keyword-module+ :+default-module+ :*current-module*
+                :fol-intern :parse-qualified-name)
   ;; Import non-conflicting symbols from fol.number
   (:import-from :fol.number
                 :<number>? :<complex>?
@@ -82,7 +84,7 @@
                 :<dict>? :<set>? :<bag>? :<vector>? :<array>? :<list>?
                 :<lazy-seq>? :make-lazy-seq :realize-lazy-seq :lazy-seq-realized-p
                 :make-dict :make-set :make-bag :make-vector
-                :add :contains? :size :empty? :seq
+                :add :conj :contains? :size :empty? :seq
                 :iterator :current :next :done?
                 :nth-element :set-nth
                 :fol-cons :fol-first :fol-rest

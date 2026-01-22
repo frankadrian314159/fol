@@ -7,6 +7,103 @@
 ;;; Type predicates and operations work on both raw CL symbols and wrapped
 ;;; FOL <symbol> objects. Results are returned as raw CL values where appropriate.
 
+;;; ============================================================================
+;;; Module Constants and Current Module Tracking
+;;; ============================================================================
+
+(defparameter +keyword-module+ "%keyword"
+  "The name of the special module where all keywords are interned.")
+
+(defparameter +default-module+ "fol-user"
+  "The name of the default module for user symbols.")
+
+(defvar *current-module* nil
+  "The current module name (string) for symbol interning during reading.
+   When NIL, defaults to +default-module+ (fol-user).")
+
+;;; ============================================================================
+;;; Symbol Interning
+;;; ============================================================================
+
+(defun parse-qualified-name (name)
+  "Parse a potentially module-qualified name string.
+   Returns two values: (module-name symbol-name)
+
+   Examples:
+     \"foo\"           -> (NIL \"foo\")
+     \":bar\"          -> (\"%keyword\" \"bar\")
+     \"mymod/baz\"     -> (\"mymod\" \"baz\")
+     \"mymod::qux\"    -> (\"mymod\" \"qux\")
+
+   The module separator can be / (Clojure-style) or :: (CL-style)."
+  (let ((len (length name)))
+    (cond
+      ;; Empty string
+      ((= len 0)
+       (values nil ""))
+
+      ;; Keyword - starts with :
+      ((char= (char name 0) #\:)
+       (values +keyword-module+ (subseq name 1)))
+
+      ;; Check for / separator (Clojure-style)
+      (t
+       (let ((slash-pos (position #\/ name)))
+         (if slash-pos
+             (values (subseq name 0 slash-pos)
+                     (subseq name (1+ slash-pos)))
+             ;; Check for :: separator (CL-style)
+             (let ((colon-pos (search "::" name)))
+               (if colon-pos
+                   (values (subseq name 0 colon-pos)
+                           (subseq name (+ colon-pos 2)))
+                   ;; No module qualifier
+                   (values nil name)))))))))
+
+(defun fol-intern (name &optional module-name)
+  "Intern a string NAME as a FOL symbol in the appropriate module.
+
+   Parameters:
+   - NAME: A string representing the symbol name. May include module qualifier:
+           - \":foo\" - keyword, interned in %keyword module
+           - \"mod/foo\" - symbol foo in module mod (Clojure-style)
+           - \"mod::foo\" - symbol foo in module mod (CL-style)
+           - \"foo\" - symbol in MODULE-NAME or current/default module
+   - MODULE-NAME: Optional module name (string) to use if NAME is unqualified.
+                  If NIL, uses *current-module* or +default-module+.
+
+   Returns:
+   A FOL <symbol> or <keyword> instance with the appropriate module-name set.
+
+   Module resolution order:
+   1. If NAME starts with ':', use %keyword module
+   2. If NAME contains module qualifier (/ or ::), use that module
+   3. If MODULE-NAME is provided, use that
+   4. If *current-module* is set, use that
+   5. Otherwise use +default-module+ (fol-user)
+
+   Examples:
+     (fol-intern \":foo\")         -> <keyword> FOO in %keyword
+     (fol-intern \"bar\")          -> <symbol> BAR in fol-user (default)
+     (fol-intern \"bar\" \"mymod\") -> <symbol> BAR in mymod
+     (fol-intern \"mod/baz\")      -> <symbol> BAZ in mod
+     (fol-intern \"mod::qux\")     -> <symbol> QUX in mod"
+  (multiple-value-bind (parsed-module symbol-name) (parse-qualified-name name)
+    (let* ((final-module (or parsed-module
+                             module-name
+                             *current-module*
+                             +default-module+))
+           (is-keyword (string= final-module +keyword-module+))
+           ;; Create the underlying CL symbol
+           (cl-symbol (if is-keyword
+                          (intern (string-upcase symbol-name) :keyword)
+                          (make-symbol (string-upcase symbol-name))))
+           ;; Create the FOL wrapper
+           (fol-class (if is-keyword '<keyword> '<symbol>)))
+      (make-instance fol-class
+                     :val cl-symbol
+                     :module-name final-module))))
+
 ;;; Symbol type predicates
 (defgeneric <symbol>? (obj) (:documentation "Returns T if OBJ is a FOL <symbol> or raw symbol."))
 (defmethod <symbol>? (obj) nil)

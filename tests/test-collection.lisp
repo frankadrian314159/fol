@@ -944,3 +944,164 @@
       (is (search "1" printed))
       (is (search "2" printed))
       (is (search "3" printed)))))
+
+;;; ---------------------------------------------------------------------------
+;;; Conj Tests (Clojure-style addition)
+;;; ---------------------------------------------------------------------------
+
+(test conj-list-single
+  "Test conj adds to front of list."
+  (let* ((lst (make-list 2 3))
+         (result (conj lst 1)))
+    (is (= 3 (size result)))
+    (is (= 1 (fol-first result)))
+    (is (= 2 (fol-first (fol-rest result))))))
+
+(test conj-list-multiple
+  "Test conj with multiple items on list."
+  (let* ((lst (make-list 4 5))
+         (result (conj lst 1 2 3)))
+    ;; Items are added left-to-right, so 3 ends up first
+    (is (= 5 (size result)))
+    (is (= 3 (fol-first result)))
+    (is (= 2 (fol-first (fol-rest result))))
+    (is (= 1 (fol-first (fol-rest (fol-rest result)))))))
+
+(test conj-list-empty
+  "Test conj to empty list."
+  (let* ((empty (make-list))
+         (result (conj empty :first)))
+    (is (= 1 (size result)))
+    (is (eq :first (fol-first result)))))
+
+(test conj-vector-single
+  "Test conj adds to end of vector."
+  (let* ((v (make-vector 1 2))
+         (result (conj v 3)))
+    (is (= 3 (size result)))
+    (is (= 1 (get result 0)))
+    (is (= 2 (get result 1)))
+    (is (= 3 (get result 2)))))
+
+(test conj-vector-multiple
+  "Test conj with multiple items on vector."
+  (let* ((v (make-vector 1))
+         (result (conj v 2 3 4)))
+    (is (= 4 (size result)))
+    (is (= 1 (get result 0)))
+    (is (= 2 (get result 1)))
+    (is (= 3 (get result 2)))
+    (is (= 4 (get result 3)))))
+
+(test conj-set-single
+  "Test conj adds element to set."
+  (let* ((s (make-set 1 2))
+         (result (conj s 3)))
+    (is (= 3 (size result)))
+    (is-true (contains? result 1))
+    (is-true (contains? result 2))
+    (is-true (contains? result 3))))
+
+(test conj-set-duplicate
+  "Test conj with duplicate element on set."
+  (let* ((s (make-set 1 2))
+         (result (conj s 2)))
+    ;; Set should still have 2 elements
+    (is (= 2 (size result)))))
+
+(test conj-set-multiple
+  "Test conj with multiple items on set."
+  (let* ((s (make-set 1))
+         (result (conj s 2 3 4)))
+    (is (= 4 (size result)))
+    (is-true (contains? result 1))
+    (is-true (contains? result 2))
+    (is-true (contains? result 3))
+    (is-true (contains? result 4))))
+
+(test conj-bag-single
+  "Test conj adds element to bag."
+  (let* ((b (make-bag :a :a))
+         (result (conj b :a)))
+    ;; Bag size is unique elements, but seq gives total count
+    (is (= 1 (size result)))  ; 1 unique element
+    (is (= 3 (size (seq result))))))  ; 3 total occurrences
+
+(test conj-bag-multiple
+  "Test conj with multiple items on bag."
+  (let* ((b (make-bag :x))
+         (result (conj b :x :y :y)))
+    ;; 2 unique elements (:x and :y)
+    (is (= 2 (size result)))
+    ;; 2 :x's and 2 :y's = 4 total in seq
+    (is (= 4 (size (seq result))))))
+
+(test conj-dict-single
+  "Test conj adds key-value pair to dict."
+  (let* ((d (make-dict :a 1))
+         (result (conj d (cons :b 2))))
+    (is (= 2 (size result)))
+    (is (= 1 (get result :a)))
+    (is (= 2 (get result :b)))))
+
+(test conj-dict-multiple
+  "Test conj with multiple pairs on dict."
+  (let* ((d (make-dict))
+         (result (conj d (cons :a 1) (cons :b 2) (cons :c 3))))
+    (is (= 3 (size result)))
+    (is (= 1 (get result :a)))
+    (is (= 2 (get result :b)))
+    (is (= 3 (get result :c)))))
+
+(test conj-dict-update
+  "Test conj updates existing key in dict."
+  (let* ((d (make-dict :a 1))
+         (result (conj d (cons :a 100))))
+    (is (= 1 (size result)))
+    (is (= 100 (get result :a)))))
+
+(test conj-dict-requires-pair
+  "Test conj on dict requires cons pair."
+  (let ((d (make-dict)))
+    (signals error
+      (conj d :not-a-pair))))
+
+(test conj-array-error
+  "Test conj on array signals error."
+  (let ((a (make-array (make-vector 2 2) 1 2 3 4)))
+    (signals error
+      (conj a 5))))
+
+(test conj-lazy-seq
+  "Test conj adds to front of lazy-seq."
+  (let* ((ls (make-lazy-seq (lambda () (make-list 2 3))))
+         (result (conj ls 1)))
+    (is (= 1 (fol-first result)))
+    (is (= 2 (fol-first (fol-rest result))))))
+
+(test conj-lazy-seq-multiple
+  "Test conj with multiple items on lazy-seq."
+  (let* ((ls (make-lazy-seq (lambda () (make-list 4))))
+         (result (conj ls 1 2 3)))
+    ;; Items added left-to-right, so 3 is first
+    (is (= 3 (fol-first result)))
+    (is (= 2 (fol-first (fol-rest result))))
+    (is (= 1 (fol-first (fol-rest (fol-rest result)))))
+    (is (= 4 (fol-first (fol-rest (fol-rest (fol-rest result))))))))
+
+(test conj-immutability
+  "Test conj does not mutate original collection."
+  (let* ((lst (make-list 1 2))
+         (vec (make-vector 1 2))
+         (st (make-set 1 2))
+         (lst2 (conj lst 0))
+         (vec2 (conj vec 3))
+         (st2 (conj st 3)))
+    ;; Originals unchanged
+    (is (= 2 (size lst)))
+    (is (= 2 (size vec)))
+    (is (= 2 (size st)))
+    ;; New collections have added elements
+    (is (= 3 (size lst2)))
+    (is (= 3 (size vec2)))
+    (is (= 3 (size st2)))))
