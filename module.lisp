@@ -29,6 +29,7 @@
 (defun make-module (name &rest pairs)
   "Create a new <module> optionally populated with initial bindings.
    Usage: (make-module 'my-mod 'key1 val1 'key2 val2 ...)"
+  (unless name (error "Module must have a name"))
   (let ((map (fset:empty-map)))
     (loop for (key val) on pairs by #'cddr
           do (setf map (fset:with map

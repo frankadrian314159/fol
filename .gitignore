@@ -1,6 +1,7 @@
 # Clojure development tools cache
 .clj-kondo/
 .lsp/
+.claude/
 
 # VSCode/Alive REPL artifacts
 .vscode/alive/fasl/

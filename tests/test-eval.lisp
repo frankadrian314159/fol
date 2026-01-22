@@ -961,3 +961,74 @@
                                env3)))
         ;; After binding, back to 1
         (is (cl:= 5 (fol-eval '(scale 5) env3)))))))
+
+;;; ---------------------------------------------------------------------------
+;;; Lazy Sequences (lazy-seq)
+;;; ---------------------------------------------------------------------------
+
+(test lazy-seq-basic
+  "Test basic lazy-seq creation and realization."
+  (let ((env (make-standard-env)))
+    ;; Create a lazy-seq that returns a list
+    (let ((ls (fol-eval '(lazy-seq (list 1 2 3)) env)))
+      (is-true (<lazy-seq>? ls))
+      (is (cl:= 1 (fol-first ls)))
+      (is (cl:= 2 (fol-first (fol-rest ls))))
+      (is (cl:= 3 (fol-first (fol-rest (fol-rest ls))))))))
+
+(test lazy-seq-delays-evaluation
+  "Test that lazy-seq delays body evaluation."
+  (let ((env (make-standard-env)))
+    ;; This would cause infinite recursion if evaluated immediately
+    ;; But lazy-seq delays it, so we can create it safely
+    (let ((ls (fol-eval '(lazy-seq (fol-cons 1 (lazy-seq nil))) env)))
+      (is-true (<lazy-seq>? ls))
+      (is (cl:= 1 (fol-first ls))))))
+
+(test lazy-seq-captures-environment
+  "Test that lazy-seq captures its environment."
+  (let ((env (make-standard-env)))
+    ;; Bind x in environment
+    (let ((env2 (make-env env 'x 42)))
+      ;; lazy-seq body references x
+      (let ((ls (fol-eval '(lazy-seq (list x)) env2)))
+        ;; When realized, x should be 42 (captured value)
+        (is (cl:= 42 (fol-first ls)))))))
+
+(test lazy-seq-with-fol-cons
+  "Test lazy-seq with fol-cons for building sequences."
+  (let ((env (make-standard-env)))
+    ;; Build a lazy sequence: (1 2 3)
+    (let ((ls (fol-eval '(lazy-seq
+                           (fol-cons 1
+                             (lazy-seq
+                               (fol-cons 2
+                                 (lazy-seq
+                                   (fol-cons 3 nil))))))
+                        env)))
+      (is (cl:= 1 (fol-first ls)))
+      (is (cl:= 2 (fol-first (fol-rest ls))))
+      (is (cl:= 3 (fol-first (fol-rest (fol-rest ls))))))))
+
+(test lazy-seq-recursive-function
+  "Test lazy-seq with recursive function for infinite sequence."
+  (let ((env (make-standard-env)))
+    ;; Define a function that generates integers lazily
+    (fol-eval '(defn integers (n)
+                 (lazy-seq (fol-cons n (integers (+ n 1)))))
+              env)
+    ;; Create the infinite sequence starting at 0
+    (let ((ints (fol-eval '(integers 0) env)))
+      ;; Take first few elements
+      (is (cl:= 0 (fol-first ints)))
+      (is (cl:= 1 (fol-first (fol-rest ints))))
+      (is (cl:= 2 (fol-first (fol-rest (fol-rest ints)))))
+      (is (cl:= 3 (fol-first (fol-rest (fol-rest (fol-rest ints)))))))))
+
+(test lazy-seq-arity-error
+  "Test that lazy-seq requires exactly one argument."
+  (let ((env (make-env)))
+    (signals fol-arity-error
+      (fol-eval '(lazy-seq) env))
+    (signals fol-arity-error
+      (fol-eval '(lazy-seq a b) env))))

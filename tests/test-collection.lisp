@@ -4,7 +4,8 @@
 ;;; Collection Tests - Comprehensive test suite for FOL collections
 ;;; ============================================================================
 
-(def-suite* :fol.collection-tests)
+(def-suite collection-suite :in fol-suite)
+(def-suite* :fol.collection-tests :in collection-suite)
 
 ;;; ---------------------------------------------------------------------------
 ;;; Collection Base Class Tests
@@ -514,3 +515,432 @@
          (d (make-dict wrapped-key "value")))
     ;; Should be able to retrieve using raw key
     (is (string= "value" (get d :test)))))
+
+;;; ---------------------------------------------------------------------------
+;;; List Tests
+;;; ---------------------------------------------------------------------------
+
+(test list-predicate
+  "Test <list>? predicate."
+  (is-true (<list>? (make-list)))
+  (is-true (<list>? (make-list 1 2 3)))
+  (is-false (<list>? (make-vector)))
+  (is-false (<list>? '(1 2 3)))  ; CL list is not FOL list
+  (is-false (<list>? nil)))
+
+(test list-creation-empty
+  "Test creation of empty list."
+  (let ((lst (make-list)))
+    (is-true (<list>? lst))
+    (is (= 0 (size lst)))
+    (is-true (empty? lst))))
+
+(test list-creation-with-elements
+  "Test creation of list with elements."
+  (let ((lst (make-list 1 2 3)))
+    (is-true (<list>? lst))
+    (is (= 3 (size lst)))
+    (is (= 1 (fol-first lst)))
+    (is (= 2 (fol-first (fol-rest lst))))
+    (is (= 3 (fol-first (fol-rest (fol-rest lst)))))))
+
+(test list-is-ordered-collection
+  "Test that list is an ordered collection."
+  (let ((lst (make-list 1 2 3)))
+    (is-true (<ordered-collection>? lst))
+    (is-true (<collection>? lst))
+    (is-false (<unordered-collection>? lst))))
+
+(test list-size-o1
+  "Test that list size is O(1) - stored in slot."
+  (let ((lst (make-list 1 2 3 4 5)))
+    ;; Size is directly accessible from slot
+    (is (= 5 (size lst)))
+    (is (= 5 (list-size lst)))))
+
+(test list-first-operation
+  "Test fol-first operation."
+  (let ((lst (make-list :a :b :c)))
+    (is (eq :a (fol-first lst))))
+  ;; First of empty list is nil
+  (let ((empty (make-list)))
+    (is (eq nil (fol-first empty)))))
+
+(test list-rest-operation
+  "Test fol-rest operation."
+  (let ((lst (make-list 1 2 3)))
+    (let ((rst (fol-rest lst)))
+      (is-true (<list>? rst))
+      (is (= 2 (size rst)))
+      (is (= 2 (fol-first rst)))))
+  ;; Rest of empty list is empty list
+  (let ((empty (make-list)))
+    (let ((rst (fol-rest empty)))
+      (is-true (<list>? rst))
+      (is (= 0 (size rst))))))
+
+(test list-cons-operation
+  "Test fol-cons operation."
+  (let* ((lst (make-list 2 3))
+         (new-lst (fol-cons 1 lst)))
+    (is (= 3 (size new-lst)))
+    (is (= 1 (fol-first new-lst)))
+    (is (= 2 (fol-first (fol-rest new-lst))))
+    ;; Original unchanged
+    (is (= 2 (size lst)))))
+
+(test list-cons-to-empty
+  "Test fol-cons to empty list."
+  (let* ((empty (make-list))
+         (lst (fol-cons :first empty)))
+    (is (= 1 (size lst)))
+    (is (eq :first (fol-first lst)))))
+
+(test list-add-is-cons
+  "Test that add on list prepends (like cons)."
+  (let* ((lst (make-list 2 3))
+         (new-lst (add lst 1)))
+    (is (= 3 (size new-lst)))
+    (is (= 1 (fol-first new-lst)))))
+
+(test list-remove
+  "Test list remove operation."
+  (let* ((lst (make-list 1 2 3 2 4))
+         (removed (remove lst 2)))
+    ;; Removes first occurrence only
+    (is (= 4 (size removed)))
+    (is (= 1 (fol-first removed)))
+    (is (= 3 (fol-first (fol-rest removed))))
+    ;; Original unchanged
+    (is (= 5 (size lst)))))
+
+(test list-remove-nonexistent
+  "Test removing nonexistent element from list."
+  (let* ((lst (make-list 1 2 3))
+         (removed (remove lst 99)))
+    (is (= 3 (size removed)))))
+
+(test list-remove-from-empty
+  "Test removing from empty list."
+  (let* ((empty (make-list))
+         (removed (remove empty 1)))
+    (is (= 0 (size removed)))))
+
+(test list-contains
+  "Test list contains? operation."
+  (let ((lst (make-list 1 2 3)))
+    (is-true (contains? lst 1))
+    (is-true (contains? lst 2))
+    (is-true (contains? lst 3))
+    (is-false (contains? lst 4))))
+
+(test list-contains-empty
+  "Test contains? on empty list."
+  (let ((empty (make-list)))
+    (is-false (contains? empty 1))))
+
+(test list-get-by-index
+  "Test list get by index."
+  (let ((lst (make-list :a :b :c)))
+    (is (eq :a (get lst 0)))
+    (is (eq :b (get lst 1)))
+    (is (eq :c (get lst 2)))))
+
+(test list-get-out-of-bounds
+  "Test list get with out of bounds index."
+  (let ((lst (make-list 1 2 3)))
+    (is (eq nil (get lst 10)))
+    (is (eq :default (get lst 10 :default)))
+    (is (eq nil (get lst -1)))))
+
+(test list-nth-element
+  "Test list nth-element operation."
+  (let ((lst (make-list :a :b :c)))
+    (is (eq :a (nth-element lst 0)))
+    (is (eq :b (nth-element lst 1)))
+    (is (eq :c (nth-element lst 2)))
+    (is (eq nil (nth-element lst 10)))))
+
+(test list-iterator
+  "Test iterator on list."
+  (let* ((lst (make-list 10 20 30))
+         (iter (iterator lst)))
+    (is-false (done? iter))
+    (is (= 10 (current iter)))
+    (next iter)
+    (is (= 20 (current iter)))
+    (next iter)
+    (is (= 30 (current iter)))
+    (next iter)
+    (is-true (done? iter))))
+
+(test list-iterator-empty
+  "Test iterator on empty list."
+  (let* ((empty (make-list))
+         (iter (iterator empty)))
+    (is-true (done? iter))))
+
+(test list-iterator-collect-all
+  "Test collecting all elements via list iterator."
+  (let* ((lst (make-list 1 2 3 4 5))
+         (iter (iterator lst))
+         (collected '()))
+    (loop until (done? iter)
+          do (push (current iter) collected)
+             (next iter))
+    (is (equal '(5 4 3 2 1) collected))))
+
+(test list-preserves-order
+  "Test that list preserves element order."
+  (let ((lst (make-list 3 1 4 1 5 9)))
+    (is (= 3 (get lst 0)))
+    (is (= 1 (get lst 1)))
+    (is (= 4 (get lst 2)))
+    (is (= 1 (get lst 3)))
+    (is (= 5 (get lst 4)))
+    (is (= 9 (get lst 5)))))
+
+(test list-immutability
+  "Test that list operations don't mutate original."
+  (let* ((lst1 (make-list 1 2 3))
+         (lst2 (fol-cons 0 lst1))
+         (lst3 (fol-rest lst1))
+         (lst4 (add lst1 :new))
+         (lst5 (remove lst1 2)))
+    (is (= 3 (size lst1)))
+    (is (= 1 (fol-first lst1)))
+    (is (= 4 (size lst2)))
+    (is (= 2 (size lst3)))
+    (is (= 4 (size lst4)))
+    (is (= 2 (size lst5)))))
+
+(test list-stores-raw-values
+  "Test that list stores raw CL values."
+  (let* ((wrapped-num (wrap-number 42))
+         (lst (make-list wrapped-num)))
+    ;; Value should be stored as raw 42, not wrapped
+    (is (= 42 (fol-first lst)))
+    (is (numberp (fol-first lst)))))
+
+(test list-various-element-types
+  "Test list with various element types."
+  (let ((lst (make-list 42 "hello" :keyword 'symbol #\c)))
+    (is (= 5 (size lst)))
+    (is (= 42 (get lst 0)))
+    (is (string= "hello" (get lst 1)))
+    (is (eq :keyword (get lst 2)))
+    (is (eq 'symbol (get lst 3)))
+    (is (char= #\c (get lst 4)))))
+
+(test list-nested-structure
+  "Test list with nested lists."
+  (let* ((inner (make-list 1 2))
+         (outer (make-list inner 3)))
+    (is (= 2 (size outer)))
+    (is-true (<list>? (fol-first outer)))
+    (is (= 2 (size (fol-first outer))))))
+
+;;; ---------------------------------------------------------------------------
+;;; Seq Tests
+;;; ---------------------------------------------------------------------------
+
+(test seq-empty-collections
+  "Test that seq returns NIL for empty collections."
+  (is (eq nil (seq (make-list))))
+  (is (eq nil (seq (make-vector))))
+  (is (eq nil (seq (make-dict))))
+  (is (eq nil (seq (make-set))))
+  (is (eq nil (seq (make-bag)))))
+
+(test seq-list
+  "Test seq on list returns the list itself."
+  (let ((lst (make-list 1 2 3)))
+    ;; seq on non-empty list returns the list itself
+    (is (eq lst (seq lst)))
+    (is-true (<list>? (seq lst)))
+    (is (= 3 (size (seq lst))))))
+
+(test seq-vector
+  "Test seq on vector returns a list."
+  (let* ((v (make-vector 1 2 3))
+         (s (seq v)))
+    (is-true (<list>? s))
+    (is (= 3 (size s)))
+    (is (= 1 (fol-first s)))
+    (is (= 2 (fol-first (fol-rest s))))
+    (is (= 3 (fol-first (fol-rest (fol-rest s)))))))
+
+(test seq-dict
+  "Test seq on dict returns a list of pairs."
+  (let* ((d (make-dict :a 1 :b 2))
+         (s (seq d)))
+    (is-true (<list>? s))
+    (is (= 2 (size s)))
+    ;; Each element should be a cons pair
+    (is-true (consp (fol-first s)))
+    (is-true (consp (fol-first (fol-rest s))))))
+
+(test seq-set
+  "Test seq on set returns a list of elements."
+  (let* ((st (make-set 1 2 3))
+         (s (seq st)))
+    (is-true (<list>? s))
+    (is (= 3 (size s)))
+    ;; All elements should be in the seq
+    (is-true (contains? s 1))
+    (is-true (contains? s 2))
+    (is-true (contains? s 3))))
+
+(test seq-bag
+  "Test seq on bag returns elements repeated by count."
+  (let* ((b (make-bag :a :a :a :b :b))
+         (s (seq b)))
+    (is-true (<list>? s))
+    ;; 3 :a's and 2 :b's = 5 total
+    (is (= 5 (size s)))))
+
+(test seq-preserves-vector-order
+  "Test that seq preserves vector element order."
+  (let* ((v (make-vector 10 20 30 40))
+         (s (seq v)))
+    (is (= 10 (get s 0)))
+    (is (= 20 (get s 1)))
+    (is (= 30 (get s 2)))
+    (is (= 40 (get s 3)))))
+
+(test seq-idempotent-on-list
+  "Test that seq on a list is idempotent."
+  (let* ((lst (make-list 1 2 3))
+         (s1 (seq lst))
+         (s2 (seq s1)))
+    ;; seq of seq of list is the same list
+    (is (eq lst s1))
+    (is (eq s1 s2))))
+
+;;; ---------------------------------------------------------------------------
+;;; Lazy Sequence Tests
+;;; ---------------------------------------------------------------------------
+
+(test lazy-seq-predicate
+  "Test <lazy-seq>? predicate."
+  (let ((ls (make-lazy-seq (lambda () (make-list 1 2 3)))))
+    (is-true (<lazy-seq>? ls))
+    (is-false (<lazy-seq>? (make-list 1 2 3)))
+    (is-false (<lazy-seq>? nil))))
+
+(test lazy-seq-not-realized-initially
+  "Test that lazy-seq is not realized on creation."
+  (let* ((called nil)
+         (ls (make-lazy-seq (lambda () (setf called t) (make-list 1 2 3)))))
+    (is-false (lazy-seq-realized-p ls))
+    (is-false called)))
+
+(test lazy-seq-realized-on-first
+  "Test that lazy-seq is realized when first is called."
+  (let* ((called nil)
+         (ls (make-lazy-seq (lambda () (setf called t) (make-list 1 2 3)))))
+    (is-false called)
+    (is (= 1 (fol-first ls)))
+    (is-true called)
+    (is-true (lazy-seq-realized-p ls))))
+
+(test lazy-seq-realized-on-rest
+  "Test that lazy-seq is realized when rest is called."
+  (let* ((called nil)
+         (ls (make-lazy-seq (lambda () (setf called t) (make-list 1 2 3)))))
+    (is-false called)
+    (let ((rst (fol-rest ls)))
+      (is-true called)
+      (is-true (<list>? rst))
+      (is (= 2 (fol-first rst))))))
+
+(test lazy-seq-realized-on-seq
+  "Test that lazy-seq is realized when seq is called."
+  (let* ((called nil)
+         (ls (make-lazy-seq (lambda () (setf called t) (make-list 1 2 3)))))
+    (is-false called)
+    (let ((s (seq ls)))
+      (is-true called)
+      (is-true (<list>? s)))))
+
+(test lazy-seq-cached-result
+  "Test that lazy-seq caches the result after realization."
+  (let* ((call-count 0)
+         (ls (make-lazy-seq (lambda () (incf call-count) (make-list 1 2 3)))))
+    ;; First access
+    (fol-first ls)
+    (is (= 1 call-count))
+    ;; Second access - should use cached result
+    (fol-first ls)
+    (is (= 1 call-count))
+    ;; Third access
+    (fol-rest ls)
+    (is (= 1 call-count))))
+
+(test lazy-seq-empty
+  "Test lazy-seq that produces empty sequence."
+  (let ((ls (make-lazy-seq (lambda () nil))))
+    (is-true (empty? ls))
+    (is (eq nil (seq ls)))
+    (is (eq nil (fol-first ls)))))
+
+(test lazy-seq-nested
+  "Test lazy-seq that returns another lazy-seq."
+  (let* ((inner (make-lazy-seq (lambda () (make-list 1 2 3))))
+         (outer (make-lazy-seq (lambda () inner))))
+    ;; Outer returns inner lazy-seq, which should be automatically realized
+    (is (= 1 (fol-first outer)))
+    (is (= 3 (size outer)))))
+
+(test lazy-seq-cons
+  "Test fol-cons onto a lazy-seq."
+  (let* ((ls (make-lazy-seq (lambda () (make-list 2 3))))
+         (consed (fol-cons 1 ls)))
+    ;; Consing onto lazy-seq returns a CL cons cell for efficiency
+    ;; (the lazy-seq is only realized when its elements are accessed)
+    (is-true (consp consed))
+    ;; fol-first returns the consed item
+    (is (= 1 (fol-first consed)))
+    ;; fol-rest returns the lazy-seq, and fol-first on that realizes it
+    (is-true (<lazy-seq>? (fol-rest consed)))
+    (is (= 2 (fol-first (fol-rest consed))))))
+
+(test lazy-seq-size
+  "Test size on lazy-seq (realizes entire sequence)."
+  (let ((ls (make-lazy-seq (lambda () (make-list 1 2 3 4 5)))))
+    (is (= 5 (size ls)))))
+
+(test lazy-seq-contains
+  "Test contains? on lazy-seq."
+  (let ((ls (make-lazy-seq (lambda () (make-list 1 2 3)))))
+    (is-true (contains? ls 2))
+    (is-false (contains? ls 5))))
+
+(test lazy-seq-iterator
+  "Test iterator on lazy-seq."
+  (let* ((ls (make-lazy-seq (lambda () (make-list 10 20 30))))
+         (iter (iterator ls)))
+    (is-false (done? iter))
+    (is (= 10 (current iter)))
+    (next iter)
+    (is (= 20 (current iter)))
+    (next iter)
+    (is (= 30 (current iter)))
+    (next iter)
+    (is-true (done? iter))))
+
+(test lazy-seq-print-unrealized
+  "Test that unrealized lazy-seq prints specially."
+  (let ((ls (make-lazy-seq (lambda () (make-list 1 2 3)))))
+    (is (search "unrealized" (format nil "~A" ls)))))
+
+(test lazy-seq-print-realized
+  "Test that realized lazy-seq prints its contents."
+  (let ((ls (make-lazy-seq (lambda () (make-list 1 2 3)))))
+    ;; Realize it
+    (fol-first ls)
+    ;; Should print like a list
+    (let ((printed (format nil "~A" ls)))
+      (is (search "1" printed))
+      (is (search "2" printed))
+      (is (search "3" printed)))))

@@ -335,6 +335,7 @@
       ((special-form-p op 'syntax-quote) (eval-syntax-quote args env))
       ((special-form-p op 'make-dynamic) (eval-make-dynamic args env))
       ((special-form-p op 'binding) (eval-binding args env))
+      ((special-form-p op 'lazy-seq) (eval-lazy-seq args env))
       ;; Unquote forms are errors outside syntax-quote
       ((special-form-p op 'unquote)
        (error 'fol-eval-error
@@ -682,6 +683,28 @@
           ;; Cleanup: pop all values from their stacks
           (mapc #'dynamic-var-pop dvars))))))
 
+;;; --- LAZY-SEQ ---
+
+(defun eval-lazy-seq (args env)
+  "Evaluate (lazy-seq body).
+   Creates a lazy sequence that delays evaluation of body until realized.
+   The body should return a seq (typically via fol-cons) or nil.
+
+   Example:
+     ;; Infinite sequence of integers starting from n
+     (defn integers (n)
+       (lazy-seq (fol-cons n (integers (+ n 1)))))
+
+     ;; First 5 integers starting from 0
+     (take 5 (integers 0))  ; => (0 1 2 3 4)"
+  (unless (= 1 (length args))
+    (error 'fol-arity-error :expected 1 :got (length args)
+           :form (cons 'lazy-seq args)))
+  (let ((body (first args)))
+    ;; Capture the environment for the closure
+    ;; The body is evaluated lazily when the sequence is realized
+    (make-lazy-seq (lambda () (fol-eval body env)))))
+
 ;;; --- LOOP/RECUR ---
 
 (defun eval-loop (args env)
@@ -1022,4 +1045,8 @@
             ;; Misc
             'identity #'cl:identity
             'print #'cl:print
-            'princ #'cl:princ))
+            'princ #'cl:princ
+            ;; FOL list operations (for lazy-seq support)
+            'fol-cons #'fol.collection:fol-cons
+            'fol-first #'fol.collection:fol-first
+            'fol-rest #'fol.collection:fol-rest))

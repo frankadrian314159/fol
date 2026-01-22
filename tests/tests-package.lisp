@@ -79,13 +79,16 @@
   ;; Import symbols from fol.collection
   (:import-from :fol.collection
                 :<collection>? :<ordered-collection>? :<unordered-collection>?
-                :<dict>? :<set>? :<bag>? :<vector>? :<array>?
+                :<dict>? :<set>? :<bag>? :<vector>? :<array>? :<list>?
+                :<lazy-seq>? :make-lazy-seq :realize-lazy-seq :lazy-seq-realized-p
                 :make-dict :make-set :make-bag :make-vector
-                :add :contains? :size :empty?
+                :add :contains? :size :empty? :seq
                 :iterator :current :next :done?
-                :nth-element :set-nth)
+                :nth-element :set-nth
+                :fol-cons :fol-first :fol-rest
+                :list-first :list-rest :list-size)
   ;; Shadow CL symbols that FOL redefines
-  (:shadowing-import-from :fol.collection :remove :get :make-array)
+  (:shadowing-import-from :fol.collection :remove :get :make-array :make-list)
   ;; Import symbols from fol.env
   (:import-from :fol.env
                 :<env>? :make-env :lookup :env-previous

@@ -12,8 +12,10 @@
 
 (test module-predicate
   "Test <module>? predicate."
-  (is-true (<module>? (make-module)))
-  (is-true (<module>? (make-module 'x 1)))
+  (signals error (make-module))
+  (signals error (<module>? (make-module 'x 1)))
+  (is-true (<module>? (make-module :s)))
+  (is-true (<module>? (make-module :u 'x 1)))
   (is-false (<module>? (make-dict)))
   (is-false (<module>? 42))
   (is-false (<module>? "string"))
@@ -25,14 +27,14 @@
 
 (test module-inherits-from-dict
   "Test that module inherits from dict."
-  (let ((m (make-module)))
+  (let ((m (make-module 'foo)))
     (is-true (<dict>? m))
     (is-true (<unordered-collection>? m))
     (is-true (<collection>? m))))
 
 (test module-is-not-other-collections
   "Test that module is not confused with other collection types."
-  (let ((m (make-module)))
+  (let ((m (make-module 'baz)))
     (is-false (<set>? m))
     (is-false (<bag>? m))
     (is-false (<vector>? m))
@@ -44,7 +46,7 @@
 
 (test module-creation-empty
   "Test creation of empty module."
-  (let ((m (make-module)))
+  (let ((m (make-module 'bar)))
     (is-true (<module>? m))
     (is (= 0 (size m)))
     (is-true (empty? m))))
@@ -60,14 +62,14 @@
 
 (test module-creation-with-keywords
   "Test creation of module with keyword bindings."
-  (let ((m (make-module :foo 1 :bar 2)))
+  (let ((m (make-module 'z :foo 1 :bar 2)))
     (is (= 2 (size m)))
     (is (= 1 (get m :foo)))
     (is (= 2 (get m :bar)))))
 
 (test module-creation-mixed-keys
   "Test creation of module with mixed key types."
-  (let ((m (make-module
+  (let ((m (make-module 'a
             'sym 1
             :key 2
             "str" 3)))
@@ -82,19 +84,19 @@
 
 (test module-get-existing
   "Test getting existing bindings from module."
-  (let ((m (make-module 'a 100 'b 200)))
+  (let ((m (make-module 'b 'a 100 'b 200)))
     (is (= 100 (get m 'a)))
     (is (= 200 (get m 'b)))))
 
 (test module-get-missing
   "Test getting missing bindings from module."
-  (let ((m (make-module 'x 1)))
+  (let ((m (make-module 'c 'x 1)))
     (is (eq nil (get m 'missing)))
     (is (eq :not-found (get m 'missing :not-found)))))
 
 (test module-contains
   "Test contains? on module."
-  (let ((m (make-module 'present 1 'also-present nil)))
+  (let ((m (make-module 'd 'present 1 'also-present nil)))
     (is-true (contains? m 'present))
     (is-true (contains? m 'also-present))  ; nil value still means key exists
     (is-false (contains? m 'absent))))
@@ -118,14 +120,14 @@
 
 (test module-add-overwrites
   "Test that adding existing key overwrites value."
-  (let* ((m1 (make-module 'x 1))
+  (let* ((m1 (make-module 'e 'x 1))
          (m2 (add m1 'x 100)))
     (is (= 1 (get m1 'x)))
     (is (= 100 (get m2 'x)))))
 
 (test module-remove-binding
   "Test removing bindings from module."
-  (let* ((m1 (make-module 'a 1 'b 2))
+  (let* ((m1 (make-module 'f 'a 1 'b 2))
          (m2 (remove m1 'a)))
     ;; Original unchanged
     (is (= 2 (size m1)))
@@ -138,7 +140,7 @@
 
 (test module-remove-nonexistent
   "Test removing nonexistent binding from module."
-  (let* ((m1 (make-module 'x 1))
+  (let* ((m1 (make-module 'g 'x 1))
          (m2 (remove m1 'nonexistent)))
     (is (= 1 (size m2)))
     (is-true (<module>? m2))))
@@ -149,7 +151,7 @@
 
 (test module-immutability
   "Test that module operations don't mutate original."
-  (let* ((m1 (make-module 'a 1 'b 2))
+  (let* ((m1 (make-module 'h 'a 1 'b 2))
          (m2 (add m1 'c 3))
          (m3 (remove m1 'a)))
     ;; m1 unchanged
@@ -167,7 +169,7 @@
 
 (test module-various-value-types
   "Test module with various value types."
-  (let ((m (make-module
+  (let ((m (make-module "i"
             'num 42
             'str "hello"
             'bool t
@@ -183,7 +185,7 @@
 
 (test module-stores-functions
   "Test that modules can store functions."
-  (let ((m (make-module 'add #'+)))
+  (let ((m (make-module "j" 'add #'+)))
     (is (functionp (get m 'add)))
     (is (= 3 (funcall (get m 'add) 1 2)))))
 
@@ -193,7 +195,7 @@
 
 (test module-iterator
   "Test iterator on module."
-  (let* ((m (make-module 'a 1 'b 2))
+  (let* ((m (make-module "k" 'a 1 'b 2))
          (iter (iterator m))
          (keys '()))
     (loop until (done? iter)
@@ -203,7 +205,7 @@
 
 (test module-empty-iterator
   "Test iterator on empty module."
-  (let* ((m (make-module))
+  (let* ((m (make-module :r))
          (iter (iterator m)))
     (is-true (done? iter))))
 
@@ -213,14 +215,14 @@
 
 (test module-size
   "Test size operation on module."
-  (is (= 0 (size (make-module))))
-  (is (= 1 (size (make-module 'x 1))))
-  (is (= 3 (size (make-module 'a 1 'b 2 'c 3)))))
+  (is (= 0 (size (make-module "j" ))))
+  (is (= 1 (size (make-module "k" 'x 1))))
+  (is (= 3 (size (make-module "l" 'a 1 'b 2 'c 3)))))
 
 (test module-empty
   "Test empty? operation on module."
-  (is-true (empty? (make-module)))
-  (is-false (empty? (make-module 'x 1))))
+  (is-true (empty? (make-module 'm)))
+  (is-false (empty? (make-module "n" 'x 1))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Module as Namespace Tests
@@ -228,7 +230,7 @@
 
 (test module-as-namespace
   "Test using module as a namespace for bindings."
-  (let ((math-module (make-module
+  (let ((math-module (make-module 'o
                       'pi 3.14159
                       'e 2.71828
                       'phi 1.61803)))
@@ -238,8 +240,8 @@
 
 (test module-nested-modules
   "Test modules containing other modules."
-  (let* ((inner (make-module 'x 1))
-         (outer (make-module 'inner inner)))
+  (let* ((inner (make-module 'p 'x 1))
+         (outer (make-module :q 'inner inner)))
     (is-true (<module>? (get outer 'inner)))
     (is (= 1 (get (get outer 'inner) 'x)))))
 
@@ -250,7 +252,7 @@
 (test module-stores-raw-values
   "Test that modules store raw CL values."
   (let* ((wrapped-num (wrap-number 42))
-         (m (make-module 'key wrapped-num)))
+         (m (make-module :r 'key wrapped-num)))
     ;; Value should be stored as raw 42
     (is (= 42 (get m 'key)))
     (is (numberp (get m 'key)))))
@@ -258,6 +260,6 @@
 (test module-accepts-wrapped-keys
   "Test that modules accept wrapped keys."
   (let* ((wrapped-key (wrap-symbol 'test))
-         (m (make-module wrapped-key "value")))
+         (m (make-module :s wrapped-key "value")))
     ;; Should be able to retrieve using raw key
     (is (string= "value" (get m 'test)))))

@@ -196,7 +196,9 @@
   (let ((p1 (make-instance 'test-point :x 1 :y 2))
         (p2 (make-instance 'test-point :x 10 :y 20)))
     (with-pslots (x y) p1
+      (declare (ignore y))
       (with-pslots ((x2 x) (y2 y)) p2
+        (declare (ignore y2))
         (is (= 1 x))
         (is (= 10 x2))
         (is (= 11 (cl:+ x x2)))))))

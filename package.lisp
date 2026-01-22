@@ -105,7 +105,7 @@
 
 (defpackage fol.collection
   (:use cl fol.persistent)
-  (:shadow make-array get remove)
+  (:shadow make-array make-list get remove)
   (:export <collection> <collection>?
            <unordered-collection> <unordered-collection>?
            <ordered-collection> <ordered-collection>?
@@ -113,12 +113,18 @@
            <bag> <bag>? make-bag
            <set> <set>? make-set
            <vector> <vector>? make-vector
+           <list> <list>? make-list
+           <lazy-seq> <lazy-seq>? make-lazy-seq
+           realize-lazy-seq lazy-seq-realized-p
            <array> <array>? make-array
            ;; GENERIC OPERATIONS
-           get
+           get seq
            size empty? contains?
            add remove
            iterator next current done?
+           ;; List-specific operations
+           fol-cons fol-first fol-rest
+           list-first list-rest list-size
            ;; Additional operations
            nth-element set-nth))
 
@@ -126,6 +132,7 @@
   (:use cl fol.persistent fol.collection)
   (:shadowing-import-from fol.collection
                           make-array
+                          make-list
                           get
                           remove)
   (:export <module> <module>? make-module))
@@ -134,6 +141,7 @@
   (:use cl fol.persistent fol.collection)
   (:shadowing-import-from fol.collection
                           make-array
+                          make-list
                           get
                           remove)
   (:export <env> <env>? make-env lookup env-previous unbound-variable fol-unbound-variable fol-unbound-variable-name fol-unbound-variable-message))
@@ -219,6 +227,7 @@
   (:shadow macroexpand macroexpand-1)
   (:shadowing-import-from fol.collection
                           make-array
+                          make-list
                           get
                           remove)
   (:shadowing-import-from fol.logop
@@ -241,7 +250,7 @@
    ;; Special form evaluators (for extensibility)
    eval-quote eval-if eval-do eval-bind eval-fn eval-def eval-defn
    eval-loop eval-recur eval-throw eval-try eval-defmacro eval-syntax-quote
-   eval-make-dynamic eval-binding
+   eval-make-dynamic eval-binding eval-lazy-seq
    ;; Conditions
    fol-eval-error fol-eval-error-message fol-eval-error-form
    fol-arity-error fol-arity-error-expected fol-arity-error-got

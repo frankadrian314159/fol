@@ -216,6 +216,377 @@
 
 
 ;;; ============================================================================
+;;; List Class (<list>)
+;;; ============================================================================
+;;; A persistent singly-linked list following Clojure's list semantics.
+;;; Structure: each list node has first (head element), rest (tail list), and size.
+;;; This enables O(1) size/count operations and supports lazy sequences.
+;;;
+;;; The empty list is represented by a list with first=nil, rest=nil, size=0.
+;;; Non-empty lists have first=element, rest=<list>, size=length.
+
+(defclass <list> (<ordered-collection>)
+  ((first-elem :initarg :first-elem
+               :initform nil
+               :accessor list-first
+               :documentation "The first element of this list, or NIL if empty.")
+   (rest-list :initarg :rest-list
+              :initform nil
+              :accessor list-rest
+              :documentation "The rest of this list (another <list>), or NIL if empty.")
+   (list-size :initarg :list-size
+              :initform 0
+              :accessor list-size
+              :type integer
+              :documentation "The number of elements in this list. O(1) access."))
+  (:metaclass persistent-class)
+  (:documentation "A persistent singly-linked list with O(1) size access.
+                   Each node contains first (head), rest (tail), and size.
+                   Supports efficient cons (prepend), first, and rest operations.
+                   The structure enables lazy sequence implementations."))
+
+(defun make-list (&rest elements)
+  "Create a new <list> from the given elements.
+   Elements are stored as raw CL primitives in the order given."
+  (if (null elements)
+      ;; Empty list
+      (make-instance '<list> :first-elem nil :rest-list nil :list-size 0)
+      ;; Build list from right to left
+      (let ((result (make-instance '<list> :first-elem nil :rest-list nil :list-size 0)))
+        (dolist (elem (reverse elements))
+          (setf result (make-instance '<list>
+                                      :first-elem (fol.wrappers:fol-value elem)
+                                      :rest-list result
+                                      :list-size (1+ (list-size result)))))
+        result)))
+
+(defgeneric <list>? (obj) (:documentation "Returns T if OBJ is a FOL <list>."))
+(defmethod <list>? (obj) nil)
+(defmethod <list>? ((obj <list>)) t)
+
+(defmethod print-object ((obj <list>) stream)
+  (format stream "(")
+  (let ((current obj)
+        (first-printed nil))
+    (loop while (and current (> (list-size current) 0))
+          do (unless first-printed
+               (setf first-printed t))
+             (when (> (list-size current) 0)
+               (unless (eq current obj) (format stream " "))
+               (let ((item (list-first current)))
+                 (cond ((eq item t) (format stream "#t"))
+                       ((eq item nil) (format stream "#f"))
+                       ((keywordp item) (format stream "~S" item))
+                       ((symbolp item) (format stream "'~S" item))
+                       (t (format stream "~S" item)))))
+             (setf current (list-rest current))))
+  (format stream ")"))
+
+;;; --- List-specific operations ---
+
+(defgeneric fol-cons (item list)
+  (:documentation "Return a new list with ITEM prepended to LIST.
+   This is the fundamental list-building operation (like Clojure's cons)."))
+
+(defmethod fol-cons (item (lst <list>))
+  "Prepend ITEM to LST, returning a new <list>."
+  (make-instance '<list>
+                 :first-elem (fol.wrappers:fol-value item)
+                 :rest-list lst
+                 :list-size (1+ (list-size lst))))
+
+(defgeneric fol-first (list)
+  (:documentation "Return the first element of LIST, or NIL if empty."))
+
+(defmethod fol-first ((lst <list>))
+  "Return the first element of LST."
+  (list-first lst))
+
+(defgeneric fol-rest (list)
+  (:documentation "Return the rest of the list (all but first element).
+   Returns an empty list if LIST has 0 or 1 elements."))
+
+(defmethod fol-rest ((lst <list>))
+  "Return the rest of the list."
+  (or (list-rest lst)
+      (make-instance '<list> :first-elem nil :rest-list nil :list-size 0)))
+
+;;; --- Methods for CL lists (cons cells) ---
+;;; These enable lazy-seq to work with CL lists returned from thunks.
+
+(defmethod fol-first ((lst cons))
+  "Return the first element of a CL list."
+  (car lst))
+
+(defmethod fol-first ((lst null))
+  "Return nil for empty list."
+  nil)
+
+(defmethod fol-rest ((lst cons))
+  "Return the rest of a CL list."
+  (cdr lst))
+
+(defmethod fol-rest ((lst null))
+  "Return nil for empty list."
+  nil)
+
+(defmethod fol-cons (item (lst cons))
+  "Prepend ITEM to a CL list, returning a CL list."
+  (cl:cons (fol.wrappers:fol-value item) lst))
+
+(defmethod fol-cons (item (lst null))
+  "Prepend ITEM to nil, returning a CL list."
+  (cl:cons (fol.wrappers:fol-value item) nil))
+
+;;; --- Generic protocol implementations for <list> ---
+
+(defmethod size ((lst <list>))
+  "Return the number of elements in the list. O(1) operation."
+  (list-size lst))
+
+(defmethod empty? ((lst <list>))
+  "Return T if the list is empty."
+  (if (zerop (list-size lst)) t nil))
+
+(defmethod contains? ((lst <list>) item)
+  "Return T if ITEM is in the list."
+  (let ((raw-item (fol.wrappers:fol-value item))
+        (current lst))
+    (loop while (and current (> (list-size current) 0))
+          do (when (equal (list-first current) raw-item)
+               (return-from contains? t))
+             (setf current (list-rest current)))
+    nil))
+
+(defmethod add ((lst <list>) item &optional value)
+  "Add ITEM to the front of the list (like cons)."
+  (declare (ignore value))
+  (fol-cons item lst))
+
+(defmethod remove ((lst <list>) item)
+  "Return a new list with the first occurrence of ITEM removed."
+  (let ((raw-item (fol.wrappers:fol-value item)))
+    (labels ((remove-first (current)
+               (cond
+                 ;; Empty list - nothing to remove
+                 ((zerop (list-size current)) current)
+                 ;; Found the item - skip it
+                 ((equal (list-first current) raw-item)
+                  (fol-rest current))
+                 ;; Not found yet - cons and continue
+                 (t (fol-cons (list-first current)
+                              (remove-first (fol-rest current)))))))
+      (remove-first lst))))
+
+(defmethod get ((lst <list>) (index integer) &optional default)
+  "Get element at INDEX from list. Returns raw value."
+  (if (or (< index 0) (>= index (list-size lst)))
+      default
+      (let ((current lst))
+        (dotimes (i index)
+          (setf current (list-rest current)))
+        (list-first current))))
+
+(defmethod get ((lst <list>) (index fol.classes:<number>) &optional default)
+  "Get element at INDEX from list. INDEX can be wrapped."
+  (get lst (fol.wrappers:fol-value index) default))
+
+(defmethod nth-element ((lst <list>) (n integer))
+  "Get the Nth element from the list."
+  (get lst n nil))
+
+(defmethod nth-element ((lst <list>) (n fol.classes:<number>))
+  "Get the Nth element from the list. N can be wrapped."
+  (get lst (fol.wrappers:fol-value n) nil))
+
+(defclass <list-node-iterator> ()
+  ((current :initarg :current :accessor iter-current))
+  (:documentation "An iterator for <list> that traverses the linked structure."))
+
+(defmethod iterator ((lst <list>))
+  "Return an iterator for the list."
+  (make-instance '<list-node-iterator> :current lst))
+
+(defmethod next ((iter <list-node-iterator>))
+  "Advance the iterator to the next element."
+  (let ((current (iter-current iter)))
+    (when (and current (> (list-size current) 0))
+      (setf (iter-current iter) (list-rest current))))
+  iter)
+
+(defmethod current ((iter <list-node-iterator>))
+  "Return the current element."
+  (let ((current (iter-current iter)))
+    (when (and current (> (list-size current) 0))
+      (list-first current))))
+
+(defmethod done? ((iter <list-node-iterator>))
+  "Return T if the iterator is exhausted."
+  (let ((current (iter-current iter)))
+    (if (or (null current) (zerop (list-size current)))
+        t
+        nil)))
+
+
+;;; ============================================================================
+;;; Lazy Sequence Class (<lazy-seq>)
+;;; ============================================================================
+;;; A lazy sequence that delays computation until realized, like Clojure's lazy-seq.
+;;; The thunk is a zero-argument function that when called produces:
+;;;   - nil (empty sequence)
+;;;   - a <list> (the sequence)
+;;;   - another <lazy-seq> (chained lazy computation)
+;;;
+;;; Once realized, the result is cached. This enables infinite sequences
+;;; and efficient memory usage for large transformations.
+
+(defclass <lazy-seq> ()
+  ((thunk :initarg :thunk
+          :initform nil
+          :accessor lazy-seq-thunk
+          :documentation "A zero-argument function that produces the sequence.")
+   (realized :initform nil
+             :accessor lazy-seq-realized-p
+             :type boolean
+             :documentation "T if the thunk has been called and result cached.")
+   (cached :initform nil
+           :accessor lazy-seq-cached
+           :documentation "The cached result after realization."))
+  (:documentation "A lazy sequence that delays computation until needed.
+                   Implements the sequence protocol (first, rest, seq).
+                   Once realized, the result is cached for subsequent access."))
+
+(defun make-lazy-seq (thunk)
+  "Create a new lazy sequence from a thunk (zero-argument function).
+   The thunk should return a seq (list), nil, or another lazy-seq."
+  (make-instance '<lazy-seq> :thunk thunk))
+
+(defgeneric <lazy-seq>? (obj) (:documentation "Returns T if OBJ is a FOL <lazy-seq>."))
+(defmethod <lazy-seq>? (obj) nil)
+(defmethod <lazy-seq>? ((obj <lazy-seq>)) t)
+
+(defun realize-lazy-seq (ls)
+  "Force realization of a lazy sequence. Returns the underlying sequence or nil.
+   If the thunk returns another lazy-seq, recursively realizes it."
+  (unless (lazy-seq-realized-p ls)
+    (let ((result (funcall (lazy-seq-thunk ls))))
+      ;; Recursively realize if result is also a lazy-seq
+      (setf (lazy-seq-cached ls)
+            (loop while (<lazy-seq>? result)
+                  do (setf result (realize-lazy-seq result))
+                  finally (return result)))
+      (setf (lazy-seq-realized-p ls) t)
+      ;; Clear the thunk to allow GC
+      (setf (lazy-seq-thunk ls) nil)))
+  (lazy-seq-cached ls))
+
+(defmethod print-object ((obj <lazy-seq>) stream)
+  (if (lazy-seq-realized-p obj)
+      (let ((cached (lazy-seq-cached obj)))
+        (if cached
+            (print-object cached stream)
+            (format stream "()")))
+      (format stream "#<lazy-seq unrealized>")))
+
+;;; --- Sequence protocol for <lazy-seq> ---
+
+(defmethod seq ((ls <lazy-seq>))
+  "Realize the lazy sequence and return seq of the result."
+  (let ((realized (realize-lazy-seq ls)))
+    (if realized
+        (seq realized)
+        nil)))
+
+(defmethod fol-first ((ls <lazy-seq>))
+  "Get first element, realizing if needed."
+  (let ((realized (realize-lazy-seq ls)))
+    (if realized
+        (fol-first realized)
+        nil)))
+
+(defmethod fol-rest ((ls <lazy-seq>))
+  "Get rest of sequence, realizing if needed."
+  (let ((realized (realize-lazy-seq ls)))
+    (if realized
+        (fol-rest realized)
+        (make-instance '<list> :first-elem nil :rest-list nil :list-size 0))))
+
+(defmethod size ((ls <lazy-seq>))
+  "Get size, realizing the entire sequence.
+   WARNING: This will not terminate for infinite sequences!"
+  (let ((realized (realize-lazy-seq ls)))
+    (if realized
+        (size realized)
+        0)))
+
+(defmethod empty? ((ls <lazy-seq>))
+  "Check if empty, realizing if needed."
+  (let ((realized (realize-lazy-seq ls)))
+    (if (or (null realized) (empty? realized))
+        t
+        nil)))
+
+(defmethod contains? ((ls <lazy-seq>) item)
+  "Check if item is in the sequence, realizing as needed.
+   WARNING: May not terminate for infinite sequences if item is not found!"
+  (let ((realized (realize-lazy-seq ls)))
+    (if realized
+        (contains? realized item)
+        nil)))
+
+(defmethod fol-cons (item (tail <lazy-seq>))
+  "Cons an item onto a lazy sequence.
+   Returns a CL cons cell where first is the item and rest is the lazy-seq.
+   The lazy-seq is only realized when fol-first/fol-rest is called on it."
+  (cl:cons (fol.wrappers:fol-value item) tail))
+
+;;; --- Iterator for <lazy-seq> ---
+
+(defclass <lazy-seq-iterator> ()
+  ((current :initarg :current :accessor iter-current-lazy)
+   (done :initform nil :accessor iter-done-lazy))
+  (:documentation "An iterator for lazy sequences."))
+
+(defmethod iterator ((ls <lazy-seq>))
+  "Return an iterator for the lazy sequence."
+  (make-instance '<lazy-seq-iterator> :current ls))
+
+(defmethod next ((iter <lazy-seq-iterator>))
+  "Advance the iterator to the next element."
+  (unless (iter-done-lazy iter)
+    (let* ((current (iter-current-lazy iter))
+           (realized (if (<lazy-seq>? current)
+                         (realize-lazy-seq current)
+                         current)))
+      (if (or (null realized) (empty? realized))
+          (setf (iter-done-lazy iter) t)
+          (setf (iter-current-lazy iter) (fol-rest realized)))))
+  iter)
+
+(defmethod current ((iter <lazy-seq-iterator>))
+  "Return the current element."
+  (unless (iter-done-lazy iter)
+    (let* ((current (iter-current-lazy iter))
+           (realized (if (<lazy-seq>? current)
+                         (realize-lazy-seq current)
+                         current)))
+      (when (and realized (not (empty? realized)))
+        (fol-first realized)))))
+
+(defmethod done? ((iter <lazy-seq-iterator>))
+  "Return T if the iterator is exhausted."
+  (if (iter-done-lazy iter)
+      t
+      (let* ((current (iter-current-lazy iter))
+             (realized (if (<lazy-seq>? current)
+                           (realize-lazy-seq current)
+                           current)))
+        (if (or (null realized) (empty? realized))
+            (progn (setf (iter-done-lazy iter) t) t)
+            nil))))
+
+
+;;; ============================================================================
 ;;; Array Class (<array>)
 ;;; ============================================================================
 
@@ -320,7 +691,97 @@
       t
       nil))
 
-;;; 3. CONTAINS?
+;;; --- Methods for CL lists (cons cells) ---
+
+(defmethod size ((lst cons))
+  "Return the length of a CL list."
+  (cl:length lst))
+
+(defmethod size ((lst null))
+  "Return 0 for nil."
+  0)
+
+(defmethod empty? ((lst cons))
+  "CL cons is never empty."
+  nil)
+
+(defmethod empty? ((lst null))
+  "Nil is empty."
+  t)
+
+;;; 3. SEQ
+(defgeneric seq (collection)
+  (:documentation "Returns a <list> view of the collection, or NIL if empty.
+   Like Clojure's seq, this is the fundamental way to get a sequential
+   view of any collection. Returns NIL (not an empty list) for empty collections."))
+
+(defmethod seq ((c <collection>))
+  "Default implementation: convert to list via iterator."
+  (if (empty? c)
+      nil
+      (let ((iter (iterator c))
+            (result nil))
+        (loop until (done? iter)
+              do (push (current iter) result)
+                 (next iter))
+        (apply #'make-list (nreverse result)))))
+
+(defmethod seq ((lst <list>))
+  "For lists, return the list itself or NIL if empty."
+  (if (zerop (list-size lst))
+      nil
+      lst))
+
+(defmethod seq ((v <vector>))
+  "For vectors, convert to a list."
+  (let ((items (pslot-value v 'items)))
+    (if (fset:empty? items)
+        nil
+        (apply #'make-list (fset:convert 'list items)))))
+
+(defmethod seq ((d <dict>))
+  "For dicts, return a list of (key . value) pairs."
+  (let ((items (pslot-value d 'items)))
+    (if (fset:empty? items)
+        nil
+        (let ((pairs nil))
+          (fset:do-map (k v items)
+            (push (cons k v) pairs))
+          (apply #'make-list (nreverse pairs))))))
+
+(defmethod seq ((s <set>))
+  "For sets, return a list of elements (keys only)."
+  (let ((items (pslot-value s 'items)))
+    (if (fset:empty? items)
+        nil
+        (let ((elems nil))
+          (fset:do-map (k v items)
+            (declare (ignore v))
+            (push k elems))
+          (apply #'make-list (nreverse elems))))))
+
+(defmethod seq ((b <bag>))
+  "For bags, return a list with elements repeated by their count."
+  (let ((items (pslot-value b 'items)))
+    (if (fset:empty? items)
+        nil
+        (let ((elems nil))
+          (fset:do-map (elem count items)
+            (dotimes (i count)
+              (push elem elems)))
+          (apply #'make-list (nreverse elems))))))
+
+;;; --- Methods for CL lists (cons cells) ---
+
+(defmethod seq ((lst cons))
+  "For CL lists, return the list itself."
+  lst)
+
+(defmethod seq ((lst null))
+  "For nil, return nil."
+  nil)
+
+;;; 4. CONTAINS?
 (defgeneric contains? (collection item)
   (:documentation "Returns T if ITEM is in COLLECTION.
    ITEM can be raw or wrapped; it's unwrapped for comparison."))
