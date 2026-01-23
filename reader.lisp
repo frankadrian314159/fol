@@ -440,11 +440,131 @@
   (declare (ignore char arg))
   (list 'var (fol-read stream t nil *clojure-readtable*)))
 
+(defun arg-placeholder-p (sym)
+  "Return T if SYM is an argument placeholder (%, %1, %2, ..., %&).
+   Returns :REST for %&, or the argument number (1 for % or %1, 2 for %2, etc.)."
+  (when (symbolp sym)
+    (let ((name (symbol-name sym)))
+      (when (and (> (length name) 0)
+                 (char= (char name 0) #\%))
+        (cond
+          ;; %& is rest args
+          ((string= name "%&") :rest)
+          ;; % alone means %1
+          ((= (length name) 1) 1)
+          ;; %N where N is a digit
+          ((and (> (length name) 1)
+                (every #'digit-char-p (subseq name 1)))
+           (parse-integer (subseq name 1)))
+          (t nil))))))
+
+(defun find-arg-placeholders (form)
+  "Walk FORM and return a list of (position . placeholder-type).
+   placeholder-type is :rest for %& or a number for %1, %2, etc."
+  (let ((found nil))
+    (labels ((walk (x)
+               (cond
+                 ((symbolp x)
+                  (let ((arg-type (arg-placeholder-p x)))
+                    (when arg-type
+                      (pushnew arg-type found))))
+                 ((consp x)
+                  (walk (car x))
+                  (walk (cdr x)))
+                 ;; Handle FOL vectors
+                 ((fol.collection:<vector>? x)
+                  (fset:do-seq (elem (slot-value x 'fol.collection::items))
+                    (walk elem)))
+                 ;; Handle FOL dicts
+                 ((fol.collection:<dict>? x)
+                  (fset:do-map (k v (slot-value x 'fol.collection::items))
+                    (walk k)
+                    (walk v)))
+                 ;; Handle FOL lists
+                 ((fol.collection:<list>? x)
+                  (let ((current x))
+                    (loop while (and current (> (fol.collection:list-size current) 0))
+                          do (walk (fol.collection:list-first current))
+                             (setf current (fol.collection:list-rest current))))))))
+      (walk form)
+      found)))
+
+(defun replace-arg-placeholders (form arg-symbols rest-symbol)
+  "Replace argument placeholders in FORM with actual symbols.
+   ARG-SYMBOLS is a vector mapping position -> symbol.
+   REST-SYMBOL is the symbol for %&, or NIL if not used."
+  (labels ((replace-in (x)
+             (cond
+               ((symbolp x)
+                (let ((arg-type (arg-placeholder-p x)))
+                  (cond
+                    ((eq arg-type :rest) (or rest-symbol x))
+                    ((integerp arg-type) (aref arg-symbols (1- arg-type)))
+                    (t x))))
+               ((consp x)
+                (cons (replace-in (car x))
+                      (replace-in (cdr x))))
+               ;; Handle FOL vectors
+               ((fol.collection:<vector>? x)
+                (let ((new-items nil))
+                  (fset:do-seq (elem (slot-value x 'fol.collection::items))
+                    (push (replace-in elem) new-items))
+                  (apply #'fol.collection:make-vector (nreverse new-items))))
+               ;; Handle FOL dicts
+               ((fol.collection:<dict>? x)
+                (let ((new-dict (fol.collection:make-dict)))
+                  (fset:do-map (k v (slot-value x 'fol.collection::items))
+                    (setf new-dict (fol.collection:add new-dict
+                                                       (replace-in k)
+                                                       (replace-in v))))
+                  new-dict))
+               ;; Handle FOL lists
+               ((fol.collection:<list>? x)
+                (let ((items nil)
+                      (current x))
+                  (loop while (and current (> (fol.collection:list-size current) 0))
+                        do (push (replace-in (fol.collection:list-first current)) items)
+                           (setf current (fol.collection:list-rest current)))
+                  (apply #'fol.collection:make-list (nreverse items))))
+               (t x))))
+    (replace-in form)))
+
 (defun read-fn-dispatch (stream char arg)
-  "Read a Clojure anonymous function starting with #("
+  "Read a Clojure anonymous function literal #(...).
+   Supports argument placeholders:
+   - % or %1 -> first argument
+   - %2, %3, ... -> second, third, etc. argument
+   - %& -> rest arguments
+   Example: #(+ %1 %2) => (fn [arg1 arg2] (+ arg1 arg2))"
   (declare (ignore char arg))
-  (let ((body (fol-read-delimited-list #\) stream *clojure-readtable*)))
-    (list 'fn body)))
+  (let* ((body-list (fol-read-delimited-list #\) stream *clojure-readtable*))
+         ;; The body IS the list of items read - it's a function call form
+         ;; e.g., #(+ % 1) => body = (+ % 1), which calls + with args
+         (body body-list)
+         (placeholders (find-arg-placeholders body))
+         (has-rest (member :rest placeholders))
+         (max-arg (let ((nums (remove-if-not #'integerp placeholders)))
+                    (if nums (apply #'max nums) 0))))
+    ;; If no placeholders found, treat as zero-arg function
+    (if (and (= max-arg 0) (not has-rest))
+        (list 'fn (fol.collection:make-vector) body)
+        ;; Generate parameter symbols and build the function
+        (let* ((arg-symbols (make-array max-arg))
+               (rest-symbol (when has-rest (gensym "REST")))
+               (params nil))
+          ;; Create gensyms for each positional argument
+          (dotimes (i max-arg)
+            (setf (aref arg-symbols i) (gensym (format nil "ARG~D-" (1+ i)))))
+          ;; Build parameter list
+          (dotimes (i max-arg)
+            (push (aref arg-symbols i) params))
+          (setf params (nreverse params))
+          ;; Add rest parameter if needed
+          (when has-rest
+            (setf params (append params (list '& rest-symbol))))
+          ;; Replace placeholders in body and build fn form
+          (let ((new-body (replace-arg-placeholders body arg-symbols rest-symbol)))
+            (list 'fn (apply #'fol.collection:make-vector params) new-body))))))
 
 (defun read-ignore-dispatch (stream char arg)
   "Read a Clojure ignore form starting with #_ - read and discard next form"

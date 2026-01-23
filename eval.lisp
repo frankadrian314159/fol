@@ -34,6 +34,20 @@
                      (fol-arity-error-expected condition)
                      (fol-arity-error-got condition)))))
 
+(define-condition fol-type-error (fol-eval-error)
+  ((expected-type :initarg :expected-type :accessor fol-type-error-expected)
+   (actual-type :initarg :actual-type :accessor fol-type-error-actual)
+   (variable :initarg :variable :accessor fol-type-error-variable :initform nil))
+  (:report (lambda (condition stream)
+             (if (fol-type-error-variable condition)
+                 (format stream "Type error: variable ~A expected type ~A, got ~A"
+                         (fol-type-error-variable condition)
+                         (fol-type-error-expected condition)
+                         (fol-type-error-actual condition))
+                 (format stream "Type error: expected type ~A, got ~A"
+                         (fol-type-error-expected condition)
+                         (fol-type-error-actual condition))))))
+
 ;;; ============================================================================
 ;;; FOL Function Representation
 ;;; ============================================================================
@@ -390,10 +404,81 @@
 
 ;;; --- DESTRUCTURING ---
 
+;;; Type annotation support for destructuring patterns.
+;;; A type-annotated binding has the form (symbol type), e.g., (x <integer>)
+;;; Types are symbols like <integer>, <string>, <number>, etc.
+
+(defun fol-type-symbol-p (sym)
+  "Return T if SYM looks like a FOL type symbol (starts with < and ends with >)."
+  (cl:and (symbolp sym)
+       (let ((name (symbol-name sym)))
+         (cl:and (> (length name) 2)
+              (char= (char name 0) #\<)
+              (char= (char name (1- (length name))) #\>)))))
+
+(defun typed-binding-p (pattern)
+  "Return T if PATTERN is a typed binding of the form (symbol type).
+   A typed binding is a CL list with exactly 2 elements where:
+   - First element is a symbol (variable name)
+   - Second element is a type symbol (like <integer>, <string>, etc.)"
+  (cl:and (cl:listp pattern)
+       (= (length pattern) 2)
+       (let ((var (cl:first pattern))
+             (type-spec (cl:second pattern)))
+         (cl:and (or (symbolp var) (<symbol>? var))
+              (or (fol-type-symbol-p type-spec)
+                  (cl:and (<symbol>? type-spec)
+                       (fol-type-symbol-p (fol-value type-spec))))))))
+
+(defun get-fol-type-class (type-sym)
+  "Return the CL class corresponding to a FOL type symbol, or NIL if not found."
+  (cl:find-class type-sym nil))
+
+(defun type-conforms-p (value expected-type)
+  "Return T if VALUE conforms to EXPECTED-TYPE.
+   Uses the FOL class hierarchy to check subtypes."
+  (let ((type-class (get-fol-type-class expected-type)))
+    (if type-class
+        ;; Check using CLOS type hierarchy
+        (or
+         ;; Check if value is an instance of the expected type class
+         (typep value type-class)
+         ;; For raw CL values, check against their FOL type and hierarchy
+         (let ((actual-type (fol.wrappers:fol-type-of value)))
+           (if (eq actual-type expected-type)
+               t  ; Exact match
+               ;; Check if actual-type's class is a subtype of expected-type
+               (let ((actual-class (get-fol-type-class actual-type)))
+                 (cl:and actual-class type-class
+                      (subtypep actual-class type-class))))))
+        ;; No class found for expected-type - try symbol comparison
+        (eq (fol.wrappers:fol-type-of value) expected-type))))
+
+(defun bind-with-type-check (var-name type-spec value)
+  "Create a binding for VAR-NAME to VALUE, checking that VALUE conforms to TYPE-SPEC.
+   Returns a list containing a single (var-name . value) cons.
+   Signals fol-type-error if VALUE doesn't conform to TYPE-SPEC."
+  (unless (type-conforms-p value type-spec)
+    (error 'fol-type-error
+           :expected-type type-spec
+           :actual-type (fol.wrappers:fol-type-of value)
+           :variable var-name
+           :message (format nil "Type mismatch in binding ~A" var-name)
+           :form (list var-name type-spec)))
+  (list (cons var-name value)))
+
+(defun underscore-symbol-p (sym)
+  "Return T if SYM is the underscore placeholder symbol (named \"_\").
+   The underscore is used in destructuring to discard values without binding."
+  (cl:and (symbolp sym)
+       (string= (symbol-name sym) "_")))
+
 (defun destructure-pattern (pattern value)
   "Destructure VALUE according to PATTERN, returning an alist of (symbol . value) pairs.
    Supports:
    - Simple symbol: binds the whole value
+   - Underscore _: discards the value (no binding created)
+   - Typed binding (symbol type): binds with type check, e.g., (x <integer>)
    - Vector [a b c]: sequential destructuring for lists/vectors
    - Vector with &: [a b & rest] captures remaining elements
    - Vector with :as: [a b :as whole] also binds the whole collection
@@ -402,15 +487,30 @@
    - Map with :as: {a :key :as whole} also binds the whole map
    - Nested patterns: [[a b] c] for nested destructuring"
   (cond
+    ;; Underscore placeholder - discard value, no binding
+    ((underscore-symbol-p pattern)
+     nil)
+
     ;; Simple symbol - bind the whole value
     ((symbolp pattern)
      (if (null pattern)
          nil  ; nil pattern binds nothing
          (list (cons pattern value))))
 
-    ;; FOL <symbol> wrapper
+    ;; FOL <symbol> wrapper - check for underscore first
     ((<symbol>? pattern)
-     (list (cons (fol-value pattern) value)))
+     (if (underscore-symbol-p (fol-value pattern))
+         nil  ; underscore discards value
+         (list (cons (fol-value pattern) value))))
+
+    ;; Typed binding: (symbol type) - check type before binding
+    ((typed-binding-p pattern)
+     (let* ((var-sym (cl:first pattern))
+            (type-spec (cl:second pattern))
+            ;; Extract raw symbols from any wrappers
+            (var-name (if (<symbol>? var-sym) (fol-value var-sym) var-sym))
+            (type-name (if (<symbol>? type-spec) (fol-value type-spec) type-spec)))
+       (bind-with-type-check var-name type-name value)))
 
     ;; Vector pattern - sequential destructuring
     ((<vector>? pattern)
@@ -477,73 +577,85 @@
 
 (defun destructure-associative (pattern value)
   "Destructure VALUE as a map according to dict PATTERN.
-   Handles :keys, :strs, :syms shortcuts and :as for whole binding."
+   Handles :keys, :strs, :syms shortcuts, :as for whole binding, and :or for defaults.
+   Example: {:keys [a b] :or {a 10 b 20}} - if a is missing, uses 10 as default."
   (let ((bindings nil)
-        (as-binding nil))
-    ;; Check for :keys shortcut in the pattern
-    (let ((keys-val (get pattern :keys nil)))
-      (when keys-val
-        ;; :keys [a b c] -> bind a to :a, b to :b, etc.
-        (let ((key-list (cond
-                          ((<vector>? keys-val) (vector-to-list keys-val))
-                          ((cl:listp keys-val) keys-val)
-                          (t (list keys-val)))))
-          (dolist (k key-list)
-            (let* ((sym (extract-symbol k))
-                   (keyword (intern (symbol-name sym) :keyword))
-                   (val (get value keyword nil)))
-              (push (cons sym val) bindings))))))
+        (as-binding nil)
+        ;; Extract :or defaults map
+        (defaults (get pattern :or nil)))
+    ;; Helper to get value with fallback to defaults
+    (flet ((get-with-default (key sym)
+             "Get KEY from value, falling back to SYM in defaults map."
+             (let ((val (get value key nil)))
+               (if (cl:and (null val) defaults)
+                   ;; Try to find default using the symbol name as keyword
+                   (let ((default-key (intern (symbol-name sym) :keyword)))
+                     (get defaults default-key val))
+                   val))))
+      ;; Check for :keys shortcut in the pattern
+      (let ((keys-val (get pattern :keys nil)))
+        (when keys-val
+          ;; :keys [a b c] -> bind a to :a, b to :b, etc.
+          (let ((key-list (cond
+                            ((<vector>? keys-val) (vector-to-list keys-val))
+                            ((cl:listp keys-val) keys-val)
+                            (t (list keys-val)))))
+            (dolist (k key-list)
+              (let* ((sym (extract-symbol k))
+                     (keyword (intern (symbol-name sym) :keyword))
+                     (val (get-with-default keyword sym)))
+                (push (cons sym val) bindings))))))
 
-    ;; Check for :strs shortcut (string keys)
-    (let ((strs-val (get pattern :strs nil)))
-      (when strs-val
-        (let ((str-list (cond
-                          ((<vector>? strs-val) (vector-to-list strs-val))
-                          ((cl:listp strs-val) strs-val)
-                          (t (list strs-val)))))
-          (dolist (s str-list)
-            (let* ((sym (extract-symbol s))
-                   (str-key (symbol-name sym))
-                   (val (get value str-key nil)))
-              (push (cons sym val) bindings))))))
+      ;; Check for :strs shortcut (string keys)
+      (let ((strs-val (get pattern :strs nil)))
+        (when strs-val
+          (let ((str-list (cond
+                            ((<vector>? strs-val) (vector-to-list strs-val))
+                            ((cl:listp strs-val) strs-val)
+                            (t (list strs-val)))))
+            (dolist (s str-list)
+              (let* ((sym (extract-symbol s))
+                     (str-key (symbol-name sym))
+                     (val (get-with-default str-key sym)))
+                (push (cons sym val) bindings))))))
 
-    ;; Check for :syms shortcut (symbol keys)
-    (let ((syms-val (get pattern :syms nil)))
-      (when syms-val
-        (let ((sym-list (cond
-                          ((<vector>? syms-val) (vector-to-list syms-val))
-                          ((cl:listp syms-val) syms-val)
-                          (t (list syms-val)))))
-          (dolist (s sym-list)
-            (let* ((sym (extract-symbol s))
-                   (val (get value sym nil)))
-              (push (cons sym val) bindings))))))
+      ;; Check for :syms shortcut (symbol keys)
+      (let ((syms-val (get pattern :syms nil)))
+        (when syms-val
+          (let ((sym-list (cond
+                            ((<vector>? syms-val) (vector-to-list syms-val))
+                            ((cl:listp syms-val) syms-val)
+                            (t (list syms-val)))))
+            (dolist (s sym-list)
+              (let* ((sym (extract-symbol s))
+                     (val (get-with-default sym sym)))
+                (push (cons sym val) bindings))))))
 
-    ;; Check for :as whole binding
-    (let ((as-val (get pattern :as nil)))
-      (when as-val
-        (setf as-binding (cons (extract-symbol as-val) value))))
+      ;; Check for :as whole binding
+      (let ((as-val (get pattern :as nil)))
+        (when as-val
+          (setf as-binding (cons (extract-symbol as-val) value))))
 
-    ;; Process explicit key->binding pairs in the pattern
-    ;; Pattern: {local-var :map-key} means bind local-var to value at :map-key
-    (let ((items (slot-value pattern 'fol.collection::items)))
-      (fset:do-map (k v items)
-        ;; Skip special keys
-        (unless (member k '(:keys :strs :syms :as :or))
-          ;; k is the local variable name, v is the key to look up in value
-          (let* ((local-sym (extract-symbol k))
-                 (lookup-key v)
-                 (val (get value lookup-key nil)))
-            ;; Support nested destructuring
-            (if (or (<vector>? local-sym) (<dict>? local-sym) (cl:listp local-sym))
-                (setf bindings (append bindings (destructure-pattern k val)))
-                (push (cons local-sym val) bindings))))))
+      ;; Process explicit key->binding pairs in the pattern
+      ;; Pattern: {local-var :map-key} means bind local-var to value at :map-key
+      (let ((items (slot-value pattern 'fol.collection::items)))
+        (fset:do-map (k v items)
+          ;; Skip special keys
+          (unless (member k '(:keys :strs :syms :as :or))
+            ;; k is the local variable name, v is the key to look up in value
+            (let* ((local-sym (extract-symbol k))
+                   (lookup-key v)
+                   (val (get-with-default lookup-key local-sym)))
+              ;; Support nested destructuring
+              (if (or (<vector>? local-sym) (<dict>? local-sym) (cl:listp local-sym))
+                  (setf bindings (append bindings (destructure-pattern k val)))
+                  (push (cons local-sym val) bindings))))))
 
-    ;; Add :as binding if present
-    (when as-binding
-      (push as-binding bindings))
+      ;; Add :as binding if present
+      (when as-binding
+        (push as-binding bindings))
 
-    (nreverse bindings)))
+      (nreverse bindings))))
 
 (defun fol-list-to-cl-list (fol-list)
   "Convert a FOL <list> to a CL list."

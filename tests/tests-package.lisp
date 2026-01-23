@@ -131,6 +131,7 @@
                 :eval-syntax-quote :eval-make-dynamic :eval-binding
                 :fol-eval-error :fol-eval-error-message :fol-eval-error-form
                 :fol-arity-error :fol-arity-error-expected :fol-arity-error-got
+                :fol-type-error :fol-type-error-expected :fol-type-error-actual :fol-type-error-variable
                 :make-function :apply-function
                 :make-macro :expand-macro
                 :expand-syntax-quote :unquote-form-p :unquote-splicing-form-p

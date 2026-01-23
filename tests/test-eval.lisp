@@ -248,6 +248,25 @@
     (is (cl:= 2 (fol-eval (fol-form "(bind [{:keys [a] :as m} {:a 1 :b 2}] (size m))") env)))
     (is (cl:= 1 (fol-eval (fol-form "(bind [{:keys [a] :as m} {:a 1 :b 2}] a)") env)))))
 
+(test eval-bind-destructure-map-or-defaults
+  "Test associative destructuring with :or defaults."
+  (let ((env (make-standard-env)))
+    ;; Missing key uses default from :or
+    (is (cl:= 20 (fol-eval (fol-form "(bind [{:keys [a b] :or {:a 10 :b 20}} {:a 1}] b)") env)))
+    ;; Present key overrides default
+    (is (cl:= 1 (fol-eval (fol-form "(bind [{:keys [a b] :or {:a 10 :b 20}} {:a 1}] a)") env)))
+    ;; Both missing, both use defaults
+    (is (cl:= 30 (fol-eval (fol-form "(bind [{:keys [a b] :or {:a 10 :b 20}} {}] (+ a b))") env)))
+    ;; All present, no defaults used
+    (is (cl:= 3 (fol-eval (fol-form "(bind [{:keys [a b] :or {:a 10 :b 20}} {:a 1 :b 2}] (+ a b))") env)))))
+
+(test eval-bind-destructure-map-or-with-explicit
+  "Test :or defaults with explicit key mapping."
+  (let ((env (make-standard-env)))
+    ;; Explicit mapping {x :a} with default
+    (is (cl:= 99 (fol-eval (fol-form "(bind [{x :a :or {:x 99}} {}] x)") env)))
+    (is (cl:= 5 (fol-eval (fol-form "(bind [{x :a :or {:x 99}} {:a 5}] x)") env)))))
+
 (test eval-bind-destructure-with-list
   "Test destructuring with FOL list values."
   (let ((env (make-standard-env)))
@@ -276,6 +295,89 @@
   (let ((env (make-standard-env)))
     ;; Capture all values with rest
     (is (cl:= 2 (fol-eval (fol-form "(bind [[q & rest] (floor 17 3)] (first rest))") env)))))
+
+(test eval-bind-underscore-discard
+  "Test that _ discards values without binding."
+  (let ((env (make-standard-env)))
+    ;; Discard middle element
+    (is (cl:= 4 (fol-eval (fol-form "(bind [[a _ c] [1 2 3]] (+ a c))") env)))
+    ;; Discard first element
+    (is (cl:= 5 (fol-eval (fol-form "(bind [[_ b c] [1 2 3]] (+ b c))") env)))
+    ;; Discard last element
+    (is (cl:= 3 (fol-eval (fol-form "(bind [[a b _] [1 2 3]] (+ a b))") env)))
+    ;; Multiple discards
+    (is (cl:= 2 (fol-eval (fol-form "(bind [[_ b _] [1 2 3]] b)") env)))))
+
+(test eval-bind-underscore-with-rest
+  "Test _ with rest binding."
+  (let ((env (make-standard-env)))
+    ;; Discard first, capture rest
+    (is (cl:= 3 (fol-eval (fol-form "(bind [[_ & rest] [1 2 3 4]] (size rest))") env)))
+    ;; Capture first, discard rest
+    (is (cl:= 1 (fol-eval (fol-form "(bind [[a & _] [1 2 3 4]] a)") env)))))
+
+(test eval-bind-underscore-nested
+  "Test _ in nested destructuring."
+  (let ((env (make-standard-env)))
+    ;; Discard in nested pattern
+    (is (cl:= 4 (fol-eval (fol-form "(bind [[a [_ c]] [1 [2 3]]] (+ a c))") env)))))
+
+(test eval-bind-underscore-simple
+  "Test _ as simple binding (discards entire value)."
+  (let ((env (make-standard-env)))
+    ;; Use _ to discard, then use other binding
+    (is (cl:= 10 (fol-eval (fol-form "(bind [_ 5 x 10] x)") env)))))
+
+;;; ---------------------------------------------------------------------------
+;;; Type-Annotated Bindings in Destructuring
+;;; ---------------------------------------------------------------------------
+
+(test eval-bind-typed-simple
+  "Test simple typed binding (x <integer>)."
+  (let ((env (make-standard-env)))
+    ;; Integer conforms to <integer>
+    (is (cl:= 42 (fol-eval (fol-form "(bind [(x <integer>) 42] x)") env)))
+    ;; String conforms to <string>
+    (is (equal "hello" (fol-eval (fol-form "(bind [(s <string>) \"hello\"] s)") env)))))
+
+(test eval-bind-typed-subtype
+  "Test typed binding with subtype relationships."
+  (let ((env (make-standard-env)))
+    ;; Fixnum is a subtype of <integer>
+    (is (cl:= 42 (fol-eval (fol-form "(bind [(x <integer>) 42] x)") env)))
+    ;; Fixnum is a subtype of <number>
+    (is (cl:= 42 (fol-eval (fol-form "(bind [(x <number>) 42] x)") env)))
+    ;; Double-float is a subtype of <real> (FOL reader converts 3.14 to double-float)
+    (is (cl:= 3.14d0 (fol-eval (fol-form "(bind [(x <real>) 3.14] x)") env)))))
+
+(test eval-bind-typed-type-error
+  "Test that typed binding signals error on type mismatch."
+  (let ((env (make-standard-env)))
+    ;; String doesn't conform to <integer>
+    (signals fol-type-error
+      (fol-eval (fol-form "(bind [(x <integer>) \"hello\"] x)") env))
+    ;; Integer doesn't conform to <string>
+    (signals fol-type-error
+      (fol-eval (fol-form "(bind [(x <string>) 42] x)") env))))
+
+(test eval-bind-typed-in-sequential
+  "Test typed binding inside sequential destructuring."
+  (let ((env (make-standard-env)))
+    ;; Type annotations inside vector pattern
+    (is (cl:= 3 (fol-eval (fol-form "(bind [[(a <integer>) (b <integer>)] (list 1 2)] (+ a b))") env)))))
+
+(test eval-bind-typed-in-sequential-error
+  "Test type error inside sequential destructuring."
+  (let ((env (make-standard-env)))
+    ;; Second element is string, not integer
+    (signals fol-type-error
+      (fol-eval (fol-form "(bind [[(a <integer>) (b <integer>)] (list 1 \"two\")] (+ a b))") env))))
+
+(test eval-bind-typed-mixed
+  "Test mixing typed and untyped bindings."
+  (let ((env (make-standard-env)))
+    ;; Mix typed and untyped
+    (is (cl:= 6 (fol-eval (fol-form "(bind [x 1 (y <integer>) 2 z 3] (+ x y z))") env)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; FN Special Form
@@ -1267,3 +1369,56 @@
       (is (cl:= 10 (fol-eval (fol-form "(my-let [x 10] x)") env2)))
       ;; Test with destructured binding pattern inside the let
       (is (cl:= 3 (fol-eval (fol-form "(my-let [[a b] [1 2]] (+ a b))") env2))))))
+
+;;; ---------------------------------------------------------------------------
+;;; Anonymous Function Literals #()
+;;; ---------------------------------------------------------------------------
+
+(test eval-fn-literal-single-arg
+  "Test evaluating #() with single arg (%)."
+  (let ((env (make-standard-env)))
+    ;; #(+ % 1) called with 10 should return 11
+    (is (cl:= 11 (fol-eval (fol-form "(#(+ % 1) 10)") env)))
+    ;; #(* % %) squares the argument
+    (is (cl:= 25 (fol-eval (fol-form "(#(* % %) 5)") env)))))
+
+(test eval-fn-literal-two-args
+  "Test evaluating #() with two args (%1 %2)."
+  (let ((env (make-standard-env)))
+    ;; #(+ %1 %2) called with 3 and 4 should return 7
+    (is (cl:= 7 (fol-eval (fol-form "(#(+ %1 %2) 3 4)") env)))
+    ;; #(- %1 %2) called with 10 and 3 should return 7
+    (is (cl:= 7 (fol-eval (fol-form "(#(- %1 %2) 10 3)") env)))))
+
+(test eval-fn-literal-numbered-args
+  "Test evaluating #() with higher numbered args."
+  (let ((env (make-standard-env)))
+    ;; #(+ %1 %2 %3) called with 1, 2, 3 should return 6
+    (is (cl:= 6 (fol-eval (fol-form "(#(+ %1 %2 %3) 1 2 3)") env)))
+    ;; Using only %3 should still expect 3 args
+    (is (cl:= 30 (fol-eval (fol-form "(#(* %3 10) 1 2 3)") env)))))
+
+(test eval-fn-literal-rest-args
+  "Test evaluating #() with rest args (%&)."
+  (let ((env (make-standard-env)))
+    ;; #(first %&) called with multiple args returns the first
+    (is (cl:= 1 (fol-eval (fol-form "(#(first %&) 1 2 3)") env)))
+    ;; #(size %&) counts the rest args
+    (is (cl:= 4 (fol-eval (fol-form "(#(size %&) 1 2 3 4)") env)))))
+
+(test eval-fn-literal-mixed-args
+  "Test evaluating #() with positional and rest args."
+  (let ((env (make-standard-env)))
+    ;; #(+ %1 (first %&)) mixes positional and rest
+    (is (cl:= 3 (fol-eval (fol-form "(#(+ %1 (first %&)) 1 2 3 4)") env)))
+    ;; %2 and %& together
+    (is (cl:= 5 (fol-eval (fol-form "(#(+ %2 (size %&)) 1 2 3 4 5)") env)))))
+
+(test eval-fn-literal-nested-forms
+  "Test evaluating #() with nested forms."
+  (let ((env (make-standard-env)))
+    ;; Nested arithmetic
+    (is (cl:= 14 (fol-eval (fol-form "(#(+ (* %1 2) (* %2 3)) 1 4)") env)))
+    ;; Conditionals inside
+    (is (eq t (fol-eval (fol-form "(#(if (> % 5) t nil) 10)") env)))
+    (is (eq nil (fol-eval (fol-form "(#(if (> % 5) t nil) 3)") env)))))

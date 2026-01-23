@@ -287,6 +287,7 @@
    ;; Conditions
    fol-eval-error fol-eval-error-message fol-eval-error-form
    fol-arity-error fol-arity-error-expected fol-arity-error-got
+   fol-type-error fol-type-error-expected fol-type-error-actual fol-type-error-variable
    ;; Utilities
    make-function apply-function
    ;; Macro utilities

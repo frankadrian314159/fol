@@ -677,3 +677,66 @@ c)"))))
   (is (equal '(nil) (fol-read-from-string-clj "(nil)")))
   (let ((m (fol-read-from-string-clj "{:key nil}")))
     (is (eq nil (gethash :key m)))))
+
+;;; ---------------------------------------------------------------------------
+;;; Reader Anonymous Function #() Tests
+;;; ---------------------------------------------------------------------------
+
+(test reader-fn-literal-no-args
+  "Test reading anonymous function with no arguments."
+  (let ((form (fol-read-from-string-clj "#(+ 1 2)")))
+    ;; Should produce (fn [] (+ 1 2))
+    (is (eq 'fn (cl:first form)))
+    (is (<vector>? (cl:second form)))
+    (is (= 0 (size (cl:second form))))))
+
+(test reader-fn-literal-single-arg
+  "Test reading anonymous function with single arg (%)."
+  (let ((form (fol-read-from-string-clj "#(+ % 1)")))
+    ;; Should produce (fn [arg] (+ arg 1))
+    (is (eq 'fn (cl:first form)))
+    (is (<vector>? (cl:second form)))
+    (is (= 1 (size (cl:second form))))))
+
+(test reader-fn-literal-percent-one
+  "Test reading anonymous function with %1."
+  (let ((form (fol-read-from-string-clj "#(+ %1 10)")))
+    ;; Should produce (fn [arg1] (+ arg1 10))
+    (is (eq 'fn (cl:first form)))
+    (is (<vector>? (cl:second form)))
+    (is (= 1 (size (cl:second form))))))
+
+(test reader-fn-literal-two-args
+  "Test reading anonymous function with two args."
+  (let ((form (fol-read-from-string-clj "#(+ %1 %2)")))
+    ;; Should produce (fn [arg1 arg2] (+ arg1 arg2))
+    (is (eq 'fn (cl:first form)))
+    (is (<vector>? (cl:second form)))
+    (is (= 2 (size (cl:second form))))))
+
+(test reader-fn-literal-sparse-args
+  "Test reading anonymous function with non-sequential args."
+  (let ((form (fol-read-from-string-clj "#(+ %1 %3)")))
+    ;; Should produce (fn [arg1 arg2 arg3] (+ arg1 arg3))
+    ;; even though %2 is not used, it needs to be in params
+    (is (eq 'fn (cl:first form)))
+    (is (<vector>? (cl:second form)))
+    (is (= 3 (size (cl:second form))))))
+
+(test reader-fn-literal-rest-args
+  "Test reading anonymous function with rest args."
+  (let ((form (fol-read-from-string-clj "#(apply + %&)")))
+    ;; Should produce (fn [& rest] (apply + rest))
+    (is (eq 'fn (cl:first form)))
+    (is (<vector>? (cl:second form)))
+    ;; params vector should contain & and a rest symbol
+    (is (>= (size (cl:second form)) 2))))
+
+(test reader-fn-literal-mixed-args
+  "Test reading anonymous function with positional and rest args."
+  (let ((form (fol-read-from-string-clj "#(apply + %1 %&)")))
+    ;; Should produce (fn [arg1 & rest] (apply + arg1 rest))
+    (is (eq 'fn (cl:first form)))
+    (is (<vector>? (cl:second form)))
+    ;; Should have at least: arg1, &, rest
+    (is (>= (size (cl:second form)) 3))))
