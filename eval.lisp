@@ -1502,14 +1502,31 @@
             ;; Type predicates
             'nil? #'cl:null
             'number? #'cl:numberp
+            'integer? #'cl:integerp
+            'fixnum? #'(lambda (x) (typep x 'fixnum))
+            'bignum? #'(lambda (x) (typep x 'bignum))
+            'float? #'cl:floatp
+            'single-float? #'(lambda (x) (typep x 'single-float))
+            'double-float? #'(lambda (x) (typep x 'double-float))
+            'ratio? #'(lambda (x) (typep x 'ratio))
+            'rational? #'cl:rationalp
+            'complex? #'cl:complexp
             'string? #'cl:stringp
             'symbol? #'cl:symbolp
             'list? #'cl:listp
             'cons? #'cl:consp
+            ;; Collection type predicates
+            '<collection>? #'fol.collection:<collection>?
+            '<ordered-collection>? #'fol.collection:<ordered-collection>?
+            '<unordered-collection>? #'fol.collection:<unordered-collection>?
+            '<vector>? #'fol.collection:<vector>?
+            '<list>? #'fol.collection:<list>?
+            '<dict>? #'fol.collection:<dict>?
+            '<set>? #'fol.collection:<set>?
+            '<bag>? #'fol.collection:<bag>?
+            '<array>? #'fol.collection:<array>?
+            '<lazy-seq>? #'fol.collection:<lazy-seq>?
             ;; List operations
-            'cons #'cl:cons
-            'car #'cl:car
-            'cdr #'cl:cdr
             'first #'cl:first
             'rest #'cl:rest
             'list #'cl:list
@@ -1524,7 +1541,7 @@
             ;; Misc
             'identity #'cl:identity
             'print #'cl:print
-            'princ #'cl:princ
+            'type #'fol.wrappers:fol-type-of
             ;; Generic constructor
             'make #'make
             ;; FOL collection operations

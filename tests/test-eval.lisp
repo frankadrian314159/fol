@@ -474,6 +474,183 @@
     (is (eq t (fol-eval '(or nil nil t) env)))
     (is (eq nil (fol-eval '(not t) env)))))
 
+(test eval-type-predicates-integer
+  "Test integer type predicates."
+  (let ((env (make-standard-env)))
+    ;; integer?
+    (is (eq t (fol-eval '(integer? 42) env)))
+    (is (eq t (fol-eval '(integer? -17) env)))
+    (is (eq t (fol-eval '(integer? 0) env)))
+    (is (eq nil (fol-eval '(integer? 3.14) env)))
+    (is (eq nil (fol-eval '(integer? 1/2) env)))
+    ;; fixnum?
+    (is (eq t (fol-eval '(fixnum? 42) env)))
+    (is (eq t (fol-eval '(fixnum? -1) env)))
+    (is (eq nil (fol-eval '(fixnum? 3.14) env)))
+    ;; bignum? - use a number larger than most-positive-fixnum
+    (is (eq nil (fol-eval '(bignum? 42) env)))
+    (is (eq t (fol-eval `(bignum? ,(1+ most-positive-fixnum)) env)))))
+
+(test eval-type-predicates-float
+  "Test float type predicates."
+  (let ((env (make-standard-env)))
+    ;; float?
+    (is (eq t (fol-eval '(float? 3.14) env)))
+    (is (eq t (fol-eval '(float? 1.0) env)))
+    (is (eq nil (fol-eval '(float? 42) env)))
+    (is (eq nil (fol-eval '(float? 1/2) env)))
+    ;; single-float?
+    (is (eq t (fol-eval '(single-float? 3.14f0) env)))
+    (is (eq nil (fol-eval '(single-float? 3.14d0) env)))
+    (is (eq nil (fol-eval '(single-float? 42) env)))
+    ;; double-float?
+    (is (eq t (fol-eval '(double-float? 3.14d0) env)))
+    (is (eq nil (fol-eval '(double-float? 3.14f0) env)))
+    (is (eq nil (fol-eval '(double-float? 42) env)))))
+
+(test eval-type-predicates-rational
+  "Test rational type predicates."
+  (let ((env (make-standard-env)))
+    ;; ratio?
+    (is (eq t (fol-eval '(ratio? 1/2) env)))
+    (is (eq t (fol-eval '(ratio? 3/4) env)))
+    (is (eq nil (fol-eval '(ratio? 42) env)))
+    (is (eq nil (fol-eval '(ratio? 2/2) env)))  ; 2/2 simplifies to 1
+    (is (eq nil (fol-eval '(ratio? 3.14) env)))
+    ;; rational?
+    (is (eq t (fol-eval '(rational? 42) env)))      ; integers are rational
+    (is (eq t (fol-eval '(rational? 1/2) env)))     ; ratios are rational
+    (is (eq nil (fol-eval '(rational? 3.14) env)))  ; floats are not rational
+    (is (eq nil (fol-eval '(rational? #C(1 2)) env)))))  ; complex not rational
+
+(test eval-type-predicates-complex
+  "Test complex type predicate."
+  (let ((env (make-standard-env)))
+    (is (eq t (fol-eval '(complex? #C(1 2)) env)))
+    (is (eq t (fol-eval '(complex? #C(3.0 4.0)) env)))
+    (is (eq nil (fol-eval '(complex? 42) env)))
+    (is (eq nil (fol-eval '(complex? 3.14) env)))
+    (is (eq nil (fol-eval '(complex? 1/2) env)))))
+
+(test eval-type-predicates-collection
+  "Test collection type predicates."
+  (let ((env (make-standard-env)))
+    ;; Create test collections
+    (let ((vec (make-vector 1 2 3))
+          (lst (make-list 1 2 3))
+          (dict (make-dict :a 1 :b 2))
+          (st (make-set 1 2 3))
+          (bg (make-bag 1 2 2 3)))
+      ;; <collection>? - all collections should pass
+      (is (eq t (fol-eval `(<collection>? ',vec) env)))
+      (is (eq t (fol-eval `(<collection>? ',lst) env)))
+      (is (eq t (fol-eval `(<collection>? ',dict) env)))
+      (is (eq t (fol-eval `(<collection>? ',st) env)))
+      (is (eq t (fol-eval `(<collection>? ',bg) env)))
+      (is (eq nil (fol-eval '(<collection>? 42) env)))
+      (is (eq nil (fol-eval '(<collection>? "hello") env))))))
+
+(test eval-type-predicates-ordered-collection
+  "Test ordered collection type predicates."
+  (let ((env (make-standard-env)))
+    (let ((vec (make-vector 1 2 3))
+          (lst (make-list 1 2 3))
+          (dict (make-dict :a 1)))
+      ;; <ordered-collection>? - vectors and lists are ordered
+      (is (eq t (fol-eval `(<ordered-collection>? ',vec) env)))
+      (is (eq t (fol-eval `(<ordered-collection>? ',lst) env)))
+      (is (eq nil (fol-eval `(<ordered-collection>? ',dict) env)))
+      ;; <vector>?
+      (is (eq t (fol-eval `(<vector>? ',vec) env)))
+      (is (eq nil (fol-eval `(<vector>? ',lst) env)))
+      (is (eq nil (fol-eval '(<vector>? 42) env)))
+      ;; <list>?
+      (is (eq t (fol-eval `(<list>? ',lst) env)))
+      (is (eq nil (fol-eval `(<list>? ',vec) env)))
+      (is (eq nil (fol-eval '(<list>? 42) env))))))
+
+(test eval-type-predicates-unordered-collection
+  "Test unordered collection type predicates."
+  (let ((env (make-standard-env)))
+    (let ((dict (make-dict :a 1 :b 2))
+          (st (make-set 1 2 3))
+          (bg (make-bag 1 2 2 3))
+          (vec (make-vector 1 2 3)))
+      ;; <unordered-collection>? - dicts, sets, bags are unordered
+      (is (eq t (fol-eval `(<unordered-collection>? ',dict) env)))
+      (is (eq t (fol-eval `(<unordered-collection>? ',st) env)))
+      (is (eq t (fol-eval `(<unordered-collection>? ',bg) env)))
+      (is (eq nil (fol-eval `(<unordered-collection>? ',vec) env)))
+      ;; <dict>?
+      (is (eq t (fol-eval `(<dict>? ',dict) env)))
+      (is (eq nil (fol-eval `(<dict>? ',st) env)))
+      (is (eq nil (fol-eval '(<dict>? 42) env)))
+      ;; <set>?
+      (is (eq t (fol-eval `(<set>? ',st) env)))
+      (is (eq nil (fol-eval `(<set>? ',dict) env)))
+      (is (eq nil (fol-eval '(<set>? 42) env)))
+      ;; <bag>?
+      (is (eq t (fol-eval `(<bag>? ',bg) env)))
+      (is (eq nil (fol-eval `(<bag>? ',st) env)))
+      (is (eq nil (fol-eval '(<bag>? 42) env))))))
+
+(test eval-type-predicates-array
+  "Test array type predicate."
+  (let ((env (make-standard-env)))
+    (let ((arr (make-array '(2 3) :initial-element 0))
+          (vec (make-vector 1 2 3)))
+      (is (eq t (fol-eval `(<array>? ',arr) env)))
+      (is (eq nil (fol-eval `(<array>? ',vec) env)))
+      (is (eq nil (fol-eval '(<array>? 42) env))))))
+
+(test eval-type-predicates-lazy-seq
+  "Test lazy-seq type predicate."
+  (let ((env (make-standard-env)))
+    (let ((ls (fol-eval '(lazy-seq (list 1 2 3)) env))
+          (vec (make-vector 1 2 3)))
+      (is (eq t (fol-eval `(<lazy-seq>? ',ls) env)))
+      (is (eq nil (fol-eval `(<lazy-seq>? ',vec) env)))
+      (is (eq nil (fol-eval '(<lazy-seq>? 42) env))))))
+
+(test eval-type-function
+  "Test type function returns the FOL type of values."
+  (let ((env (make-standard-env)))
+    ;; Numeric types
+    (is (eq '<fixnum> (fol-eval '(type 42) env)))
+    (is (eq '<ratio> (fol-eval '(type 1/2) env)))
+    (is (eq '<double-float> (fol-eval '(type 3.14d0) env)))
+    (is (eq '<single-float> (fol-eval '(type 3.14f0) env)))
+    (is (eq '<complex> (fol-eval '(type #C(1 2)) env)))
+    ;; Other primitives
+    (is (eq '<bool> (fol-eval '(type t) env)))
+    (is (eq '<bool> (fol-eval '(type nil) env)))
+    (is (eq '<string> (fol-eval '(type "hello") env)))
+    (is (eq '<char> (fol-eval '(type #\a) env)))
+    (is (eq '<symbol> (fol-eval '(type 'foo) env)))
+    (is (eq '<keyword> (fol-eval '(type :foo) env)))
+    ;; CL list returns <list>
+    (is (eq '<list> (fol-eval '(type '(1 2 3)) env)))
+    ;; FOL collections
+    (let ((vec (make-vector 1 2 3))
+          (lst (make-list 1 2 3))
+          (dict (make-dict :a 1))
+          (st (make-set 1 2 3))
+          (bg (make-bag 1 2 2)))
+      (is (eq '<vector> (fol-eval `(type ',vec) env)))
+      (is (eq '<list> (fol-eval `(type ',lst) env)))
+      (is (eq '<dict> (fol-eval `(type ',dict) env)))
+      (is (eq '<set> (fol-eval `(type ',st) env)))
+      (is (eq '<bag> (fol-eval `(type ',bg) env))))))
+
+(test eval-type-function-user-defined-class
+  "Test type function returns class name for user-defined classes."
+  (let ((env (make-standard-env)))
+    ;; Define a class using FOL's defclass
+    (fol-eval `(defclass <test-person> ,(make-vector) ,(make-vector 'name 'age)) env)
+    ;; Create an instance and check its type
+    (let ((person (make-instance '<test-person> :name "Alice" :age 30)))
+      (is (eq '<test-person> (fol-eval `(type ',person) env))))))
+
 (test eval-keyword-as-function
   "Test using keywords as functions for collection access."
   (let* ((dict (make-dict :name "Alice" :age 30))

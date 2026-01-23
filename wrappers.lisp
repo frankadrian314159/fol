@@ -93,6 +93,20 @@
 (defmethod fol-type-of ((obj <integer>)) '<integer>)
 (defmethod fol-type-of ((obj <number>)) '<number>)
 
+;;; --- FOL Collections -> FOL types ---
+(defmethod fol-type-of ((obj fol.collection:<vector>)) '<vector>)
+(defmethod fol-type-of ((obj fol.collection:<list>)) '<list>)
+(defmethod fol-type-of ((obj fol.collection:<dict>)) '<dict>)
+(defmethod fol-type-of ((obj fol.collection:<set>)) '<set>)
+(defmethod fol-type-of ((obj fol.collection:<bag>)) '<bag>)
+(defmethod fol-type-of ((obj fol.collection:<array>)) '<array>)
+(defmethod fol-type-of ((obj fol.collection:<lazy-seq>)) '<lazy-seq>)
+
+;;; --- Default for standard-object: return class name ---
+(defmethod fol-type-of ((obj standard-object))
+  "Default: return the class name for any standard-object."
+  (class-name (class-of obj)))
+
 ;;; ============================================================================
 ;;; Wrapping Functions (for when you need a FOL object)
 ;;; ============================================================================

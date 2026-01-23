@@ -25,28 +25,18 @@
 (defun convert-slot-specifier (slot-spec)
   "Convert a FOL slot specifier to CL format.
    Handles both simple symbols and full slot specifications with vectors."
-  (cond
-    ;; Simple slot name (symbol)
-    ((symbolp slot-spec) slot-spec)
-    ;; FOL <symbol> wrapper
-    ((fol.collection:<vector>? slot-spec)
-     ;; Convert vector to list for slot spec
-     (vector-to-list slot-spec))
-    ;; Already a list
-    ((listp slot-spec) slot-spec)
-    (t slot-spec)))
+  (if (fol.collection:<vector>? slot-spec)
+      (vector-to-list slot-spec)
+      slot-spec))
 
 (defun convert-specialized-param (param)
   "Convert a specialized parameter from FOL format to CL format.
    [var class-name] -> (var class-name)
    [var (eql form)] -> (var (eql form))
    var -> var"
-  (cond
-    ((fol.collection:<vector>? param)
-     (vector-to-list param))
-    ((symbolp param) param)
-    ((listp param) param)
-    (t param)))
+  (if (fol.collection:<vector>? param)
+      (vector-to-list param)
+      param))
 
 ;;; ============================================================================
 ;;; Generic Constructor: make
@@ -70,58 +60,60 @@
 
    CLASS can be a class name symbol or a class object.
    Non-collection classes require at least one initial value."
-  (let ((class-name (etypecase class
-                      (symbol class)
-                      (class (class-name class)))))
-    (case class-name
+  (let* ((class-name (etypecase class
+                       (symbol class)
+                       (class (class-name class))))
+         (name-string (symbol-name class-name)))
+    ;; Compare by symbol name to handle symbols from different packages
+    (cond
       ;; Collection types - dispatch to their specific constructors (can be empty)
-      (fol.collection:<vector>
+      ((string= name-string "<VECTOR>")
        (apply #'fol.collection:make-vector values))
-      (fol.collection:<list>
+      ((string= name-string "<LIST>")
        (apply #'fol.collection:make-list values))
-      (fol.collection:<set>
+      ((string= name-string "<SET>")
        (apply #'fol.collection:make-set values))
-      (fol.collection:<bag>
+      ((string= name-string "<BAG>")
        (apply #'fol.collection:make-bag values))
-      (fol.collection:<dict>
+      ((string= name-string "<DICT>")
        (apply #'fol.collection:make-dict values))
-      (fol.collection:<array>
+      ((string= name-string "<ARRAY>")
        (apply #'fol.collection:make-array values))
-      (fol.collection:<lazy-seq>
+      ((string= name-string "<LAZY-SEQ>")
        (if (= (length values) 1)
            (fol.collection:make-lazy-seq (cl:first values))
            (error "make <lazy-seq> requires exactly one thunk argument")))
       ;; Wrapper types - use :val initarg (require exactly one value)
-      ((fol.classes:<string> fol.classes:<bool> fol.classes:<char>
-        fol.classes:<symbol> fol.classes:<keyword>)
+      ((member name-string '("<STRING>" "<BOOL>" "<CHAR>" "<SYMBOL>" "<KEYWORD>")
+               :test #'string=)
        (if (= (length values) 1)
            (make-instance class-name :val (cl:first values))
            (error "make ~A requires exactly one value" class-name)))
       ;; Number wrapper types (require exactly one value)
-      ((fol.classes:<number> fol.classes:<complex> fol.classes:<real>
-        fol.classes:<float> fol.classes:<single-float> fol.classes:<double-float>
-        fol.classes:<rational> fol.classes:<ratio> fol.classes:<integer>
-        fol.classes:<fixnum> fol.classes:<bignum>)
+      ((member name-string '("<NUMBER>" "<COMPLEX>" "<REAL>" "<FLOAT>"
+                             "<SINGLE-FLOAT>" "<DOUBLE-FLOAT>" "<RATIONAL>"
+                             "<RATIO>" "<INTEGER>" "<FIXNUM>" "<BIGNUM>")
+               :test #'string=)
        (if (= (length values) 1)
            (make-instance class-name :val (cl:first values))
            (error "make ~A requires exactly one value" class-name)))
       ;; Stream types - require specific initialization
-      (fol.classes:<string-input-stream>
+      ((string= name-string "<STRING-INPUT-STREAM>")
        (if (= (length values) 1)
            (fol.stream:make-string-input-stream (cl:first values))
            (error "make <string-input-stream> requires exactly one string")))
-      (fol.classes:<string-output-stream>
+      ((string= name-string "<STRING-OUTPUT-STREAM>")
        (fol.stream:make-string-output-stream))
-      (fol.classes:<file-input-stream>
+      ((string= name-string "<FILE-INPUT-STREAM>")
        (if (= (length values) 1)
            (fol.stream:make-file-input-stream (cl:first values))
            (error "make <file-input-stream> requires exactly one file path")))
-      (fol.classes:<file-output-stream>
+      ((string= name-string "<FILE-OUTPUT-STREAM>")
        (if (= (length values) 1)
            (fol.stream:make-file-output-stream (cl:first values))
            (error "make <file-output-stream> requires exactly one file path")))
       ;; Default: require at least one value for non-collection types
-      (otherwise
+      (t
        (when (null values)
          (error "make ~A requires at least one initial value" class-name))
        (if (and (= (length values) 1)
