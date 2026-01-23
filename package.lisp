@@ -3,7 +3,7 @@
   (dolist (pkg '(:fol.eval :fol.env :fol.module :fol.collection
                  :fol.number :fol.symbol :fol.string :fol.char :fol.bool
                  :fol.compareop :fol.arithop :fol.logop
-                 :fol.wrappers :fol.reader :fol.classes :fol.mop :fol.persistent))
+                 :fol.wrappers :fol.reader :fol.stream :fol.classes :fol.mop :fol.persistent))
     (when (find-package pkg)
       (delete-package pkg))))
 
@@ -74,7 +74,35 @@
            <number> <complex> <real> <float>
            <single-float> <double-float> <rational>
            <integer> <fixnum> <bignum> <ratio>
+           ;; Stream classes
+           <stream> <input-stream> <output-stream>
+           <string-input-stream> <file-input-stream>
+           <string-output-stream> <file-output-stream>
+           stream-open-p stream-source-string stream-file-path
            val -fol-value symbol-module-name symbol-val))
+
+(defpackage fol.stream
+  (:use cl fol.classes)
+  (:shadow open close
+           make-string-input-stream make-string-output-stream
+           get-output-stream-string
+           with-open-stream)
+  (:export
+   ;; Type predicates
+   <stream>? <input-stream>? <output-stream>?
+   <string-input-stream>? <file-input-stream>?
+   <string-output-stream>? <file-output-stream>?
+   ;; Constructors
+   make-string-input-stream make-file-input-stream
+   make-string-output-stream make-file-output-stream
+   ;; Operations
+   open close
+   stream-open? stream-closed?
+   get-output-stream-string
+   ;; Reading/writing
+   read-char* write-char* write-string* read-line*
+   ;; Macro
+   with-open-stream))
 
 (defpackage fol.reader
   (:use cl fol.classes)

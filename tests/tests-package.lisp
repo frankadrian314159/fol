@@ -142,7 +142,20 @@
                 :make-standard-env
                 :<function> :<function>?
                 :<macro> :<macro>? :macro-name :macro-params :macro-body
-                :macro-env :macro-rest-param))
+                :macro-env :macro-rest-param)
+  ;; Import symbols from fol.stream
+  (:shadowing-import-from :fol.stream
+                          :open :close
+                          :make-string-input-stream :make-string-output-stream
+                          :get-output-stream-string
+                          :with-open-stream)
+  (:import-from :fol.stream
+                :<stream>? :<input-stream>? :<output-stream>?
+                :<string-input-stream>? :<file-input-stream>?
+                :<string-output-stream>? :<file-output-stream>?
+                :make-file-input-stream :make-file-output-stream
+                :stream-open? :stream-closed?
+                :read-char* :write-char* :write-string* :read-line*))
 
 (in-package :fol.tests)
 

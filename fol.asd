@@ -18,6 +18,7 @@
                (:file "string"   :depends-on ("package" "wrappers"))
                (:file "symbol"   :depends-on ("package" "wrappers"))
                (:file "number" :depends-on ("package" "wrappers"))
+               (:file "stream" :depends-on ("package" "classes"))
                (:file "mop" :depends-on ("package" "persistent"))
                (:file "eval" :depends-on ("package" "wrappers" "classes" "collection" "env"
                                           "logop" "arithop" "compareop")))
@@ -43,6 +44,7 @@
                   (:file "test-module" :depends-on ("tests-package"))
                   (:file "test-env" :depends-on ("tests-package"))
                   (:file "test-mop" :depends-on ("tests-package"))
+                  (:file "test-stream" :depends-on ("tests-package"))
                   (:file "test-eval" :depends-on ("tests-package"))
                   )))
   :perform (test-op (o s) (symbol-call :fol.tests :run-fol-tests)))

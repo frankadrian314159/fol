@@ -94,8 +94,46 @@
   (:metaclass fol.persistent:persistent-class)
   (:documentation "The fixnum number class."))
 
-(defclass <bignum> (<integer>) 
-  nil 
+(defclass <bignum> (<integer>)
+  nil
   (:metaclass fol.persistent:persistent-class)
   (:documentation "The bignum number class."))
+
+;;; --- Stream Classes ---
+;;; Note: Stream classes are NOT persistent objects because streams are inherently
+;;; mutable and stateful. They use standard CLOS classes.
+
+(defclass <stream> ()
+  ((val :initarg :val :accessor -fol-value :type (or null stream)
+        :documentation "The underlying CL stream, or NIL if not yet opened.")
+   (open-p :initarg :open-p :accessor stream-open-p :initform nil :type boolean
+           :documentation "Whether the stream is currently open."))
+  (:documentation "The base stream class wrapping a native Lisp stream."))
+
+(defclass <input-stream> (<stream>)
+  ()
+  (:documentation "Base class for input streams."))
+
+(defclass <output-stream> (<stream>)
+  ()
+  (:documentation "Base class for output streams."))
+
+(defclass <string-input-stream> (<input-stream>)
+  ((source-string :initarg :source-string :accessor stream-source-string :type string
+                  :documentation "The string to read from."))
+  (:documentation "An input stream that reads from a string."))
+
+(defclass <file-input-stream> (<input-stream>)
+  ((file-path :initarg :file-path :accessor stream-file-path :type string
+              :documentation "The path to the file to read from."))
+  (:documentation "An input stream that reads from a file."))
+
+(defclass <string-output-stream> (<output-stream>)
+  ()
+  (:documentation "An output stream that writes to a string."))
+
+(defclass <file-output-stream> (<output-stream>)
+  ((file-path :initarg :file-path :accessor stream-file-path :type string
+              :documentation "The path to the file to write to."))
+  (:documentation "An output stream that writes to a file."))
 
