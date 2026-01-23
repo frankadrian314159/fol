@@ -44,6 +44,7 @@
                   (:file "test-module" :depends-on ("tests-package"))
                   (:file "test-env" :depends-on ("tests-package"))
                   (:file "test-mop" :depends-on ("tests-package"))
+                  (:file "test-mop-constructors" :depends-on ("tests-package"))
                   (:file "test-stream" :depends-on ("tests-package"))
                   (:file "test-eval" :depends-on ("tests-package"))
                   )))

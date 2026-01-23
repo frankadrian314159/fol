@@ -112,7 +112,12 @@
                 :instance-class :instance-slots :slot-names :slot-exists-p* :slot-boundp* :slot-value*
                 :all-persistent-classes :subclasses* :superclasses* :find-slot-definition
                 :slot-properties :class-info :describe-class :describe-slot
-                :persistent-class-p :persistent-object-p)
+                :persistent-class-p :persistent-object-p
+                ;; Constructor generation protocol
+                :class-name-string :bare-class-name :constructor-name
+                :class-initargs :required-initargs :optional-initargs
+                :make-instance* :define-constructor :define-constructors
+                :generate-constructor-form :list-constructible-classes :describe-constructor)
   ;; Import symbols from fol.reader
   (:import-from :fol.reader
                 :*clojure-readtable*

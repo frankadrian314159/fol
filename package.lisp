@@ -66,7 +66,20 @@
    describe-class
    describe-slot
    persistent-class-p
-   persistent-object-p))
+   persistent-object-p
+   ;; Constructor generation protocol
+   class-name-string
+   bare-class-name
+   constructor-name
+   class-initargs
+   required-initargs
+   optional-initargs
+   make-instance*
+   define-constructor
+   define-constructors
+   generate-constructor-form
+   list-constructible-classes
+   describe-constructor))
 
 (defpackage fol.classes
   (:use cl)

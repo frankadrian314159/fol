@@ -333,3 +333,148 @@
   "Return T if OBJECT is an instance of a persistent-class, NIL otherwise."
   (and (typep object '<persistent-object>)
        (persistent-class-p (class-of object))))
+
+;;; ============================================================================
+;;; Constructor Generation Protocol
+;;; ============================================================================
+;;; This section provides a protocol for generating constructor functions
+;;; following the pattern make-X where X is the class name without angle brackets.
+;;; For example: <string> -> make-string, <vector> -> make-vector
+
+(defun class-name-string (class)
+  "Return the name of CLASS as a string."
+  (let ((class-obj (if (symbolp class) (find-class class) class)))
+    (symbol-name (class-name* class-obj))))
+
+(defun bare-class-name (class)
+  "Return the class name without angle brackets.
+   E.g., '<string>' becomes 'string', '<persistent-object>' becomes 'persistent-object'."
+  (let ((name (class-name-string class)))
+    (if (and (> (length name) 2)
+             (char= (char name 0) #\<)
+             (char= (char name (1- (length name))) #\>))
+        (subseq name 1 (1- (length name)))
+        name)))
+
+(defun constructor-name (class &optional (prefix "MAKE-"))
+  "Return the constructor function name for CLASS.
+   E.g., '<string>' becomes 'MAKE-STRING'."
+  (let* ((bare-name (bare-class-name class))
+         (class-obj (if (symbolp class) (find-class class) class))
+         (class-sym (class-name* class-obj))
+         (pkg (symbol-package class-sym)))
+    (intern (concatenate 'string prefix (string-upcase bare-name)) pkg)))
+
+(defun class-initargs (class)
+  "Return a list of all initarg keywords for CLASS."
+  (let ((class-obj (if (symbolp class) (find-class class) class)))
+    (ensure-finalized class-obj)
+    (remove-duplicates
+     (mapcan (lambda (slot)
+               (copy-list (slot-definition-initargs* slot)))
+             (class-slots* class-obj)))))
+
+(defun required-initargs (class)
+  "Return a list of initargs for slots that have no initform (required args)."
+  (let ((class-obj (if (symbolp class) (find-class class) class)))
+    (ensure-finalized class-obj)
+    (remove-duplicates
+     (mapcan (lambda (slot)
+               (when (null (slot-definition-initfunction* slot))
+                 (copy-list (slot-definition-initargs* slot))))
+             (class-slots* class-obj)))))
+
+(defun optional-initargs (class)
+  "Return a list of initargs for slots that have an initform (optional args)."
+  (let ((class-obj (if (symbolp class) (find-class class) class)))
+    (ensure-finalized class-obj)
+    (remove-duplicates
+     (mapcan (lambda (slot)
+               (when (slot-definition-initfunction* slot)
+                 (copy-list (slot-definition-initargs* slot))))
+             (class-slots* class-obj)))))
+
+(defgeneric make-instance* (class &rest initargs)
+  (:documentation "Generic constructor for FOL classes.
+   This serves as the base protocol for constructing instances."))
+
+(defmethod make-instance* ((class symbol) &rest initargs)
+  "Create an instance of the class named by SYMBOL."
+  (apply #'make-instance class initargs))
+
+(defmethod make-instance* ((class class) &rest initargs)
+  "Create an instance of CLASS."
+  (apply #'make-instance class initargs))
+
+(defmacro define-constructor (class-name &key
+                                           (constructor-name nil)
+                                           (package nil)
+                                           (documentation nil))
+  "Define a constructor function for CLASS-NAME following the make-X pattern.
+
+   CLASS-NAME - The class name symbol (e.g., '<string>)
+   CONSTRUCTOR-NAME - Override the default make-X name
+   PACKAGE - Package to intern the constructor in (default: class's package)
+   DOCUMENTATION - Optional docstring for the constructor
+
+   Example:
+     (define-constructor <string>)
+     ; Creates: (defun make-string (&rest initargs) ...)"
+  (let* ((class-obj (find-class class-name))
+         (ctor-name (or constructor-name
+                        (constructor-name class-obj)))
+         (target-pkg (or package
+                         (symbol-package (class-name* class-obj))))
+         (ctor-sym (if (symbolp ctor-name)
+                       ctor-name
+                       (intern ctor-name target-pkg)))
+         (doc (or documentation
+                  (format nil "Create an instance of ~A." class-name))))
+    `(progn
+       (defun ,ctor-sym (&rest initargs)
+         ,doc
+         (apply #'make-instance ',class-name initargs))
+       ',ctor-sym)))
+
+(defmacro define-constructors (&rest class-names)
+  "Define constructor functions for multiple classes.
+
+   Example:
+     (define-constructors <string> <bool> <char>)
+     ; Creates make-string, make-bool, make-char"
+  `(progn
+     ,@(mapcar (lambda (class-name)
+                 `(define-constructor ,class-name))
+               class-names)
+     (list ,@(mapcar (lambda (class-name)
+                       `',(constructor-name (find-class class-name)))
+                     class-names))))
+
+(defun generate-constructor-form (class)
+  "Return the source form that would define a constructor for CLASS.
+   Useful for metaprogramming and code generation."
+  (let* ((class-obj (if (symbolp class) (find-class class) class))
+         (class-name (class-name* class-obj))
+         (ctor-name (constructor-name class-obj)))
+    `(defun ,ctor-name (&rest initargs)
+       ,(format nil "Create an instance of ~A." class-name)
+       (apply #'make-instance ',class-name initargs))))
+
+(defun list-constructible-classes (&optional (filter-fn #'identity))
+  "Return a list of all persistent classes that could have constructors generated.
+   FILTER-FN can be used to filter the results."
+  (remove-if-not filter-fn (all-persistent-classes)))
+
+(defun describe-constructor (class &optional (stream *standard-output*))
+  "Print information about the constructor that would be generated for CLASS."
+  (let* ((class-obj (if (symbolp class) (find-class class) class))
+         (class-name (class-name* class-obj))
+         (ctor-name (constructor-name class-obj))
+         (required (required-initargs class-obj))
+         (optional (optional-initargs class-obj)))
+    (format stream "~&Constructor for ~A:~%" class-name)
+    (format stream "  Function name: ~A~%" ctor-name)
+    (format stream "  Required initargs: ~{~A~^, ~}~%" required)
+    (format stream "  Optional initargs: ~{~A~^, ~}~%" optional)
+    (format stream "  All initargs: ~{~A~^, ~}~%" (class-initargs class-obj))
+    (values ctor-name required optional)))
