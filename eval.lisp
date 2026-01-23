@@ -355,9 +355,9 @@
       ((special-form-p op '->) (eval-thread-first args env))
       ((special-form-p op '->>) (eval-thread-last args env))
       ;; FOL MOP forms
-      ((special-form-p op 'defgeneric*) (eval-defgeneric* args env))
-      ((special-form-p op 'defclass*) (eval-defclass* args env))
-      ((special-form-p op 'defmethod*) (eval-defmethod* args env))
+      ((special-form-p op 'defgeneric) (eval-defgeneric* args env))
+      ((special-form-p op 'defclass) (eval-defclass* args env))
+      ((special-form-p op 'defmethod) (eval-defmethod* args env))
       ;; Unquote forms are errors outside syntax-quote
       ((special-form-p op 'unquote)
        (error 'fol-eval-error
