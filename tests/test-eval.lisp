@@ -1453,10 +1453,10 @@
   "Test thread-first with collection operations."
   (let ((env (make-standard-env)))
     ;; Create a list and get its first element
-    ;; (-> (make-list 1 2 3) first) => (first (make-list 1 2 3)) => 1
-    (is (cl:= 1 (fol-eval (fol-form "(-> (make-list 1 2 3) first)") env)))
-    ;; (-> (make-list 1 2 3) rest first) => (first (rest (make-list 1 2 3))) => 2
-    (is (cl:= 2 (fol-eval (fol-form "(-> (make-list 1 2 3) rest first)") env)))))
+    ;; (-> (make <list> 1 2 3) first) => (first (make <list> 1 2 3)) => 1
+    (is (cl:= 1 (fol-eval (fol-form "(-> (make <list> 1 2 3) first)") env)))
+    ;; (-> (make <list> 1 2 3) rest first) => (first (rest (make <list> 1 2 3))) => 2
+    (is (cl:= 2 (fol-eval (fol-form "(-> (make <list> 1 2 3) rest first)") env)))))
 
 (test eval-thread-last-basic
   "Test basic thread-last (->>)."

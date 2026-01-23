@@ -1,6 +1,6 @@
 ;;; Delete packages in reverse dependency order to ensure clean reload
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (dolist (pkg '(:fol.eval :fol.env :fol.module :fol.collection
+  (dolist (pkg '(:fol.repl :fol.eval :fol.env :fol.module :fol.collection
                  :fol.number :fol.symbol :fol.string :fol.char :fol.bool
                  :fol.compareop :fol.arithop :fol.logop
                  :fol.wrappers :fol.reader :fol.stream :fol.classes :fol.mop :fol.fol-mop :fol.persistent))
@@ -365,6 +365,14 @@
    <function> <function>?
    ;; Macro class, predicate, and accessors
    <macro> <macro>? macro-name macro-params macro-body macro-env macro-rest-param))
+
+(defpackage fol.repl
+  (:use cl)
+  (:shadow * ** *** + ++ +++ / // ///)
+  (:export repl
+           * ** ***
+           + ++ +++
+           / // ///))
 
 ;;; Define the symbol unbound sentinel constant early so it can be used in classes.lisp
 (in-package fol.symbol)

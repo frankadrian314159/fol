@@ -783,20 +783,28 @@
     (let ((result (fol-read stream eof-error-p eof-value readtable)))
       (values result (file-position stream)))))
 
-(defgeneric with-readtable (readtable form)
-  (:documentation "Bind *fol-readtable* to READTABLE and use fol-read to read FORM.
+(defgeneric with-readtable (readtable source)
+  (:documentation "Bind *fol-readtable* to READTABLE and use fol-read to read source.
 
    Parameters:
    - readtable: The readtable to use for reading
-   - form: A string containing the form to read
-
+   - source: A string or input stream containing the form to read
    Returns:
    The read form
 
    Example:
      (with-readtable *fol-readtable* \"#{ 1 2 3 }\")"))
 
-(defmethod with-readtable ((readtable <readtable>) (form string))
+(defmethod with-readtable ((readtable <readtable>) (source <string>))
   "Read FORM using READTABLE by binding *fol-readtable*."
   (let ((*fol-readtable* readtable))
-    (fol-read-from-string form)))
+    (fol-read-from-string source)))
+
+(let ((eof-symbol '***EOF***))
+  (defmethod with-readtable ((readtable <readtable>) (stream <input-stream>))
+    "Read all forms from STREAM using READTABLE until EOF."
+    (let ((*fol-readtable* readtable)
+          (eof-value eof-symbol))
+      (loop for form = (fol-read stream nil eof-value)
+            until (eq form eof-value)
+            collect form))))

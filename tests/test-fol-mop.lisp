@@ -135,29 +135,29 @@
 ;;; FOL Eval Integration Tests
 ;;; ============================================================================
 
-(test fol-eval-defgeneric*
-  "Test that defgeneric* works through FOL eval."
+(test fol-eval-defgeneric
+  "Test that defgeneric works through FOL eval."
   (let ((env (make-standard-env)))
     ;; Use make-vector since CL reader doesn't understand [] syntax
-    (fol-eval `(defgeneric* eval-test-generic ,(make-vector 'x 'y)) env)
+    (fol-eval `(defgeneric eval-test-generic ,(make-vector 'x 'y)) env)
     (is (fboundp 'eval-test-generic))
     ;; Cleanup
     (fmakunbound 'eval-test-generic)))
 
-(test fol-eval-defclass*
-  "Test that defclass* works through FOL eval."
+(test fol-eval-defclass
+  "Test that defclass works through FOL eval."
   (let ((env (make-standard-env)))
     ;; Use make-vector since CL reader doesn't understand [] syntax
-    (fol-eval `(defclass* <eval-test-class> ,(make-vector) ,(make-vector 'a 'b 'c)) env)
+    (fol-eval `(defclass <eval-test-class> ,(make-vector) ,(make-vector 'a 'b 'c)) env)
     (is (find-class '<eval-test-class> nil))))
 
-(test fol-eval-defmethod*
-  "Test that defmethod* works through FOL eval."
+(test fol-eval-defmethod
+  "Test that defmethod works through FOL eval."
   (let ((env (make-standard-env)))
     ;; Create generic first
-    (fol-eval `(defgeneric* eval-test-method ,(make-vector 'obj)) env)
+    (fol-eval `(defgeneric eval-test-method ,(make-vector 'obj)) env)
     ;; Add method with specialized parameter
-    (fol-eval `(defmethod* eval-test-method ,(make-vector (make-vector 'obj '<eval-test-class>))
+    (fol-eval `(defmethod eval-test-method ,(make-vector (make-vector 'obj '<eval-test-class>))
                  42) env)
     ;; Test
     (let ((obj (make-instance '<eval-test-class>)))

@@ -1525,14 +1525,6 @@
             'identity #'cl:identity
             'print #'cl:print
             'princ #'cl:princ
-            ;; FOL collection constructors
-            'make-list #'fol.collection:make-list
-            'make-vector #'fol.collection:make-vector
-            'make-dict #'fol.collection:make-dict
-            'make-set #'fol.collection:make-set
-            'make-bag #'fol.collection:make-bag
-            'make-array #'fol.collection:make-array
-            'make-lazy-seq #'fol.collection:make-lazy-seq
             ;; Generic constructor
             'make #'make
             ;; FOL collection operations
