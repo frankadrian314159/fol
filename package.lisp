@@ -3,7 +3,7 @@
   (dolist (pkg '(:fol.eval :fol.env :fol.module :fol.collection
                  :fol.number :fol.symbol :fol.string :fol.char :fol.bool
                  :fol.compareop :fol.arithop :fol.logop
-                 :fol.wrappers :fol.reader :fol.stream :fol.classes :fol.mop :fol.persistent))
+                 :fol.wrappers :fol.reader :fol.stream :fol.classes :fol.mop :fol.fol-mop :fol.persistent))
     (when (find-package pkg)
       (delete-package pkg))))
 
@@ -80,6 +80,24 @@
    generate-constructor-form
    list-constructible-classes
    describe-constructor))
+
+(defpackage fol.fol-mop
+  (:use cl)
+  (:export
+   ;; Generic constructor
+   make
+   ;; FOL-style MOP macros
+   defgeneric*
+   defclass*
+   defmethod*
+   ;; Runtime evaluation functions
+   eval-defgeneric*
+   eval-defclass*
+   eval-defmethod*
+   ;; Helper functions
+   vector-to-list
+   convert-slot-specifier
+   convert-specialized-param))
 
 (defpackage fol.classes
   (:use cl)
@@ -325,6 +343,7 @@
    eval-quote eval-if eval-do eval-bind eval-fn eval-def eval-defn
    eval-loop eval-recur eval-throw eval-try eval-defmacro eval-syntax-quote
    eval-make-dynamic eval-binding eval-lazy-seq
+   eval-thread-first eval-thread-last
    ;; Conditions
    fol-eval-error fol-eval-error-message fol-eval-error-form
    fol-arity-error fol-arity-error-expected fol-arity-error-got

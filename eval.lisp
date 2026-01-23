@@ -351,6 +351,13 @@
       ((special-form-p op 'make-dynamic) (eval-make-dynamic args env))
       ((special-form-p op 'binding) (eval-binding args env))
       ((special-form-p op 'lazy-seq) (eval-lazy-seq args env))
+      ;; Threading macros
+      ((special-form-p op '->) (eval-thread-first args env))
+      ((special-form-p op '->>) (eval-thread-last args env))
+      ;; FOL MOP forms
+      ((special-form-p op 'defgeneric*) (eval-defgeneric* args env))
+      ((special-form-p op 'defclass*) (eval-defclass* args env))
+      ((special-form-p op 'defmethod*) (eval-defmethod* args env))
       ;; Unquote forms are errors outside syntax-quote
       ((special-form-p op 'unquote)
        (error 'fol-eval-error
@@ -1014,6 +1021,141 @@
     ;; The body is evaluated lazily when the sequence is realized
     (make-lazy-seq (lambda () (fol-eval body env)))))
 
+;;; --- THREADING MACROS (-> and ->>) ---
+
+(defun apply-threaded (x form thread-position env)
+  "Apply FORM to X in a threaded context.
+   THREAD-POSITION is :first for -> or :last for ->>.
+   If FORM is a bare symbol, call it as a function with X as the only arg.
+   If FORM is a list (fn arg*), evaluate fn and args, then call with X inserted."
+  (cond
+    ;; If form is a bare symbol/keyword, evaluate it and apply to x
+    ((or (symbolp form) (keywordp form))
+     (let ((fn (fol-eval form env)))
+       (apply-function fn (list x))))
+    ;; If form is a wrapped FOL symbol
+    ((<symbol>? form)
+     (let ((fn (fol-eval form env)))
+       (apply-function fn (list x))))
+    ;; If form is a list (fn arg1 arg2 ...), evaluate fn and args, insert x
+    ((cl:listp form)
+     (let* ((fn-form (car form))
+            (arg-forms (cdr form))
+            (fn (fol-eval fn-form env))
+            (evaluated-args (mapcar (lambda (arg) (fol-eval arg env)) arg-forms)))
+       (if (eq thread-position :first)
+           ;; Thread-first: x is the first argument
+           (apply-function fn (cons x evaluated-args))
+           ;; Thread-last: x is the last argument
+           (apply-function fn (append evaluated-args (list x))))))
+    ;; For FOL vectors, treat them like lists
+    ((<vector>? form)
+     (let* ((form-list (vector-to-list form))
+            (fn-form (car form-list))
+            (arg-forms (cdr form-list))
+            (fn (fol-eval fn-form env))
+            (evaluated-args (mapcar (lambda (arg) (fol-eval arg env)) arg-forms)))
+       (if (eq thread-position :first)
+           (apply-function fn (cons x evaluated-args))
+           (apply-function fn (append evaluated-args (list x))))))
+    ;; Otherwise, evaluate form as a function and apply to x
+    (t
+     (let ((fn (fol-eval form env)))
+       (apply-function fn (list x))))))
+
+(defun eval-thread-first (args env)
+  "Evaluate (-> x form*).
+   Threads x through each form as the first argument.
+
+   Example:
+     (-> 5 (+ 3) (* 2))
+     ; expands to (* (+ 5 3) 2)
+     ; evaluates to 16
+
+   For bare symbols:
+     (-> x f g)
+     ; expands to (g (f x))"
+  (unless (>= (length args) 1)
+    (error 'fol-arity-error :expected "at least 1" :got (length args)
+           :form (cons '-> args)))
+  (let ((x (fol-eval (first args) env))
+        (forms (rest args)))
+    (if (null forms)
+        x  ; No forms, just return x
+        (dolist (form forms x)
+          (setf x (apply-threaded x form :first env))))))
+
+(defun eval-thread-last (args env)
+  "Evaluate (->> x form*).
+   Threads x through each form as the last argument.
+
+   Example:
+     (->> 5 (+ 3) (* 2))
+     ; expands to (* 2 (+ 3 5))
+     ; evaluates to 16
+
+   For bare symbols:
+     (->> x f g)
+     ; expands to (g (f x))"
+  (unless (>= (length args) 1)
+    (error 'fol-arity-error :expected "at least 1" :got (length args)
+           :form (cons '->> args)))
+  (let ((x (fol-eval (first args) env))
+        (forms (rest args)))
+    (if (null forms)
+        x  ; No forms, just return x
+        (dolist (form forms x)
+          (setf x (apply-threaded x form :last env))))))
+
+;;; --- FOL MOP FORMS ---
+
+(defun eval-defgeneric* (args env)
+  "Evaluate (defgeneric* name [lambda-list] option*).
+   Defines a generic function with FOL syntax where lambda list is a vector."
+  (unless (>= (length args) 2)
+    (error 'fol-eval-error :message "defgeneric* requires name and lambda-list"
+           :form (cons 'defgeneric* args)))
+  (let ((name (first args))
+        (lambda-list-vec (fol-eval (second args) env))
+        (options (cddr args)))
+    (fol.fol-mop:eval-defgeneric* name lambda-list-vec options)))
+
+(defun eval-defclass* (args env)
+  "Evaluate (defclass* name [superclasses] [slots] class-option*).
+   Defines a class with FOL syntax where superclasses and slots are vectors."
+  (unless (>= (length args) 3)
+    (error 'fol-eval-error :message "defclass* requires name, superclasses, and slots"
+           :form (cons 'defclass* args)))
+  (let ((name (first args))
+        (superclasses-vec (fol-eval (second args) env))
+        (slots-vec (fol-eval (third args) env))
+        (class-options (cdddr args)))
+    (fol.fol-mop:eval-defclass* name superclasses-vec slots-vec class-options)))
+
+(defun eval-defmethod* (args env)
+  "Evaluate (defmethod* name qualifier* [specialized-lambda-list] body*).
+   Defines a method with FOL syntax where the specialized lambda list is a vector."
+  (unless (>= (length args) 2)
+    (error 'fol-eval-error :message "defmethod* requires name and lambda-list"
+           :form (cons 'defmethod* args)))
+  (let ((name (first args))
+        (remaining (rest args))
+        (qualifiers nil)
+        (lambda-list-vec nil)
+        (body nil))
+    ;; Collect qualifiers (atoms that aren't the lambda list vector)
+    ;; Use cl:and since fol.logop:and is shadowed in this package
+    (loop while (cl:and remaining
+                        (cl:not (<vector>? (car remaining)))
+                        (cl:not (listp (car remaining))))
+          do (push (pop remaining) qualifiers))
+    (setf qualifiers (nreverse qualifiers))
+    ;; Next should be the lambda list
+    (when remaining
+      (setf lambda-list-vec (fol-eval (pop remaining) env))
+      (setf body remaining))
+    (fol.fol-mop:eval-defmethod* name qualifiers lambda-list-vec body)))
+
 ;;; --- LOOP/RECUR ---
 
 (defun eval-loop (args env)
@@ -1383,7 +1525,17 @@
             'identity #'cl:identity
             'print #'cl:print
             'princ #'cl:princ
-            ;; FOL list/collection operations
+            ;; FOL collection constructors
+            'make-list #'fol.collection:make-list
+            'make-vector #'fol.collection:make-vector
+            'make-dict #'fol.collection:make-dict
+            'make-set #'fol.collection:make-set
+            'make-bag #'fol.collection:make-bag
+            'make-array #'fol.collection:make-array
+            'make-lazy-seq #'fol.collection:make-lazy-seq
+            ;; Generic constructor
+            'fol.fol-mop:make #'fol.fol-mop:make
+            ;; FOL collection operations
             'conj #'fol.collection:conj
             'first #'fol.collection:first
             'rest #'fol.collection:rest

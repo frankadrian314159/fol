@@ -20,8 +20,9 @@
                (:file "number" :depends-on ("package" "wrappers"))
                (:file "stream" :depends-on ("package" "classes"))
                (:file "mop" :depends-on ("package" "persistent"))
+               (:file "fol-mop" :depends-on ("package" "collection"))
                (:file "eval" :depends-on ("package" "wrappers" "classes" "collection" "env"
-                                          "logop" "arithop" "compareop")))
+                                          "logop" "arithop" "compareop" "fol-mop")))
   :in-order-to ((test-op (test-op "fol/tests"))))
 
 (defsystem "fol/tests"
@@ -45,6 +46,7 @@
                   (:file "test-env" :depends-on ("tests-package"))
                   (:file "test-mop" :depends-on ("tests-package"))
                   (:file "test-mop-constructors" :depends-on ("tests-package"))
+                  (:file "test-fol-mop" :depends-on ("tests-package"))
                   (:file "test-stream" :depends-on ("tests-package"))
                   (:file "test-eval" :depends-on ("tests-package"))
                   )))

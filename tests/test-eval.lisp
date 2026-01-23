@@ -1422,3 +1422,101 @@
     ;; Conditionals inside
     (is (eq t (fol-eval (fol-form "(#(if (> % 5) t nil) 10)") env)))
     (is (eq nil (fol-eval (fol-form "(#(if (> % 5) t nil) 3)") env)))))
+
+;;; ---------------------------------------------------------------------------
+;;; Threading Macros (-> and ->>)
+;;; ---------------------------------------------------------------------------
+
+(test eval-thread-first-basic
+  "Test basic thread-first (->)."
+  (let ((env (make-standard-env)))
+    ;; (-> 5 (+ 3)) => (+ 5 3) => 8
+    (is (cl:= 8 (fol-eval (fol-form "(-> 5 (+ 3))") env)))
+    ;; (-> 10 (- 3)) => (- 10 3) => 7
+    (is (cl:= 7 (fol-eval (fol-form "(-> 10 (- 3))") env)))))
+
+(test eval-thread-first-chained
+  "Test chained thread-first (->)."
+  (let ((env (make-standard-env)))
+    ;; (-> 5 (+ 3) (* 2)) => (* (+ 5 3) 2) => (* 8 2) => 16
+    (is (cl:= 16 (fol-eval (fol-form "(-> 5 (+ 3) (* 2))") env)))
+    ;; (-> 10 (- 3) (+ 5) (* 2)) => (* (+ (- 10 3) 5) 2) => (* 12 2) => 24
+    (is (cl:= 24 (fol-eval (fol-form "(-> 10 (- 3) (+ 5) (* 2))") env)))))
+
+(test eval-thread-first-no-forms
+  "Test thread-first with no threading forms."
+  (let ((env (make-standard-env)))
+    ;; (-> 42) => 42
+    (is (cl:= 42 (fol-eval (fol-form "(-> 42)") env)))))
+
+(test eval-thread-first-with-collections
+  "Test thread-first with collection operations."
+  (let ((env (make-standard-env)))
+    ;; Create a list and get its first element
+    ;; (-> (make-list 1 2 3) first) => (first (make-list 1 2 3)) => 1
+    (is (cl:= 1 (fol-eval (fol-form "(-> (make-list 1 2 3) first)") env)))
+    ;; (-> (make-list 1 2 3) rest first) => (first (rest (make-list 1 2 3))) => 2
+    (is (cl:= 2 (fol-eval (fol-form "(-> (make-list 1 2 3) rest first)") env)))))
+
+(test eval-thread-last-basic
+  "Test basic thread-last (->>)."
+  (let ((env (make-standard-env)))
+    ;; (->> 5 (+ 3)) => (+ 3 5) => 8
+    (is (cl:= 8 (fol-eval (fol-form "(->> 5 (+ 3))") env)))
+    ;; (->> 3 (- 10)) => (- 10 3) => 7
+    (is (cl:= 7 (fol-eval (fol-form "(->> 3 (- 10))") env)))))
+
+(test eval-thread-last-chained
+  "Test chained thread-last (->>)."
+  (let ((env (make-standard-env)))
+    ;; (->> 5 (+ 3) (* 2)) => (* 2 (+ 3 5)) => (* 2 8) => 16
+    (is (cl:= 16 (fol-eval (fol-form "(->> 5 (+ 3) (* 2))") env)))
+    ;; (->> 1 (+ 2) (+ 3) (+ 4)) => (+ 4 (+ 3 (+ 2 1))) => 10
+    (is (cl:= 10 (fol-eval (fol-form "(->> 1 (+ 2) (+ 3) (+ 4))") env)))))
+
+(test eval-thread-last-no-forms
+  "Test thread-last with no threading forms."
+  (let ((env (make-standard-env)))
+    ;; (->> 42) => 42
+    (is (cl:= 42 (fol-eval (fol-form "(->> 42)") env)))))
+
+(test eval-thread-first-vs-last-difference
+  "Test the difference between -> and ->>."
+  (let ((env (make-standard-env)))
+    ;; With subtraction, position matters:
+    ;; (-> 10 (- 3)) => (- 10 3) => 7 (10 is first arg)
+    (is (cl:= 7 (fol-eval (fol-form "(-> 10 (- 3))") env)))
+    ;; (->> 10 (- 3)) => (- 3 10) => -7 (10 is last arg)
+    (is (cl:= -7 (fol-eval (fol-form "(->> 10 (- 3))") env)))))
+
+(test eval-thread-with-multiple-args
+  "Test threading with functions taking multiple args."
+  (let ((env (make-standard-env)))
+    ;; (-> 10 (+ 1 2 3)) => (+ 10 1 2 3) => 16
+    (is (cl:= 16 (fol-eval (fol-form "(-> 10 (+ 1 2 3))") env)))
+    ;; (->> 10 (+ 1 2 3)) => (+ 1 2 3 10) => 16
+    (is (cl:= 16 (fol-eval (fol-form "(->> 10 (+ 1 2 3))") env)))))
+
+(test eval-thread-with-bare-symbols
+  "Test threading with bare function symbols."
+  (let ((env (make-standard-env)))
+    ;; Define a simple function
+    (fol-eval (fol-form "(def double (fn [x] (* x 2)))") env)
+    ;; (-> 5 double) => (double 5) => 10
+    (is (cl:= 10 (fol-eval (fol-form "(-> 5 double)") env)))
+    ;; (-> 5 double double) => (double (double 5)) => 20
+    (is (cl:= 20 (fol-eval (fol-form "(-> 5 double double)") env)))))
+
+(test eval-thread-nested
+  "Test nested threading expressions."
+  (let ((env (make-standard-env)))
+    ;; Inner -> evaluates first, result is threaded
+    ;; (-> (-> 5 (+ 3)) (* 2)) => (-> 8 (* 2)) => (* 8 2) => 16
+    (is (cl:= 16 (fol-eval (fol-form "(-> (-> 5 (+ 3)) (* 2))") env)))))
+
+(test eval-thread-with-conditionals
+  "Test threading with conditional expressions."
+  (let ((env (make-standard-env)))
+    ;; Thread result of if into arithmetic
+    ;; (-> (if t 10 20) (+ 5)) => (+ 10 5) => 15
+    (is (cl:= 15 (fol-eval (fol-form "(-> (if t 10 20) (+ 5))") env)))))

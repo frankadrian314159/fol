@@ -101,6 +101,12 @@
   (:import-from :fol.persistent
                 :persistent-class :<persistent-object> :<persistent-object>?
                 :pslot-value :set-pslot-value :set-pslot-values :with-pslots)
+  ;; Import symbols from fol.fol-mop
+  (:import-from :fol.fol-mop
+                :make
+                :defgeneric* :defclass* :defmethod*
+                :eval-defgeneric* :eval-defclass* :eval-defmethod*
+                :vector-to-list :convert-slot-specifier :convert-specialized-param)
   ;; Import symbols from fol.mop
   (:import-from :fol.mop
                 :class-name* :class-direct-superclasses* :class-direct-subclasses*
