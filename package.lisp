@@ -335,6 +335,7 @@
                           = /= < <= > >= min max)
   (:import-from fol.logop xor implies nand nor)
   (:import-from fol.arithop atan2 real-part imag-part angle)
+  (:import-from fol.fol-mop make)
   (:shadowing-import-from fol.symbol <symbol>?)
   (:export
    ;; Main evaluation function

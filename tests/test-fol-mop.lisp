@@ -218,11 +218,11 @@
   "Test that make works through FOL eval."
   (let ((env (make-standard-env)))
     ;; Empty collection (quote the class name)
-    (let ((vec (fol-eval '(fol.fol-mop:make (quote fol.collection:<vector>)) env)))
+    (let ((vec (fol-eval '(make (quote fol.collection:<vector>)) env)))
       (is (<vector>? vec))
       (is (= 0 (size vec))))
     ;; Collection with values
-    (let ((vec (fol-eval '(fol.fol-mop:make (quote fol.collection:<vector>) 1 2 3) env)))
+    (let ((vec (fol-eval '(make (quote fol.collection:<vector>) 1 2 3) env)))
       (is (<vector>? vec))
       (is (= 3 (size vec))))))
 

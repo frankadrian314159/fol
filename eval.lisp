@@ -1534,7 +1534,7 @@
             'make-array #'fol.collection:make-array
             'make-lazy-seq #'fol.collection:make-lazy-seq
             ;; Generic constructor
-            'fol.fol-mop:make #'fol.fol-mop:make
+            'make #'make
             ;; FOL collection operations
             'conj #'fol.collection:conj
             'first #'fol.collection:first
