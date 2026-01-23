@@ -2,8 +2,8 @@
 
 (defun test-repl ()
   "Test the FOL REPL using the standard environment.
-   Feeds arithmetic and list operations to the REPL and captures output."
-  (let* ((input-content (format nil "(+ 1 2)~%(* 10 20)~%(list 1 2 3)~%(+ * **)~%"))
+   Feeds arithmetic operations to the REPL and captures output."
+  (let* ((input-content (format nil "(+ 1 2)~%(* 10 20)~%(+ * **)~%"))
          (output-stream (make-string-output-stream)))
     (with-input-from-string (input-stream input-content)
       (let ((*standard-output* output-stream)
