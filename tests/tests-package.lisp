@@ -156,7 +156,9 @@
                 :make-standard-env
                 :<function> :<function>?
                 :<macro> :<macro>? :macro-name :macro-params :macro-body
-                :macro-env :macro-rest-param)
+                :macro-env :macro-rest-param
+                ;; Higher-order function combinators
+                :disjoin :conjoin)
   ;; Import symbols from fol.stream
   (:shadowing-import-from :fol.stream
                           :open :close

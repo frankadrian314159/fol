@@ -966,6 +966,98 @@
                             env))))))
 
 ;;; ---------------------------------------------------------------------------
+;;; Higher-Order Functions (disjoin, conjoin)
+;;; ---------------------------------------------------------------------------
+
+(test disjoin-basic
+  "Test disjoin returns a function that is the OR of predicates."
+  (let ((env (make-standard-env)))
+    ;; Disjoin of positive? and zero? should match 0 and positive numbers
+    (let ((non-negative? (fol-eval '(disjoin positive? zero?) env)))
+      (is-true (funcall non-negative? 5))
+      (is-true (funcall non-negative? 0))
+      (is (eq nil (funcall non-negative? -3))))))
+
+(test disjoin-short-circuit
+  "Test disjoin returns first truthy value and short-circuits."
+  (let ((env (make-standard-env)))
+    ;; First truthy value is returned
+    ;; Use fol-form to parse FOL syntax with [...] vectors
+    (let ((f (fol-eval (fol-form "(disjoin (fn [x] nil) (fn [x] :second) (fn [x] :third))") env)))
+      (is (eq :second (funcall f 1))))))
+
+(test disjoin-all-false
+  "Test disjoin returns nil when all predicates return false."
+  (let ((env (make-standard-env)))
+    (let ((never (fol-eval (fol-form "(disjoin (fn [x] nil) (fn [x] nil))") env)))
+      (is (eq nil (funcall never 42))))))
+
+(test disjoin-single-predicate
+  "Test disjoin with a single predicate."
+  (let ((env (make-standard-env)))
+    (let ((wrapped (fol-eval '(disjoin positive?) env)))
+      (is-true (funcall wrapped 5))
+      (is (eq nil (funcall wrapped -5))))))
+
+(test disjoin-multiple-args
+  "Test disjoin returned function accepts multiple arguments."
+  (let ((env (make-standard-env)))
+    (let ((any-positive (fol-eval (fol-form "(disjoin (fn [a b] (positive? a))
+                                                      (fn [a b] (positive? b)))") env)))
+      (is-true (funcall any-positive 1 -1))
+      (is-true (funcall any-positive -1 1))
+      (is (eq nil (funcall any-positive -1 -1))))))
+
+(test conjoin-basic
+  "Test conjoin returns a function that is the AND of predicates."
+  (let ((env (make-standard-env)))
+    ;; Conjoin of positive? and even? should match positive even numbers
+    (let ((positive-even? (fol-eval '(conjoin positive? even?) env)))
+      (is-true (funcall positive-even? 4))
+      (is (eq nil (funcall positive-even? 3)))   ; odd
+      (is (eq nil (funcall positive-even? -4)))))) ; negative
+
+(test conjoin-short-circuit
+  "Test conjoin returns nil on first false and short-circuits."
+  (let ((env (make-standard-env)))
+    (let ((f (fol-eval (fol-form "(conjoin (fn [x] nil) (fn [x] :never-reached))") env)))
+      (is (eq nil (funcall f 1))))))
+
+(test conjoin-returns-last-value
+  "Test conjoin returns the last predicate's value when all truthy."
+  (let ((env (make-standard-env)))
+    (let ((f (fol-eval (fol-form "(conjoin (fn [x] :first) (fn [x] :second) (fn [x] :last))") env)))
+      (is (eq :last (funcall f 1))))))
+
+(test conjoin-single-predicate
+  "Test conjoin with a single predicate."
+  (let ((env (make-standard-env)))
+    (let ((wrapped (fol-eval '(conjoin positive?) env)))
+      (is-true (funcall wrapped 5))
+      (is (eq nil (funcall wrapped -5))))))
+
+(test conjoin-multiple-args
+  "Test conjoin returned function accepts multiple arguments."
+  (let ((env (make-standard-env)))
+    (let ((both-positive (fol-eval (fol-form "(conjoin (fn [a b] (positive? a))
+                                                       (fn [a b] (positive? b)))") env)))
+      (is-true (funcall both-positive 1 1))
+      (is (eq nil (funcall both-positive 1 -1)))
+      (is (eq nil (funcall both-positive -1 1))))))
+
+(test conjoin-empty
+  "Test conjoin with no predicates returns a function that returns true."
+  (let ((env (make-standard-env)))
+    (let ((always (fol-eval '(conjoin) env)))
+      (is-true (funcall always 42)))))
+
+(test disjoin-empty
+  "Test disjoin with no predicates returns a function that returns nil."
+  (let ((env (make-standard-env)))
+    (let ((never (fol-eval '(disjoin) env)))
+      (is (eq nil (funcall never 42))))))
+
+;;; ---------------------------------------------------------------------------
 ;;; Macros (defmacro)
 ;;; ---------------------------------------------------------------------------
 

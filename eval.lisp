@@ -1654,6 +1654,12 @@
             '<bag>? #'fol.collection:<bag>?
             '<array>? #'fol.collection:<array>?
             '<lazy-seq>? #'fol.collection:<lazy-seq>?
+            ;; Number predicates
+            'positive? #'fol.number:positive?
+            'negative? #'fol.number:negative?
+            'zero? #'fol.number:zero?
+            'even? #'fol.number:even?
+            'odd? #'fol.number:odd?
             ;; CL list operations (for compatibility)
             'list #'cl:list
             'cons #'cl:cons
@@ -1666,6 +1672,26 @@
             ;; Misc
             'identity #'cl:identity
             'complement #'cl:complement
+            'disjoin #'(lambda (&rest predicates)
+                         "Returns a function that is the disjunction (OR) of the predicates.
+                          The returned function applies predicates in order until one returns
+                          a truthy value (short-circuit). Returns that value, or nil if none."
+                         (lambda (&rest args)
+                           (loop for pred in predicates
+                                 for result = (apply-function pred args)
+                                 when result return result
+                                 finally (return nil))))
+            'conjoin #'(lambda (&rest predicates)
+                         "Returns a function that is the conjunction (AND) of the predicates.
+                          The returned function applies predicates in order. If any returns nil,
+                          immediately returns nil (short-circuit). Otherwise returns the last result."
+                         (lambda (&rest args)
+                           (if (null predicates)
+                               t  ; empty conjunction is true
+                               (loop for pred in predicates
+                                     for result = (apply-function pred args)
+                                     unless result return nil
+                                     finally (return result)))))
             'print #'cl:print
             'type #'fol.wrappers:fol-type-of
             ;; Generic constructor
