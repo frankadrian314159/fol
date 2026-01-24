@@ -362,27 +362,27 @@
   ;; exp(2) ≈ e² ≈ 7.389
   (is (cl:< (cl:abs (cl:- (exp 2) 7.389)) 0.001))
   ;; exp(ln(5)) ≈ 5
-  (is (cl:< (cl:abs (cl:- (exp (log 5)) 5.0)) 0.0001))
+  (is (cl:< (cl:abs (cl:- (exp (ln 5)) 5.0)) 0.0001))
   ;; Wrapped value
   (is (cl:< (cl:abs (cl:- (exp (wrap 0)) 1)) 0.0001)))
 
-(test log-function
-  "Test log function (natural logarithm)"
-  ;; log(1) = 0
-  (is (cl:< (cl:abs (log 1)) 0.0001))
-  ;; log(e) ≈ 1, where e ≈ 2.71828
-  (is (cl:< (cl:abs (cl:- (log 2.71828) 1.0)) 0.0001))
-  ;; log(10) ≈ 2.3026
-  (is (cl:< (cl:abs (cl:- (log 10) 2.3026)) 0.001))
-  ;; log(exp(3)) ≈ 3
-  (is (cl:< (cl:abs (cl:- (log (exp 3)) 3.0)) 0.0001))
+(test ln-function
+  "Test ln function (natural logarithm)"
+  ;; ln(1) = 0
+  (is (cl:< (cl:abs (ln 1)) 0.0001))
+  ;; ln(e) ≈ 1, where e ≈ 2.71828
+  (is (cl:< (cl:abs (cl:- (ln 2.71828) 1.0)) 0.0001))
+  ;; ln(10) ≈ 2.3026
+  (is (cl:< (cl:abs (cl:- (ln 10) 2.3026)) 0.001))
+  ;; ln(exp(3)) ≈ 3
+  (is (cl:< (cl:abs (cl:- (ln (exp 3)) 3.0)) 0.0001))
   ;; Wrapped value
-  (is (cl:< (cl:abs (log (wrap 1))) 0.0001)))
+  (is (cl:< (cl:abs (ln (wrap 1))) 0.0001)))
 
-(test log-exp-inverse
-  "Test that log and exp are inverse functions"
-  (is (cl:< (cl:abs (cl:- (exp (log 5)) 5.0)) 0.0001))
-  (is (cl:< (cl:abs (cl:- (log (exp 2.5)) 2.5)) 0.0001)))
+(test ln-exp-inverse
+  "Test that ln and exp are inverse functions"
+  (is (cl:< (cl:abs (cl:- (exp (ln 5)) 5.0)) 0.0001))
+  (is (cl:< (cl:abs (cl:- (ln (exp 2.5)) 2.5)) 0.0001)))
 
 (test expt-integers
   "Test expt with integer arguments"

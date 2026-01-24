@@ -1048,3 +1048,58 @@
 
 (defmethod set-nth ((v <vector>) (n fol.classes:<number>) value)
   (set-nth v (fol.wrappers:fol-value n) value))
+
+
+;;; ============================================================================
+;;; String as Ordered Collection
+;;; ============================================================================
+;;; Strings can be treated as ordered collections of characters.
+
+(defmethod size ((s string))
+  "Return the length of a string."
+  (cl:length s))
+
+(defmethod empty? ((s string))
+  "Return T if string is empty."
+  (zerop (cl:length s)))
+
+(defmethod get ((s string) (index integer) &optional default)
+  "Get character at INDEX from string. Returns character or DEFAULT."
+  (if (and (>= index 0) (< index (cl:length s)))
+      (cl:char s index)
+      default))
+
+(defmethod get ((s string) (index fol.classes:<number>) &optional default)
+  "Get character at INDEX from string. INDEX can be wrapped."
+  (get s (fol.wrappers:fol-value index) default))
+
+(defmethod first ((s string))
+  "Return the first character of a string, or NIL if empty."
+  (if (zerop (cl:length s))
+      nil
+      (cl:char s 0)))
+
+(defmethod rest ((s string))
+  "Return a string without the first character, or empty string if empty."
+  (if (<= (cl:length s) 1)
+      ""
+      (cl:subseq s 1)))
+
+(defmethod nth ((n integer) (s string))
+  "Get Nth character from a string."
+  (get s n nil))
+
+(defmethod contains? ((s string) item)
+  "Return T if character ITEM is in string S."
+  (let ((char (fol.wrappers:fol-value item)))
+    (if (characterp char)
+        (if (cl:position char s)
+            t
+            nil)
+        nil)))
+
+(defmethod seq ((s string))
+  "Return a <list> of characters from the string, or NIL if empty."
+  (if (zerop (cl:length s))
+      nil
+      (apply #'make-list (coerce s 'list))))

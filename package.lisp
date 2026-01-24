@@ -2,7 +2,7 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (dolist (pkg '(:fol.repl :fol.eval :fol.env :fol.module :fol.collection
                  :fol.number :fol.symbol :fol.string :fol.char :fol.bool
-                 :fol.compareop :fol.arithop :fol.logop
+                 :fol.compareop :fol.arithop :fol.bitop :fol.logop
                  :fol.wrappers :fol.reader :fol.stream :fol.classes :fol.mop :fol.fol-mop :fol.persistent))
     (when (find-package pkg)
       (delete-package pkg))))
@@ -234,6 +234,12 @@
            ;; Binary primitives (for advanced use)
            %and %or %xor))
 
+(defpackage fol.bitop
+  (:use cl fol.wrappers fol.classes)
+  (:export bitnot bitand bitor bitxor
+           bit-nand bit-nor bit-andc1 bit-andc2 bit-orc1 bit-orc2
+           bit-test bit-set bit-clear bit-count))
+
 (defpackage fol.arithop
   (:use cl fol.wrappers fol.classes)
   ;; Shadow both arithmetic and math functions
@@ -241,7 +247,7 @@
            abs
            sin cos tan asin acos atan
            sinh cosh tanh asinh acosh atanh
-           exp log expt sqrt
+           exp ln expt sqrt
            rationalize numerator denominator
            real-part imag-part angle
            gcd lcm)
@@ -328,7 +334,7 @@
                           + - * /
                           abs sin cos tan asin acos atan
                           sinh cosh tanh asinh acosh atanh
-                          exp log expt sqrt
+                          exp ln expt sqrt
                           rationalize numerator denominator
                           gcd lcm)
   (:shadowing-import-from fol.compareop

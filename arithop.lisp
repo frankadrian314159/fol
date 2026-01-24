@@ -350,17 +350,17 @@
   (error "EXP requires a number, got ~A" obj))
 
 
-(defgeneric log (num)
+(defgeneric ln (num)
   (:documentation "Returns the natural logarithm of NUM."))
 
-(defmethod log ((num number))
+(defmethod ln ((num number))
   (cl:log num))
 
-(defmethod log ((num <number>))
+(defmethod ln ((num <number>))
   (cl:log (fol-value num)))
 
-(defmethod log (obj)
-  (error "LOG requires a number, got ~A" obj))
+(defmethod ln (obj)
+  (error "LN requires a number, got ~A" obj))
 
 
 (defgeneric expt (base power)

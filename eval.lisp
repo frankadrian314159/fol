@@ -1479,7 +1479,7 @@
             'sqrt #'sqrt
             'expt #'expt
             'exp #'exp
-            'log #'log
+            'ln #'ln
             'mod #'cl:mod
             'rem #'cl:rem
             'floor #'cl:floor
@@ -1500,21 +1500,21 @@
             'and #'and
             'or #'or
             ;; Type predicates
-            'nil? #'cl:null
-            'number? #'cl:numberp
-            'integer? #'cl:integerp
-            'fixnum? #'(lambda (x) (typep x 'fixnum))
-            'bignum? #'(lambda (x) (typep x 'bignum))
-            'float? #'cl:floatp
-            'single-float? #'(lambda (x) (typep x 'single-float))
-            'double-float? #'(lambda (x) (typep x 'double-float))
-            'ratio? #'(lambda (x) (typep x 'ratio))
-            'rational? #'cl:rationalp
-            'complex? #'cl:complexp
-            'string? #'cl:stringp
-            'symbol? #'cl:symbolp
-            'list? #'cl:listp
-            'cons? #'cl:consp
+            '<bool>? #'(lambda (x) (typep x 'boolean))
+            '<char>? #'cl:characterp
+            '<number>? #'cl:numberp
+            '<integer>? #'cl:integerp
+            '<fixnum>? #'(lambda (x) (typep x 'fixnum))
+            '<bignum>? #'(lambda (x) (typep x 'bignum))
+            '<float>? #'cl:floatp
+            '<single-float>? #'(lambda (x) (typep x 'single-float))
+            '<double-float>? #'(lambda (x) (typep x 'double-float))
+            '<ratio>? #'(lambda (x) (typep x 'ratio))
+            '<rational>? #'cl:rationalp
+            '<complex>? #'cl:complexp
+            '<string>? #'cl:stringp
+            '<symbol>? #'cl:symbolp
+            '<keyword>? #'cl:keywordp
             ;; Collection type predicates
             '<collection>? #'fol.collection:<collection>?
             '<ordered-collection>? #'fol.collection:<ordered-collection>?
@@ -1526,12 +1526,8 @@
             '<bag>? #'fol.collection:<bag>?
             '<array>? #'fol.collection:<array>?
             '<lazy-seq>? #'fol.collection:<lazy-seq>?
-            ;; List operations
-            'first #'cl:first
-            'rest #'cl:rest
+            ;; CL list operations (for compatibility)
             'list #'cl:list
-            'length #'cl:length
-            'nth #'cl:nth
             'append #'cl:append
             'reverse #'cl:reverse
             ;; String operations
@@ -1544,6 +1540,21 @@
             'type #'fol.wrappers:fol-type-of
             ;; Generic constructor
             'make #'make
+            ;; Bitwise operations
+            'bitnot #'fol.bitop:bitnot
+            'bitand #'fol.bitop:bitand
+            'bitor #'fol.bitop:bitor
+            'bitxor #'fol.bitop:bitxor
+            'bit-nand #'fol.bitop:bit-nand
+            'bit-nor #'fol.bitop:bit-nor
+            'bit-andc1 #'fol.bitop:bit-andc1
+            'bit-andc2 #'fol.bitop:bit-andc2
+            'bit-orc1 #'fol.bitop:bit-orc1
+            'bit-orc2 #'fol.bitop:bit-orc2
+            'bit-test #'fol.bitop:bit-test
+            'bit-set #'fol.bitop:bit-set
+            'bit-clear #'fol.bitop:bit-clear
+            'bit-count #'fol.bitop:bit-count
             ;; FOL collection operations
             'conj #'fol.collection:conj
             'first #'fol.collection:first
@@ -1551,4 +1562,10 @@
             'second #'fol.collection:second
             'third #'fol.collection:third
             'nth #'fol.collection:nth
-            'size #'fol.collection:size))
+            'size #'fol.collection:size
+            'empty? #'fol.collection:empty?
+            'get #'fol.collection:get
+            'contains? #'fol.collection:contains?
+            'seq #'fol.collection:seq
+            'add #'fol.collection:add
+            'remove #'fol.collection:remove))

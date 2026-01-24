@@ -11,6 +11,7 @@
                (:file "module" :depends-on ("persistent" "collection" "wrappers" "env"))
                (:file "reader" :depends-on ("package" "classes" "collection"))
                (:file "logop"   :depends-on ("package" "classes" "wrappers"))
+               (:file "bitop"   :depends-on ("package" "classes" "wrappers"))
                (:file "arithop" :depends-on ("package" "classes" "wrappers"))
                (:file "compareop" :depends-on ("package" "classes" "wrappers" "persistent"))
                (:file "bool"   :depends-on ("package" "wrappers"))

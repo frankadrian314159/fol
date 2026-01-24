@@ -13,7 +13,7 @@
                           :+ :- :* :/
                           :abs :sin :cos :tan :asin :acos :atan
                           :sinh :cosh :tanh :asinh :acosh :atanh
-                          :exp :log :expt :sqrt
+                          :exp :ln :expt :sqrt
                           :rationalize :numerator :denominator
                           :gcd :lcm)
   (:shadowing-import-from :fol.compareop

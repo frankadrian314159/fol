@@ -477,60 +477,60 @@
 (test eval-type-predicates-integer
   "Test integer type predicates."
   (let ((env (make-standard-env)))
-    ;; integer?
-    (is (eq t (fol-eval '(integer? 42) env)))
-    (is (eq t (fol-eval '(integer? -17) env)))
-    (is (eq t (fol-eval '(integer? 0) env)))
-    (is (eq nil (fol-eval '(integer? 3.14) env)))
-    (is (eq nil (fol-eval '(integer? 1/2) env)))
-    ;; fixnum?
-    (is (eq t (fol-eval '(fixnum? 42) env)))
-    (is (eq t (fol-eval '(fixnum? -1) env)))
-    (is (eq nil (fol-eval '(fixnum? 3.14) env)))
-    ;; bignum? - use a number larger than most-positive-fixnum
-    (is (eq nil (fol-eval '(bignum? 42) env)))
-    (is (eq t (fol-eval `(bignum? ,(1+ most-positive-fixnum)) env)))))
+    ;; <integer>?
+    (is (eq t (fol-eval '(<integer>? 42) env)))
+    (is (eq t (fol-eval '(<integer>? -17) env)))
+    (is (eq t (fol-eval '(<integer>? 0) env)))
+    (is (eq nil (fol-eval '(<integer>? 3.14) env)))
+    (is (eq nil (fol-eval '(<integer>? 1/2) env)))
+    ;; <fixnum>?
+    (is (eq t (fol-eval '(<fixnum>? 42) env)))
+    (is (eq t (fol-eval '(<fixnum>? -1) env)))
+    (is (eq nil (fol-eval '(<fixnum>? 3.14) env)))
+    ;; <bignum>? - use a number larger than most-positive-fixnum
+    (is (eq nil (fol-eval '(<bignum>? 42) env)))
+    (is (eq t (fol-eval `(<bignum>? ,(1+ most-positive-fixnum)) env)))))
 
 (test eval-type-predicates-float
   "Test float type predicates."
   (let ((env (make-standard-env)))
-    ;; float?
-    (is (eq t (fol-eval '(float? 3.14) env)))
-    (is (eq t (fol-eval '(float? 1.0) env)))
-    (is (eq nil (fol-eval '(float? 42) env)))
-    (is (eq nil (fol-eval '(float? 1/2) env)))
-    ;; single-float?
-    (is (eq t (fol-eval '(single-float? 3.14f0) env)))
-    (is (eq nil (fol-eval '(single-float? 3.14d0) env)))
-    (is (eq nil (fol-eval '(single-float? 42) env)))
-    ;; double-float?
-    (is (eq t (fol-eval '(double-float? 3.14d0) env)))
-    (is (eq nil (fol-eval '(double-float? 3.14f0) env)))
-    (is (eq nil (fol-eval '(double-float? 42) env)))))
+    ;; <float>?
+    (is (eq t (fol-eval '(<float>? 3.14) env)))
+    (is (eq t (fol-eval '(<float>? 1.0) env)))
+    (is (eq nil (fol-eval '(<float>? 42) env)))
+    (is (eq nil (fol-eval '(<float>? 1/2) env)))
+    ;; <single-float>?
+    (is (eq t (fol-eval '(<single-float>? 3.14f0) env)))
+    (is (eq nil (fol-eval '(<single-float>? 3.14d0) env)))
+    (is (eq nil (fol-eval '(<single-float>? 42) env)))
+    ;; <double-float>?
+    (is (eq t (fol-eval '(<double-float>? 3.14d0) env)))
+    (is (eq nil (fol-eval '(<double-float>? 3.14f0) env)))
+    (is (eq nil (fol-eval '(<double-float>? 42) env)))))
 
 (test eval-type-predicates-rational
   "Test rational type predicates."
   (let ((env (make-standard-env)))
-    ;; ratio?
-    (is (eq t (fol-eval '(ratio? 1/2) env)))
-    (is (eq t (fol-eval '(ratio? 3/4) env)))
-    (is (eq nil (fol-eval '(ratio? 42) env)))
-    (is (eq nil (fol-eval '(ratio? 2/2) env)))  ; 2/2 simplifies to 1
-    (is (eq nil (fol-eval '(ratio? 3.14) env)))
-    ;; rational?
-    (is (eq t (fol-eval '(rational? 42) env)))      ; integers are rational
-    (is (eq t (fol-eval '(rational? 1/2) env)))     ; ratios are rational
-    (is (eq nil (fol-eval '(rational? 3.14) env)))  ; floats are not rational
-    (is (eq nil (fol-eval '(rational? #C(1 2)) env)))))  ; complex not rational
+    ;; <ratio>?
+    (is (eq t (fol-eval '(<ratio>? 1/2) env)))
+    (is (eq t (fol-eval '(<ratio>? 3/4) env)))
+    (is (eq nil (fol-eval '(<ratio>? 42) env)))
+    (is (eq nil (fol-eval '(<ratio>? 2/2) env)))  ; 2/2 simplifies to 1
+    (is (eq nil (fol-eval '(<ratio>? 3.14) env)))
+    ;; <rational>?
+    (is (eq t (fol-eval '(<rational>? 42) env)))      ; integers are rational
+    (is (eq t (fol-eval '(<rational>? 1/2) env)))     ; ratios are rational
+    (is (eq nil (fol-eval '(<rational>? 3.14) env)))  ; floats are not rational
+    (is (eq nil (fol-eval '(<rational>? #C(1 2)) env)))))  ; complex not rational
 
 (test eval-type-predicates-complex
   "Test complex type predicate."
   (let ((env (make-standard-env)))
-    (is (eq t (fol-eval '(complex? #C(1 2)) env)))
-    (is (eq t (fol-eval '(complex? #C(3.0 4.0)) env)))
-    (is (eq nil (fol-eval '(complex? 42) env)))
-    (is (eq nil (fol-eval '(complex? 3.14) env)))
-    (is (eq nil (fol-eval '(complex? 1/2) env)))))
+    (is (eq t (fol-eval '(<complex>? #C(1 2)) env)))
+    (is (eq t (fol-eval '(<complex>? #C(3.0 4.0)) env)))
+    (is (eq nil (fol-eval '(<complex>? 42) env)))
+    (is (eq nil (fol-eval '(<complex>? 3.14) env)))
+    (is (eq nil (fol-eval '(<complex>? 1/2) env)))))
 
 (test eval-type-predicates-collection
   "Test collection type predicates."
