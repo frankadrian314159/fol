@@ -158,7 +158,9 @@
                 :<macro> :<macro>? :macro-name :macro-params :macro-body
                 :macro-env :macro-rest-param
                 ;; Higher-order function combinators
-                :disjoin :conjoin :partial :rpartial :juxt)
+                :disjoin :conjoin :partial :rpartial :juxt
+                ;; Higher-order collection operations
+                :filter)
   ;; Import symbols from fol.stream
   (:shadowing-import-from :fol.stream
                           :open :close

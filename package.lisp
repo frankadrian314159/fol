@@ -379,7 +379,9 @@
    ;; Macro class, predicate, and accessors
    <macro> <macro>? macro-name macro-params macro-body macro-env macro-rest-param
    ;; Higher-order function combinators (for use in standard env)
-   disjoin conjoin partial rpartial juxt))
+   disjoin conjoin partial rpartial juxt
+   ;; Higher-order collection operations
+   filter))
 
 (defpackage fol.repl
   (:use cl)

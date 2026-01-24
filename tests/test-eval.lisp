@@ -1163,6 +1163,174 @@
         (is (cl:= 9 max-val))))))  ; max
 
 ;;; ---------------------------------------------------------------------------
+;;; Higher-order Collection Operations (reduce, map, filter)
+;;; ---------------------------------------------------------------------------
+
+(test reduce-with-init-vector
+  "Test reduce with initial value on a vector."
+  (let ((env (make-standard-env)))
+    ;; (reduce + 0 [1 2 3 4]) => 10
+    (is (cl:= 10 (fol-eval (fol-form "(reduce + 0 [1 2 3 4])") env)))))
+
+(test reduce-with-init-list
+  "Test reduce with initial value on a FOL list."
+  (let ((env (make-standard-env)))
+    ;; Use conj to build a list, then reduce
+    (is (cl:= 6 (fol-eval (fol-form "(reduce + 0 (list 1 2 3))") env)))))
+
+(test reduce-without-init
+  "Test reduce without initial value uses first element."
+  (let ((env (make-standard-env)))
+    ;; (reduce + [1 2 3 4]) => 10
+    (is (cl:= 10 (fol-eval (fol-form "(reduce + [1 2 3 4])") env)))))
+
+(test reduce-single-element
+  "Test reduce on single-element collection."
+  (let ((env (make-standard-env)))
+    ;; Single element, no reduction needed
+    (is (cl:= 42 (fol-eval (fol-form "(reduce + [42])") env)))))
+
+(test reduce-with-fol-function
+  "Test reduce with a FOL function."
+  (let ((env (make-standard-env)))
+    ;; Use a FOL fn to multiply and add
+    (is (cl:= 10 (fol-eval (fol-form "(reduce (fn [acc x] (+ acc x)) 0 [1 2 3 4])") env)))))
+
+(test reduce-building-collection
+  "Test reduce to build a new collection."
+  (let ((env (make-standard-env)))
+    ;; Reverse a list by conj-ing onto empty vector
+    (let ((result (fol-eval (fol-form "(reduce (fn [acc x] (conj acc x)) [] [1 2 3])") env)))
+      (is (<vector>? result))
+      (is (cl:= 3 (size result)))
+      (is (cl:= 1 (nth 0 result)))
+      (is (cl:= 2 (nth 1 result)))
+      (is (cl:= 3 (nth 2 result))))))
+
+(test reduce-on-dict
+  "Test reduce on a dict processes key-value pairs."
+  (let ((env (make-standard-env)))
+    ;; Sum all values from a dict (pairs come as (key . value))
+    (is (cl:= 6 (fol-eval (fol-form "(reduce (fn [acc pair] (+ acc (rest pair))) 0 {:a 1 :b 2 :c 3})") env)))))
+
+(test reduce-on-set
+  "Test reduce on a set."
+  (let ((env (make-standard-env)))
+    ;; Sum elements of a set
+    (is (cl:= 6 (fol-eval (fol-form "(reduce + 0 #{1 2 3})") env)))))
+
+(test reduce-on-string
+  "Test reduce on a string processes characters."
+  (let ((env (make-standard-env)))
+    ;; Count characters
+    (is (cl:= 5 (fol-eval (fol-form "(reduce (fn [acc _] (+ acc 1)) 0 \"hello\")") env)))))
+
+(test reduce-empty-with-init
+  "Test reduce on empty collection returns init."
+  (let ((env (make-standard-env)))
+    (is (cl:= 42 (fol-eval (fol-form "(reduce + 42 [])") env)))))
+
+(test map-basic
+  "Test map applies function to each element."
+  (let ((env (make-standard-env)))
+    (let ((result (fol-eval (fol-form "(map (fn [x] (* x 2)) [1 2 3])") env)))
+      (is (<list>? result))
+      (is (cl:= 3 (size result)))
+      (is (cl:= 2 (first result)))
+      (is (cl:= 4 (first (rest result))))
+      (is (cl:= 6 (first (rest (rest result))))))))
+
+(test map-with-builtin
+  "Test map with a built-in function."
+  (let ((env (make-standard-env)))
+    ;; Map abs over negative numbers
+    (let ((result (fol-eval (fol-form "(map abs [-1 -2 -3])") env)))
+      (is (cl:= 1 (first result)))
+      (is (cl:= 2 (first (rest result))))
+      (is (cl:= 3 (first (rest (rest result))))))))
+
+(test map-empty
+  "Test map on empty collection returns empty list."
+  (let ((env (make-standard-env)))
+    (let ((result (fol-eval (fol-form "(map identity [])") env)))
+      (is (<list>? result))
+      (is (empty? result)))))
+
+(test map-on-list
+  "Test map on a FOL list."
+  (let ((env (make-standard-env)))
+    (let ((result (fol-eval (fol-form "(map (fn [x] (+ x 1)) (list 1 2 3))") env)))
+      (is (cl:= 2 (first result)))
+      (is (cl:= 3 (first (rest result))))
+      (is (cl:= 4 (first (rest (rest result))))))))
+
+(test map-on-string
+  "Test map on a string."
+  (let ((env (make-standard-env)))
+    ;; Map over characters, returning a list
+    (let ((result (fol-eval (fol-form "(map identity \"abc\")") env)))
+      (is (<list>? result))
+      (is (cl:= 3 (size result)))
+      (is (cl:char= #\a (first result))))))
+
+(test filter-basic
+  "Test filter keeps elements matching predicate."
+  (let ((env (make-standard-env)))
+    (let ((result (fol-eval (fol-form "(filter odd? [1 2 3 4 5])") env)))
+      (is (<list>? result))
+      (is (cl:= 3 (size result)))
+      (is (cl:= 1 (first result)))
+      (is (cl:= 3 (first (rest result))))
+      (is (cl:= 5 (first (rest (rest result))))))))
+
+(test filter-none-match
+  "Test filter when no elements match."
+  (let ((env (make-standard-env)))
+    (let ((result (fol-eval (fol-form "(filter negative? [1 2 3])") env)))
+      (is (<list>? result))
+      (is (empty? result)))))
+
+(test filter-all-match
+  "Test filter when all elements match."
+  (let ((env (make-standard-env)))
+    (let ((result (fol-eval (fol-form "(filter positive? [1 2 3])") env)))
+      (is (cl:= 3 (size result))))))
+
+(test filter-empty
+  "Test filter on empty collection."
+  (let ((env (make-standard-env)))
+    (let ((result (fol-eval (fol-form "(filter identity [])") env)))
+      (is (<list>? result))
+      (is (empty? result)))))
+
+(test filter-with-fol-function
+  "Test filter with a FOL predicate function."
+  (let ((env (make-standard-env)))
+    ;; Filter numbers greater than 2
+    (let ((result (fol-eval (fol-form "(filter (fn [x] (> x 2)) [1 2 3 4 5])") env)))
+      (is (cl:= 3 (size result)))
+      (is (cl:= 3 (first result)))
+      (is (cl:= 4 (first (rest result))))
+      (is (cl:= 5 (first (rest (rest result))))))))
+
+(test filter-on-dict
+  "Test filter on dict filters key-value pairs."
+  (let ((env (make-standard-env)))
+    ;; Filter pairs where value is positive
+    (let ((result (fol-eval (fol-form "(filter (fn [pair] (positive? (rest pair))) {:a 1 :b -2 :c 3})") env)))
+      (is (cl:= 2 (size result))))))
+
+(test map-filter-composition
+  "Test composing map and filter."
+  (let ((env (make-standard-env)))
+    ;; Double the odd numbers
+    (let ((result (fol-eval (fol-form "(map (fn [x] (* x 2)) (filter odd? [1 2 3 4 5]))") env)))
+      (is (cl:= 3 (size result)))
+      (is (cl:= 2 (first result)))           ; 1 * 2
+      (is (cl:= 6 (first (rest result))))    ; 3 * 2
+      (is (cl:= 10 (first (rest (rest result)))))))) ; 5 * 2
+
+;;; ---------------------------------------------------------------------------
 ;;; Macros (defmacro)
 ;;; ---------------------------------------------------------------------------
 

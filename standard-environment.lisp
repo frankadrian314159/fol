@@ -195,6 +195,72 @@
             'seq #'fol.collection:seq
             'add #'fol.collection:add
             'remove #'fol.collection:remove
+            ;; Higher-order collection operations
+            'reduce #'(lambda (f &rest args)
+                        "Reduce a collection using function f.
+                         (reduce f coll) - uses first element as initial value
+                         (reduce f init coll) - uses init as initial value
+                         f is called as (f accumulator element) for each element."
+                        (cond
+                          ;; (reduce f coll) - no initial value
+                          ((= (cl:length args) 1)
+                           (let* ((coll (cl:first args))
+                                  (s (fol.collection:seq coll)))
+                             (if (null s)
+                                 (apply-function f nil)  ; call f with no args for empty coll
+                                 (let ((acc (fol.collection:first s))
+                                       (s (fol.collection:rest s)))
+                                   (loop until (fol.collection:empty? s)
+                                         do (setf acc (apply-function f (cl:list acc (fol.collection:first s))))
+                                            (setf s (fol.collection:rest s)))
+                                   acc))))
+                          ;; (reduce f init coll) - with initial value
+                          ((= (cl:length args) 2)
+                           (let* ((init (cl:first args))
+                                  (coll (cl:second args))
+                                  (s (fol.collection:seq coll))
+                                  (acc init))
+                             (loop until (or (null s) (fol.collection:empty? s))
+                                   do (setf acc (apply-function f (cl:list acc (fol.collection:first s))))
+                                      (setf s (fol.collection:rest s)))
+                             acc))
+                          (t (error "reduce requires 2 or 3 arguments"))))
+            'map #'(lambda (f coll)
+                     "Apply f to each element of coll, returning a list of results.
+                      Implemented using reduce."
+                     (let ((s (fol.collection:seq coll)))
+                       (if (null s)
+                           (fol.collection:make-list)  ; empty list
+                           ;; Reduce to build result in reverse, then reverse
+                           (let ((result
+                                   (cl:labels ((reduce-fn (acc elem)
+                                                 (cl:cons (apply-function f (cl:list elem)) acc)))
+                                     (let ((acc nil)
+                                           (current s))
+                                       (loop until (or (null current) (fol.collection:empty? current))
+                                             do (setf acc (reduce-fn acc (fol.collection:first current)))
+                                                (setf current (fol.collection:rest current)))
+                                       acc))))
+                             (apply #'fol.collection:make-list (cl:nreverse result))))))
+            'filter #'(lambda (pred coll)
+                        "Return a list of elements from coll for which pred returns truthy.
+                         Implemented using reduce."
+                        (let ((s (fol.collection:seq coll)))
+                          (if (null s)
+                              (fol.collection:make-list)  ; empty list
+                              ;; Reduce to build result in reverse, then reverse
+                              (let ((result
+                                      (cl:labels ((reduce-fn (acc elem)
+                                                    (if (apply-function pred (cl:list elem))
+                                                        (cl:cons elem acc)
+                                                        acc)))
+                                        (let ((acc nil)
+                                              (current s))
+                                          (loop until (or (null current) (fol.collection:empty? current))
+                                                do (setf acc (reduce-fn acc (fol.collection:first current)))
+                                                   (setf current (fol.collection:rest current)))
+                                          acc))))
+                                (apply #'fol.collection:make-list (cl:nreverse result))))))
             ;; Standard macros
             'when (make-when-macro)
             'unless (make-unless-macro)))
