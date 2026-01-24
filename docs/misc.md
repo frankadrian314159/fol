@@ -1,22 +1,6 @@
 # Miscellaneous Functions
 
-## identity
-
-```
-(identity x)
-```
-
-Returns x unchanged. Useful as a placeholder function.
-
-### Examples
-
-```fol
-(identity 42)         ; => 42
-(identity "hello")    ; => "hello"
-(identity [1 2 3])    ; => [1 2 3]
-```
-
----
+See also [functional.md](functional.md) for higher-order functions like `identity` and `complement`.
 
 ## print
 

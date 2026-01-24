@@ -1103,3 +1103,17 @@
   (if (zerop (cl:length s))
       nil
       (apply #'make-list (coerce s 'list))))
+
+;;; ============================================================================
+;;; FOL Type Reflection for Collections
+;;; ============================================================================
+;;; These methods must be defined here (after collection classes exist)
+;;; to avoid circular dependency with wrappers.lisp.
+
+(defmethod fol.wrappers:fol-type-of ((obj <vector>)) 'fol.wrappers::<vector>)
+(defmethod fol.wrappers:fol-type-of ((obj <list>)) 'fol.wrappers::<list>)
+(defmethod fol.wrappers:fol-type-of ((obj <dict>)) 'fol.wrappers::<dict>)
+(defmethod fol.wrappers:fol-type-of ((obj <set>)) 'fol.wrappers::<set>)
+(defmethod fol.wrappers:fol-type-of ((obj <bag>)) 'fol.wrappers::<bag>)
+(defmethod fol.wrappers:fol-type-of ((obj <array>)) 'fol.wrappers::<array>)
+(defmethod fol.wrappers:fol-type-of ((obj <lazy-seq>)) 'fol.wrappers::<lazy-seq>)

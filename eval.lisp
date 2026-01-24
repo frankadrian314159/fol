@@ -1460,6 +1460,36 @@
             :form param))))
 
 ;;; ============================================================================
+;;; Standard Macros
+;;; ============================================================================
+
+(defun make-when-macro ()
+  "Create the 'when' macro.
+   (when test form0 form1 ... formN) expands to (if test (do form0 form1 ... formN) nil)"
+  (make-macro
+   '(test)                    ; params: just test
+   '((syntax-quote            ; body: expand to (if test (do ~@body) nil)
+      (if (unquote test)
+          (do (unquote-splicing body))
+          nil)))
+   nil                        ; env
+   :rest-param 'body          ; rest param captures all body forms
+   :name 'when))
+
+(defun make-unless-macro ()
+  "Create the 'unless' macro.
+   (unless test form0 form1 ... formN) expands to (if test nil (do form0 form1 ... formN))"
+  (make-macro
+   '(test)                    ; params: just test
+   '((syntax-quote            ; body: expand to (if test nil (do ~@body))
+      (if (unquote test)
+          nil
+          (do (unquote-splicing body)))))
+   nil                        ; env
+   :rest-param 'body          ; rest param captures all body forms
+   :name 'unless))
+
+;;; ============================================================================
 ;;; Standard Environment
 ;;; ============================================================================
 
@@ -1536,6 +1566,7 @@
                             (mapcar #'princ-to-string args)))
             ;; Misc
             'identity #'cl:identity
+            'complement #'cl:complement
             'print #'cl:print
             'type #'fol.wrappers:fol-type-of
             ;; Generic constructor
@@ -1568,4 +1599,7 @@
             'contains? #'fol.collection:contains?
             'seq #'fol.collection:seq
             'add #'fol.collection:add
-            'remove #'fol.collection:remove))
+            'remove #'fol.collection:remove
+            ;; Standard macros
+            'when (make-when-macro)
+            'unless (make-unless-macro)))

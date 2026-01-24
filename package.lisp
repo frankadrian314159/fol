@@ -236,6 +236,8 @@
 
 (defpackage fol.bitop
   (:use cl fol.wrappers fol.classes)
+  ;; Shadow CL bit-array functions that we redefine for integers
+  (:shadow bit-nand bit-nor bit-andc1 bit-andc2 bit-orc1 bit-orc2)
   (:export bitnot bitand bitor bitxor
            bit-nand bit-nor bit-andc1 bit-andc2 bit-orc1 bit-orc2
            bit-test bit-set bit-clear bit-count))

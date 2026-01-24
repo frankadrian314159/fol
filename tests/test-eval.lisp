@@ -842,31 +842,61 @@
       ;; (add-expr 1 2) expands to (+ 1 2) which evaluates to 3
       (is (cl:= 3 (fol-eval '(add-expr 1 2) env2))))))
 
-(test macro-when
-  "Test implementing a 'when' macro."
+(test macro-when-builtin
+  "Test the built-in 'when' macro from standard environment."
+  (let ((env (make-standard-env)))
+    ;; Test when condition is true - evaluates all forms, returns last
+    (is (cl:= 42 (fol-eval '(when t 1 2 42) env)))
+    ;; Test when condition is false - returns nil
+    (is (eq nil (fol-eval '(when nil 1 2 42) env)))
+    ;; Test when with computed test
+    (is (cl:= 10 (fol-eval '(when (> 5 3) (+ 5 5)) env)))
+    (is (eq nil (fol-eval '(when (< 5 3) (+ 5 5)) env)))
+    ;; Test when with single body form
+    (is (cl:= 1 (fol-eval '(when t 1) env)))
+    ;; Test when with no body forms (just returns nil when true)
+    (is (eq nil (fol-eval '(when t) env)))))
+
+(test macro-unless-builtin
+  "Test the built-in 'unless' macro from standard environment."
+  (let ((env (make-standard-env)))
+    ;; Test unless condition is false - evaluates all forms, returns last
+    (is (cl:= 42 (fol-eval '(unless nil 1 2 42) env)))
+    ;; Test unless condition is true - returns nil
+    (is (eq nil (fol-eval '(unless t 1 2 42) env)))
+    ;; Test unless with computed test
+    (is (eq nil (fol-eval '(unless (> 5 3) (+ 5 5)) env)))
+    (is (cl:= 10 (fol-eval '(unless (< 5 3) (+ 5 5)) env)))
+    ;; Test unless with single body form
+    (is (cl:= 1 (fol-eval '(unless nil 1) env)))
+    ;; Test unless with no body forms (just returns nil when false)
+    (is (eq nil (fol-eval '(unless nil) env)))))
+
+(test macro-when-user-defined
+  "Test implementing a 'when' macro (user-defined, for backwards compatibility)."
   (let ((env (make-standard-env)))
     ;; (when test body...) => (if test (do body...))
-    (let* ((macro (fol-eval '(defmacro when (test & body)
+    (let* ((macro (fol-eval '(defmacro my-when (test & body)
                                (list 'if test (cons 'do body)))
                             env))
-           (env2 (make-env env 'when macro)))
+           (env2 (make-env env 'my-when macro)))
       ;; Test when condition is true
-      (is (cl:= 42 (fol-eval '(when t 1 2 42) env2)))
+      (is (cl:= 42 (fol-eval '(my-when t 1 2 42) env2)))
       ;; Test when condition is false
-      (is (eq nil (fol-eval '(when nil 1 2 42) env2))))))
+      (is (eq nil (fol-eval '(my-when nil 1 2 42) env2))))))
 
-(test macro-unless
-  "Test implementing an 'unless' macro."
+(test macro-unless-user-defined
+  "Test implementing an 'unless' macro (user-defined, for backwards compatibility)."
   (let ((env (make-standard-env)))
-    ;; (unless test body...) => (if test nil (do body...))
-    (let* ((macro (fol-eval '(defmacro unless (test & body)
+    ;; (my-unless test body...) => (if test nil (do body...))
+    (let* ((macro (fol-eval '(defmacro my-unless (test & body)
                                (list 'if test nil (cons 'do body)))
                             env))
-           (env2 (make-env env 'unless macro)))
+           (env2 (make-env env 'my-unless macro)))
       ;; Test unless condition is false (body executes)
-      (is (cl:= 42 (fol-eval '(unless nil 1 2 42) env2)))
+      (is (cl:= 42 (fol-eval '(my-unless nil 1 2 42) env2)))
       ;; Test unless condition is true (body doesn't execute)
-      (is (eq nil (fol-eval '(unless t 1 2 42) env2))))))
+      (is (eq nil (fol-eval '(my-unless t 1 2 42) env2))))))
 
 (test macro-with-rest-params
   "Test macros with rest parameters."
