@@ -1692,6 +1692,23 @@
                                      for result = (apply-function pred args)
                                      unless result return nil
                                      finally (return result)))))
+            'partial #'(lambda (f &rest bound-args)
+                         "Returns a function that calls f with bound-args prepended to any additional args.
+                          (partial f a b) returns a function that, when called with (x y), calls (f a b x y)."
+                         (lambda (&rest more-args)
+                           (apply-function f (append bound-args more-args))))
+            'rpartial #'(lambda (f &rest bound-args)
+                          "Returns a function that calls f with bound-args appended to any additional args.
+                           (rpartial f a b) returns a function that, when called with (x y), calls (f x y a b)."
+                          (lambda (&rest more-args)
+                            (apply-function f (append more-args bound-args))))
+            'juxt #'(lambda (&rest fns)
+                      "Returns a function that applies each fn to its args and returns the results as multiple values.
+                       (juxt f g h) returns a function that, when called with args, returns (values (f args) (g args) (h args))."
+                      (lambda (&rest args)
+                        (values-list
+                         (loop for fn in fns
+                               collect (apply-function fn args)))))
             'print #'cl:print
             'type #'fol.wrappers:fol-type-of
             ;; Generic constructor

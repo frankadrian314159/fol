@@ -137,3 +137,123 @@ A conjunction is similar to an `and` expression of calls to the predicates.
 (valid-user? {:name "Alice" :email "a@b.com" :age 25})  ; => true
 (valid-user? {:name "Bob" :age -5})                      ; => nil
 ```
+
+---
+
+## partial
+
+```
+(partial f & args)
+```
+
+Takes a function f and some arguments, returning a new function that, when called,
+invokes f with the original args prepended to the new args. This is left-to-right
+partial application.
+
+### Examples
+
+```fol
+;; Create a function that adds 10 to its argument
+(def add10 (partial + 10))
+(add10 5)                     ; => 15
+(add10 1 2 3)                 ; => 16 (+ 10 1 2 3)
+
+;; Create a specialized comparison
+(def at-least-5? (partial <= 5))
+(at-least-5? 7)               ; => true  ((<= 5 7))
+(at-least-5? 3)               ; => false ((<= 5 3))
+
+;; Works with FOL functions
+(def greet (fn [greeting name] (str greeting ", " name "!")))
+(def say-hello (partial greet "Hello"))
+(say-hello "World")           ; => "Hello, World!"
+
+;; No bound args returns the function unchanged
+((partial +) 1 2 3)           ; => 6
+```
+
+---
+
+## rpartial
+
+```
+(rpartial f & args)
+```
+
+Takes a function f and some arguments, returning a new function that, when called,
+invokes f with the new args prepended to the original args. This is right-to-left
+partial application - the bound args are appended to the end.
+
+### Examples
+
+```fol
+;; Create a function that subtracts 10 from its argument
+(def sub10 (rpartial - 10))
+(sub10 15)                    ; => 5  ((- 15 10))
+(sub10 5)                     ; => -5 ((- 5 10))
+
+;; Contrast with partial
+(def partial-sub (partial - 10))
+(def rpartial-sub (rpartial - 10))
+(partial-sub 3)               ; => 7  ((- 10 3))
+(rpartial-sub 3)              ; => -7 ((- 3 10))
+
+;; Useful for division with a fixed divisor
+(def halve (rpartial / 2))
+(halve 10)                    ; => 5
+(halve 7)                     ; => 7/2
+
+;; Works with FOL functions
+(def log-with-level (fn [level msg] (str "[" level "] " msg)))
+(def log-info (rpartial log-with-level "INFO"))
+(log-info "Server started")   ; => "[Server started] INFO"
+;; Oops! For this use case, partial is better:
+(def log-info (partial log-with-level "INFO"))
+(log-info "Server started")   ; => "[INFO] Server started"
+```
+
+---
+
+## juxt
+
+```
+(juxt f1 f2 ... fn)
+```
+
+Takes multiple functions and returns a new function that, when called, applies
+each function to the arguments and returns the results as multiple values.
+
+This is useful for computing multiple values from the same input in a single pass.
+
+### Examples
+
+```fol
+;; Get multiple statistics at once
+(def stats (juxt min max))
+(stats 3 1 4 1 5 9 2 6)       ; => (values 1 9)
+
+;; Apply arithmetic operations
+(def arith (juxt + - *))
+(arith 6 2)                   ; => (values 8 4 12)
+
+;; Extract multiple properties
+(def name-and-age (juxt :name :age))
+(name-and-age {:name "Alice" :age 30 :city "NYC"})  ; => (values "Alice" 30)
+
+;; Works with FOL functions
+(def transforms (juxt
+                  (fn [x] (* x 2))
+                  (fn [x] (+ x 1))
+                  (fn [x] (* x x))))
+(transforms 5)                ; => (values 10 6 25)
+
+;; Empty juxt returns no values
+((juxt) 1 2 3)                ; => (values)
+
+;; Practical: check multiple conditions and return results
+(def validate (juxt
+                (fn [x] (if (positive? x) :positive :not-positive))
+                (fn [x] (if (even? x) :even :odd))))
+(validate 4)                  ; => (values :positive :even)
+(validate -3)                 ; => (values :not-positive :odd)
+```

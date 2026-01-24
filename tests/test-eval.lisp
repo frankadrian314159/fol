@@ -1058,6 +1058,111 @@
       (is (eq nil (funcall never 42))))))
 
 ;;; ---------------------------------------------------------------------------
+;;; Partial Application (partial, rpartial, juxt)
+;;; ---------------------------------------------------------------------------
+
+(test partial-basic
+  "Test partial binds arguments left to right."
+  (let ((env (make-standard-env)))
+    ;; (partial + 10) returns a function that adds 10 to its argument
+    (let ((add10 (fol-eval '(partial + 10) env)))
+      (is (cl:= 15 (funcall add10 5)))
+      (is (cl:= 10 (funcall add10 0))))))
+
+(test partial-multiple-bound-args
+  "Test partial with multiple bound arguments."
+  (let ((env (make-standard-env)))
+    ;; (partial + 1 2 3) returns a function that adds 1+2+3 to remaining args
+    (let ((add6 (fol-eval '(partial + 1 2 3) env)))
+      (is (cl:= 10 (funcall add6 4)))
+      (is (cl:= 16 (funcall add6 4 6))))))
+
+(test partial-with-fol-function
+  "Test partial works with FOL functions."
+  (let ((env (make-standard-env)))
+    (let ((f (fol-eval (fol-form "(partial (fn [a b c] (+ a (* b c))) 10)") env)))
+      ;; f is (fn [b c] (+ 10 (* b c)))
+      (is (cl:= 16 (funcall f 2 3)))))) ; 10 + 2*3 = 16
+
+(test partial-no-bound-args
+  "Test partial with no bound arguments acts like identity on function."
+  (let ((env (make-standard-env)))
+    (let ((same-plus (fol-eval '(partial +) env)))
+      (is (cl:= 6 (funcall same-plus 1 2 3))))))
+
+(test rpartial-basic
+  "Test rpartial binds arguments right to left."
+  (let ((env (make-standard-env)))
+    ;; (rpartial - 3) returns a function that subtracts 3 from the end
+    ;; (f 10) => (- 10 3) = 7
+    (let ((sub3 (fol-eval '(rpartial - 3) env)))
+      (is (cl:= 7 (funcall sub3 10))))))
+
+(test rpartial-multiple-bound-args
+  "Test rpartial with multiple bound arguments."
+  (let ((env (make-standard-env)))
+    ;; (rpartial - 2 3) returns fn where calling (f 10) => (- 10 2 3) = 5
+    (let ((sub5 (fol-eval '(rpartial - 2 3) env)))
+      (is (cl:= 5 (funcall sub5 10))))))
+
+(test rpartial-with-fol-function
+  "Test rpartial works with FOL functions."
+  (let ((env (make-standard-env)))
+    (let ((f (fol-eval (fol-form "(rpartial (fn [a b c] (+ a (* b c))) 3)") env)))
+      ;; f is (fn [a b] (+ a (* b 3)))
+      (is (cl:= 16 (funcall f 10 2)))))) ; 10 + 2*3 = 16
+
+(test rpartial-vs-partial
+  "Test that rpartial and partial produce different results for non-commutative ops."
+  (let ((env (make-standard-env)))
+    ;; partial puts 10 first: (- 10 x)
+    ;; rpartial puts 10 last: (- x 10)
+    (let ((partial-sub (fol-eval '(partial - 10) env))
+          (rpartial-sub (fol-eval '(rpartial - 10) env)))
+      (is (cl:= 5 (funcall partial-sub 5)))   ; (- 10 5) = 5
+      (is (cl:= -5 (funcall rpartial-sub 5)))))) ; (- 5 10) = -5
+
+(test juxt-basic
+  "Test juxt applies multiple functions and returns multiple values."
+  (let ((env (make-standard-env)))
+    (let ((stats (fol-eval '(juxt + - *) env)))
+      ;; (stats 3 4) => (values (+ 3 4) (- 3 4) (* 3 4)) = (values 7 -1 12)
+      (multiple-value-bind (v1 v2 v3) (funcall stats 3 4)
+        (is (cl:= 7 v1))
+        (is (cl:= -1 v2))
+        (is (cl:= 12 v3))))))
+
+(test juxt-single-function
+  "Test juxt with single function returns single value."
+  (let ((env (make-standard-env)))
+    (let ((wrapped (fol-eval '(juxt +) env)))
+      (is (cl:= 6 (funcall wrapped 1 2 3))))))
+
+(test juxt-with-fol-functions
+  "Test juxt works with FOL functions."
+  (let ((env (make-standard-env)))
+    (let ((pair (fol-eval (fol-form "(juxt (fn [x] (* x 2)) (fn [x] (+ x 1)))") env)))
+      (multiple-value-bind (v1 v2) (funcall pair 5)
+        (is (cl:= 10 v1))  ; (* 5 2)
+        (is (cl:= 6 v2))))))  ; (+ 5 1)
+
+(test juxt-empty
+  "Test juxt with no functions returns no values."
+  (let ((env (make-standard-env)))
+    (let ((empty-juxt (fol-eval '(juxt) env)))
+      ;; (values-list nil) returns 0 values
+      (is (cl:= 0 (cl:length (multiple-value-list (funcall empty-juxt 1 2 3))))))))
+
+(test juxt-practical-example
+  "Test juxt with a practical use case."
+  (let ((env (make-standard-env)))
+    ;; Get both min and max in one pass
+    (let ((min-max (fol-eval '(juxt min max) env)))
+      (multiple-value-bind (min-val max-val) (funcall min-max 3 1 4 1 5 9 2 6)
+        (is (cl:= 1 min-val))   ; min
+        (is (cl:= 9 max-val))))))  ; max
+
+;;; ---------------------------------------------------------------------------
 ;;; Macros (defmacro)
 ;;; ---------------------------------------------------------------------------
 
