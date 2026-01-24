@@ -193,10 +193,10 @@
     (is (= 2 (size s2)))
     (is-false (contains? s2 2))))
 
-(test set-is-dict
-  "Test that set inherits from dict."
+(test set-inherits-from-dict
+  "Test that set inherits from dict (using typep, not the type predicate)."
   (let ((s (make-set 1 2)))
-    (is-true (<dict>? s))))
+    (is-true (typep s '<dict>))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Bag (Multiset) Tests
@@ -258,10 +258,10 @@
          (b2 (remove b1 :missing)))
     (is (eq b1 b2))))  ; Returns same bag if element not found
 
-(test bag-is-dict
-  "Test that bag inherits from dict."
+(test bag-inherits-from-dict
+  "Test that bag inherits from dict (using typep, not the type predicate)."
   (let ((b (make-bag 1 2)))
-    (is-true (<dict>? b))))
+    (is-true (typep b '<dict>))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Vector Tests

@@ -345,6 +345,10 @@
   (:import-from fol.arithop atan2 real-part imag-part angle)
   (:import-from fol.fol-mop make)
   (:shadowing-import-from fol.symbol <symbol>?)
+  (:import-from fol.number
+                <number>? <complex>? <real>?
+                <float>? <single-float>? <double-float>?
+                <rational>? <ratio>? <integer>? <fixnum>? <bignum>?)
   (:export
    ;; Main evaluation function
    fol-eval

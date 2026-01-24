@@ -78,9 +78,11 @@
                                   (fol.wrappers:fol-value val))))
     (make-instance '<dict> :items map)))
 
-(defgeneric <dict>? (obj) (:documentation "Returns T if OBJ is a FOL <dict>."))
+(defgeneric <dict>? (obj) (:documentation "Returns T if OBJ is exactly a FOL <dict> (not subclasses like <set> or <bag>)."))
 (defmethod <dict>? (obj) nil)
-(defmethod <dict>? ((obj <dict>)) t)
+(defmethod <dict>? ((obj <dict>))
+  ;; Check for exact class match, not subclasses
+  (eq (class-of obj) (find-class '<dict>)))
 
 (defmethod print-object ((obj <dict>) stream)
   (format stream "{")
@@ -1110,10 +1112,10 @@
 ;;; These methods must be defined here (after collection classes exist)
 ;;; to avoid circular dependency with wrappers.lisp.
 
-(defmethod fol.wrappers:fol-type-of ((obj <vector>)) 'fol.wrappers::<vector>)
-(defmethod fol.wrappers:fol-type-of ((obj <list>)) 'fol.wrappers::<list>)
-(defmethod fol.wrappers:fol-type-of ((obj <dict>)) 'fol.wrappers::<dict>)
-(defmethod fol.wrappers:fol-type-of ((obj <set>)) 'fol.wrappers::<set>)
-(defmethod fol.wrappers:fol-type-of ((obj <bag>)) 'fol.wrappers::<bag>)
-(defmethod fol.wrappers:fol-type-of ((obj <array>)) 'fol.wrappers::<array>)
-(defmethod fol.wrappers:fol-type-of ((obj <lazy-seq>)) 'fol.wrappers::<lazy-seq>)
+(defmethod fol.wrappers:fol-type-of ((obj <vector>)) '<vector>)
+(defmethod fol.wrappers:fol-type-of ((obj <list>)) '<list>)
+(defmethod fol.wrappers:fol-type-of ((obj <dict>)) '<dict>)
+(defmethod fol.wrappers:fol-type-of ((obj <set>)) '<set>)
+(defmethod fol.wrappers:fol-type-of ((obj <bag>)) '<bag>)
+(defmethod fol.wrappers:fol-type-of ((obj <array>)) '<array>)
+(defmethod fol.wrappers:fol-type-of ((obj <lazy-seq>)) '<lazy-seq>)

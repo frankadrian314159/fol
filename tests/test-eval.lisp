@@ -647,8 +647,8 @@
   (let ((env (make-standard-env)))
     ;; Define a class using FOL's defclass
     (fol-eval `(defclass <test-person> ,(make-vector) ,(make-vector 'name 'age)) env)
-    ;; Create an instance and check its type
-    (let ((person (make-instance '<test-person> :name "Alice" :age 30)))
+    ;; Create an instance using FOL's make and check its type
+    (let ((person (fol-eval `(make '<test-person> :name "Alice" :age 30) env)))
       (is (eq '<test-person> (fol-eval `(type ',person) env))))))
 
 (test eval-keyword-as-function
@@ -807,6 +807,163 @@
   "Test deeply nested expressions."
   (let ((env (make-standard-env)))
     (is (cl:= 10 (fol-eval '(+ (+ (+ (+ 1 2) 3) 4) 0) env)))))
+
+;;; ---------------------------------------------------------------------------
+;;; COND Special Form
+;;; ---------------------------------------------------------------------------
+
+(test cond-basic
+  "Test basic cond with matching first clause."
+  (let ((env (make-standard-env)))
+    (is (eq :first (fol-eval '(cond t :first nil :second) env)))))
+
+(test cond-second-clause
+  "Test cond matches second clause when first is false."
+  (let ((env (make-standard-env)))
+    (is (eq :second (fol-eval '(cond nil :first t :second) env)))))
+
+(test cond-no-match
+  "Test cond returns nil when no clause matches."
+  (let ((env (make-standard-env)))
+    (is (eq nil (fol-eval '(cond nil :first nil :second) env)))))
+
+(test cond-with-expressions
+  "Test cond with computed tests and forms."
+  (let ((env (make-standard-env)))
+    ;; Test matching based on computed value
+    ;; Use fol-form to parse through FOL reader which handles [...] syntax
+    (is (eq :positive (fol-eval (fol-form "(bind [x 5]
+                                   (cond
+                                     (< x 0) :negative
+                                     (= x 0) :zero
+                                     (> x 0) :positive))")
+                                env)))
+    (is (eq :zero (fol-eval (fol-form "(bind [x 0]
+                               (cond
+                                 (< x 0) :negative
+                                 (= x 0) :zero
+                                 (> x 0) :positive))")
+                            env)))
+    (is (eq :negative (fol-eval (fol-form "(bind [x -3]
+                                   (cond
+                                     (< x 0) :negative
+                                     (= x 0) :zero
+                                     (> x 0) :positive))")
+                                env)))))
+
+(test cond-default-with-t
+  "Test cond with t as default case."
+  (let ((env (make-standard-env)))
+    (is (eq :default (fol-eval '(cond
+                                  nil :first
+                                  nil :second
+                                  t :default)
+                               env)))))
+
+(test cond-evaluates-form
+  "Test cond evaluates the form, not just returns it."
+  (let ((env (make-standard-env)))
+    (is (cl:= 15 (fol-eval '(cond t (+ 5 10)) env)))))
+
+;;; ---------------------------------------------------------------------------
+;;; CASE Special Form
+;;; ---------------------------------------------------------------------------
+
+(test case-basic-match
+  "Test case matches a single value."
+  (let ((env (make-standard-env)))
+    (is (eq :one (fol-eval '(case 1
+                              1 :one
+                              2 :two
+                              3 :three)
+                           env)))))
+
+(test case-vector-match
+  "Test case matches from a vector of values."
+  (let ((env (make-standard-env)))
+    ;; Use backquote and make-vector since CL reader doesn't understand [...] syntax
+    (is (eq :small (fol-eval `(case 2
+                                ,(make-vector 0 1 2) :small
+                                ,(make-vector 3 4 5) :medium
+                                ,(make-vector 6 7 8 9) :large)
+                             env)))))
+
+(test case-default-form
+  "Test case with default form when no match."
+  (let ((env (make-standard-env)))
+    (is (eq :unknown (fol-eval '(case 99
+                                  1 :one
+                                  2 :two
+                                  :unknown)
+                               env)))))
+
+(test case-evaluates-target
+  "Test case evaluates the target expression."
+  (let ((env (make-standard-env)))
+    (is (eq :three (fol-eval '(case (+ 1 2)
+                                1 :one
+                                2 :two
+                                3 :three)
+                             env)))))
+
+(test case-evaluates-form
+  "Test case evaluates the matching form."
+  (let ((env (make-standard-env)))
+    (is (cl:= 100 (fol-eval '(case :x
+                               :a 10
+                               :x (* 10 10)
+                               :z 30)
+                            env)))))
+
+(test case-string-keys
+  "Test case with string keys."
+  (let ((env (make-standard-env)))
+    (is (eq :art (fol-eval '(case "liberal arts"
+                              "engineering" :eng
+                              "business" :bus
+                              "liberal arts" :art)
+                           env)))))
+
+(test case-no-match-error
+  "Test case signals error when no match and no default."
+  (let ((env (make-standard-env)))
+    (signals fol-eval-error
+      (fol-eval '(case 99
+                   1 :one
+                   2 :two)
+                env))))
+
+(test case-game-of-life-pattern
+  "Test case like Game of Life neighbor counting."
+  (let ((env (make-standard-env)))
+    ;; Simulating the Game of Life rule
+    ;; Use backquote and make-vector since CL reader doesn't understand [...] syntax
+    (let ((low-vec (make-vector 0 1))
+          (high-vec (make-vector 4 5 6 7 8)))
+      (is (eq nil (fol-eval `(case 0
+                               ,low-vec nil
+                               2 :survive
+                               3 :birth
+                               ,high-vec nil)
+                            env)))
+      (is (eq :survive (fol-eval `(case 2
+                                    ,low-vec nil
+                                    2 :survive
+                                    3 :birth
+                                    ,high-vec nil)
+                                 env)))
+      (is (eq :birth (fol-eval `(case 3
+                                  ,low-vec nil
+                                  2 :survive
+                                  3 :birth
+                                  ,high-vec nil)
+                               env)))
+      (is (eq nil (fol-eval `(case 5
+                               ,low-vec nil
+                               2 :survive
+                               3 :birth
+                               ,high-vec nil)
+                            env))))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Macros (defmacro)

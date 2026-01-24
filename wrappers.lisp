@@ -73,7 +73,7 @@
 (defmethod fol-type-of ((obj string)) '<string>)
 (defmethod fol-type-of ((obj symbol))
   (if (keywordp obj) '<keyword> '<symbol>))
-(defmethod fol-type-of ((obj cons)) '<list>)
+(defmethod fol-type-of ((obj cons)) 'fol.collection::<list>)
 
 ;;; --- Wrapped FOL objects -> FOL types (from class name) ---
 (defmethod fol-type-of ((obj <bool>)) '<bool>)

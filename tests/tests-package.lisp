@@ -80,6 +80,9 @@
                 :fol-stringp :fol-characterp :fol-symbolp :fol-booleanp)
   ;; Import symbols from fol.collection
   (:import-from :fol.collection
+                ;; Type symbols (for type function tests)
+                :<vector> :<list> :<dict> :<set> :<bag> :<array> :<lazy-seq>
+                ;; Type predicates
                 :<collection>? :<ordered-collection>? :<unordered-collection>?
                 :<dict>? :<set>? :<bag>? :<vector>? :<array>? :<list>?
                 :<lazy-seq>? :make-lazy-seq :realize-lazy-seq :lazy-seq-realized-p

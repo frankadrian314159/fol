@@ -351,6 +351,9 @@
       ((special-form-p op 'make-dynamic) (eval-make-dynamic args env))
       ((special-form-p op 'binding) (eval-binding args env))
       ((special-form-p op 'lazy-seq) (eval-lazy-seq args env))
+      ;; Conditional forms
+      ((special-form-p op 'cond) (eval-cond args env))
+      ((special-form-p op 'case) (eval-case args env))
       ;; Threading macros
       ((special-form-p op '->) (eval-thread-first args env))
       ((special-form-p op '->>) (eval-thread-last args env))
@@ -398,6 +401,91 @@
       (if (fol-eval test env)
           (fol-eval then-form env)
           (fol-eval else-form env)))))
+
+;;; --- COND ---
+
+(defun eval-cond (args env)
+  "Evaluate (cond test1 form1 test2 form2 ...).
+   Evaluates test/form pairs sequentially. When a test is truthy,
+   evaluates and returns the corresponding form.
+   Returns NIL if no test is truthy.
+
+   Example:
+     (cond
+       (= x 0) \"zero\"
+       (> x 0) \"positive\"
+       t \"negative\")"
+  (unless (evenp (length args))
+    (error 'fol-eval-error
+           :message "cond requires an even number of arguments (test/form pairs)"
+           :form (cons 'cond args)))
+  ;; Process pairs
+  (loop for (test form) on args by #'cddr
+        when (fol-eval test env)
+        return (fol-eval form env)
+        finally (return nil)))
+
+;;; --- CASE ---
+
+(defun eval-case (args env)
+  "Evaluate (case target-form target1 form1 target2 form2 ... [default-form]).
+   Evaluates target-form to get a value, then matches against targets.
+   Each target can be an atom or a vector of atoms.
+   If matched, evaluates and returns the corresponding form.
+   If no match and default-form present, evaluates default-form.
+   If no match and no default-form, signals an error.
+
+   Example:
+     (case x
+       [0 1] nil
+       2 (state x)
+       3 t
+       [4 5 6 7 8] nil)
+
+     (case major
+       \"engineering\" (values 60000 :engineering)
+       \"business\" (values 90000 :management)
+       (values 20000 :production))"
+  (when (< (length args) 1)
+    (error 'fol-eval-error
+           :message "case requires at least a target form"
+           :form (cons 'case args)))
+  (let* ((target-form (first args))
+         (clauses (rest args))
+         (target-value (fol-eval target-form env)))
+    ;; Determine if we have an odd number of remaining args (default form present)
+    (let* ((has-default (oddp (length clauses)))
+           (default-form (when has-default (car (last clauses))))
+           (case-pairs (if has-default (butlast clauses) clauses))
+           (seen-targets (make-hash-table :test 'equal)))
+      ;; Check for even number of case pairs
+      (unless (evenp (length case-pairs))
+        (error 'fol-eval-error
+               :message "case requires target/form pairs"
+               :form (cons 'case args)))
+      ;; Build dispatch table and check for duplicates
+      (loop for (target form) on case-pairs by #'cddr
+            do (let ((targets (if (<vector>? target)
+                                  ;; Vector of targets
+                                  (loop for i from 0 below (size target)
+                                        collect (fol.wrappers:fol-value (nth i target)))
+                                  ;; Single target
+                                  (list (fol.wrappers:fol-value target)))))
+                 (dolist (tgt targets)
+                   (when (gethash tgt seen-targets)
+                     (error 'fol-eval-error
+                            :message (format nil "Duplicate target in case: ~S" tgt)
+                            :form (cons 'case args)))
+                   (setf (gethash tgt seen-targets) form))))
+      ;; Look up target value
+      (multiple-value-bind (matching-form found)
+          (gethash (fol.wrappers:fol-value target-value) seen-targets)
+        (cond
+          (found (fol-eval matching-form env))
+          (has-default (fol-eval default-form env))
+          (t (error 'fol-eval-error
+                    :message (format nil "No matching case for ~S" target-value)
+                    :form (cons 'case args))))))))
 
 ;;; --- DO ---
 
@@ -1512,6 +1600,16 @@
             'ln #'ln
             'mod #'cl:mod
             'rem #'cl:rem
+            'abs #'abs
+            'sin #'sin
+            'cos #'cos
+            'tan #'tan
+            'sqrt #'sqrt
+            'expt #'expt
+            'exp #'exp
+            'ln #'ln
+            'mod #'cl:mod
+            'rem #'cl:rem
             'floor #'cl:floor
             'ceiling #'cl:ceiling
             'truncate #'cl:truncate
@@ -1558,6 +1656,7 @@
             '<lazy-seq>? #'fol.collection:<lazy-seq>?
             ;; CL list operations (for compatibility)
             'list #'cl:list
+            'cons #'cl:cons
             'append #'cl:append
             'reverse #'cl:reverse
             ;; String operations
