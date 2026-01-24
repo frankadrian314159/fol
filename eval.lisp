@@ -1198,14 +1198,29 @@
 ;;; --- FOL MOP FORMS ---
 
 (defun eval-defgeneric* (args env)
-  "Evaluate (defgeneric* name [lambda-list] option*).
-   Defines a generic function with FOL syntax where lambda list is a vector."
+  "Evaluate (defgeneric* name [lambda-list] option*) or
+   (defgeneric* name ([lambda-list-1] [lambda-list-2] ...) option*).
+   Defines a generic function with FOL syntax where lambda list is a vector
+   or a list of vectors for multi-arity."
   (unless (>= (length args) 2)
     (error 'fol-eval-error :message "defgeneric* requires name and lambda-list"
            :form (cons 'defgeneric* args)))
-  (let ((name (first args))
-        (lambda-list-vec (fol-eval (second args) env))
-        (options (cddr args)))
+  (let* ((name (first args))
+         (lambda-list-spec (second args))
+         (options (cddr args))
+         ;; Handle both single vector and list of vectors
+         (lambda-list-vec
+           (cond
+             ;; Single vector: evaluate it
+             ((fol.collection:<vector>? lambda-list-spec)
+              (fol-eval lambda-list-spec env))
+             ;; Multi-arity: list of vectors - evaluate each vector
+             ((and (listp lambda-list-spec)
+                   (not (null lambda-list-spec))
+                   (every #'fol.collection:<vector>? lambda-list-spec))
+              (mapcar (lambda (v) (fol-eval v env)) lambda-list-spec))
+             ;; Otherwise evaluate (handles CL-style list lambda lists)
+             (t (fol-eval lambda-list-spec env)))))
     (fol.fol-mop:eval-defgeneric* name lambda-list-vec options)))
 
 (defun eval-defclass* (args env)

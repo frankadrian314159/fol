@@ -66,6 +66,204 @@
   (fmakunbound 'test-documented-fn))
 
 ;;; ============================================================================
+;;; Multi-pattern defgeneric* Tests
+;;; ============================================================================
+;;; Tests for pattern-based dispatch with destructuring vectors.
+;;; Internal generics use /PN naming (P0, P1, P2...) instead of /N naming.
+
+(test defgeneric*-multi-pattern-creates-dispatcher
+  "Test that defgeneric* with multiple lambda lists creates a dispatcher."
+  ;; Create a multi-pattern generic with 1, 2, and 3 argument versions
+  (eval `(fol.fol-mop:defgeneric* test-multi-fn
+           (,(make-vector 'a) ,(make-vector 'a 'b) ,(make-vector 'a 'b 'c))))
+  ;; Main dispatcher should exist
+  (is (fboundp 'test-multi-fn))
+  ;; Pattern-specific generics should exist (P0, P1, P2 for each pattern)
+  (is (fboundp 'test-multi-fn/p0))
+  (is (fboundp 'test-multi-fn/p1))
+  (is (fboundp 'test-multi-fn/p2))
+  ;; Pattern-specific ones should be generic functions
+  (is (typep (fdefinition 'test-multi-fn/p0) 'generic-function))
+  (is (typep (fdefinition 'test-multi-fn/p1) 'generic-function))
+  (is (typep (fdefinition 'test-multi-fn/p2) 'generic-function))
+  ;; Cleanup
+  (fmakunbound 'test-multi-fn)
+  (fmakunbound 'test-multi-fn/p0)
+  (fmakunbound 'test-multi-fn/p1)
+  (fmakunbound 'test-multi-fn/p2)
+  (cl:remprop 'test-multi-fn 'fol.fol-mop::multi-pattern-info))
+
+(test defgeneric*-multi-pattern-stores-info
+  "Test that multi-pattern defgeneric* stores pattern info for defmethod*."
+  (eval `(fol.fol-mop:defgeneric* test-pattern-info
+           (,(make-vector 'x) ,(make-vector 'x 'y))))
+  ;; Should have pattern info with 2 entries
+  (let ((info (cl:get 'test-pattern-info 'fol.fol-mop::multi-pattern-info)))
+    (is (= 2 (length info)))
+    ;; Each entry should have :index, :arity, :signature, :internal-name
+    (is (every (lambda (p) (and (getf p :index) (getf p :arity))) info)))
+  ;; Cleanup
+  (fmakunbound 'test-pattern-info)
+  (fmakunbound 'test-pattern-info/p0)
+  (fmakunbound 'test-pattern-info/p1)
+  (cl:remprop 'test-pattern-info 'fol.fol-mop::multi-pattern-info))
+
+(test defmethod*-routes-to-correct-pattern
+  "Test that defmethod* routes methods to the correct pattern-specific generic."
+  ;; Create multi-pattern generic
+  (eval `(fol.fol-mop:defgeneric* test-routed
+           (,(make-vector 'x) ,(make-vector 'x 'y))))
+  ;; Add methods
+  (eval `(fol.fol-mop:defmethod* test-routed ,(make-vector 'x)
+           :one-arg))
+  (eval `(fol.fol-mop:defmethod* test-routed ,(make-vector 'x 'y)
+           :two-args))
+  ;; Test dispatcher routes correctly
+  (is (eq :one-arg (test-routed 1)))
+  (is (eq :two-args (test-routed 1 2)))
+  ;; Cleanup
+  (fmakunbound 'test-routed)
+  (fmakunbound 'test-routed/p0)
+  (fmakunbound 'test-routed/p1)
+  (cl:remprop 'test-routed 'fol.fol-mop::multi-pattern-info))
+
+(test defmethod*-with-specialization-and-multi-pattern
+  "Test that defmethod* handles specialized params with multi-pattern generics."
+  ;; Create multi-pattern generic
+  (eval `(fol.fol-mop:defgeneric* test-specialized-multi
+           (,(make-vector 'a) ,(make-vector 'a 'b))))
+  ;; Add specialized methods for different patterns
+  (eval `(fol.fol-mop:defmethod* test-specialized-multi
+           ,(make-vector (make-vector 'a 'number))
+           (cl:list :one-number a)))
+  (eval `(fol.fol-mop:defmethod* test-specialized-multi
+           ,(make-vector (make-vector 'a 'number) (make-vector 'b 'number))
+           (cl:list :two-numbers a b)))
+  ;; Test
+  (is (equal '(:one-number 42) (test-specialized-multi 42)))
+  (is (equal '(:two-numbers 1 2) (test-specialized-multi 1 2)))
+  ;; Cleanup
+  (fmakunbound 'test-specialized-multi)
+  (fmakunbound 'test-specialized-multi/p0)
+  (fmakunbound 'test-specialized-multi/p1)
+  (cl:remprop 'test-specialized-multi 'fol.fol-mop::multi-pattern-info))
+
+(test multi-pattern-dispatcher-signals-error-for-invalid-arity
+  "Test that multi-pattern dispatcher signals error for unsupported arities."
+  ;; Create generic with only 1 and 2 arg versions
+  (eval `(fol.fol-mop:defgeneric* test-limited-arity
+           (,(make-vector 'a) ,(make-vector 'a 'b))))
+  (eval `(fol.fol-mop:defmethod* test-limited-arity ,(make-vector 'x) :one))
+  (eval `(fol.fol-mop:defmethod* test-limited-arity ,(make-vector 'x 'y) :two))
+  ;; Valid calls work
+  (is (eq :one (test-limited-arity 1)))
+  (is (eq :two (test-limited-arity 1 2)))
+  ;; Invalid arity signals error
+  (signals error (test-limited-arity))       ; 0 args
+  (signals error (test-limited-arity 1 2 3)) ; 3 args
+  ;; Cleanup
+  (fmakunbound 'test-limited-arity)
+  (fmakunbound 'test-limited-arity/p0)
+  (fmakunbound 'test-limited-arity/p1)
+  (cl:remprop 'test-limited-arity 'fol.fol-mop::multi-pattern-info))
+
+(test multi-pattern-via-fol-eval
+  "Test that multi-pattern generics work through FOL eval."
+  (let ((env (make-standard-env)))
+    ;; Define multi-pattern generic
+    (fol-eval `(defgeneric test-eval-multi (,(make-vector 'x) ,(make-vector 'x 'y))) env)
+    ;; Add methods
+    (fol-eval `(defmethod test-eval-multi ,(make-vector 'x) "one") env)
+    (fol-eval `(defmethod test-eval-multi ,(make-vector 'x 'y) "two") env)
+    ;; Test through eval
+    (is (fboundp 'test-eval-multi))
+    (is (string= "one" (test-eval-multi 1)))
+    (is (string= "two" (test-eval-multi 1 2)))
+    ;; Cleanup
+    (fmakunbound 'test-eval-multi)
+    (fmakunbound 'test-eval-multi/p0)
+    (fmakunbound 'test-eval-multi/p1)
+    (cl:remprop 'test-eval-multi 'fol.fol-mop::multi-pattern-info)))
+
+;;; ============================================================================
+;;; Pattern-based Dispatch Tests
+;;; ============================================================================
+;;; Tests for dispatching based on patterns (same arity, different structure).
+;;; Pattern dispatch works at the dispatcher level - methods use simple parameters.
+;;; The dispatcher checks argument structure and routes to the appropriate generic.
+
+(test pattern-dispatch-seq-vs-any
+  "Test pattern dispatch: seq pattern [[a b]] vs simple [x]."
+  ;; Create generic with two patterns for arity 1:
+  ;; [x] - matches any single argument (pattern P0)
+  ;; [[a b]] - expects argument that is a 2-element sequence (pattern P1)
+  (eval `(fol.fol-mop:defgeneric* test-pattern-dispatch
+           (,(make-vector 'x)                           ; P0: any single arg
+            ,(make-vector (make-vector 'a 'b)))))       ; P1: expects pair
+  ;; Add methods directly to internal generics using simple params
+  ;; P0's method takes any argument
+  (eval `(defmethod test-pattern-dispatch/p0 (x)
+           (cl:list :single x)))
+  ;; P1's method takes the sequence as a single arg
+  (eval `(defmethod test-pattern-dispatch/p1 (arg)
+           (cl:list :pair-seq arg)))
+  ;; Test: vector [1 2] should match the seq pattern (P1)
+  (let ((result (test-pattern-dispatch (make-vector 1 2))))
+    (is (eq :pair-seq (cl:first result))))
+  ;; Test: a number should match the :any pattern (P0)
+  (is (equal '(:single 42) (test-pattern-dispatch 42)))
+  ;; Test: a string should match the :any pattern (P0)
+  (is (equal '(:single "hello") (test-pattern-dispatch "hello")))
+  ;; Cleanup
+  (fmakunbound 'test-pattern-dispatch)
+  (fmakunbound 'test-pattern-dispatch/p0)
+  (fmakunbound 'test-pattern-dispatch/p1)
+  (cl:remprop 'test-pattern-dispatch 'fol.fol-mop::multi-pattern-info))
+
+(test pattern-dispatch-specificity-order
+  "Test that more specific patterns (seq) are tried before less specific (:any)."
+  ;; The seq pattern should be tried first because it's more specific
+  (eval `(fol.fol-mop:defgeneric* test-specificity
+           (,(make-vector 'x)                           ; P0: any
+            ,(make-vector (make-vector 'a 'b 'c)))))    ; P1: expects triple
+  ;; Add methods directly to internal generics
+  (eval `(defmethod test-specificity/p0 (x)
+           :any))
+  (eval `(defmethod test-specificity/p1 (arg)
+           :triple))
+  ;; Vector with 3 elements should match triple pattern
+  (is (eq :triple (test-specificity (make-vector 1 2 3))))
+  ;; Vector with 2 elements should fall through to :any (not enough elements)
+  (is (eq :any (test-specificity (make-vector 1 2))))
+  ;; Non-sequence should match :any
+  (is (eq :any (test-specificity 42)))
+  ;; Cleanup
+  (fmakunbound 'test-specificity)
+  (fmakunbound 'test-specificity/p0)
+  (fmakunbound 'test-specificity/p1)
+  (cl:remprop 'test-specificity 'fol.fol-mop::multi-pattern-info))
+
+(test pattern-dispatch-with-fol-list
+  "Test pattern dispatch works with FOL lists."
+  (eval `(fol.fol-mop:defgeneric* test-list-pattern
+           (,(make-vector 'x)
+            ,(make-vector (make-vector 'a 'b)))))
+  ;; Methods on internal generics
+  (eval `(defmethod test-list-pattern/p0 (x)
+           :single))
+  (eval `(defmethod test-list-pattern/p1 (arg)
+           :pair))
+  ;; FOL list should match seq pattern
+  (is (eq :pair (test-list-pattern (make-list 1 2))))
+  ;; Atom should match :any
+  (is (eq :single (test-list-pattern 99)))
+  ;; Cleanup
+  (fmakunbound 'test-list-pattern)
+  (fmakunbound 'test-list-pattern/p0)
+  (fmakunbound 'test-list-pattern/p1)
+  (cl:remprop 'test-list-pattern 'fol.fol-mop::multi-pattern-info))
+
+;;; ============================================================================
 ;;; defclass* Macro Tests
 ;;; ============================================================================
 

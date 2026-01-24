@@ -126,22 +126,291 @@
 ;;; ============================================================================
 ;;; defgeneric*
 ;;; ============================================================================
+;;;
+;;; Grammar:
+;;;   defgeneric-form ::= (defgeneric function-name [gf-lambda-declaration | (gf-lambda-declaration+)] generic-option*)
+;;;   gf-lambda-declaration ::= gf-destructuring-vector method-option* method-description?
+;;;   generic-option ::= (:documentation <string>) | (:generic-function-class <class-name>)
+;;;   method-option ::= (:argument-precedence-order <parameter-name>+) | (declare gf-declaration+) |
+;;;                     (:method-combination <method-combination-type>) | (:method-class <class-name>)
+;;;   method-description ::= (:method method-qualifier* method-destructuring-vector method-option* form*)
 
-(defmacro defgeneric* (function-name lambda-list-vec &rest options)
+;;; ============================================================================
+;;; Pattern Analysis
+;;; ============================================================================
+;;; Analyze destructuring patterns to determine what structure an argument expects.
+
+(defun param-is-destructuring-p (param)
+  "Check if PARAM is a destructuring pattern (a vector that doesn't start with a symbol).
+   [a b] with symbol a is a type specialization: (a b) -> param a of type b
+   [[a b]] with vector [a b] is destructuring: expects a sequence"
+  (and (fol.collection:<vector>? param)
+       (let ((first-elem (fol.collection:first param)))
+         ;; If first element is a vector, it's destructuring
+         ;; If first element is a symbol and length is 2, it's type specialization
+         (or (fol.collection:<vector>? first-elem)
+             ;; Length > 2 means multiple elements to destructure
+             (> (fol.collection:size param) 2)
+             ;; Length = 1 means just binding a name
+             (and (= (fol.collection:size param) 1)
+                  (symbolp first-elem))))))
+
+(defun pattern-expects-seq-p (param &key (defgeneric-context t))
+  "Check if PARAM expects a sequential argument (destructuring pattern).
+   Returns nil for simple params, the minimum required size for seq patterns.
+
+   In defgeneric context (default), any vector is a destructuring pattern:
+     [a b] means 'expects sequence of 2 elements'
+
+   In defmethod context, [var type] is type specialization:
+     [a <integer>] means 'param a of type <integer>'"
+  (cond
+    ;; Simple symbol - matches any
+    ((symbolp param) nil)
+    ;; Vector - check if it's destructuring or type specialization
+    ((and (fol.collection:<vector>? param)
+          (> (fol.collection:size param) 0))
+     (let ((elems (vector-to-list param)))
+       (cond
+         ;; In defgeneric context, any vector is a destructuring pattern
+         (defgeneric-context (length elems))
+         ;; In defmethod context: [var type] is type specialization (not destructuring)
+         ;; Type specialization has exactly 2 elements, first is symbol, second is type
+         ((and (= (length elems) 2)
+               (symbolp (first elems))
+               (not (fol.collection:<vector>? (first elems)))
+               ;; Type names typically start with < or are standard class names
+               (or (symbolp (second elems))
+                   (and (listp (second elems))
+                        (eq (first (second elems)) 'eql))))
+          nil)
+         ;; Otherwise it's a destructuring pattern
+         (t (length elems)))))
+    (t nil)))
+
+(defun compute-pattern-signature (lambda-list)
+  "Compute a signature describing what each parameter expects.
+   Returns a list of (:any) or (:seq min-size) for each parameter."
+  (mapcar (lambda (param)
+            (let ((seq-size (pattern-expects-seq-p param)))
+              (if seq-size
+                  (list :seq seq-size)
+                  (list :any))))
+          lambda-list))
+
+(defun pattern-more-specific-p (sig1 sig2)
+  "Return T if SIG1 is more specific than SIG2.
+   :seq patterns are more specific than :any patterns."
+  (loop for s1 in sig1
+        for s2 in sig2
+        do (cond
+             ;; :seq is more specific than :any
+             ((and (eq (first s1) :seq) (eq (first s2) :any))
+              (return-from pattern-more-specific-p t))
+             ;; :any is less specific than :seq
+             ((and (eq (first s1) :any) (eq (first s2) :seq))
+              (return-from pattern-more-specific-p nil))
+             ;; Both :seq - larger min-size is more specific
+             ((and (eq (first s1) :seq) (eq (first s2) :seq))
+              (cond
+                ((> (second s1) (second s2))
+                 (return-from pattern-more-specific-p t))
+                ((< (second s1) (second s2))
+                 (return-from pattern-more-specific-p nil))))))
+  ;; Equal specificity
+  nil)
+
+(defun generate-pattern-check (signature arg-sym)
+  "Generate code to check if ARG-SYM matches SIGNATURE.
+   SIGNATURE is a single pattern spec like (:any) or (:seq 2)."
+  (case (first signature)
+    (:any t)
+    (:seq `(and (or (fol.collection:<vector>? ,arg-sym)
+                    (fol.collection:<list>? ,arg-sym)
+                    (listp ,arg-sym))
+                (>= (if (listp ,arg-sym)
+                        (length ,arg-sym)
+                        (fol.collection:size ,arg-sym))
+                    ,(second signature))))
+    (t t)))
+
+(defun generate-args-pattern-check (signatures args-sym)
+  "Generate code to check if ARGS-SYM matches all SIGNATURES."
+  (let ((checks
+          (loop for sig in signatures
+                for i from 0
+                for arg-access = `(nth ,i ,args-sym)
+                for check = (generate-pattern-check sig arg-access)
+                unless (eq check t)
+                  collect check)))
+    (if (null checks)
+        t
+        (if (= (length checks) 1)
+            (first checks)
+            `(and ,@checks)))))
+
+;;; ============================================================================
+;;; Lambda Declaration Parsing
+;;; ============================================================================
+
+(defun gf-lambda-declaration-p (form)
+  "Check if FORM is a gf-lambda-declaration (vector optionally followed by options)."
+  (fol.collection:<vector>? form))
+
+(defun multi-pattern-lambda-list-p (spec)
+  "Check if SPEC is a list of gf-lambda-declarations (multi-pattern specification)."
+  (and (listp spec)
+       (not (null spec))
+       (every #'gf-lambda-declaration-p spec)))
+
+(defun parse-gf-lambda-declaration (decl)
+  "Parse a gf-lambda-declaration.
+   Returns (values destructuring-vector method-options method-description).
+   For now, simplified: just returns the vector as the pattern."
+  (if (fol.collection:<vector>? decl)
+      (values decl nil nil)
+      (error "Invalid gf-lambda-declaration: ~S" decl)))
+
+(defun make-pattern-name (function-name pattern-index)
+  "Create an internal name for a pattern-specific generic function."
+  (intern (format nil "~A/P~A" function-name pattern-index)
+          (symbol-package function-name)))
+
+(defun generate-simple-lambda-list (arity)
+  "Generate a simple lambda list with ARG0, ARG1, etc. for a generic function."
+  (loop for i below arity
+        collect (intern (format nil "ARG~A" i))))
+
+(defun extract-simple-param-name (param)
+  "Extract a simple parameter name from a potentially destructuring parameter.
+   For symbol: returns the symbol
+   For [var type]: returns var (type specialization)
+   For [a b c ...]: returns a gensym (destructuring pattern)"
+  (cond
+    ((symbolp param) param)
+    ((fol.collection:<vector>? param)
+     (let ((elems (vector-to-list param)))
+       (if (and (= (length elems) 2)
+                (symbolp (first elems))
+                (not (fol.collection:<vector>? (first elems))))
+           ;; Type specialization [var type] -> var
+           (first elems)
+           ;; Destructuring pattern -> generate name
+           (gensym "DESTRUCT-ARG"))))
+    (t (gensym "ARG"))))
+
+(defmacro defgeneric* (function-name lambda-list-spec &rest options)
   "Define a generic function with FOL syntax.
-   Lambda list is specified as a vector: [arg1 arg2 ...]
+   Lambda list can be:
+   - A single vector: [arg1 arg2 ...] - defines single-pattern generic
+   - A list of vectors: ([a] [a b] [[x y]]) - defines multi-pattern generic with dispatcher
 
    Syntax:
-     (defgeneric* name [lambda-list] option*)
+     (defgeneric* name [lambda-list] generic-option*)
+     (defgeneric* name ([lambda-list-1] [lambda-list-2] ...) generic-option*)
 
-   Example:
+   For multi-pattern, creates:
+   - Internal generic functions named function-name/PN for each pattern N
+   - A dispatcher function with the original name that routes by arity and pattern match
+   - Patterns are checked most-specific first (destructuring patterns before :any)
+
+   Examples:
+     ;; Single pattern
      (defgeneric* distance [a b]
-       (:documentation \"Calculate distance between two objects.\"))"
-  (let ((lambda-list (if (fol.collection:<vector>? lambda-list-vec)
-                         (vector-to-list lambda-list-vec)
-                         lambda-list-vec)))
-    `(defgeneric ,function-name ,lambda-list
-       ,@options)))
+       (:documentation \"Calculate distance between two objects.\"))
+
+     ;; Multi-arity (different argument counts)
+     (defgeneric* foo ([x] [x y] [x y z])
+       (:documentation \"Function with 1, 2, or 3 arguments.\"))
+
+     ;; Multi-pattern with destructuring (same arity, different structure)
+     (defgeneric* process-input ([x] [[a b]])
+       (:documentation \"Process a single value or destructure a pair.\"))"
+  (cond
+    ;; Single pattern: a vector
+    ((fol.collection:<vector>? lambda-list-spec)
+     (let ((lambda-list (vector-to-list lambda-list-spec)))
+       `(defgeneric ,function-name ,lambda-list
+          ,@options)))
+    ;; Multiple patterns: a list of vectors
+    ((multi-pattern-lambda-list-p lambda-list-spec)
+     (let* (;; Parse each pattern with its index
+            (patterns (loop for vec in lambda-list-spec
+                            for idx from 0
+                            for ll = (vector-to-list vec)
+                            collect (list :index idx
+                                          :arity (length ll)
+                                          :lambda-list ll
+                                          :signature (compute-pattern-signature ll)
+                                          :internal-name (make-pattern-name function-name idx))))
+            ;; Sort patterns: first by arity, then by specificity (most specific first)
+            (sorted-patterns
+              (stable-sort (copy-list patterns)
+                           (lambda (p1 p2)
+                             (let ((a1 (getf p1 :arity))
+                                   (a2 (getf p2 :arity)))
+                               (cond
+                                 ((< a1 a2) t)
+                                 ((> a1 a2) nil)
+                                 ;; Same arity: more specific pattern first
+                                 (t (pattern-more-specific-p
+                                     (getf p1 :signature)
+                                     (getf p2 :signature))))))))
+            ;; Generate generic function definitions with simple parameter names
+            ;; (CLOS defgeneric doesn't support destructuring in lambda lists)
+            (generic-defs
+              (loop for p in patterns
+                    for internal-name = (getf p :internal-name)
+                    for arity = (getf p :arity)
+                    for simple-ll = (generate-simple-lambda-list arity)
+                    collect `(defgeneric ,internal-name ,simple-ll ,@options)))
+            ;; Group patterns by arity for dispatcher
+            (patterns-by-arity
+              (let ((ht (make-hash-table)))
+                (dolist (p sorted-patterns)
+                  (push p (gethash (getf p :arity) ht)))
+                (loop for arity being the hash-keys of ht
+                      using (hash-value ps)
+                      collect (cons arity (nreverse ps)))))
+            ;; Generate dispatcher cases
+            (dispatcher-cases
+              (loop for (arity . arity-patterns) in (sort patterns-by-arity #'< :key #'car)
+                    collect
+                    (if (= (length arity-patterns) 1)
+                        ;; Single pattern for this arity - direct dispatch
+                        (let ((p (first arity-patterns)))
+                          `(,arity (apply #',(getf p :internal-name) args)))
+                        ;; Multiple patterns for same arity - pattern matching
+                        (let ((cond-clauses
+                                (loop for p in arity-patterns
+                                      for sig = (getf p :signature)
+                                      for check = (generate-args-pattern-check sig 'args)
+                                      collect `(,check (apply #',(getf p :internal-name) args)))))
+                          `(,arity (cond
+                                     ,@cond-clauses
+                                     (t (error "No matching pattern for ~A with args ~S"
+                                               ',function-name args)))))))))
+       `(progn
+          ,@generic-defs
+          (defun ,function-name (&rest args)
+            (case (length args)
+              ,@dispatcher-cases
+              (t (error "No matching arity ~A for ~A (valid arities: ~{~A~^, ~})"
+                        (length args) ',function-name
+                        ',(sort (mapcar #'car patterns-by-arity) #'<)))))
+          ;; Store pattern info for defmethod* to use
+          (setf (get ',function-name 'multi-pattern-info)
+                ',(mapcar (lambda (p)
+                            (list :index (getf p :index)
+                                  :arity (getf p :arity)
+                                  :signature (getf p :signature)
+                                  :internal-name (getf p :internal-name)))
+                          patterns))
+          ',function-name)))
+    ;; Already a list (backwards compat for CL-style lambda lists)
+    (t
+     `(defgeneric ,function-name ,lambda-list-spec
+        ,@options))))
 
 ;;; ============================================================================
 ;;; defclass*
@@ -177,6 +446,57 @@
 ;;; defmethod*
 ;;; ============================================================================
 
+(defun method-signature-matches-pattern-p (method-sig pattern-sig)
+  "Check if a method signature is compatible with a pattern signature.
+   A method can be added to a pattern if:
+   - Same number of parameters
+   - Each method param is compatible with the pattern param
+   :any method param matches :any pattern
+   :seq method param matches :seq pattern (with same or larger size)"
+  (and (= (length method-sig) (length pattern-sig))
+       (every (lambda (m-sig p-sig)
+                (cond
+                  ;; Both :any - match
+                  ((and (eq (first m-sig) :any) (eq (first p-sig) :any)) t)
+                  ;; Both :seq - method size must be <= pattern size (method is more general)
+                  ((and (eq (first m-sig) :seq) (eq (first p-sig) :seq))
+                   (<= (second m-sig) (second p-sig)))
+                  ;; Method :any, pattern :seq - the method can handle the seq
+                  ((and (eq (first m-sig) :any) (eq (first p-sig) :seq)) t)
+                  ;; Method :seq, pattern :any - method is too specific
+                  ((and (eq (first m-sig) :seq) (eq (first p-sig) :any)) nil)
+                  (t nil)))
+              method-sig pattern-sig)))
+
+(defun find-matching-pattern (function-name lambda-list)
+  "Find the pattern that best matches LAMBDA-LIST for FUNCTION-NAME.
+   Returns the internal generic name or nil if no match."
+  (let ((pattern-info (get function-name 'multi-pattern-info)))
+    (when pattern-info
+      (let* ((arity (length lambda-list))
+             (method-sig (compute-pattern-signature lambda-list))
+             ;; Find patterns with matching arity
+             (matching-arities (remove-if-not
+                                (lambda (p) (= (getf p :arity) arity))
+                                pattern-info))
+             ;; Find best matching pattern
+             (best-match
+               (find-if (lambda (p)
+                          (method-signature-matches-pattern-p
+                           method-sig (getf p :signature)))
+                        matching-arities)))
+        (when best-match
+          (getf best-match :internal-name))))))
+
+(defun determine-method-target (function-name lambda-list)
+  "Determine which generic function a method should be added to.
+   For multi-pattern generics, returns the pattern-specific name (e.g., foo/P0).
+   For single-pattern generics, returns the original name."
+  (let ((pattern-match (find-matching-pattern function-name lambda-list)))
+    (if pattern-match
+        pattern-match
+        function-name)))
+
 (defmacro defmethod* (function-name &rest args)
   "Define a method with FOL syntax.
    Specialized lambda list is specified as a vector.
@@ -187,6 +507,9 @@
    Specialized parameters can be:
      - Simple: var
      - Specialized: [var class-name] or [var [eql form]]
+
+   For multi-arity generics (defined with a list of vectors), the method
+   is automatically routed to the correct arity-specific generic function.
 
    Example:
      (defmethod* distance [[a <point>] [b <point>]]
@@ -213,11 +536,12 @@
       (setf lambda-list-vec (pop remaining))
       (setf body remaining))
     ;; Convert lambda list
-    (let ((lambda-list (if (fol.collection:<vector>? lambda-list-vec)
-                           (mapcar #'convert-specialized-param
-                                   (vector-to-list lambda-list-vec))
-                           lambda-list-vec)))
-      `(defmethod ,function-name ,@qualifiers ,lambda-list
+    (let* ((lambda-list (if (fol.collection:<vector>? lambda-list-vec)
+                            (mapcar #'convert-specialized-param
+                                    (vector-to-list lambda-list-vec))
+                            lambda-list-vec))
+           (target-name (determine-method-target function-name lambda-list)))
+      `(defmethod ,target-name ,@qualifiers ,lambda-list
          ,@body))))
 
 ;;; ============================================================================
@@ -225,12 +549,86 @@
 ;;; ============================================================================
 ;;; These functions are called by the FOL evaluator to process the special forms.
 
-(defun eval-defgeneric* (name lambda-list-vec options)
-  "Evaluate a defgeneric* form at runtime."
-  (let ((lambda-list (if (fol.collection:<vector>? lambda-list-vec)
-                         (vector-to-list lambda-list-vec)
-                         lambda-list-vec)))
-    (eval `(defgeneric ,name ,lambda-list ,@options))))
+(defun eval-defgeneric* (name lambda-list-spec options)
+  "Evaluate a defgeneric* form at runtime.
+   Handles both single-pattern (vector) and multi-pattern (list of vectors)."
+  (cond
+    ;; Single pattern: a vector
+    ((fol.collection:<vector>? lambda-list-spec)
+     (let ((lambda-list (vector-to-list lambda-list-spec)))
+       (eval `(defgeneric ,name ,lambda-list ,@options))))
+    ;; Multiple patterns: a list of vectors
+    ((multi-pattern-lambda-list-p lambda-list-spec)
+     (let* (;; Parse each pattern with its index
+            (patterns (loop for vec in lambda-list-spec
+                            for idx from 0
+                            for ll = (vector-to-list vec)
+                            collect (list :index idx
+                                          :arity (length ll)
+                                          :lambda-list ll
+                                          :signature (compute-pattern-signature ll)
+                                          :internal-name (make-pattern-name name idx))))
+            ;; Sort patterns: first by arity, then by specificity (most specific first)
+            (sorted-patterns
+              (stable-sort (copy-list patterns)
+                           (lambda (p1 p2)
+                             (let ((a1 (getf p1 :arity))
+                                   (a2 (getf p2 :arity)))
+                               (cond
+                                 ((< a1 a2) t)
+                                 ((> a1 a2) nil)
+                                 (t (pattern-more-specific-p
+                                     (getf p1 :signature)
+                                     (getf p2 :signature)))))))))
+       ;; Define each pattern-specific generic with simple parameter names
+       ;; (CLOS defgeneric doesn't support destructuring in lambda lists)
+       (loop for p in patterns
+             for internal-name = (getf p :internal-name)
+             for arity = (getf p :arity)
+             for simple-ll = (generate-simple-lambda-list arity)
+             do (eval `(defgeneric ,internal-name ,simple-ll ,@options)))
+       ;; Group patterns by arity
+       (let* ((patterns-by-arity
+                (let ((ht (make-hash-table)))
+                  (dolist (p sorted-patterns)
+                    (push p (gethash (getf p :arity) ht)))
+                  (loop for arity being the hash-keys of ht
+                        using (hash-value ps)
+                        collect (cons arity (nreverse ps)))))
+              ;; Generate dispatcher cases
+              (dispatcher-cases
+                (loop for (arity . arity-patterns) in (sort patterns-by-arity #'< :key #'car)
+                      collect
+                      (if (= (length arity-patterns) 1)
+                          (let ((p (first arity-patterns)))
+                            `(,arity (apply #',(getf p :internal-name) args)))
+                          (let ((cond-clauses
+                                  (loop for p in arity-patterns
+                                        for sig = (getf p :signature)
+                                        for check = (generate-args-pattern-check sig 'args)
+                                        collect `(,check (apply #',(getf p :internal-name) args)))))
+                            `(,arity (cond
+                                       ,@cond-clauses
+                                       (t (error "No matching pattern for ~A with args ~S"
+                                                 ',name args)))))))))
+         (eval `(defun ,name (&rest args)
+                  (case (length args)
+                    ,@dispatcher-cases
+                    (t (error "No matching arity ~A for ~A (valid arities: ~{~A~^, ~})"
+                              (length args) ',name
+                              ',(sort (mapcar #'car patterns-by-arity) #'<)))))))
+       ;; Store pattern info
+       (setf (get name 'multi-pattern-info)
+             (mapcar (lambda (p)
+                       (list :index (getf p :index)
+                             :arity (getf p :arity)
+                             :signature (getf p :signature)
+                             :internal-name (getf p :internal-name)))
+                     patterns))
+       name))
+    ;; Already a list (backwards compat)
+    (t
+     (eval `(defgeneric ,name ,lambda-list-spec ,@options)))))
 
 (defun eval-defclass* (name superclasses-vec slots-vec class-options)
   "Evaluate a defclass* form at runtime."
@@ -243,9 +641,11 @@
     (eval `(defclass ,name ,superclasses ,slots ,@class-options))))
 
 (defun eval-defmethod* (name qualifiers lambda-list-vec body)
-  "Evaluate a defmethod* form at runtime."
-  (let ((lambda-list (if (fol.collection:<vector>? lambda-list-vec)
-                         (mapcar #'convert-specialized-param
-                                 (vector-to-list lambda-list-vec))
-                         lambda-list-vec)))
-    (eval `(defmethod ,name ,@qualifiers ,lambda-list ,@body))))
+  "Evaluate a defmethod* form at runtime.
+   For multi-arity generics, routes to the correct arity-specific generic."
+  (let* ((lambda-list (if (fol.collection:<vector>? lambda-list-vec)
+                          (mapcar #'convert-specialized-param
+                                  (vector-to-list lambda-list-vec))
+                          lambda-list-vec))
+         (target-name (determine-method-target name lambda-list)))
+    (eval `(defmethod ,target-name ,@qualifiers ,lambda-list ,@body))))

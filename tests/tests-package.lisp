@@ -160,7 +160,9 @@
                 ;; Higher-order function combinators
                 :disjoin :conjoin :partial :rpartial :juxt
                 ;; Higher-order collection operations
-                :filter)
+                :filter
+                ;; Lazy sequence generator
+                :range)
   ;; Import symbols from fol.stream
   (:shadowing-import-from :fol.stream
                           :open :close

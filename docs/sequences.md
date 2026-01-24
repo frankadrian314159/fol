@@ -142,6 +142,59 @@ Works with any collection that supports `seq`: vectors, lists, dicts, sets, bags
 
 ---
 
+## range
+
+```
+(range)
+(range end)
+(range start end)
+(range start end step)
+```
+
+Returns a lazy sequence of numbers.
+
+- `(range)` - infinite sequence starting from 0: 0, 1, 2, 3, ...
+- `(range end)` - sequence from 0 to end-1
+- `(range start end)` - sequence from start to end-1
+- `(range start end step)` - sequence from start, incrementing by step, while in bounds
+
+Returns an empty sequence when the range is invalid (e.g., start >= end with positive step).
+
+### Examples
+
+```fol
+;; Basic range
+(range 5)                         ; => lazy-seq: 0, 1, 2, 3, 4
+
+;; With start and end
+(range 2 5)                       ; => lazy-seq: 2, 3, 4
+
+;; Even numbers
+(range 0 10 2)                    ; => lazy-seq: 0, 2, 4, 6, 8
+
+;; Counting down
+(range 5 0 -1)                    ; => lazy-seq: 5, 4, 3, 2, 1
+
+;; Infinite sequence (use with care!)
+(range)                           ; => lazy-seq: 0, 1, 2, 3, ...
+
+;; Empty ranges
+(range 0)                         ; => empty lazy-seq
+(range 5 5)                       ; => empty lazy-seq
+(range 5 2)                       ; => empty lazy-seq (start > end)
+
+;; With reduce - sum 0 to 9
+(reduce + 0 (range 10))           ; => 45
+
+;; With map - square numbers
+(map (fn [x] (* x x)) (range 5))  ; => (0 1 4 9 16)
+
+;; With filter - even numbers from range
+(filter even? (range 10))         ; => (0 2 4 6 8)
+```
+
+---
+
 ## Composition
 
 These functions compose naturally for data processing pipelines.
@@ -167,5 +220,6 @@ These functions are implemented using `seq` to provide a uniform view of any col
 
 - `reduce` iterates through the seq using `first` and `rest`
 - `map` and `filter` are built on top of `reduce`, collecting results
+- `range` returns a lazy sequence that generates values on demand
 - All functions work with any type that implements the `seq` protocol
 - Results from `map` and `filter` are always returned as FOL lists

@@ -1331,6 +1331,115 @@
       (is (cl:= 10 (first (rest (rest result)))))))) ; 5 * 2
 
 ;;; ---------------------------------------------------------------------------
+;;; range (lazy sequence generator)
+;;; ---------------------------------------------------------------------------
+
+(test range-single-arg
+  "Test (range end) returns lazy sequence 0 to end-1."
+  (let ((env (make-standard-env)))
+    ;; (range 5) => 0, 1, 2, 3, 4
+    (let ((result (fol-eval (fol-form "(range 5)") env)))
+      (is-true (<lazy-seq>? result))
+      (is (cl:= 0 (first result)))
+      (is (cl:= 1 (first (rest result))))
+      (is (cl:= 2 (first (rest (rest result)))))
+      (is (cl:= 3 (first (rest (rest (rest result))))))
+      (is (cl:= 4 (first (rest (rest (rest (rest result))))))))))
+
+(test range-two-args
+  "Test (range start end) returns lazy sequence start to end-1."
+  (let ((env (make-standard-env)))
+    ;; (range 2 5) => 2, 3, 4
+    (let ((result (fol-eval (fol-form "(range 2 5)") env)))
+      (is-true (<lazy-seq>? result))
+      (is (cl:= 2 (first result)))
+      (is (cl:= 3 (first (rest result))))
+      (is (cl:= 4 (first (rest (rest result))))))))
+
+(test range-three-args-positive-step
+  "Test (range start end step) with positive step."
+  (let ((env (make-standard-env)))
+    ;; (range 0 10 2) => 0, 2, 4, 6, 8
+    (let ((result (fol-eval (fol-form "(range 0 10 2)") env)))
+      (is-true (<lazy-seq>? result))
+      (is (cl:= 0 (first result)))
+      (is (cl:= 2 (first (rest result))))
+      (is (cl:= 4 (first (rest (rest result)))))
+      (is (cl:= 6 (first (rest (rest (rest result))))))
+      (is (cl:= 8 (first (rest (rest (rest (rest result))))))))))
+
+(test range-three-args-negative-step
+  "Test (range start end step) with negative step."
+  (let ((env (make-standard-env)))
+    ;; (range 5 0 -1) => 5, 4, 3, 2, 1
+    (let ((result (fol-eval (fol-form "(range 5 0 -1)") env)))
+      (is-true (<lazy-seq>? result))
+      (is (cl:= 5 (first result)))
+      (is (cl:= 4 (first (rest result))))
+      (is (cl:= 3 (first (rest (rest result)))))
+      (is (cl:= 2 (first (rest (rest (rest result))))))
+      (is (cl:= 1 (first (rest (rest (rest (rest result))))))))))
+
+(test range-empty-cases
+  "Test range returns empty sequence for invalid ranges."
+  (let ((env (make-standard-env)))
+    ;; (range 0) => empty
+    (let ((result (fol-eval (fol-form "(range 0)") env)))
+      (is-true (<lazy-seq>? result))
+      (is-true (empty? result)))
+    ;; (range -5) => empty
+    (let ((result (fol-eval (fol-form "(range -5)") env)))
+      (is-true (empty? result)))
+    ;; (range 5 5) => empty (start equals end)
+    (let ((result (fol-eval (fol-form "(range 5 5)") env)))
+      (is-true (empty? result)))
+    ;; (range 5 2) => empty (start > end with default positive step)
+    (let ((result (fol-eval (fol-form "(range 5 2)") env)))
+      (is-true (empty? result)))
+    ;; (range 2 5 -1) => empty (positive range with negative step)
+    (let ((result (fol-eval (fol-form "(range 2 5 -1)") env)))
+      (is-true (empty? result)))))
+
+(test range-infinite
+  "Test (range) returns infinite lazy sequence."
+  (let ((env (make-standard-env)))
+    ;; (range) => 0, 1, 2, 3, ...
+    (let ((result (fol-eval (fol-form "(range)") env)))
+      (is-true (<lazy-seq>? result))
+      (is (cl:= 0 (first result)))
+      (is (cl:= 1 (first (rest result))))
+      (is (cl:= 2 (first (rest (rest result)))))
+      ;; Can keep taking more elements
+      (is (cl:= 3 (first (rest (rest (rest result)))))))))
+
+(test range-with-reduce
+  "Test using reduce with range."
+  (let ((env (make-standard-env)))
+    ;; Sum 0 to 9
+    (let ((result (fol-eval (fol-form "(reduce + 0 (range 10))") env)))
+      (is (cl:= 45 result)))))  ; 0+1+2+3+4+5+6+7+8+9 = 45
+
+(test range-with-map
+  "Test using map with range."
+  (let ((env (make-standard-env)))
+    ;; Square each number from 0 to 4
+    (let ((result (fol-eval (fol-form "(map (fn [x] (* x x)) (range 5))") env)))
+      (is (cl:= 5 (size result)))
+      (is (cl:= 0 (first result)))           ; 0*0
+      (is (cl:= 1 (first (rest result))))    ; 1*1
+      (is (cl:= 4 (first (rest (rest result)))))))) ; 2*2
+
+(test range-with-filter
+  "Test using filter with range."
+  (let ((env (make-standard-env)))
+    ;; Filter even numbers from 0 to 9
+    (let ((result (fol-eval (fol-form "(filter even? (range 10))") env)))
+      (is (cl:= 5 (size result)))  ; 0, 2, 4, 6, 8
+      (is (cl:= 0 (first result)))
+      (is (cl:= 2 (first (rest result))))
+      (is (cl:= 4 (first (rest (rest result))))))))
+
+;;; ---------------------------------------------------------------------------
 ;;; Macros (defmacro)
 ;;; ---------------------------------------------------------------------------
 

@@ -261,6 +261,59 @@
                                                    (setf current (fol.collection:rest current)))
                                           acc))))
                                 (apply #'fol.collection:make-list (cl:nreverse result))))))
+            ;; Lazy sequence generators
+            'range #'(lambda (&rest args)
+                       "Return a lazy sequence of numbers.
+                        (range) - infinite sequence 0, 1, 2, ...
+                        (range end) - 0, 1, ..., end-1
+                        (range start end) - start, start+1, ..., end-1
+                        (range start end step) - start, start+step, ... while in bounds"
+                       (cl:labels ((make-range-seq (current end step)
+                                     ;; Helper to create the lazy sequence
+                                     (fol.collection:make-lazy-seq
+                                      (lambda ()
+                                        (cond
+                                          ;; Infinite range (no end)
+                                          ((null end)
+                                           (cl:cons current (make-range-seq (cl:+ current step) nil step)))
+                                          ;; Positive step: continue while current < end
+                                          ((and (cl:> step 0) (cl:< current end))
+                                           (cl:cons current (make-range-seq (cl:+ current step) end step)))
+                                          ;; Negative step: continue while current > end
+                                          ((and (cl:< step 0) (cl:> current end))
+                                           (cl:cons current (make-range-seq (cl:+ current step) end step)))
+                                          ;; Zero step is invalid, but if we get here just stop
+                                          ;; Done - return nil for empty
+                                          (t nil))))))
+                         (case (cl:length args)
+                           ;; (range) - infinite from 0
+                           (0 (make-range-seq 0 nil 1))
+                           ;; (range end) - 0 to end-1
+                           (1 (let ((end (cl:first args)))
+                                (if (cl:<= end 0)
+                                    (fol.collection:make-lazy-seq (lambda () nil))
+                                    (make-range-seq 0 end 1))))
+                           ;; (range start end) - start to end-1
+                           (2 (let ((start (cl:first args))
+                                    (end (cl:second args)))
+                                (if (cl:>= start end)
+                                    (fol.collection:make-lazy-seq (lambda () nil))
+                                    (make-range-seq start end 1))))
+                           ;; (range start end step) - start, start+step, ...
+                           (3 (let ((start (cl:first args))
+                                    (end (cl:second args))
+                                    (step (cl:third args)))
+                                (cond
+                                  ((cl:zerop step)
+                                   (error "range step cannot be zero"))
+                                  ;; Positive step but start >= end: empty
+                                  ((and (cl:> step 0) (cl:>= start end))
+                                   (fol.collection:make-lazy-seq (lambda () nil)))
+                                  ;; Negative step but start <= end: empty
+                                  ((and (cl:< step 0) (cl:<= start end))
+                                   (fol.collection:make-lazy-seq (lambda () nil)))
+                                  (t (make-range-seq start end step)))))
+                           (otherwise (error "range takes 0 to 3 arguments")))))
             ;; Standard macros
             'when (make-when-macro)
             'unless (make-unless-macro)))

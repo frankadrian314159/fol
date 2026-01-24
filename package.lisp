@@ -381,7 +381,9 @@
    ;; Higher-order function combinators (for use in standard env)
    disjoin conjoin partial rpartial juxt
    ;; Higher-order collection operations
-   filter))
+   filter
+   ;; Lazy sequence generator
+   range))
 
 (defpackage fol.repl
   (:use cl)
