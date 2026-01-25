@@ -426,3 +426,496 @@ Defines a macro. Macros receive unevaluated forms and return a new form to evalu
 (with-point [3 4]
   (+ x y))                ; => 7
 ```
+
+---
+
+## quote
+
+```
+(quote form)
+'form
+```
+
+Returns the form unevaluated. The reader macro `'` is shorthand for `quote`.
+
+### Examples
+
+```fol
+(quote (+ 1 2))           ; => (+ 1 2) - the list, not 3
+'(+ 1 2)                  ; => (+ 1 2) - same as above
+
+(quote x)                 ; => x - the symbol
+'x                        ; => x
+
+'[1 2 3]                  ; => [1 2 3] - quoted vector
+'{:a 1 :b 2}              ; => {:a 1 :b 2} - quoted map
+```
+
+---
+
+## syntax-quote
+
+```
+`form
+(syntax-quote form)
+```
+
+Quasiquote syntax for building code templates. Unlike `quote`, allows selective evaluation
+using `~` (unquote) and `~@` (unquote-splicing). Also supports auto-gensym with `#` suffix.
+
+### Unquote (~)
+
+Evaluates the form and inserts the result:
+
+```fol
+(def x 42)
+`(a ~x c)                 ; => (a 42 c)
+
+(def name 'foo)
+`(def ~name 10)           ; => (def foo 10)
+```
+
+### Unquote-splicing (~@)
+
+Evaluates the form (must return a sequence) and splices elements into the list:
+
+```fol
+(def xs [1 2 3])
+`(a ~@xs b)               ; => (a 1 2 3 b)
+
+(def args ['x 'y])
+`(fn ~args body)          ; => (fn [x y] body)
+```
+
+### Auto-gensym (#)
+
+Symbols ending with `#` generate unique symbols, consistent within the same syntax-quote:
+
+```fol
+`(bind [x# 1] x#)         ; => (bind [G123 1] G123) - same gensym for both x#
+
+;; Useful for hygienic macros
+(defmacro with-temp [& body]
+  `(bind [temp# (create-temp)]
+     (try
+       ~@body
+       (finally (cleanup temp#)))))
+```
+
+### Complete Example
+
+```fol
+;; Macro using all features
+(defmacro when-let [[var expr] & body]
+  `(bind [result# ~expr]
+     (when result#
+       (bind [~var result#]
+         ~@body))))
+
+(when-let [x (get-value)]
+  (print x)
+  (* x 2))
+```
+
+---
+
+## loop
+
+```
+(loop [bindings] body*)
+```
+
+Establishes a recursion point with initial bindings. Use `recur` to jump back
+to the loop with new values. This is FOL's primary iteration construct.
+
+### Examples
+
+```fol
+;; Simple countdown
+(loop [n 5]
+  (if (= n 0)
+      "done"
+      (do
+        (print n)
+        (recur (- n 1)))))    ; prints 5, 4, 3, 2, 1, returns "done"
+
+;; Sum numbers from 1 to n
+(loop [i 1
+       sum 0]
+  (if (> i 10)
+      sum
+      (recur (+ i 1) (+ sum i))))  ; => 55
+
+;; Factorial using loop
+(defn factorial [n]
+  (loop [i n
+         acc 1]
+    (if (<= i 1)
+        acc
+        (recur (- i 1) (* acc i)))))
+
+(factorial 5)             ; => 120
+
+;; Process a list
+(loop [items [1 2 3 4 5]
+       result []]
+  (if (empty? items)
+      result
+      (recur (rest items)
+             (conj result (* (first items) 2)))))
+; => [2 4 6 8 10]
+```
+
+---
+
+## recur
+
+```
+(recur arg*)
+```
+
+Jumps back to the enclosing `loop` with new values for the bindings.
+The number of arguments must match the number of loop bindings.
+
+`recur` must be in tail position (the last expression evaluated).
+
+### Examples
+
+```fol
+;; recur with multiple bindings
+(loop [a 0
+       b 1
+       n 10]
+  (if (= n 0)
+      a
+      (recur b (+ a b) (- n 1))))  ; => 55 (10th Fibonacci number)
+
+;; Building a result
+(loop [nums [1 2 3 4 5]
+       evens []]
+  (if (empty? nums)
+      evens
+      (let [x (first nums)]
+        (recur (rest nums)
+               (if (even? x)
+                   (conj evens x)
+                   evens)))))
+; => [2 4]
+```
+
+---
+
+## throw
+
+```
+(throw value)
+```
+
+Throws an exception with the given value. The value is typically a string
+describing the error. Use `try`/`catch` to handle thrown exceptions.
+
+### Examples
+
+```fol
+(throw "Something went wrong")
+
+(defn divide [a b]
+  (if (= b 0)
+      (throw "Division by zero")
+      (/ a b)))
+
+(defn validate [x]
+  (when (< x 0)
+    (throw (str "Invalid value: " x))))
+```
+
+---
+
+## try
+
+```
+(try
+  body*
+  (catch var body*)
+  (finally body*)?)
+```
+
+Exception handling construct. Evaluates body forms, catching any exceptions.
+If an exception occurs and a `catch` clause is present, binds the exception
+message to `var` and evaluates the catch body. The `finally` clause (optional)
+is always executed, whether or not an exception occurred.
+
+### Examples
+
+```fol
+;; Basic try/catch
+(try
+  (risky-operation)
+  (catch e
+    (print (str "Error: " e))
+    :error))
+
+;; With finally
+(try
+  (def file (open-file "data.txt"))
+  (process file)
+  (catch e
+    (log-error e)
+    nil)
+  (finally
+    (close file)))
+
+;; Catching thrown exceptions
+(try
+  (when (invalid? input)
+    (throw "Invalid input"))
+  (process input)
+  (catch msg
+    (str "Failed: " msg)))
+
+;; Nested try blocks
+(try
+  (try
+    (dangerous-op)
+    (catch e
+      (throw (str "Inner error: " e))))
+  (catch e
+    (str "Outer caught: " e)))
+```
+
+---
+
+## make-dynamic
+
+```
+(make-dynamic name)
+(make-dynamic name initial-value)
+```
+
+Creates a dynamic variable with the given name and optional initial value.
+Dynamic variables provide thread-local-like rebinding via `binding`.
+The name is not evaluated (like `def`).
+
+### Examples
+
+```fol
+;; Create dynamic variables
+(def *debug* (make-dynamic *debug* false))
+(def *output* (make-dynamic *output* nil))
+(def *indent* (make-dynamic *indent* 0))
+
+;; Access the value (auto-dereferenced)
+*debug*                   ; => false
+```
+
+---
+
+## binding
+
+```
+(binding [bindings] body*)
+```
+
+Temporarily rebinds dynamic variables for the duration of body evaluation.
+Bindings are pairs: `[dvar1 val1 dvar2 val2 ...]`.
+Original values are restored after body executes (even if an error occurs).
+
+### Examples
+
+```fol
+(def *debug* (make-dynamic *debug* false))
+
+;; Temporarily enable debugging
+(binding [*debug* true]
+  (when *debug*
+    (print "Debug mode enabled"))
+  (do-something))
+
+*debug*                   ; => false (restored)
+
+;; Multiple bindings
+(def *indent* (make-dynamic *indent* 0))
+(def *prefix* (make-dynamic *prefix* ""))
+
+(defn log [msg]
+  (print (str *prefix* (repeat-str " " *indent*) msg)))
+
+(binding [*indent* 2
+          *prefix* "[INFO] "]
+  (log "Starting process")
+  (binding [*indent* 4]
+    (log "Nested operation"))
+  (log "Done"))
+
+;; Output:
+;; [INFO]   Starting process
+;; [INFO]     Nested operation
+;; [INFO]   Done
+
+;; Dynamic scope flows through function calls
+(defn inner []
+  (print *debug*))
+
+(defn outer []
+  (binding [*debug* true]
+    (inner)))             ; prints true
+
+(outer)
+```
+
+---
+
+## lazy-seq
+
+```
+(lazy-seq body)
+```
+
+Creates a lazy sequence that delays evaluation of body until realized.
+The body should return either:
+- A cons pair `(cons head tail)` where tail is another seq or nil
+- `nil` for end of sequence
+
+Lazy sequences enable infinite sequences and avoid computing elements
+until they're needed.
+
+### Examples
+
+```fol
+;; Infinite sequence of integers starting from n
+(defn integers [n]
+  (lazy-seq (cons n (integers (+ n 1)))))
+
+(first (integers 0))      ; => 0
+(first (rest (integers 0))) ; => 1
+
+;; Take first n elements
+(defn take [n s]
+  (if (or (= n 0) (empty? s))
+      ()
+      (cons (first s) (take (- n 1) (rest s)))))
+
+(take 5 (integers 0))     ; => (0 1 2 3 4)
+
+;; Infinite Fibonacci sequence
+(defn fibs []
+  (defn fib-seq [a b]
+    (lazy-seq (cons a (fib-seq b (+ a b)))))
+  (fib-seq 0 1))
+
+(take 10 (fibs))          ; => (0 1 1 2 3 5 8 13 21 34)
+
+;; Lazy filter
+(defn lazy-filter [pred s]
+  (lazy-seq
+    (when-let [x (first s)]
+      (if (pred x)
+          (cons x (lazy-filter pred (rest s)))
+          (lazy-filter pred (rest s))))))
+
+;; Only computes what's needed
+(take 5 (lazy-filter even? (integers 0)))
+; => (0 2 4 6 8)
+```
+
+---
+
+## -> (thread-first)
+
+```
+(-> x form*)
+```
+
+Threads value `x` through each form as the **first** argument.
+For each form, `x` becomes the first argument (after the function).
+If a form is a bare symbol, it's called as a function with `x` as the only argument.
+
+### Examples
+
+```fol
+;; Basic threading
+(-> 5
+    (+ 3)
+    (* 2))
+; Expands to: (* (+ 5 3) 2)
+; => 16
+
+;; With bare symbols
+(-> "hello"
+    upper-case
+    reverse)
+; Expands to: (reverse (upper-case "hello"))
+; => "OLLEH"
+
+;; Collection operations
+(-> {:a 1 :b 2 :c 3}
+    (assoc :d 4)
+    (dissoc :a)
+    keys)
+; => (:b :c :d)
+
+;; Nested data access
+(-> person
+    :address
+    :city
+    upper-case)
+
+;; No forms returns value unchanged
+(-> 42)                   ; => 42
+```
+
+---
+
+## ->> (thread-last)
+
+```
+(->> x form*)
+```
+
+Threads value `x` through each form as the **last** argument.
+For each form, `x` becomes the last argument.
+If a form is a bare symbol, it's called as a function with `x` as the only argument.
+
+### Examples
+
+```fol
+;; Basic threading
+(->> 5
+     (+ 3)
+     (* 2))
+; Expands to: (* 2 (+ 3 5))
+; => 16
+
+;; Collection processing pipeline
+(->> [1 2 3 4 5]
+     (filter odd?)
+     (map (fn [x] (* x x)))
+     (reduce +))
+; => 35 (1 + 9 + 25)
+
+;; String processing
+(->> ["a" "b" "c"]
+     (map upper-case)
+     (interpose "-")
+     (reduce str))
+; => "A-B-C"
+
+;; With range
+(->> (range 10)
+     (filter even?)
+     (map (fn [x] (* x 2)))
+     (take 3))
+; => (0 4 8)
+```
+
+### Choosing Between -> and ->>
+
+Use `->` when working with:
+- Objects/records (first arg is usually the object)
+- Nested data access
+- Builder patterns
+
+Use `->>` when working with:
+- Collections (last arg is usually the collection)
+- Sequence pipelines
+- Functional transformations
