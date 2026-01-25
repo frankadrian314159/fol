@@ -1236,7 +1236,7 @@
   "Test map applies function to each element."
   (let ((env (make-standard-env)))
     (let ((result (fol-eval (fol-form "(map (fn [x] (* x 2)) [1 2 3])") env)))
-      (is (<list>? result))
+      (is (<lazy-seq>? result))
       (is (cl:= 3 (size result)))
       (is (cl:= 2 (first result)))
       (is (cl:= 4 (first (rest result))))
@@ -1252,10 +1252,10 @@
       (is (cl:= 3 (first (rest (rest result))))))))
 
 (test map-empty
-  "Test map on empty collection returns empty list."
+  "Test map on empty collection returns empty lazy-seq."
   (let ((env (make-standard-env)))
     (let ((result (fol-eval (fol-form "(map identity [])") env)))
-      (is (<list>? result))
+      (is (<lazy-seq>? result))
       (is (empty? result)))))
 
 (test map-on-list
@@ -1269,9 +1269,9 @@
 (test map-on-string
   "Test map on a string."
   (let ((env (make-standard-env)))
-    ;; Map over characters, returning a list
+    ;; Map over characters, returning a lazy-seq
     (let ((result (fol-eval (fol-form "(map identity \"abc\")") env)))
-      (is (<list>? result))
+      (is (<lazy-seq>? result))
       (is (cl:= 3 (size result)))
       (is (cl:char= #\a (first result))))))
 
@@ -1279,7 +1279,7 @@
   "Test filter keeps elements matching predicate."
   (let ((env (make-standard-env)))
     (let ((result (fol-eval (fol-form "(filter odd? [1 2 3 4 5])") env)))
-      (is (<list>? result))
+      (is (<lazy-seq>? result))
       (is (cl:= 3 (size result)))
       (is (cl:= 1 (first result)))
       (is (cl:= 3 (first (rest result))))
@@ -1289,7 +1289,7 @@
   "Test filter when no elements match."
   (let ((env (make-standard-env)))
     (let ((result (fol-eval (fol-form "(filter negative? [1 2 3])") env)))
-      (is (<list>? result))
+      (is (<lazy-seq>? result))
       (is (empty? result)))))
 
 (test filter-all-match
@@ -1302,7 +1302,7 @@
   "Test filter on empty collection."
   (let ((env (make-standard-env)))
     (let ((result (fol-eval (fol-form "(filter identity [])") env)))
-      (is (<list>? result))
+      (is (<lazy-seq>? result))
       (is (empty? result)))))
 
 (test filter-with-fol-function

@@ -198,23 +198,34 @@
             ;; Higher-order collection operations
             'reduce #'(lambda (f &rest args)
                         "Reduce a collection using function f.
-                         (reduce f coll) - uses first element as initial value
-                         (reduce f init coll) - uses init as initial value
-                         f is called as (f accumulator element) for each element."
+                         (reduce f) - returns a transducer that applies (f elem) to each element
+                         (reduce f coll) - uses first element as initial value, f is (f acc elem)
+                         (reduce f init coll) - uses init as initial value, f is (f acc elem)"
                         (cond
-                          ;; (reduce f coll) - no initial value
+                          ;; (reduce f) - return a transducer
+                          ;; The transducer applies f (as unary) to each element before passing to rf.
+                          ;; This is equivalent to (map f) as a transducer.
+                          ((= (cl:length args) 0)
+                           ;; Return a CL closure that acts as a transducer.
+                           ;; apply-function handles CL functions via the generic dispatch.
+                           #'(lambda (rf)
+                               #'(lambda (result input)
+                                   (apply-function rf
+                                                   (cl:list result
+                                                            (apply-function f (cl:list input)))))))
+                          ;; (reduce f coll) - no initial value, f is binary (acc, elem) -> acc
                           ((= (cl:length args) 1)
                            (let* ((coll (cl:first args))
                                   (s (fol.collection:seq coll)))
-                             (if (null s)
+                             (if (or (null s) (fol.collection:empty? s))
                                  (apply-function f nil)  ; call f with no args for empty coll
                                  (let ((acc (fol.collection:first s))
                                        (s (fol.collection:rest s)))
-                                   (loop until (fol.collection:empty? s)
+                                   (loop until (or (null s) (fol.collection:empty? s))
                                          do (setf acc (apply-function f (cl:list acc (fol.collection:first s))))
                                             (setf s (fol.collection:rest s)))
                                    acc))))
-                          ;; (reduce f init coll) - with initial value
+                          ;; (reduce f init coll) - with initial value, f is binary (acc, elem) -> acc
                           ((= (cl:length args) 2)
                            (let* ((init (cl:first args))
                                   (coll (cl:second args))
@@ -224,43 +235,222 @@
                                    do (setf acc (apply-function f (cl:list acc (fol.collection:first s))))
                                       (setf s (fol.collection:rest s)))
                              acc))
-                          (t (error "reduce requires 2 or 3 arguments"))))
-            'map #'(lambda (f coll)
-                     "Apply f to each element of coll, returning a list of results.
-                      Implemented using reduce."
-                     (let ((s (fol.collection:seq coll)))
-                       (if (null s)
-                           (fol.collection:make-list)  ; empty list
-                           ;; Reduce to build result in reverse, then reverse
-                           (let ((result
-                                   (cl:labels ((reduce-fn (acc elem)
-                                                 (cl:cons (apply-function f (cl:list elem)) acc)))
-                                     (let ((acc nil)
-                                           (current s))
-                                       (loop until (or (null current) (fol.collection:empty? current))
-                                             do (setf acc (reduce-fn acc (fol.collection:first current)))
-                                                (setf current (fol.collection:rest current)))
-                                       acc))))
-                             (apply #'fol.collection:make-list (cl:nreverse result))))))
-            'filter #'(lambda (pred coll)
-                        "Return a list of elements from coll for which pred returns truthy.
-                         Implemented using reduce."
-                        (let ((s (fol.collection:seq coll)))
-                          (if (null s)
-                              (fol.collection:make-list)  ; empty list
-                              ;; Reduce to build result in reverse, then reverse
-                              (let ((result
-                                      (cl:labels ((reduce-fn (acc elem)
-                                                    (if (apply-function pred (cl:list elem))
-                                                        (cl:cons elem acc)
-                                                        acc)))
-                                        (let ((acc nil)
-                                              (current s))
-                                          (loop until (or (null current) (fol.collection:empty? current))
-                                                do (setf acc (reduce-fn acc (fol.collection:first current)))
-                                                   (setf current (fol.collection:rest current)))
-                                          acc))))
-                                (apply #'fol.collection:make-list (cl:nreverse result))))))
+                          (t (error "reduce requires 1, 2, or 3 arguments"))))
+            'map #'(lambda (f &rest args)
+                     "Apply f to each element of coll.
+                      (map f) - returns a transducer
+                      (map f coll) - returns a lazy-seq of (f elem) for each elem in coll"
+                     (cond
+                       ;; (map f) - return a transducer
+                       ((= (cl:length args) 0)
+                        #'(lambda (rf)
+                            #'(lambda (result input)
+                                (funcall rf result (apply-function f (cl:list input))))))
+                       ;; (map f coll) - return lazy-seq
+                       ((= (cl:length args) 1)
+                        (let ((coll (cl:first args)))
+                          (cl:labels ((map-seq (s)
+                                        (fol.collection:make-lazy-seq
+                                         (lambda ()
+                                           (if (or (null s) (fol.collection:empty? s))
+                                               nil
+                                               (cl:cons (apply-function f (cl:list (fol.collection:first s)))
+                                                        (map-seq (fol.collection:rest s))))))))
+                            (map-seq (fol.collection:seq coll)))))
+                       (t (error "map requires 1 or 2 arguments"))))
+            'filter #'(lambda (pred &rest args)
+                        "Return elements from coll for which pred returns truthy.
+                         (filter pred) - returns a transducer
+                         (filter pred coll) - returns a lazy-seq of elements where (pred elem) is truthy"
+                        (cond
+                          ;; (filter pred) - return a transducer
+                          ((= (cl:length args) 0)
+                           #'(lambda (rf)
+                               #'(lambda (result input)
+                                   (if (apply-function pred (cl:list input))
+                                       (funcall rf result input)
+                                       result))))
+                          ;; (filter pred coll) - return lazy-seq
+                          ((= (cl:length args) 1)
+                           (let ((coll (cl:first args)))
+                             (cl:labels ((filter-seq (s)
+                                           (fol.collection:make-lazy-seq
+                                            (lambda ()
+                                              (cl:labels ((find-next (current)
+                                                            (cond
+                                                              ((or (null current) (fol.collection:empty? current))
+                                                               nil)
+                                                              ((apply-function pred (cl:list (fol.collection:first current)))
+                                                               (cl:cons (fol.collection:first current)
+                                                                        (filter-seq (fol.collection:rest current))))
+                                                              (t (find-next (fol.collection:rest current))))))
+                                                (find-next s))))))
+                               (filter-seq (fol.collection:seq coll)))))
+                          (t (error "filter requires 1 or 2 arguments"))))
+            'remove #'(lambda (pred &rest args)
+                        "Return elements from coll for which pred returns falsy.
+                         (remove pred) - returns a transducer
+                         (remove pred coll) - returns a lazy-seq of elements where (pred elem) is falsy"
+                        (cond
+                          ;; (remove pred) - return a transducer
+                          ((= (cl:length args) 0)
+                           #'(lambda (rf)
+                               #'(lambda (result input)
+                                   (if (apply-function pred (cl:list input))
+                                       result
+                                       (funcall rf result input)))))
+                          ;; (remove pred coll) - return lazy-seq
+                          ((= (cl:length args) 1)
+                           (let ((coll (cl:first args)))
+                             (cl:labels ((remove-seq (s)
+                                           (fol.collection:make-lazy-seq
+                                            (lambda ()
+                                              (cl:labels ((find-next (current)
+                                                            (cond
+                                                              ((or (null current) (fol.collection:empty? current))
+                                                               nil)
+                                                              ((not (apply-function pred (cl:list (fol.collection:first current))))
+                                                               (cl:cons (fol.collection:first current)
+                                                                        (remove-seq (fol.collection:rest current))))
+                                                              (t (find-next (fol.collection:rest current))))))
+                                                (find-next s))))))
+                               (remove-seq (fol.collection:seq coll)))))
+                          (t (error "remove requires 1 or 2 arguments"))))
+            'keep #'(lambda (f &rest args)
+                      "Apply f to each element, keeping non-nil results.
+                       (keep f) - returns a transducer
+                       (keep f coll) - returns a lazy-seq of non-nil (f elem) results"
+                      (cond
+                        ;; (keep f) - return a transducer
+                        ((= (cl:length args) 0)
+                         #'(lambda (rf)
+                             #'(lambda (result input)
+                                 (let ((v (apply-function f (cl:list input))))
+                                   (if v
+                                       (funcall rf result v)
+                                       result)))))
+                        ;; (keep f coll) - return lazy-seq
+                        ((= (cl:length args) 1)
+                         (let ((coll (cl:first args)))
+                           (cl:labels ((keep-seq (s)
+                                         (fol.collection:make-lazy-seq
+                                          (lambda ()
+                                            (cl:labels ((find-next (current)
+                                                          (cond
+                                                            ((or (null current) (fol.collection:empty? current))
+                                                             nil)
+                                                            (t (let ((v (apply-function f (cl:list (fol.collection:first current)))))
+                                                                 (if v
+                                                                     (cl:cons v (keep-seq (fol.collection:rest current)))
+                                                                     (find-next (fol.collection:rest current))))))))
+                                              (find-next s))))))
+                             (keep-seq (fol.collection:seq coll)))))
+                        (t (error "keep requires 1 or 2 arguments"))))
+            'mapcat #'(lambda (f &rest args)
+                        "Apply f to each element, concatenating the results.
+                         (mapcat f) - returns a transducer
+                         (mapcat f coll) - returns a lazy-seq of elements from concatenated (f elem) results"
+                        (cond
+                          ;; (mapcat f) - return a transducer
+                          ((= (cl:length args) 0)
+                           #'(lambda (rf)
+                               #'(lambda (result input)
+                                   (let* ((coll (apply-function f (cl:list input)))
+                                          (s (fol.collection:seq coll))
+                                          (acc result))
+                                     (loop until (or (null s) (fol.collection:empty? s))
+                                           do (setf acc (funcall rf acc (fol.collection:first s)))
+                                              (setf s (fol.collection:rest s)))
+                                     acc))))
+                          ;; (mapcat f coll) - return lazy-seq
+                          ((= (cl:length args) 1)
+                           (let ((coll (cl:first args)))
+                             (cl:labels ((concat-seqs (outer-s inner-s)
+                                           ;; outer-s: sequence of input elements
+                                           ;; inner-s: current inner sequence being consumed
+                                           (fol.collection:make-lazy-seq
+                                            (lambda ()
+                                              (cl:labels ((next-elem ()
+                                                            (cond
+                                                              ;; If inner-s has elements, return the first one
+                                                              ((and inner-s
+                                                                    (not (fol.collection:empty? inner-s)))
+                                                               (cl:cons (fol.collection:first inner-s)
+                                                                        (concat-seqs outer-s (fol.collection:rest inner-s))))
+                                                              ;; Otherwise, get next from outer
+                                                              ((or (null outer-s) (fol.collection:empty? outer-s))
+                                                               nil)
+                                                              (t
+                                                               (let* ((elem (fol.collection:first outer-s))
+                                                                      (new-inner (fol.collection:seq
+                                                                                  (apply-function f (cl:list elem)))))
+                                                                 (funcall (fol.collection::lazy-seq-thunk
+                                                                           (concat-seqs (fol.collection:rest outer-s) new-inner))))))))
+                                                (next-elem))))))
+                               (concat-seqs (fol.collection:seq coll) nil))))
+                          (t (error "mapcat requires 1 or 2 arguments"))))
+            'interleave #'(lambda (&rest colls)
+                            "Return a lazy-seq of the first item in each coll, then second, etc.
+                             (interleave coll1 coll2 ...) - interleaves elements from all collections"
+                            (if (null colls)
+                                (fol.collection:make-lazy-seq (lambda () nil))
+                                (cl:labels ((interleave-seqs (seqs)
+                                              (fol.collection:make-lazy-seq
+                                               (lambda ()
+                                                 ;; Check if any seq is exhausted
+                                                 (if (cl:some (lambda (s) (or (null s) (fol.collection:empty? s))) seqs)
+                                                     nil
+                                                     ;; Take first from each, then recurse with rests
+                                                     (let ((firsts (cl:mapcar #'fol.collection:first seqs))
+                                                           (rests (cl:mapcar #'fol.collection:rest seqs)))
+                                                       (cl:labels ((build-result (items rest-seqs)
+                                                                     (if (null items)
+                                                                         (funcall (fol.collection::lazy-seq-thunk
+                                                                                   (interleave-seqs rest-seqs)))
+                                                                         (cl:cons (cl:first items)
+                                                                                  (fol.collection:make-lazy-seq
+                                                                                   (lambda ()
+                                                                                     (build-result (cl:rest items) rest-seqs)))))))
+                                                         (build-result firsts rests))))))))
+                                  (interleave-seqs (cl:mapcar #'fol.collection:seq colls)))))
+            'interpose #'(lambda (sep &rest args)
+                           "Return elements of coll separated by sep.
+                            (interpose sep) - returns a transducer
+                            (interpose sep coll) - returns a lazy-seq with sep between elements"
+                           (cond
+                             ;; (interpose sep) - return a transducer
+                             ((= (cl:length args) 0)
+                              (let ((started nil))
+                                #'(lambda (rf)
+                                    (let ((started nil))
+                                      #'(lambda (result input)
+                                          (if started
+                                              (funcall rf (funcall rf result sep) input)
+                                              (progn
+                                                (setf started t)
+                                                (funcall rf result input))))))))
+                             ;; (interpose sep coll) - return lazy-seq
+                             ((= (cl:length args) 1)
+                              (let ((coll (cl:first args)))
+                                (cl:labels ((interpose-seq (s first-elem)
+                                              (fol.collection:make-lazy-seq
+                                               (lambda ()
+                                                 (cond
+                                                   ((or (null s) (fol.collection:empty? s))
+                                                    nil)
+                                                   (first-elem
+                                                    ;; First element: just return it
+                                                    (cl:cons (fol.collection:first s)
+                                                             (interpose-seq (fol.collection:rest s) nil)))
+                                                   (t
+                                                    ;; Not first: emit sep, then element
+                                                    (cl:cons sep
+                                                             (fol.collection:make-lazy-seq
+                                                              (lambda ()
+                                                                (cl:cons (fol.collection:first s)
+                                                                         (interpose-seq (fol.collection:rest s) nil)))))))))))
+                                  (interpose-seq (fol.collection:seq coll) t))))
+                             (t (error "interpose requires 1 or 2 arguments"))))
             ;; Lazy sequence generators
             'range #'(lambda (&rest args)
                        "Return a lazy sequence of numbers.

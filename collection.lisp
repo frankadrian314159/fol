@@ -537,10 +537,16 @@
 (defmethod size ((ls <lazy-seq>))
   "Get size, realizing the entire sequence.
    WARNING: This will not terminate for infinite sequences!"
-  (let ((realized (realize-lazy-seq ls)))
-    (if realized
-        (size realized)
-        0)))
+  (labels ((count-seq (seq acc)
+             (let ((realized (if (<lazy-seq>? seq)
+                                 (realize-lazy-seq seq)
+                                 seq)))
+               (cond
+                 ((null realized) acc)
+                 ((consp realized)
+                  (count-seq (cl:cdr realized) (1+ acc)))
+                 (t (cl:+ acc (size realized)))))))
+    (count-seq ls 0)))
 
 (defmethod empty? ((ls <lazy-seq>))
   "Check if empty, realizing if needed."
