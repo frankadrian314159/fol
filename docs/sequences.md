@@ -400,6 +400,184 @@ Returns an empty sequence when the range is invalid (e.g., start >= end with pos
 
 ---
 
+## iterate
+
+```
+(iterate f x)
+```
+
+Returns a lazy sequence of `x`, `(f x)`, `(f (f x))`, etc. The function `f` must be free of side-effects.
+
+### Examples
+
+```fol
+;; Powers of 2
+(iterate (fn [x] (* x 2)) 1)      ; => lazy-seq: 1, 2, 4, 8, 16, 32, ...
+
+;; Fibonacci using iterate with pairs
+(iterate (fn [[a b]] [b (+ a b)]) [0 1])
+                                  ; => lazy-seq: [0 1], [1 1], [1 2], [2 3], ...
+
+;; Take first 10
+(map first (take 10 (iterate (fn [[a b]] [b (+ a b)]) [0 1])))
+                                  ; => (0 1 1 2 3 5 8 13 21 34)
+
+;; Incrementing sequence
+(iterate (fn [x] (+ x 1)) 0)      ; => lazy-seq: 0, 1, 2, 3, ... (like (range))
+```
+
+---
+
+## repeat
+
+```
+(repeat x)
+(repeat n x)
+```
+
+Returns a lazy sequence of `x`s.
+
+- `(repeat x)` - infinite sequence of `x`
+- `(repeat n x)` - sequence of `x` repeated `n` times
+
+### Examples
+
+```fol
+;; Infinite repetition (use with care!)
+(repeat :a)                       ; => lazy-seq: :a, :a, :a, ...
+
+;; Take first 5
+(take 5 (repeat :a))              ; => (:a :a :a :a :a)
+
+;; Fixed repetition
+(repeat 3 "hello")                ; => lazy-seq: "hello", "hello", "hello"
+
+;; Create padding
+(reduce str "" (repeat 5 "-"))    ; => "-----"
+
+;; Empty for n <= 0
+(repeat 0 :x)                     ; => empty lazy-seq
+```
+
+---
+
+## repeatedly
+
+```
+(repeatedly f)
+(repeatedly n f)
+```
+
+Returns a lazy sequence of calls to `f`. Unlike `repeat`, the function is called each time, so `f` can have side effects (like generating random numbers).
+
+- `(repeatedly f)` - infinite sequence of `(f)` calls
+- `(repeatedly n f)` - sequence of `n` calls to `(f)`
+
+### Examples
+
+```fol
+;; Infinite random numbers
+(repeatedly random)               ; => lazy-seq: 0.42, 0.87, 0.13, ...
+
+;; Generate 5 random numbers
+(repeatedly 5 random)             ; => lazy-seq of 5 random values
+
+;; Generate unique IDs
+(def counter (atom 0))
+(repeatedly 3 (fn [] (swap! counter inc)))
+                                  ; => lazy-seq: 1, 2, 3
+
+;; Create list of empty vectors
+(repeatedly 3 (fn [] []))         ; => lazy-seq: [], [], []
+```
+
+---
+
+## cycle
+
+```
+(cycle coll)
+```
+
+Returns a lazy (infinite!) sequence of repetitions of the items in `coll`.
+
+### Examples
+
+```fol
+;; Cycle through elements
+(cycle [1 2 3])                   ; => lazy-seq: 1, 2, 3, 1, 2, 3, 1, 2, 3, ...
+
+;; Take first 10 from cycle
+(take 10 (cycle [:a :b]))         ; => (:a :b :a :b :a :b :a :b :a :b)
+
+;; Interleave with cycling separator
+(interleave [1 2 3 4 5] (cycle [:odd :even]))
+                                  ; => lazy-seq: 1, :odd, 2, :even, 3, :odd, ...
+
+;; Empty collection produces empty sequence
+(cycle [])                        ; => empty lazy-seq
+
+;; Cycle a string (characters)
+(take 6 (cycle "ab"))             ; => (#\a #\b #\a #\b #\a #\b)
+```
+
+---
+
+## reduced / reduced?
+
+```
+(reduced value)
+(reduced? x)
+(unreduced x)
+```
+
+Functions for early termination in `reduce` operations.
+
+- `(reduced value)` - wraps `value` to signal that reduction should stop
+- `(reduced? x)` - returns true if `x` is a reduced value
+- `(unreduced x)` - unwraps a reduced value, or returns `x` unchanged if not reduced
+
+When `reduce` encounters a reduced value returned from the reducing function, it immediately stops iteration and returns the unwrapped value.
+
+### Examples
+
+```fol
+;; Find first element matching predicate
+(reduce (fn [acc x]
+          (if (> x 5)
+              (reduced x)
+              acc))
+        nil
+        [1 2 3 7 8 9])            ; => 7 (stops at first > 5)
+
+;; Short-circuit sum when limit reached
+(reduce (fn [acc x]
+          (let [new-sum (+ acc x)]
+            (if (> new-sum 10)
+                (reduced new-sum)
+                new-sum)))
+        0
+        [1 2 3 4 5 6 7 8])        ; => 15 (1+2+3+4+5 = 15, stops)
+
+;; Check if any element matches (like `some`)
+(reduce (fn [_ x]
+          (if (even? x)
+              (reduced true)
+              false))
+        false
+        [1 3 5 6 7])              ; => true (found 6)
+
+;; Check reduced?
+(reduced? (reduced 42))           ; => true
+(reduced? 42)                     ; => false
+
+;; Unreduced unwraps or passes through
+(unreduced (reduced 42))          ; => 42
+(unreduced 42)                    ; => 42
+```
+
+---
+
 ## Composition
 
 These functions compose naturally for data processing pipelines.
@@ -446,7 +624,9 @@ Transducers are composable transformations that are independent of the input sou
 ## Implementation Notes
 
 - All sequence functions work with any type that implements the `seq` protocol
-- `map`, `filter`, `remove`, `keep`, `mapcat`, `interleave`, and `interpose` return lazy sequences
+- `map`, `filter`, `remove`, `keep`, `mapcat`, `interleave`, `interpose`, `iterate`, `repeat`, `repeatedly`, and `cycle` return lazy sequences
 - Lazy sequences are realized on demand, enabling efficient processing of large or infinite sequences
+- Use `reduced` for early termination in `reduce` operations
 - Transducers provide composable, efficient transformations without intermediate collections
 - `reduce` is the fundamental operation that processes collections eagerly
+- `iterate`, `repeat`, `repeatedly`, and `cycle` can produce infinite sequences - use with functions like `take` to limit consumption

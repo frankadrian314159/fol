@@ -191,6 +191,7 @@
            <list> <list>? make-list
            <lazy-seq> <lazy-seq>? make-lazy-seq
            realize-lazy-seq lazy-seq-realized-p
+           <reduced> <reduced>? reduced unreduced reduced-value
            <array> <array>? make-array
            ;; GENERIC OPERATIONS
            get seq

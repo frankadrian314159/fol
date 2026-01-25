@@ -619,6 +619,45 @@
 
 
 ;;; ============================================================================
+;;; Reduced: Early Termination for Reduce
+;;; ============================================================================
+;;; A wrapper type that signals early termination in reduce operations.
+;;; When reduce encounters a reduced value, it unwraps and returns immediately.
+
+(defclass <reduced> ()
+  ((value :initarg :value
+          :initform nil
+          :accessor reduced-value
+          :documentation "The wrapped value to return from reduce."))
+  (:documentation "Wrapper indicating early termination in reduce operations."))
+
+(defun reduced (value)
+  "Wrap VALUE to signal early termination in reduce.
+   When reduce encounters a reduced value, it stops iteration and returns
+   the unwrapped value immediately."
+  (make-instance '<reduced> :value value))
+
+(defgeneric <reduced>? (obj)
+  (:documentation "Returns T if OBJ is a reduced wrapper."))
+
+(defmethod <reduced>? (obj)
+  "Default: not reduced."
+  nil)
+
+(defmethod <reduced>? ((obj <reduced>))
+  "Reduced values return T."
+  t)
+
+(defun unreduced (value)
+  "Unwrap a reduced value, or return VALUE unchanged if not reduced."
+  (if (<reduced>? value)
+      (reduced-value value)
+      value))
+
+(defmethod print-object ((obj <reduced>) stream)
+  (format stream "#<reduced ~S>" (reduced-value obj)))
+
+;;; ============================================================================
 ;;; Sequence Accessors: second, third, nth
 ;;; ============================================================================
 ;;; These work on any seqable (lists, vectors, lazy-seqs, CL lists).

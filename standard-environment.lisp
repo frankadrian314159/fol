@@ -200,7 +200,8 @@
                         "Reduce a collection using function f.
                          (reduce f) - returns a transducer that applies (f elem) to each element
                          (reduce f coll) - uses first element as initial value, f is (f acc elem)
-                         (reduce f init coll) - uses init as initial value, f is (f acc elem)"
+                         (reduce f init coll) - uses init as initial value, f is (f acc elem)
+                         If f returns a (reduced val), reduction terminates early with val."
                         (cond
                           ;; (reduce f) - return a transducer
                           ;; The transducer applies f (as unary) to each element before passing to rf.
@@ -221,20 +222,22 @@
                                  (apply-function f nil)  ; call f with no args for empty coll
                                  (let ((acc (fol.collection:first s))
                                        (s (fol.collection:rest s)))
-                                   (loop until (or (null s) (fol.collection:empty? s))
+                                   (loop until (or (null s) (fol.collection:empty? s)
+                                                   (fol.collection:<reduced>? acc))
                                          do (setf acc (apply-function f (cl:list acc (fol.collection:first s))))
                                             (setf s (fol.collection:rest s)))
-                                   acc))))
+                                   (fol.collection:unreduced acc)))))
                           ;; (reduce f init coll) - with initial value, f is binary (acc, elem) -> acc
                           ((= (cl:length args) 2)
                            (let* ((init (cl:first args))
                                   (coll (cl:second args))
                                   (s (fol.collection:seq coll))
                                   (acc init))
-                             (loop until (or (null s) (fol.collection:empty? s))
+                             (loop until (or (null s) (fol.collection:empty? s)
+                                             (fol.collection:<reduced>? acc))
                                    do (setf acc (apply-function f (cl:list acc (fol.collection:first s))))
                                       (setf s (fol.collection:rest s)))
-                             acc))
+                             (fol.collection:unreduced acc)))
                           (t (error "reduce requires 1, 2, or 3 arguments"))))
             'map #'(lambda (f &rest args)
                      "Apply f to each element of coll.
@@ -504,6 +507,81 @@
                                    (fol.collection:make-lazy-seq (lambda () nil)))
                                   (t (make-range-seq start end step)))))
                            (otherwise (error "range takes 0 to 3 arguments")))))
+            ;; Reduced: early termination for reduce
+            'reduced #'fol.collection:reduced
+            'reduced? #'fol.collection:<reduced>?
+            'unreduced #'fol.collection:unreduced
+            ;; Additional lazy sequence generators
+            'iterate #'(lambda (f x)
+                         "Returns a lazy sequence of x, (f x), (f (f x)), etc.
+                          f must be free of side-effects."
+                         (cl:labels ((iter-seq (val)
+                                       (fol.collection:make-lazy-seq
+                                        (lambda ()
+                                          (cl:cons val (iter-seq (apply-function f (cl:list val))))))))
+                           (iter-seq x)))
+            'repeat #'(lambda (x &rest args)
+                        "Returns a lazy sequence of xs.
+                         (repeat x) - infinite sequence of x
+                         (repeat n x) - sequence of x repeated n times"
+                        (cond
+                          ;; (repeat x) - infinite
+                          ((= (cl:length args) 0)
+                           (cl:labels ((repeat-seq ()
+                                         (fol.collection:make-lazy-seq
+                                          (lambda ()
+                                            (cl:cons x (repeat-seq))))))
+                             (repeat-seq)))
+                          ;; (repeat n x) - n times
+                          ((= (cl:length args) 1)
+                           (let ((n x)
+                                 (val (cl:first args)))
+                             (cl:labels ((repeat-n (remaining)
+                                           (fol.collection:make-lazy-seq
+                                            (lambda ()
+                                              (if (cl:<= remaining 0)
+                                                  nil
+                                                  (cl:cons val (repeat-n (cl:1- remaining))))))))
+                               (repeat-n n))))
+                          (t (error "repeat takes 1 or 2 arguments"))))
+            'repeatedly #'(lambda (f &rest args)
+                            "Returns a lazy sequence of calls to f (which should have side effects).
+                             (repeatedly f) - infinite sequence of (f)
+                             (repeatedly n f) - sequence of n calls to (f)"
+                            (cond
+                              ;; (repeatedly f) - infinite
+                              ((= (cl:length args) 0)
+                               (cl:labels ((repeat-seq ()
+                                             (fol.collection:make-lazy-seq
+                                              (lambda ()
+                                                (cl:cons (apply-function f nil) (repeat-seq))))))
+                                 (repeat-seq)))
+                              ;; (repeatedly n f) - n times
+                              ((= (cl:length args) 1)
+                               (let ((n f)
+                                     (fn (cl:first args)))
+                                 (cl:labels ((repeat-n (remaining)
+                                               (fol.collection:make-lazy-seq
+                                                (lambda ()
+                                                  (if (cl:<= remaining 0)
+                                                      nil
+                                                      (cl:cons (apply-function fn nil) (repeat-n (cl:1- remaining))))))))
+                                   (repeat-n n))))
+                              (t (error "repeatedly takes 1 or 2 arguments"))))
+            'cycle #'(lambda (coll)
+                       "Returns a lazy (infinite!) sequence of repetitions of the items in coll."
+                       (let ((s (fol.collection:seq coll)))
+                         (if (or (null s) (fol.collection:empty? s))
+                             (fol.collection:make-lazy-seq (lambda () nil))
+                             (cl:labels ((cycle-seq (current)
+                                           (fol.collection:make-lazy-seq
+                                            (lambda ()
+                                              (if (or (null current) (fol.collection:empty? current))
+                                                  ;; Restart from beginning
+                                                  (funcall (fol.collection::lazy-seq-thunk (cycle-seq s)))
+                                                  (cl:cons (fol.collection:first current)
+                                                           (cycle-seq (fol.collection:rest current))))))))
+                               (cycle-seq s)))))
             ;; Standard macros
             'when (make-when-macro)
             'unless (make-unless-macro)))
