@@ -90,7 +90,9 @@
                 :add :conj :contains? :size :empty? :seq
                 :iterator :current :next :done?
                 :nth-element :set-nth
-                :list-first :list-rest :list-size)
+                :list-first :list-rest :list-size
+                ;; Reduced (for early termination in reduce)
+                :<reduced> :<reduced>? :reduced :unreduced :reduced-value)
   ;; Shadow CL symbols that FOL redefines
   (:shadowing-import-from :fol.collection :remove :get :make-array :make-list :first :rest :second :third :nth)
   ;; Import symbols from fol.env
@@ -137,7 +139,8 @@
                 :fol-get-dispatch-macro-character :fol-set-dispatch-macro-character
                 :with-readtable)
   ;; Import symbols from fol.eval
-  (:shadowing-import-from :fol.eval :macroexpand-1 :macroexpand)
+  (:shadowing-import-from :fol.eval :macroexpand-1 :macroexpand
+                          :identity :complement :type)
   (:import-from :fol.eval
                 :fol-eval
                 :eval-quote :eval-if :eval-do :eval-bind :eval-fn :eval-def
@@ -162,9 +165,11 @@
                 ;; Higher-order function combinators
                 :disjoin :conjoin :partial :rpartial :juxt
                 ;; Higher-order collection operations
-                :filter
+                :filter :keep :mapcat :interleave :interpose
                 ;; Lazy sequence generator
-                :range)
+                :range
+                ;; String operations
+                :str)
   ;; Import symbols from fol.stream
   (:shadowing-import-from :fol.stream
                           :open :close

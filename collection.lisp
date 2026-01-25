@@ -339,6 +339,23 @@
   "Return nil for empty list."
   nil)
 
+(defmethod first ((v <vector>))
+  "Return the first element of a vector, or NIL if empty."
+  (if (cl:zerop (fset:size (pslot-value v 'items)))
+      nil
+      (fset:@ (pslot-value v 'items) 0)))
+
+(defmethod rest ((v <vector>))
+  "Return a new vector containing all but the first element."
+  (let ((items (pslot-value v 'items)))
+    (if (cl:<= (fset:size items) 1)
+        (make-vector)
+        (let ((result (fset:empty-seq)))
+          (fset:do-seq (item items :index i)
+            (when (cl:> i 0)
+              (setf result (fset:with-last result item))))
+          (make-instance '<vector> :items result)))))
+
 (defmethod rest ((lst cons))
   "Return the rest of a CL list."
   (cdr lst))

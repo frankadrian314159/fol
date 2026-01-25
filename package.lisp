@@ -357,7 +357,10 @@
                 compute-pattern-signature
                 pattern-more-specific-p
                 make-pattern-name)
-  (:shadowing-import-from fol.symbol <symbol>?)
+  (:import-from fol.bool <bool>?)
+  (:import-from fol.char <char>?)
+  (:import-from fol.string <string>?)
+  (:shadowing-import-from fol.symbol <symbol>? <keyword>?)
   (:import-from fol.number
                 <number>? <complex>? <real>?
                 <float>? <single-float>? <double-float>?
@@ -396,9 +399,13 @@
    ;; Higher-order function combinators (for use in standard env)
    disjoin conjoin partial rpartial juxt
    ;; Higher-order collection operations
-   filter
+   filter keep mapcat interleave interpose
    ;; Lazy sequence generator
-   range))
+   range
+   ;; String operations
+   str
+   ;; Misc utilities
+   identity complement type))
 
 (defpackage fol.repl
   (:use cl)

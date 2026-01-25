@@ -376,12 +376,12 @@
                                               (cl:labels ((next-elem ()
                                                             (cond
                                                               ;; If inner-s has elements, return the first one
-                                                              ((and inner-s
-                                                                    (not (fol.collection:empty? inner-s)))
+                                                              ((cl:and inner-s
+                                                                       (cl:not (fol.collection:empty? inner-s)))
                                                                (cl:cons (fol.collection:first inner-s)
                                                                         (concat-seqs outer-s (fol.collection:rest inner-s))))
                                                               ;; Otherwise, get next from outer
-                                                              ((or (null outer-s) (fol.collection:empty? outer-s))
+                                                              ((cl:or (null outer-s) (fol.collection:empty? outer-s))
                                                                nil)
                                                               (t
                                                                (let* ((elem (fol.collection:first outer-s))
