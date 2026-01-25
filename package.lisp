@@ -97,7 +97,14 @@
    ;; Helper functions
    vector-to-list
    convert-slot-specifier
-   convert-specialized-param))
+   convert-specialized-param
+   ;; Pattern analysis functions (for multi-pattern dispatch)
+   pattern-expects-seq-p
+   compute-pattern-signature
+   pattern-more-specific-p
+   generate-pattern-check
+   generate-args-pattern-check
+   make-pattern-name))
 
 (defpackage fol.classes
   (:use cl)
@@ -343,7 +350,12 @@
                           = /= < <= > >= min max)
   (:import-from fol.logop xor implies nand nor)
   (:import-from fol.arithop atan2 real-part imag-part angle)
-  (:import-from fol.fol-mop make)
+  (:import-from fol.fol-mop make
+                vector-to-list
+                pattern-expects-seq-p
+                compute-pattern-signature
+                pattern-more-specific-p
+                make-pattern-name)
   (:shadowing-import-from fol.symbol <symbol>?)
   (:import-from fol.number
                 <number>? <complex>? <real>?

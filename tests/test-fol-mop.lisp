@@ -36,9 +36,10 @@
   (is (eq 'x (convert-specialized-param 'x)))
   (is (eq 'obj (convert-specialized-param 'obj))))
 
-(test convert-specialized-param-handles-vectors
-  "Test that convert-specialized-param converts vector specializers to lists."
-  (let ((param (make-vector 'a '<point>)))
+(test convert-specialized-param-passes-through-lists
+  "Test that convert-specialized-param passes through list specializers unchanged.
+   Type specialization uses list syntax: (var type)."
+  (let ((param '(a <point>)))
     (is (listp (convert-specialized-param param)))
     (is (eq 'a (first (convert-specialized-param param))))
     (is (eq '<point> (second (convert-specialized-param param))))))
@@ -133,11 +134,12 @@
   (eval `(fol.fol-mop:defgeneric* test-specialized-multi
            (,(make-vector 'a) ,(make-vector 'a 'b))))
   ;; Add specialized methods for different patterns
+  ;; Type specialization uses list syntax: (var type)
   (eval `(fol.fol-mop:defmethod* test-specialized-multi
-           ,(make-vector (make-vector 'a 'number))
+           ,(make-vector '(a number))
            (cl:list :one-number a)))
   (eval `(fol.fol-mop:defmethod* test-specialized-multi
-           ,(make-vector (make-vector 'a 'number) (make-vector 'b 'number))
+           ,(make-vector '(a number) '(b number))
            (cl:list :two-numbers a b)))
   ;; Test
   (is (equal '(:one-number 42) (test-specialized-multi 42)))
@@ -305,8 +307,8 @@
   "Test that defmethod* creates a method on an existing generic."
   ;; First create a generic function
   (eval `(fol.fol-mop:defgeneric* compute-area ,(make-vector 'shape)))
-  ;; Now add a method
-  (eval `(fol.fol-mop:defmethod* compute-area ,(make-vector (make-vector 'shape '<test-point>))
+  ;; Now add a method - type specialization uses list syntax (var type)
+  (eval `(fol.fol-mop:defmethod* compute-area ,(make-vector '(shape <test-point>))
            10))
   ;; Test the method
   (let ((pt (make-instance '<test-point>)))
@@ -354,8 +356,8 @@
   (let ((env (make-standard-env)))
     ;; Create generic first
     (fol-eval `(defgeneric eval-test-method ,(make-vector 'obj)) env)
-    ;; Add method with specialized parameter
-    (fol-eval `(defmethod eval-test-method ,(make-vector (make-vector 'obj '<eval-test-class>))
+    ;; Add method with specialized parameter - type specialization uses list syntax
+    (fol-eval `(defmethod eval-test-method ,(make-vector '(obj <eval-test-class>))
                  42) env)
     ;; Test
     (let ((obj (make-instance '<eval-test-class>)))

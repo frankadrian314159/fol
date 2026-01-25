@@ -645,8 +645,10 @@
 (test eval-type-function-user-defined-class
   "Test type function returns class name for user-defined classes."
   (let ((env (make-standard-env)))
-    ;; Define a class using FOL's defclass
-    (fol-eval `(defclass <test-person> ,(make-vector) ,(make-vector 'name 'age)) env)
+    ;; Define a class using FOL's defclass with proper initargs
+    (fol-eval `(defclass <test-person> ,(make-vector)
+                 ,(make-vector (make-vector 'name :initarg :name)
+                               (make-vector 'age :initarg :age))) env)
     ;; Create an instance using FOL's make and check its type
     (let ((person (fol-eval `(make '<test-person> :name "Alice" :age 30) env)))
       (is (eq '<test-person> (fol-eval `(type ',person) env))))))
@@ -2358,3 +2360,87 @@
     ;; Thread result of if into arithmetic
     ;; (-> (if t 10 20) (+ 5)) => (+ 10 5) => 15
     (is (cl:= 15 (fol-eval (fol-form "(-> (if t 10 20) (+ 5))") env)))))
+
+;;; ---------------------------------------------------------------------------
+;;; Multi-Pattern defn
+;;; ---------------------------------------------------------------------------
+
+(test defn-multi-pattern-basic
+  "Test multi-pattern defn with different arities."
+  (let ((env (make-standard-env)))
+    ;; Define function with multiple arities
+    (fol-eval (fol-form "(defn inc-all
+                          ([x] (+ x 1))
+                          ([x y] (+ x y 2)))") env)
+    ;; Test single-arg version
+    (is (cl:= 6 (fol-eval (fol-form "(inc-all 5)") env)))
+    ;; Test two-arg version
+    (is (cl:= 12 (fol-eval (fol-form "(inc-all 5 5)") env)))))
+
+(test defn-multi-pattern-numeric
+  "Test multi-pattern defn with numeric operations."
+  (let ((env (make-standard-env)))
+    ;; Define function with multiple arities
+    (fol-eval (fol-form "(defn add-all
+                          ([x] x)
+                          ([x y] (+ x y))
+                          ([x y z] (+ x y z)))") env)
+    ;; Test all arities
+    (is (cl:= 5 (fol-eval (fol-form "(add-all 5)") env)))
+    (is (cl:= 7 (fol-eval (fol-form "(add-all 3 4)") env)))
+    (is (cl:= 15 (fol-eval (fol-form "(add-all 3 5 7)") env)))))
+
+(test defn-multi-pattern-with-destructuring
+  "Test multi-pattern defn with destructuring patterns."
+  (let ((env (make-standard-env)))
+    ;; Define function that handles atoms vs pairs differently
+    (fol-eval (fol-form "(defn process
+                          ([x] x)
+                          ([[a b]] (+ a b)))") env)
+    ;; Test single value (not a sequence)
+    (is (cl:= 42 (fol-eval (fol-form "(process 42)") env)))
+    ;; Test pair (vector) - should destructure and add
+    (is (cl:= 7 (fol-eval (fol-form "(process [3 4])") env)))))
+
+(test defn-multi-pattern-specificity
+  "Test that more specific patterns match before general ones."
+  (let ((env (make-standard-env)))
+    ;; Define function: [[a b]] should match before [x] for pairs
+    (fol-eval (fol-form "(defn classify
+                          ([x] :single)
+                          ([[a b]] :pair)
+                          ([[a b c]] :triple))") env)
+    ;; Single value -> :single
+    (is (eq :single (fol-eval (fol-form "(classify 42)") env)))
+    ;; Two-element vector -> :pair (more specific than :single for this arity)
+    (is (eq :pair (fol-eval (fol-form "(classify [1 2])") env)))
+    ;; Three-element vector -> :triple
+    (is (eq :triple (fol-eval (fol-form "(classify [1 2 3])") env)))))
+
+(test defn-multi-pattern-arity-error
+  "Test that invalid arities signal an error."
+  (let ((env (make-standard-env)))
+    ;; Define function with only 1 and 2 arg patterns
+    (fol-eval (fol-form "(defn limited
+                          ([x] x)
+                          ([x y] (+ x y)))") env)
+    ;; Valid arities work
+    (is (cl:= 5 (fol-eval (fol-form "(limited 5)") env)))
+    (is (cl:= 8 (fol-eval (fol-form "(limited 3 5)") env)))
+    ;; Invalid arity signals error
+    (signals fol.eval:fol-arity-error
+      (fol-eval (fol-form "(limited 1 2 3)") env))))
+
+(test defn-multi-pattern-with-rest
+  "Test multi-pattern defn with rest parameters."
+  (let ((env (make-standard-env)))
+    ;; Define function with rest parameter in one clause
+    (fol-eval (fol-form "(defn variadic
+                          ([x] x)
+                          ([x y & more] (+ x y (reduce + 0 more))))") env)
+    ;; Single arg
+    (is (cl:= 5 (fol-eval (fol-form "(variadic 5)") env)))
+    ;; Two args
+    (is (cl:= 7 (fol-eval (fol-form "(variadic 3 4)") env)))
+    ;; More args
+    (is (cl:= 15 (fol-eval (fol-form "(variadic 1 2 3 4 5)") env)))))

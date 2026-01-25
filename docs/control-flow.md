@@ -236,3 +236,193 @@ Duplicate targets cause an error at evaluation time.
   2 :two
   3 :three)               ; => :three
 ```
+
+---
+
+## fn
+
+```
+(fn [params] body...)
+(fn name [params] body...)
+```
+
+Creates an anonymous function. Optionally, a name can be provided for recursion.
+
+Supports destructuring in parameters (see [destructuring](destructuring.md)).
+
+### Examples
+
+```fol
+;; Simple anonymous function
+((fn [x] (* x 2)) 5)      ; => 10
+
+;; Named function (for recursion)
+(def factorial
+  (fn fact [n]
+    (if (<= n 1)
+        1
+        (* n (fact (- n 1))))))
+(factorial 5)             ; => 120
+
+;; With destructuring
+((fn [[a b]] (+ a b)) [3 4])  ; => 7
+
+;; With rest parameter
+((fn [x & more] (+ x (first more))) 1 2 3)  ; => 3
+```
+
+---
+
+## def
+
+```
+(def name value)
+```
+
+Defines a global variable with the given name and value.
+
+### Examples
+
+```fol
+(def pi 3.14159)
+(def greeting "Hello")
+(def add-one (fn [x] (+ x 1)))
+```
+
+---
+
+## defn
+
+```
+(defn name [params] body...)
+(defn name
+  ([params1] body1...)
+  ([params2] body2...)
+  ...)
+```
+
+Defines a named function. Sugar for `(def name (fn name [params] body...))`.
+
+### Single Pattern
+
+For simple functions with fixed parameters:
+
+```fol
+(defn double [x]
+  (* x 2))
+
+(defn add [a b]
+  (+ a b))
+
+(defn greet [name]
+  (str "Hello, " name "!"))
+```
+
+### Multi-Pattern Dispatch
+
+For functions that accept different arities or patterns, provide multiple clauses:
+
+```fol
+;; Different arities
+(defn greet
+  ([name] (str "Hello, " name "!"))
+  ([greeting name] (str greeting ", " name "!")))
+
+(greet "World")           ; => "Hello, World!"
+(greet "Hi" "Alice")      ; => "Hi, Alice!"
+
+;; Multiple arities for numeric functions
+(defn add-all
+  ([x] x)
+  ([x y] (+ x y))
+  ([x y z] (+ x y z)))
+
+(add-all 5)               ; => 5
+(add-all 3 4)             ; => 7
+(add-all 1 2 3)           ; => 6
+```
+
+### Pattern-Based Dispatch
+
+Patterns can distinguish between simple parameters and destructuring patterns:
+
+```fol
+;; [x] matches any single argument
+;; [[a b]] matches a single argument that IS a 2-element sequence
+(defn process
+  ([x] x)                         ; catches non-sequences
+  ([[a b]] (+ a b)))              ; destructures pairs
+
+(process 42)              ; => 42
+(process [3 4])           ; => 7
+```
+
+More specific patterns (expecting sequences) are tried before catch-all patterns.
+
+```fol
+(defn classify
+  ([x] :single)
+  ([[a b]] :pair)
+  ([[a b c]] :triple))
+
+(classify 42)             ; => :single
+(classify [1 2])          ; => :pair
+(classify [1 2 3])        ; => :triple
+```
+
+### With Rest Parameters
+
+Multi-pattern defn supports rest parameters:
+
+```fol
+(defn variadic
+  ([x] x)
+  ([x y & more] (+ x y (reduce + 0 more))))
+
+(variadic 5)              ; => 5
+(variadic 3 4)            ; => 7
+(variadic 1 2 3 4 5)      ; => 15
+```
+
+### With Destructuring
+
+All patterns support full destructuring:
+
+```fol
+(defn process-point
+  ([[x y]] (str "2D: " x ", " y))
+  ([[x y z]] (str "3D: " x ", " y ", " z)))
+
+(defn handle-response
+  ([{:keys [status body]}]
+   (if (= status 200)
+       body
+       (throw (str "Error: " status)))))
+```
+
+---
+
+## defmacro
+
+```
+(defmacro name [params] body...)
+```
+
+Defines a macro. Macros receive unevaluated forms and return a new form to evaluate.
+
+### Examples
+
+```fol
+;; Simple macro
+(defmacro unless [test & body]
+  `(if (not ~test) (do ~@body)))
+
+(unless false (print "executed"))  ; prints "executed"
+
+;; With destructuring
+(defmacro with-point [[x y] & body]
+  `(bind [x ~x y ~y] ~@body))
+
+(with-point [3 4]
+  (+ x y))                ; => 7
+```

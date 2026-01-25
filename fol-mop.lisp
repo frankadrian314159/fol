@@ -31,12 +31,19 @@
 
 (defun convert-specialized-param (param)
   "Convert a specialized parameter from FOL format to CL format.
-   [var class-name] -> (var class-name)
-   [var (eql form)] -> (var (eql form))
-   var -> var"
-  (if (fol.collection:<vector>? param)
-      (vector-to-list param)
-      param))
+   (var class-name) -> (var class-name)  ; list syntax for type specialization
+   (var (eql form)) -> (var (eql form))
+   var -> var
+   Type specialization uses list syntax, not vector syntax."
+  (cond
+    ;; List - already in CL format (type specialization)
+    ((and (listp param) (not (null param)))
+     param)
+    ;; Simple symbol
+    ((symbolp param)
+     param)
+    ;; Anything else passes through
+    (t param)))
 
 ;;; ============================================================================
 ;;; Generic Constructor: make
@@ -162,30 +169,30 @@
    In defgeneric context (default), any vector is a destructuring pattern:
      [a b] means 'expects sequence of 2 elements'
 
-   In defmethod context, [var type] is type specialization:
-     [a <integer>] means 'param a of type <integer>'"
+   In defmethod context, (var type) is type specialization using list syntax:
+     (a <integer>) means 'param a of type <integer>'
+   Vectors in defmethod context are destructuring patterns."
   (cond
     ;; Simple symbol - matches any
     ((symbolp param) nil)
-    ;; Vector - check if it's destructuring or type specialization
+    ;; List in defmethod context - type specialization (not destructuring)
+    ;; (var type) or (var (eql value))
+    ((and (listp param)
+          (not (null param))
+          (not defgeneric-context)
+          (symbolp (first param))
+          (= (length param) 2)
+          (or (symbolp (second param))
+              (and (listp (second param))
+                   (eq (first (second param)) 'eql))))
+     nil)
+    ;; Vector - check if it's destructuring
     ((and (fol.collection:<vector>? param)
           (> (fol.collection:size param) 0))
      (let ((elems (vector-to-list param)))
-       (cond
-         ;; In defgeneric context, any vector is a destructuring pattern
-         (defgeneric-context (length elems))
-         ;; In defmethod context: [var type] is type specialization (not destructuring)
-         ;; Type specialization has exactly 2 elements, first is symbol, second is type
-         ((and (= (length elems) 2)
-               (symbolp (first elems))
-               (not (fol.collection:<vector>? (first elems)))
-               ;; Type names typically start with < or are standard class names
-               (or (symbolp (second elems))
-                   (and (listp (second elems))
-                        (eq (first (second elems)) 'eql))))
-          nil)
-         ;; Otherwise it's a destructuring pattern
-         (t (length elems)))))
+       ;; Any vector is a destructuring pattern
+       (length elems)))
+    ;; Anything else
     (t nil)))
 
 (defun compute-pattern-signature (lambda-list)
@@ -284,19 +291,19 @@
 (defun extract-simple-param-name (param)
   "Extract a simple parameter name from a potentially destructuring parameter.
    For symbol: returns the symbol
-   For [var type]: returns var (type specialization)
-   For [a b c ...]: returns a gensym (destructuring pattern)"
+   For (var type): returns var (type specialization uses list syntax)
+   For [a b c ...]: returns a gensym (destructuring pattern uses vector syntax)"
   (cond
     ((symbolp param) param)
+    ;; List - type specialization (var type)
+    ((and (listp param)
+          (not (null param))
+          (= (length param) 2)
+          (symbolp (first param)))
+     (first param))
+    ;; Vector - destructuring pattern
     ((fol.collection:<vector>? param)
-     (let ((elems (vector-to-list param)))
-       (if (and (= (length elems) 2)
-                (symbolp (first elems))
-                (not (fol.collection:<vector>? (first elems))))
-           ;; Type specialization [var type] -> var
-           (first elems)
-           ;; Destructuring pattern -> generate name
-           (gensym "DESTRUCT-ARG"))))
+     (gensym "DESTRUCT-ARG"))
     (t (gensym "ARG"))))
 
 (defmacro defgeneric* (function-name lambda-list-spec &rest options)

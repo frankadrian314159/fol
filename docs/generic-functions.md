@@ -88,23 +88,23 @@ Defines a method on a generic function. Parameters can be specialized to dispatc
   (str "An object: " obj))
 
 ;; Specialized method (matches specific type)
-(defmethod describe-object [[obj <string>]]
+(defmethod describe-object [(obj <string>)]
   (str "A string of length " (size obj)))
 
-(defmethod describe-object [[obj <integer>]]
+(defmethod describe-object [(obj <integer>)]
   (str "An integer: " obj))
 ```
 
 ### Specialized Parameters
 
-Use a vector `[var type]` to specialize on a type:
+Use a list `(var type)` to specialize on a type:
 
 ```fol
-(defmethod distance [[a <point-2d>] [b <point-2d>]]
+(defmethod distance [(a <point-2d>) (b <point-2d>)]
   (sqrt (+ (expt (- (point-x b) (point-x a)) 2)
            (expt (- (point-y b) (point-y a)) 2))))
 
-(defmethod distance [[a <point-3d>] [b <point-3d>]]
+(defmethod distance [(a <point-3d>) (b <point-3d>)]
   (sqrt (+ (expt (- (point-x b) (point-x a)) 2)
            (expt (- (point-y b) (point-y a)) 2)
            (expt (- (point-z b) (point-z a)) 2))))
@@ -112,13 +112,13 @@ Use a vector `[var type]` to specialize on a type:
 
 ### EQL Specializers
 
-Specialize on a specific value using `[var [eql value]]`:
+Specialize on a specific value using `(var (eql value))`:
 
 ```fol
-(defmethod factorial [[n [eql 0]]]
+(defmethod factorial [(n (eql 0))]
   1)
 
-(defmethod factorial [[n <integer>]]
+(defmethod factorial [(n <integer>)]
   (* n (factorial (- n 1))))
 ```
 
@@ -181,11 +181,11 @@ When a generic function is defined with multiple patterns, `defmethod` routes me
   a)
 
 ;; Two numbers - add them
-(defmethod combine [[a <number>] [b <number>]]
+(defmethod combine [(a <number>) (b <number>)]
   (+ a b))
 
 ;; Two strings - concatenate
-(defmethod combine [[a <string>] [b <string>]]
+(defmethod combine [(a <string>) (b <string>)]
   (str a b))
 
 ;; Three values - combine all
@@ -296,24 +296,24 @@ Defines a class using vector syntax.
 (defgeneric make-shape ([type] [type a] [type a b]))
 
 ;; Circle needs one dimension (radius)
-(defmethod make-shape [[type [eql :circle]] radius]
+(defmethod make-shape [(type (eql :circle)) radius]
   (make <circle> :radius radius))
 
 ;; Rectangle needs two dimensions
-(defmethod make-shape [[type [eql :rectangle]] width height]
+(defmethod make-shape [(type (eql :rectangle)) width height]
   (make <rectangle> :width width :height height))
 
 ;; Square is a rectangle with equal sides
-(defmethod make-shape [[type [eql :square]] side]
+(defmethod make-shape [(type (eql :square)) side]
   (make <rectangle> :width side :height side))
 
 ;; Generic for calculating area
 (defgeneric area [shape])
 
-(defmethod area [[shape <circle>]]
+(defmethod area [(shape <circle>)]
   (* 3.14159 (expt (circle-radius shape) 2)))
 
-(defmethod area [[shape <rectangle>]]
+(defmethod area [(shape <rectangle>)]
   (* (rect-width shape) (rect-height shape)))
 
 ;; Usage

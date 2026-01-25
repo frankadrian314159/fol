@@ -863,16 +863,143 @@
 
 ;;; --- DEFN ---
 
+(defun multi-pattern-defn-p (args)
+  "Check if ARGS represents a multi-pattern defn form.
+   Multi-pattern syntax: (defn name ([params1] body1*) ([params2] body2*) ...)
+   Each clause is a list whose first element is a vector."
+  (cl:and (>= (length args) 2)
+          (listp (second args))
+          (cl:not (null (second args)))
+          (<vector>? (first (second args)))))
+
+(defun parse-defn-clause (clause)
+  "Parse a defn clause ([params] body*) into (params . body)."
+  (if (cl:and (listp clause)
+              (cl:not (null clause))
+              (<vector>? (first clause)))
+      (cons (first clause) (rest clause))
+      (error 'fol-eval-error
+             :message "Invalid defn clause: expected ([params] body*)"
+             :form clause)))
+
+(defun args-match-pattern-p (args signature)
+  "Check if ARGS match the given pattern SIGNATURE at runtime.
+   SIGNATURE is a list of (:any) or (:seq min-size) specs."
+  (loop for arg in args
+        for sig in signature
+        always (case (first sig)
+                 (:any t)
+                 (:seq (cl:and (cl:or (<vector>? arg)
+                                      (<list>? arg)
+                                      (listp arg))
+                               (>= (if (listp arg)
+                                       (length arg)
+                                       (fol.collection:size arg))
+                                   (second sig))))
+                 (t t))))
+
 (defun eval-defn (args env)
-  "Evaluate (defn name [params] body*). Sugar for (def name (fn name [params] body*))."
+  "Evaluate defn in single-pattern or multi-pattern form.
+
+   Single-pattern:
+     (defn name [params] body*)
+     Sugar for (def name (fn name [params] body*))
+
+   Multi-pattern:
+     (defn name
+       ([params1] body1*)
+       ([params2] body2*)
+       ...)
+     Creates a dispatcher function that routes by arity and pattern match."
   (unless (>= (length args) 2)
-    (error 'fol-eval-error :message "defn requires name, params, and body"
+    (error 'fol-eval-error :message "defn requires name, params/clauses, and body"
            :form (cons 'defn args)))
-  (let* ((name (first args))
-         (params (second args))
-         (body (cddr args))
-         (fn-form `(fn ,name ,params ,@body)))
-    (fol-eval `(def ,name ,fn-form) env)))
+  (let ((name (first args)))
+    (if (multi-pattern-defn-p args)
+        ;; Multi-pattern defn
+        (let* ((clauses (rest args))
+               ;; Parse each clause
+               (parsed-clauses
+                 (loop for clause in clauses
+                       for idx from 0
+                       for parsed = (parse-defn-clause clause)
+                       for params = (car parsed)
+                       for body = (cdr parsed)
+                       for param-list = (vector-to-list params)
+                       ;; Parse to separate regular params from rest param
+                       for (regular-params rest-param) = (multiple-value-list
+                                                          (parse-params param-list))
+                       for arity = (length regular-params)
+                       for has-rest = (cl:not (null rest-param))
+                       for signature = (compute-pattern-signature regular-params)
+                       for internal-name = (make-pattern-name name idx)
+                       collect (list :index idx
+                                     :arity arity
+                                     :has-rest has-rest
+                                     :params params
+                                     :body body
+                                     :signature signature
+                                     :internal-name internal-name)))
+               ;; Sort by arity, then by specificity (most specific first)
+               (sorted-clauses
+                 (stable-sort (copy-list parsed-clauses)
+                              (lambda (c1 c2)
+                                (let ((a1 (getf c1 :arity))
+                                      (a2 (getf c2 :arity)))
+                                  (cond
+                                    ((< a1 a2) t)
+                                    ((> a1 a2) nil)
+                                    ;; Same arity: more specific pattern first
+                                    (t (pattern-more-specific-p
+                                        (getf c1 :signature)
+                                        (getf c2 :signature))))))))
+               ;; Create internal functions
+               (internal-fns
+                 (loop for c in parsed-clauses
+                       for internal-name = (getf c :internal-name)
+                       for params = (getf c :params)
+                       for body = (getf c :body)
+                       for fn = (fol-eval `(fn ,internal-name ,params ,@body) env)
+                       collect (cons internal-name fn)))
+               ;; Collect valid arities for error messages
+               (valid-arities
+                 (remove-duplicates
+                  (loop for c in parsed-clauses
+                        collect (if (getf c :has-rest)
+                                    (format nil "~A+" (getf c :arity))
+                                    (getf c :arity))))))
+          ;; Create dispatcher as a CL closure (apply-function supports CL functions)
+          (let ((dispatcher
+                  (lambda (&rest call-args)
+                    (let ((call-arity (length call-args)))
+                      ;; Try clauses in sorted order (by arity, then specificity)
+                      (loop for c in sorted-clauses
+                            for min-arity = (getf c :arity)
+                            for has-rest = (getf c :has-rest)
+                            for sig = (getf c :signature)
+                            for internal-name = (getf c :internal-name)
+                            ;; Check if arity matches (exact or >= for rest params)
+                            when (if has-rest
+                                     (>= call-arity min-arity)
+                                     (= call-arity min-arity))
+                              ;; Check pattern signature on non-rest args
+                              when (args-match-pattern-p
+                                    (subseq call-args 0 (min (length sig) call-arity))
+                                    sig)
+                                return (let ((internal-fn (cdr (assoc internal-name internal-fns))))
+                                         (apply-function internal-fn call-args))
+                            finally (error 'fol-arity-error
+                                           :expected valid-arities
+                                           :got call-arity))))))
+            ;; Bind the dispatcher to the name
+            (let ((sym-name (extract-symbol name)))
+              (cl:eval `(cl:defparameter ,sym-name ',dispatcher))
+              dispatcher)))
+        ;; Single-pattern defn
+        (let* ((params (second args))
+               (body (cddr args))
+               (fn-form `(fn ,name ,params ,@body)))
+          (fol-eval `(def ,name ,fn-form) env)))))
 
 ;;; --- DEFMACRO ---
 
@@ -1508,14 +1635,7 @@
               :message (format nil "Expected symbol, got ~S" form)
               :form form))))
 
-(defun vector-to-list (vec)
-  "Convert a FOL vector to a CL list."
-  (let ((result nil)
-        (iter (iterator vec)))
-    (loop until (done? iter)
-          do (push (current iter) result)
-             (next iter))
-    (nreverse result)))
+;; vector-to-list is imported from fol.fol-mop and handles both vectors and non-vectors
 
 (defun parse-params (param-list)
   "Parse a parameter list, returning (values regular-params rest-param).
