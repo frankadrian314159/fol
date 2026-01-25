@@ -157,6 +157,8 @@
                 :<function> :<function>?
                 :<macro> :<macro>? :macro-name :macro-params :macro-body
                 :macro-env :macro-rest-param
+                ;; Multi-pattern macro
+                :<multi-macro> :<multi-macro>? :make-multi-macro :expand-multi-macro
                 ;; Higher-order function combinators
                 :disjoin :conjoin :partial :rpartial :juxt
                 ;; Higher-order collection operations

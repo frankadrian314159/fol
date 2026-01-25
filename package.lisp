@@ -390,6 +390,8 @@
    <function> <function>?
    ;; Macro class, predicate, and accessors
    <macro> <macro>? macro-name macro-params macro-body macro-env macro-rest-param
+   ;; Multi-pattern macro class, predicate, and functions
+   <multi-macro> <multi-macro>? make-multi-macro expand-multi-macro
    ;; Higher-order function combinators (for use in standard env)
    disjoin conjoin partial rpartial juxt
    ;; Higher-order collection operations

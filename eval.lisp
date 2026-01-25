@@ -102,6 +102,39 @@
                  :name name))
 
 ;;; ============================================================================
+;;; FOL Multi-Pattern Macro Representation
+;;; ============================================================================
+;;; Multi-pattern macros support multiple dispatch clauses with different arities
+;;; and destructuring patterns, similar to multi-pattern defn.
+
+(defclass <multi-macro> ()
+  ((dispatcher :initarg :dispatcher :accessor multi-macro-dispatcher
+               :type function
+               :documentation "A CL function that takes unevaluated args and returns expanded form.")
+   (name :initarg :name :accessor multi-macro-name :initform nil
+         :documentation "The name of this multi-macro.")
+   (valid-arities :initarg :valid-arities :accessor multi-macro-valid-arities
+                  :initform nil :type list
+                  :documentation "List of valid arities for error messages."))
+  (:documentation "A multi-pattern FOL macro with multiple dispatch clauses."))
+
+(defun <multi-macro>? (obj)
+  "Returns T if OBJ is a multi-pattern FOL macro."
+  (typep obj '<multi-macro>))
+
+(defun make-multi-macro (dispatcher &key name valid-arities)
+  "Create a new multi-pattern macro with the given dispatcher function."
+  (make-instance '<multi-macro>
+                 :dispatcher dispatcher
+                 :name name
+                 :valid-arities valid-arities))
+
+(defun expand-multi-macro (multi-macro args)
+  "Expand a multi-pattern macro by dispatching to the appropriate clause.
+   ARGS are unevaluated (raw forms from the call site)."
+  (funcall (multi-macro-dispatcher multi-macro) args))
+
+;;; ============================================================================
 ;;; FOL Dynamic Variable Representation
 ;;; ============================================================================
 ;;; Dynamic variables provide dynamically-scoped bindings that can be temporarily
@@ -882,6 +915,25 @@
              :message "Invalid defn clause: expected ([params] body*)"
              :form clause)))
 
+(defun multi-pattern-defmacro-p (args)
+  "Check if ARGS represents a multi-pattern defmacro form.
+   Multi-pattern syntax: (defmacro name ([params1] body1*) ([params2] body2*) ...)
+   Each clause is a list whose first element is a vector."
+  (cl:and (>= (length args) 2)
+          (listp (second args))
+          (cl:not (null (second args)))
+          (<vector>? (first (second args)))))
+
+(defun parse-defmacro-clause (clause)
+  "Parse a defmacro clause ([params] body*) into (params . body)."
+  (if (cl:and (listp clause)
+              (cl:not (null clause))
+              (<vector>? (first clause)))
+      (cons (first clause) (rest clause))
+      (error 'fol-eval-error
+             :message "Invalid defmacro clause: expected ([params] body*)"
+             :form clause)))
+
 (defun args-match-pattern-p (args signature)
   "Check if ARGS match the given pattern SIGNATURE at runtime.
    SIGNATURE is a list of (:any) or (:seq min-size) specs."
@@ -895,6 +947,26 @@
                                (>= (if (listp arg)
                                        (length arg)
                                        (fol.collection:size arg))
+                                   (second sig))))
+                 (t t))))
+
+(defun macro-args-match-pattern-p (args signature)
+  "Check if unevaluated macro ARGS match the given pattern SIGNATURE.
+   SIGNATURE is a list of (:any) or (:seq min-size) specs.
+   Unlike args-match-pattern-p, this works on raw forms (not evaluated values)."
+  (loop for arg in args
+        for sig in signature
+        always (case (first sig)
+                 (:any t)
+                 ;; For macros, check if the form is a sequence type
+                 ;; Forms that can be destructured: lists, vectors
+                 (:seq (cl:and (cl:or (<vector>? arg)  ; FOL vector
+                                      (<list>? arg)    ; FOL list
+                                      (listp arg))     ; CL list form
+                               (>= (cond ((listp arg) (length arg))
+                                         ((<vector>? arg) (fol.collection:size arg))
+                                         ((<list>? arg) (fol.collection:size arg))
+                                         (t 0))
                                    (second sig))))
                  (t t))))
 
@@ -1004,25 +1076,125 @@
 ;;; --- DEFMACRO ---
 
 (defun eval-defmacro (args env)
-  "Evaluate (defmacro name [params] body*).
-   Creates a macro that receives unevaluated arguments and returns a form to evaluate.
-   Similar to defn but creates a <macro> instead of a <function>."
+  "Evaluate defmacro in single-pattern or multi-pattern form.
+
+   Single-pattern:
+     (defmacro name [params] body*)
+     Creates a macro that receives unevaluated arguments and returns a form to evaluate.
+
+   Multi-pattern:
+     (defmacro name
+       ([params1] body1*)
+       ([params2] body2*)
+       ...)
+     Creates a dispatcher macro that routes by arity and pattern match."
   (unless (>= (length args) 2)
-    (error 'fol-eval-error :message "defmacro requires name, params, and body"
+    (error 'fol-eval-error :message "defmacro requires name, params/clauses, and body"
            :form (cons 'defmacro args)))
-  (let* ((name (extract-symbol (first args)))
-         (params (second args))
-         (body (cddr args)))
-    ;; Parse parameter list
-    (let ((param-list (if (<vector>? params)
-                          (vector-to-list params)
-                          params)))
-      (multiple-value-bind (regular-params rest-param)
-          (parse-params param-list)
-        ;; Create the macro object
-        (make-macro regular-params body env
-                    :rest-param rest-param
-                    :name name)))))
+  (let ((name (first args)))
+    (if (multi-pattern-defmacro-p args)
+        ;; Multi-pattern defmacro
+        (let* ((sym-name (extract-symbol name))
+               (clauses (rest args))
+               ;; Parse each clause
+               (parsed-clauses
+                 (loop for clause in clauses
+                       for idx from 0
+                       for parsed = (parse-defmacro-clause clause)
+                       for params = (car parsed)
+                       for body = (cdr parsed)
+                       for param-list = (vector-to-list params)
+                       ;; Parse to separate regular params from rest param
+                       for (regular-params rest-param) = (multiple-value-list
+                                                          (parse-params param-list))
+                       for arity = (length regular-params)
+                       for has-rest = (cl:not (null rest-param))
+                       for signature = (compute-pattern-signature regular-params)
+                       for internal-name = (make-pattern-name sym-name idx)
+                       collect (list :index idx
+                                     :arity arity
+                                     :has-rest has-rest
+                                     :regular-params regular-params
+                                     :rest-param rest-param
+                                     :body body
+                                     :signature signature
+                                     :internal-name internal-name)))
+               ;; Sort by arity, then by specificity (most specific first)
+               (sorted-clauses
+                 (stable-sort (copy-list parsed-clauses)
+                              (lambda (c1 c2)
+                                (let ((a1 (getf c1 :arity))
+                                      (a2 (getf c2 :arity)))
+                                  (cond
+                                    ((< a1 a2) t)
+                                    ((> a1 a2) nil)
+                                    ;; Same arity: more specific pattern first
+                                    (t (pattern-more-specific-p
+                                        (getf c1 :signature)
+                                        (getf c2 :signature))))))))
+               ;; Create internal macros for each pattern
+               (internal-macros
+                 (loop for c in parsed-clauses
+                       for internal-name = (getf c :internal-name)
+                       for regular-params = (getf c :regular-params)
+                       for rest-param = (getf c :rest-param)
+                       for body = (getf c :body)
+                       for macro-obj = (make-macro regular-params body env
+                                                   :rest-param rest-param
+                                                   :name internal-name)
+                       collect (cons internal-name macro-obj)))
+               ;; Collect valid arities for error messages
+               (valid-arities
+                 (remove-duplicates
+                  (loop for c in parsed-clauses
+                        collect (if (getf c :has-rest)
+                                    (format nil "~A+" (getf c :arity))
+                                    (getf c :arity))))))
+          ;; Create dispatcher as a CL closure that expands the right internal macro
+          (let ((dispatcher
+                  (lambda (call-args)
+                    (let ((call-arity (length call-args)))
+                      ;; Try clauses in sorted order (by arity, then specificity)
+                      (loop for c in sorted-clauses
+                            for min-arity = (getf c :arity)
+                            for has-rest = (getf c :has-rest)
+                            for sig = (getf c :signature)
+                            for internal-name = (getf c :internal-name)
+                            ;; Check if arity matches (exact or >= for rest params)
+                            when (if has-rest
+                                     (>= call-arity min-arity)
+                                     (= call-arity min-arity))
+                              ;; Check pattern signature on non-rest args
+                              ;; For macros, we check unevaluated forms
+                              when (macro-args-match-pattern-p
+                                    (subseq call-args 0 (min (length sig) call-arity))
+                                    sig)
+                                return (let ((internal-macro (cdr (assoc internal-name internal-macros))))
+                                         (expand-macro internal-macro call-args))
+                            finally (error 'fol-arity-error
+                                           :expected valid-arities
+                                           :got call-arity))))))
+            ;; Create multi-macro and bind it
+            (let ((multi-macro (make-multi-macro dispatcher
+                                                 :name sym-name
+                                                 :valid-arities valid-arities)))
+              (cl:eval `(cl:defparameter ,sym-name ',multi-macro))
+              multi-macro)))
+        ;; Single-pattern defmacro
+        (let* ((sym-name (extract-symbol name))
+               (params (second args))
+               (body (cddr args))
+               (param-list (if (<vector>? params)
+                               (vector-to-list params)
+                               params)))
+          (multiple-value-bind (regular-params rest-param)
+              (parse-params param-list)
+            ;; Create the macro object and bind it
+            (let ((macro-obj (make-macro regular-params body env
+                                         :rest-param rest-param
+                                         :name sym-name)))
+              (cl:eval `(cl:defparameter ,sym-name ',macro-obj))
+              macro-obj))))))
 
 ;;; --- SYNTAX-QUOTE (Quasiquote with unquote, unquote-splicing, auto-gensym) ---
 
@@ -1491,15 +1663,22 @@
 (defun eval-application (op args env)
   "Evaluate a function or macro application (op arg*).
    For functions: evaluate args, then apply.
-   For macros: pass unevaluated args, expand, then evaluate result."
+   For macros: pass unevaluated args, expand, then evaluate result.
+   For multi-macros: dispatch to the appropriate pattern, expand, then evaluate."
   (let ((fn (fol-eval op env)))
-    (if (<macro>? fn)
-        ;; Macro: expand with unevaluated args, then evaluate result
-        (let ((expanded (expand-macro fn args)))
-          (fol-eval expanded env))
-        ;; Function: evaluate args first
-        (let ((evaluated-args (mapcar (lambda (arg) (fol-eval arg env)) args)))
-          (apply-function fn evaluated-args)))))
+    (cond
+      ((<macro>? fn)
+       ;; Single-pattern macro: expand with unevaluated args, then evaluate result
+       (let ((expanded (expand-macro fn args)))
+         (fol-eval expanded env)))
+      ((<multi-macro>? fn)
+       ;; Multi-pattern macro: dispatch and expand, then evaluate result
+       (let ((expanded (expand-multi-macro fn args)))
+         (fol-eval expanded env)))
+      (t
+       ;; Function: evaluate args first
+       (let ((evaluated-args (mapcar (lambda (arg) (fol-eval arg env)) args)))
+         (apply-function fn evaluated-args))))))
 
 (defgeneric apply-function (fn args)
   (:documentation "Apply function FN to ARGS."))
@@ -1598,13 +1777,24 @@
 
 (defun macroexpand-1 (form env)
   "If FORM is a macro call, expand it once and return (values expanded-form t).
-   Otherwise return (values form nil)."
+   Otherwise return (values form nil).
+   Handles both single-pattern macros and multi-pattern macros.
+   Checks both FOL environment and CL globals (for multi-pattern macros)."
   (if (cl:and (consp form) (symbolp (car form)))
-      (let ((op-value (handler-case (lookup env (car form))
-                        (fol-unbound-variable () nil))))
-        (if (<macro>? op-value)
-            (values (expand-macro op-value (cdr form)) t)
-            (values form nil)))
+      (let* ((op-sym (car form))
+             (op-value (handler-case (lookup env op-sym)
+                         (fol-unbound-variable ()
+                           ;; Not in FOL env, check CL globals
+                           (if (boundp op-sym)
+                               (symbol-value op-sym)
+                               nil)))))
+        (cond
+          ((<macro>? op-value)
+           (values (expand-macro op-value (cdr form)) t))
+          ((<multi-macro>? op-value)
+           (values (expand-multi-macro op-value (cdr form)) t))
+          (t
+           (values form nil))))
       (values form nil)))
 
 (defun macroexpand (form env)

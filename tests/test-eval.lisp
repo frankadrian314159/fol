@@ -2211,6 +2211,151 @@
       (is (cl:= 3 (fol-eval (fol-form "(my-let [[a b] [1 2]] (+ a b))") env2))))))
 
 ;;; ---------------------------------------------------------------------------
+;;; Multi-Pattern Defmacro
+;;; ---------------------------------------------------------------------------
+
+(test defmacro-multi-pattern-creates-multi-macro
+  "Test that multi-pattern defmacro creates a <multi-macro> object."
+  (let ((env (make-standard-env)))
+    (let ((multi-macro (fol-eval (fol-form "(defmacro my-macro
+                                              ([x] x)
+                                              ([x y] (list x y)))")
+                                 env)))
+      (is-true (<multi-macro>? multi-macro)))))
+
+(test defmacro-multi-pattern-by-arity
+  "Test multi-pattern defmacro dispatches by arity."
+  (let ((env (make-standard-env)))
+    ;; Define a macro with different arities
+    (fol-eval (fol-form "(defmacro my-case
+                           ([val] val)
+                           ([val alt] (list 'if val val alt))
+                           ([val alt1 alt2] (list 'if val alt1 alt2)))")
+              env)
+    ;; Test each arity
+    (is (cl:= 42 (fol-eval '(my-case 42) env)))
+    (is (cl:= 5 (fol-eval '(my-case 5 10) env)))
+    (is (cl:= 20 (fol-eval '(my-case nil 10 20) env)))))
+
+(test defmacro-multi-pattern-with-rest
+  "Test multi-pattern defmacro with rest parameters."
+  (let ((env (make-standard-env)))
+    ;; Define macro with rest params in one clause
+    ;; Use list instead of list* since list* isn't in standard env
+    (fol-eval (fol-form "(defmacro list-items
+                           ([a] (list 'list a))
+                           ([a b] (list 'list a b))
+                           ([a b & more] (cons 'list (cons a (cons b more)))))")
+              env)
+    ;; Test arity 1
+    (is (equal '(1) (fol-eval '(list-items 1) env)))
+    ;; Test arity 2
+    (is (equal '(1 2) (fol-eval '(list-items 1 2) env)))
+    ;; Test arity 3+
+    (let ((result (fol-eval '(list-items 1 2 3 4) env)))
+      (is (cl:= 4 (length result)))
+      (is (cl:= 1 (cl:first result)))
+      (is (cl:= 2 (cl:second result)))
+      (is (cl:= 3 (cl:third result)))
+      (is (cl:= 4 (cl:fourth result))))))
+
+(test defmacro-multi-pattern-with-destructuring
+  "Test multi-pattern defmacro with destructuring patterns."
+  (let ((env (make-standard-env)))
+    ;; Define macro that dispatches based on destructuring pattern
+    (fol-eval (fol-form "(defmacro extract
+                           ([x] x)
+                           ([[a b]] (list '+ a b)))")
+              env)
+    ;; Test non-destructuring case
+    (is (cl:= 5 (fol-eval '(extract 5) env)))
+    ;; Test destructuring case - (1 2) is a 2-element sequence
+    (is (cl:= 3 (fol-eval '(extract (1 2)) env)))))
+
+(test defmacro-multi-pattern-specificity
+  "Test that more specific patterns are tried first."
+  (let ((env (make-standard-env)))
+    ;; Define macro where same arity has different patterns
+    ;; [x] matches anything, [[a b]] matches 2-element sequences
+    ;; The [[a b]] pattern should be tried first
+    (fol-eval (fol-form "(defmacro process
+                           ([x] (list 'quote x))
+                           ([[a b]] (list '+ a b)))")
+              env)
+    ;; 2-element list should match destructuring pattern first
+    (is (cl:= 7 (fol-eval '(process (3 4)) env)))
+    ;; Symbol should match the any pattern
+    (is (eq 'foo (fol-eval '(process foo) env)))))
+
+(test defmacro-multi-pattern-expansion
+  "Test that multi-pattern macro expansion works correctly."
+  (let ((env (make-standard-env)))
+    ;; Define a 'when' equivalent with multiple patterns
+    (fol-eval (fol-form "(defmacro my-when
+                           ([test] nil)
+                           ([test form] (list 'if test form nil))
+                           ([test form & more] (list 'if test (cons 'do (cons form more)) nil)))")
+              env)
+    ;; Single arg - always nil
+    (is (eq nil (fol-eval '(my-when t) env)))
+    ;; Two args
+    (is (cl:= 42 (fol-eval '(my-when t 42) env)))
+    (is (eq nil (fol-eval '(my-when nil 42) env)))
+    ;; Multiple body forms
+    (is (cl:= 3 (fol-eval '(my-when t 1 2 3) env)))
+    (is (eq nil (fol-eval '(my-when nil 1 2 3) env)))))
+
+(test defmacro-multi-pattern-arity-error
+  "Test that multi-pattern macro reports arity errors correctly."
+  (let ((env (make-standard-env)))
+    ;; Define macro that only accepts 1 or 2 args
+    (fol-eval (fol-form "(defmacro one-or-two
+                           ([x] x)
+                           ([x y] (list x y)))")
+              env)
+    ;; Zero args should error
+    (signals fol-arity-error
+      (fol-eval '(one-or-two) env))
+    ;; Three args should error
+    (signals fol-arity-error
+      (fol-eval '(one-or-two 1 2 3) env))))
+
+(test defmacro-multi-pattern-macroexpand
+  "Test macroexpand-1 and macroexpand with multi-pattern macros."
+  (let ((env (make-standard-env)))
+    ;; Define multi-pattern macro
+    (fol-eval (fol-form "(defmacro expand-test
+                           ([x] (list 'quote x))
+                           ([x y] (list '+ x y)))")
+              env)
+    ;; Test macroexpand-1 with first pattern
+    (multiple-value-bind (expanded expandedp)
+        (macroexpand-1 '(expand-test foo) env)
+      (is (equal '(quote foo) expanded))
+      (is-true expandedp))
+    ;; Test macroexpand-1 with second pattern
+    (multiple-value-bind (expanded expandedp)
+        (macroexpand-1 '(expand-test 1 2) env)
+      (is (equal '(+ 1 2) expanded))
+      (is-true expandedp))))
+
+(test defmacro-multi-pattern-nested-destructure
+  "Test multi-pattern defmacro with nested destructuring."
+  (let ((env (make-standard-env)))
+    ;; Define macro with nested destructure in one pattern
+    ;; Pattern [[[a] b]] expects one arg that is a 2-element sequence
+    ;; where the first element is a 1-element sequence
+    (fol-eval (fol-form "(defmacro extract-inner
+                           ([x] x)
+                           ([[[a] b]] (list '+ a b)))")
+              env)
+    ;; Simple case - matches [x]
+    (is (cl:= 5 (fol-eval '(extract-inner 5) env)))
+    ;; Nested destructure - arg is ((1) 2), a 2-element list
+    ;; [[a] b] destructures to: [a] matches (1) so a=1, b matches 2
+    (is (cl:= 3 (fol-eval '(extract-inner ((1) 2)) env)))))
+
+;;; ---------------------------------------------------------------------------
 ;;; Anonymous Function Literals #()
 ;;; ---------------------------------------------------------------------------
 
