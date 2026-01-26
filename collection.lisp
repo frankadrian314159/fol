@@ -505,6 +505,9 @@
 (defmethod <lazy-seq>? (obj) nil)
 (defmethod <lazy-seq>? ((obj <lazy-seq>)) t)
 
+;; Pass-through for fol-value - lazy sequences are their own FOL value
+(defmethod fol.wrappers:fol-value ((obj <lazy-seq>)) obj)
+
 (defun realize-lazy-seq (ls)
   "Force realization of a lazy sequence. Returns the underlying sequence or nil.
    If the thunk returns another lazy-seq, recursively realizes it."

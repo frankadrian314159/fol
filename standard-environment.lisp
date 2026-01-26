@@ -67,6 +67,8 @@
             'ceiling #'cl:ceiling
             'truncate #'cl:truncate
             'round #'cl:round
+            'inc #'cl:1+
+            'dec #'cl:1-
             ;; Comparison
             '= #'=
             '/= #'/=

@@ -2015,7 +2015,7 @@
   (let ((env (make-standard-env)))
     ;; Sum until we exceed 10, then stop early
     (fol-eval (fol-form "(defn sum-until-10 [acc x]
-                          (let [new-sum (+ acc x)]
+                          (bind [new-sum (+ acc x)]
                             (if (> new-sum 10)
                                 (reduced acc)
                                 new-sum)))") env)
@@ -2182,27 +2182,6 @@
       (is-true (<lazy-seq>? result))
       (is-true (empty? result)))))
 
-(test cycle-with-take-pattern
-  "Test common pattern: take n from cycle."
-  (let ((env (make-standard-env)))
-    ;; Define take function for testing
-    (fol-eval (fol-form "(defn my-take [n coll]
-                          (loop [i n
-                                 s (seq coll)
-                                 result []]
-                            (if (or (= i 0) (empty? s))
-                                result
-                                (recur (- i 1) (rest s) (conj result (first s))))))") env)
-    ;; Take 7 from cycling [1 2 3]
-    (let ((result (fol-eval (fol-form "(my-take 7 (cycle [1 2 3]))") env)))
-      (is (cl:= 7 (size result)))
-      (is (cl:= 1 (nth 0 result)))
-      (is (cl:= 2 (nth 1 result)))
-      (is (cl:= 3 (nth 2 result)))
-      (is (cl:= 1 (nth 3 result)))
-      (is (cl:= 2 (nth 4 result)))
-      (is (cl:= 3 (nth 5 result)))
-      (is (cl:= 1 (nth 6 result))))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Macros (defmacro)

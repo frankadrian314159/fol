@@ -400,8 +400,12 @@
    disjoin conjoin partial rpartial juxt
    ;; Higher-order collection operations
    filter keep mapcat interleave interpose
-   ;; Lazy sequence generator
-   range
+   ;; Lazy sequence generators
+   range iterate repeat repeatedly cycle
+   ;; Reduced (for early termination)
+   reduced?
+   ;; Increment/decrement
+   inc dec
    ;; String operations
    str
    ;; Misc utilities

@@ -363,3 +363,41 @@ Rounds to even when exactly halfway between two integers (banker's rounding).
 (bind [[n remainder] (round 7.3)]
   n)           ; => 7
 ```
+
+---
+
+## inc
+
+```
+(inc x)
+```
+
+Returns x + 1. Equivalent to `(+ x 1)`.
+
+### Examples
+
+```fol
+(inc 0)        ; => 1
+(inc 5)        ; => 6
+(inc -1)       ; => 0
+(inc 2.5)      ; => 3.5
+```
+
+---
+
+## dec
+
+```
+(dec x)
+```
+
+Returns x - 1. Equivalent to `(- x 1)`.
+
+### Examples
+
+```fol
+(dec 5)        ; => 4
+(dec 0)        ; => -1
+(dec 1)        ; => 0
+(dec 3.5)      ; => 2.5
+```
