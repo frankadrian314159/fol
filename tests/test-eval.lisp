@@ -852,24 +852,24 @@
     (is (char= #\l (fol-eval '(third "hello") env)))))
 
 (test eval-nth-function
-  "Test nth accessor function (nth index collection)."
+  "Test nth accessor function (nth collection index)."
   (let ((env (make-standard-env)))
-    ;; On vectors (0-indexed) - note: (nth index collection)
+    ;; On vectors (0-indexed) - note: (nth collection index)
     (let ((vec (make-vector :a :b :c :d :e)))
-      (is (eq :a (fol-eval `(nth 0 ',vec) env)))
-      (is (eq :c (fol-eval `(nth 2 ',vec) env)))
-      (is (eq :e (fol-eval `(nth 4 ',vec) env))))
+      (is (eq :a (fol-eval `(nth ',vec 0) env)))
+      (is (eq :c (fol-eval `(nth ',vec 2) env)))
+      (is (eq :e (fol-eval `(nth ',vec 4) env))))
     ;; On FOL lists
     (let ((lst (make-list 10 20 30 40 50)))
-      (is (cl:= 10 (fol-eval `(nth 0 ',lst) env)))
-      (is (cl:= 30 (fol-eval `(nth 2 ',lst) env)))
-      (is (cl:= 50 (fol-eval `(nth 4 ',lst) env))))
+      (is (cl:= 10 (fol-eval `(nth ',lst 0) env)))
+      (is (cl:= 30 (fol-eval `(nth ',lst 2) env)))
+      (is (cl:= 50 (fol-eval `(nth ',lst 4) env))))
     ;; On CL lists
-    (is (eq :first (fol-eval '(nth 0 '(:first :second :third)) env)))
-    (is (eq :third (fol-eval '(nth 2 '(:first :second :third)) env)))
+    (is (eq :first (fol-eval '(nth '(:first :second :third) 0) env)))
+    (is (eq :third (fol-eval '(nth '(:first :second :third) 2) env)))
     ;; On strings
-    (is (char= #\h (fol-eval '(nth 0 "hello") env)))
-    (is (char= #\o (fol-eval '(nth 4 "hello") env)))))
+    (is (char= #\h (fol-eval '(nth "hello" 0) env)))
+    (is (char= #\o (fol-eval '(nth "hello" 4) env)))))
 
 (test eval-size-function
   "Test size function returns collection size."
@@ -1561,9 +1561,9 @@
     (let ((result (fol-eval (fol-form "(reduce (fn [acc x] (conj acc x)) [] [1 2 3])") env)))
       (is (<vector>? result))
       (is (cl:= 3 (size result)))
-      (is (cl:= 1 (nth 0 result)))
-      (is (cl:= 2 (nth 1 result)))
-      (is (cl:= 3 (nth 2 result))))))
+      (is (cl:= 1 (nth result 0)))
+      (is (cl:= 2 (nth result 1)))
+      (is (cl:= 3 (nth result 2))))))
 
 (test reduce-on-dict
   "Test reduce on a dict processes key-value pairs."
@@ -2146,6 +2146,168 @@
       (is-true (empty? result)))))
 
 ;;; ---------------------------------------------------------------------------
+;;; Lazy Sequence Operations: take and drop
+;;; ---------------------------------------------------------------------------
+
+(test take-basic
+  "Test take returns first n elements as lazy sequence."
+  (let ((env (make-standard-env)))
+    (let ((result (fol-eval (fol-form "(take 3 [1 2 3 4 5])") env)))
+      (is-true (<lazy-seq>? result))
+      (is (cl:= 1 (first result)))
+      (is (cl:= 2 (first (rest result))))
+      (is (cl:= 3 (first (rest (rest result)))))
+      (is-true (empty? (rest (rest (rest result))))))))
+
+(test take-more-than-available
+  "Test take with n larger than collection size returns all elements."
+  (let ((env (make-standard-env)))
+    (let ((result (fol-eval (fol-form "(take 10 [1 2 3])") env)))
+      (is-true (<lazy-seq>? result))
+      (is (cl:= 1 (first result)))
+      (is (cl:= 2 (first (rest result))))
+      (is (cl:= 3 (first (rest (rest result)))))
+      (is-true (empty? (rest (rest (rest result))))))))
+
+(test take-zero
+  "Test take with zero returns empty sequence."
+  (let ((env (make-standard-env)))
+    (let ((result (fol-eval (fol-form "(take 0 [1 2 3])") env)))
+      (is-true (<lazy-seq>? result))
+      (is-true (empty? result)))))
+
+(test take-negative
+  "Test take with negative n returns empty sequence."
+  (let ((env (make-standard-env)))
+    (let ((result (fol-eval (fol-form "(take -5 [1 2 3])") env)))
+      (is-true (<lazy-seq>? result))
+      (is-true (empty? result)))))
+
+(test take-from-empty
+  "Test take from empty collection returns empty sequence."
+  (let ((env (make-standard-env)))
+    (let ((result (fol-eval (fol-form "(take 5 [])") env)))
+      (is-true (<lazy-seq>? result))
+      (is-true (empty? result)))))
+
+(test take-from-infinite
+  "Test take from infinite sequence (range)."
+  (let ((env (make-standard-env)))
+    (let ((result (fol-eval (fol-form "(take 5 (range))") env)))
+      (is-true (<lazy-seq>? result))
+      (is (cl:= 0 (first result)))
+      (is (cl:= 1 (first (rest result))))
+      (is (cl:= 2 (first (rest (rest result)))))
+      (is (cl:= 3 (first (rest (rest (rest result))))))
+      (is (cl:= 4 (first (rest (rest (rest (rest result)))))))
+      (is-true (empty? (rest (rest (rest (rest (rest result))))))))))
+
+(test drop-basic
+  "Test drop removes first n elements."
+  (let ((env (make-standard-env)))
+    (let ((result (fol-eval (fol-form "(drop 2 [1 2 3 4 5])") env)))
+      (is-true (<lazy-seq>? result))
+      (is (cl:= 3 (first result)))
+      (is (cl:= 4 (first (rest result))))
+      (is (cl:= 5 (first (rest (rest result)))))
+      (is-true (empty? (rest (rest (rest result))))))))
+
+(test drop-more-than-available
+  "Test drop with n larger than collection size returns empty sequence."
+  (let ((env (make-standard-env)))
+    (let ((result (fol-eval (fol-form "(drop 10 [1 2 3])") env)))
+      (is-true (<lazy-seq>? result))
+      (is-true (empty? result)))))
+
+(test drop-zero
+  "Test drop with zero returns all elements."
+  (let ((env (make-standard-env)))
+    (let ((result (fol-eval (fol-form "(drop 0 [1 2 3])") env)))
+      (is-true (<lazy-seq>? result))
+      (is (cl:= 1 (first result)))
+      (is (cl:= 2 (first (rest result))))
+      (is (cl:= 3 (first (rest (rest result)))))
+      (is-true (empty? (rest (rest (rest result))))))))
+
+(test drop-negative
+  "Test drop with negative n returns all elements."
+  (let ((env (make-standard-env)))
+    (let ((result (fol-eval (fol-form "(drop -5 [1 2 3])") env)))
+      (is-true (<lazy-seq>? result))
+      (is (cl:= 1 (first result)))
+      (is (cl:= 2 (first (rest result))))
+      (is (cl:= 3 (first (rest (rest result)))))
+      (is-true (empty? (rest (rest (rest result))))))))
+
+(test drop-from-empty
+  "Test drop from empty collection returns empty sequence."
+  (let ((env (make-standard-env)))
+    (let ((result (fol-eval (fol-form "(drop 5 [])") env)))
+      (is-true (<lazy-seq>? result))
+      (is-true (empty? result)))))
+
+(test drop-from-infinite
+  "Test drop from infinite sequence (range)."
+  (let ((env (make-standard-env)))
+    ;; drop 5, then take 3 from infinite range
+    (let ((result (fol-eval (fol-form "(take 3 (drop 5 (range)))") env)))
+      (is-true (<lazy-seq>? result))
+      (is (cl:= 5 (first result)))
+      (is (cl:= 6 (first (rest result))))
+      (is (cl:= 7 (first (rest (rest result)))))
+      (is-true (empty? (rest (rest (rest result))))))))
+
+(test take-drop-composition
+  "Test composing take and drop."
+  (let ((env (make-standard-env)))
+    ;; Take 3 after dropping 2 from [1 2 3 4 5 6]
+    (let ((result (fol-eval (fol-form "(take 3 (drop 2 [1 2 3 4 5 6]))") env)))
+      (is-true (<lazy-seq>? result))
+      (is (cl:= 3 (first result)))
+      (is (cl:= 4 (first (rest result))))
+      (is (cl:= 5 (first (rest (rest result)))))
+      (is-true (empty? (rest (rest (rest result))))))))
+
+(test take-transducer
+  "Test take as a transducer with reduce."
+  (let ((env (make-standard-env)))
+    ;; Use take transducer to take first 3 elements during reduce
+    (let ((result (fol-eval (fol-form "(reduce ((take 3) conj) [] [1 2 3 4 5])") env)))
+      (is-true (<vector>? result))
+      (is (cl:= 3 (size result)))
+      (is (cl:= 1 (nth result 0)))
+      (is (cl:= 2 (nth result 1)))
+      (is (cl:= 3 (nth result 2))))))
+
+(test take-transducer-fewer-elements
+  "Test take transducer when collection has fewer than n elements."
+  (let ((env (make-standard-env)))
+    (let ((result (fol-eval (fol-form "(reduce ((take 10) conj) [] [1 2 3])") env)))
+      (is-true (<vector>? result))
+      (is (cl:= 3 (size result)))
+      (is (cl:= 1 (nth result 0)))
+      (is (cl:= 2 (nth result 1)))
+      (is (cl:= 3 (nth result 2))))))
+
+(test drop-transducer
+  "Test drop as a transducer with reduce."
+  (let ((env (make-standard-env)))
+    ;; Use drop transducer to skip first 2 elements during reduce
+    (let ((result (fol-eval (fol-form "(reduce ((drop 2) conj) [] [1 2 3 4 5])") env)))
+      (is-true (<vector>? result))
+      (is (cl:= 3 (size result)))
+      (is (cl:= 3 (nth result 0)))
+      (is (cl:= 4 (nth result 1)))
+      (is (cl:= 5 (nth result 2))))))
+
+(test drop-transducer-more-than-available
+  "Test drop transducer when n is larger than collection size."
+  (let ((env (make-standard-env)))
+    (let ((result (fol-eval (fol-form "(reduce ((drop 10) conj) [] [1 2 3])") env)))
+      (is-true (<vector>? result))
+      (is (cl:= 0 (size result))))))
+
+;;; ---------------------------------------------------------------------------
 ;;; cycle (lazy sequence generator)
 ;;; ---------------------------------------------------------------------------
 
@@ -2181,6 +2343,23 @@
     (let ((result (fol-eval (fol-form "(cycle [])") env)))
       (is-true (<lazy-seq>? result))
       (is-true (empty? result)))))
+
+(test cycle-multi
+  "Test using cycle with map to create repeating patterns."
+  (let ((env (make-standard-env)))
+    ;; Create a repeating pattern of 1,2,3 over 10 elements
+    (let ((result (fol-eval (fol-form "(take 10 (cycle [1 2 3]))") env)))
+      (is-true (<lazy-seq>? result))
+      (is (cl:= 1 (nth result 0)))
+      (is (cl:= 2 (nth result 1)))
+      (is (cl:= 3 (nth result 2)))
+      (is (cl:= 1 (nth result 3)))
+      (is (cl:= 2 (nth result 4)))
+      (is (cl:= 3 (nth result 5)))
+      (is (cl:= 1 (nth result 6)))
+      (is (cl:= 2 (nth result 7)))
+      (is (cl:= 3 (nth result 8)))
+      (is (cl:= 1 (nth result 9))))))
 
 
 ;;; ---------------------------------------------------------------------------

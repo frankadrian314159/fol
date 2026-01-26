@@ -584,6 +584,77 @@
                                                   (cl:cons (fol.collection:first current)
                                                            (cycle-seq (fol.collection:rest current))))))))
                                (cycle-seq s)))))
+            'take #'(lambda (n &rest args)
+                      "Returns a lazy sequence of the first n items in coll, or all items if there are fewer than n.
+                       (take n) - returns a transducer
+                       (take n coll) - returns a lazy-seq of the first n items"
+                      (cond
+                        ;; (take n) - return a transducer
+                        ((cl:= (cl:length args) 0)
+                         (let ((remaining n))
+                           #'(lambda (rf)
+                               (let ((taken 0))
+                                 #'(lambda (result input)
+                                     (if (cl:< taken remaining)
+                                         (progn
+                                           (cl:incf taken)
+                                           (let ((new-result (funcall rf result input)))
+                                             (if (cl:= taken remaining)
+                                                 (fol.collection:reduced new-result)
+                                                 new-result)))
+                                         (fol.collection:reduced result)))))))
+                        ;; (take n coll) - return lazy-seq
+                        ((cl:= (cl:length args) 1)
+                         (let ((coll (cl:first args)))
+                           (cl:labels ((take-seq (remaining s)
+                                         (fol.collection:make-lazy-seq
+                                          (lambda ()
+                                            (if (cl:or (cl:<= remaining 0)
+                                                       (null s)
+                                                       (fol.collection:empty? s))
+                                                nil
+                                                (cl:cons (fol.collection:first s)
+                                                         (take-seq (cl:1- remaining)
+                                                                   (fol.collection:rest s))))))))
+                             (take-seq n (fol.collection:seq coll)))))
+                        (t (error "take requires 1 or 2 arguments"))))
+            'drop #'(lambda (n &rest args)
+                      "Returns a lazy sequence of all but the first n items in coll.
+                       (drop n) - returns a transducer
+                       (drop n coll) - returns a lazy-seq of all but the first n items"
+                      (cond
+                        ;; (drop n) - return a transducer
+                        ((cl:= (cl:length args) 0)
+                         (let ((to-drop n))
+                           #'(lambda (rf)
+                               (let ((dropped 0))
+                                 #'(lambda (result input)
+                                     (if (cl:< dropped to-drop)
+                                         (progn
+                                           (cl:incf dropped)
+                                           result)
+                                         (funcall rf result input)))))))
+                        ;; (drop n coll) - return lazy-seq
+                        ((cl:= (cl:length args) 1)
+                         (let ((coll (cl:first args)))
+                           (cl:labels ((drop-items (remaining s)
+                                         ;; Eagerly drop n items, then return lazy seq of rest
+                                         (if (cl:or (cl:<= remaining 0)
+                                                    (null s)
+                                                    (fol.collection:empty? s))
+                                             s
+                                             (drop-items (cl:1- remaining) (fol.collection:rest s)))))
+                             (let ((remaining-seq (drop-items n (fol.collection:seq coll))))
+                               ;; Wrap remaining sequence in a lazy-seq for consistency
+                               (cl:labels ((lazy-rest (s)
+                                             (fol.collection:make-lazy-seq
+                                              (lambda ()
+                                                (if (cl:or (null s) (fol.collection:empty? s))
+                                                    nil
+                                                    (cl:cons (fol.collection:first s)
+                                                             (lazy-rest (fol.collection:rest s))))))))
+                                 (lazy-rest remaining-seq))))))
+                        (t (error "drop requires 1 or 2 arguments"))))
             ;; Standard macros
             'when (make-when-macro)
             'unless (make-unless-macro)))

@@ -246,7 +246,7 @@
   (let ((checks
           (loop for sig in signatures
                 for i from 0
-                for arg-access = `(nth ,i ,args-sym)
+                for arg-access = `(cl:nth ,i ,args-sym)
                 for check = (generate-pattern-check sig arg-access)
                 unless (eq check t)
                   collect check)))

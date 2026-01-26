@@ -501,7 +501,7 @@
             do (let ((targets (if (<vector>? target)
                                   ;; Vector of targets
                                   (loop for i from 0 below (size target)
-                                        collect (fol.wrappers:fol-value (nth i target)))
+                                        collect (fol.wrappers:fol-value (nth target i)))
                                   ;; Single target
                                   (list (fol.wrappers:fol-value target)))))
                  (dolist (tgt targets)

@@ -696,19 +696,19 @@
   "Default implementation: (first (rest (rest coll)))"
   (first (rest (rest coll))))
 
-(defgeneric nth (n coll)
+(defgeneric nth (coll n)
   (:documentation "Return the Nth element (0-indexed) of COLL, or NIL if not present.
-   Like Clojure's nth, this is 0-indexed."))
+   Like Clojure's nth, this is 0-indexed. Arguments are (nth coll n)."))
 
-(defmethod nth ((n integer) (lst <list>))
+(defmethod nth ((lst <list>) (n integer))
   "Get Nth element from a <list>."
   (get lst n nil))
 
-(defmethod nth ((n integer) (v <vector>))
+(defmethod nth ((v <vector>) (n integer))
   "Get Nth element from a <vector>."
   (get v n nil))
 
-(defmethod nth ((n integer) (ls <lazy-seq>))
+(defmethod nth ((ls <lazy-seq>) (n integer))
   "Get Nth element from a <lazy-seq>."
   (let ((current ls))
     (dotimes (i n)
@@ -717,17 +717,17 @@
         (return-from nth nil)))
     (first current)))
 
-(defmethod nth ((n integer) (lst cons))
+(defmethod nth ((lst cons) (n integer))
   "Get Nth element from a CL list."
   (cl:nth n lst))
 
-(defmethod nth ((n integer) (lst null))
+(defmethod nth ((lst null) (n integer))
   "Nth of nil is nil."
   nil)
 
-(defmethod nth ((n fol.classes:<number>) coll)
+(defmethod nth (coll (n fol.classes:<number>))
   "Allow wrapped numbers as index."
-  (nth (fol.wrappers:fol-value n) coll))
+  (nth coll (fol.wrappers:fol-value n)))
 
 
 ;;; ============================================================================
@@ -1152,7 +1152,7 @@
       ""
       (cl:subseq s 1)))
 
-(defmethod nth ((n integer) (s string))
+(defmethod nth ((s string) (n integer))
   "Get Nth character from a string."
   (get s n nil))
 

@@ -82,7 +82,7 @@ Returns the third element of a collection.
 ## nth
 
 ```
-(nth n coll)
+(nth coll n)
 ```
 
 Returns the element at index n (0-indexed). Returns nil if index is out of bounds.
@@ -90,10 +90,10 @@ Returns the element at index n (0-indexed). Returns nil if index is out of bound
 ### Examples
 
 ```fol
-(nth 0 [10 20 30])    ; => 10
-(nth 2 [10 20 30])    ; => 30
-(nth 1 "hello")       ; => \e
-(nth 10 [1 2 3])      ; => nil
+(nth [10 20 30] 0)    ; => 10
+(nth [10 20 30] 2)    ; => 30
+(nth "hello" 1)       ; => \e
+(nth [1 2 3] 10)      ; => nil
 ```
 
 ---

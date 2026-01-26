@@ -402,6 +402,8 @@
    filter keep mapcat interleave interpose
    ;; Lazy sequence generators
    range iterate repeat repeatedly cycle
+   ;; Lazy sequence operations
+   take drop
    ;; Reduced (for early termination)
    reduced?
    ;; Increment/decrement
