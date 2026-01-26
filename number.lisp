@@ -178,3 +178,163 @@
 
 (defmethod integral? (obj)
   (error "INTEGRAL? requires a number, got ~A" obj))
+
+
+(defgeneric nat-int? (num)
+  (:documentation "Returns T if NUM is a non-negative integer (>= 0), NIL otherwise."))
+
+(defmethod nat-int? ((num integer))
+  (cl:>= num 0))
+
+(defmethod nat-int? ((num <integer>))
+  (cl:>= (fol-value num) 0))
+
+(defmethod nat-int? ((num number))
+  nil)
+
+(defmethod nat-int? ((num <number>))
+  nil)
+
+(defmethod nat-int? (obj)
+  nil)
+
+
+(defgeneric pos-int? (num)
+  (:documentation "Returns T if NUM is a positive integer (> 0), NIL otherwise."))
+
+(defmethod pos-int? ((num integer))
+  (cl:> num 0))
+
+(defmethod pos-int? ((num <integer>))
+  (cl:> (fol-value num) 0))
+
+(defmethod pos-int? ((num number))
+  nil)
+
+(defmethod pos-int? ((num <number>))
+  nil)
+
+(defmethod pos-int? (obj)
+  nil)
+
+
+(defgeneric NaN? (num)
+  (:documentation "Returns T if NUM is a floating-point NaN (Not a Number), NIL otherwise."))
+
+(defmethod NaN? ((num float))
+  ;; NaN is the only value that is not equal to itself
+  (/= num num))
+
+(defmethod NaN? ((num <float>))
+  (let ((val (fol-value num)))
+    (/= val val)))
+
+(defmethod NaN? ((num number))
+  ;; Non-float numbers are never NaN
+  nil)
+
+(defmethod NaN? ((num <number>))
+  ;; Non-float wrapped numbers are never NaN
+  nil)
+
+(defmethod NaN? (obj)
+  (error "NaN? requires a number, got ~A" obj))
+
+
+(defgeneric infinite? (num)
+  (:documentation "Returns T if NUM is a floating-point infinity (positive or negative), NIL otherwise."))
+
+(defmethod infinite? ((num float))
+  ;; Infinity satisfies: non-zero and x = x/2 (only infinity has this property)
+  (and (not (zerop num))
+       (= num (/ num 2))))
+
+(defmethod infinite? ((num <float>))
+  (let ((val (fol-value num)))
+    (and (not (zerop val))
+         (= val (/ val 2)))))
+
+(defmethod infinite? ((num number))
+  ;; Non-float numbers are never infinite
+  nil)
+
+(defmethod infinite? ((num <number>))
+  ;; Non-float wrapped numbers are never infinite
+  nil)
+
+(defmethod infinite? (obj)
+  (error "INFINITE? requires a number, got ~A" obj))
+
+
+;;; Type conversion functions
+
+(defgeneric <complex> (num)
+  (:documentation "Converts a number to a complex number with imaginary part 0.
+   If the number is already complex, returns it unchanged."))
+
+(defmethod <complex> ((num complex))
+  "Complex numbers are returned unchanged."
+  num)
+
+(defmethod <complex> ((num real))
+  "Convert a real number to complex with imaginary part 0.
+   Uses 0.0 for imaginary part to ensure result is always a complex."
+  (cl:complex (float num) 0.0))
+
+(defmethod <complex> ((num <complex>))
+  "Wrapped complex numbers are unwrapped and returned."
+  (fol-value num))
+
+(defmethod <complex> ((num <real>))
+  "Convert a wrapped real number to complex with imaginary part 0.
+   Uses 0.0 for imaginary part to ensure result is always a complex."
+  (cl:complex (float (fol-value num)) 0.0))
+
+(defmethod <complex> (obj)
+  (error "<COMPLEX> requires a number, got ~A" obj))
+
+(defgeneric <single-float> (num)
+  (:documentation "Converts a real number to a single-float.
+   If the number is already a single-float, returns it unchanged."))
+
+(defmethod <single-float> ((num single-float))
+  "Single-floats are returned unchanged."
+  num)
+
+(defmethod <single-float> ((num real))
+  "Convert a real number to single-float."
+  (coerce num 'single-float))
+
+(defmethod <single-float> ((num <single-float>))
+  "Wrapped single-floats are unwrapped and returned."
+  (fol-value num))
+
+(defmethod <single-float> ((num <real>))
+  "Convert a wrapped real number to single-float."
+  (coerce (fol-value num) 'single-float))
+
+(defmethod <single-float> (obj)
+  (error "<SINGLE-FLOAT> requires a real number, got ~A" obj))
+
+(defgeneric <double-float> (num)
+  (:documentation "Converts a real number to a double-float.
+   If the number is already a double-float, returns it unchanged."))
+
+(defmethod <double-float> ((num double-float))
+  "Double-floats are returned unchanged."
+  num)
+
+(defmethod <double-float> ((num real))
+  "Convert a real number to double-float."
+  (coerce num 'double-float))
+
+(defmethod <double-float> ((num <double-float>))
+  "Wrapped double-floats are unwrapped and returned."
+  (fol-value num))
+
+(defmethod <double-float> ((num <real>))
+  "Convert a wrapped real number to double-float."
+  (coerce (fol-value num) 'double-float))
+
+(defmethod <double-float> (obj)
+  (error "<DOUBLE-FLOAT> requires a real number, got ~A" obj))

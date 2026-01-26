@@ -4,7 +4,8 @@
 ;;; Number Tests - Comprehensive test suite for FOL number operations
 ;;; ============================================================================
 
-(def-suite* :fol.number-tests)
+(def-suite number-suite :in fol-suite)
+(def-suite* :fol.number-tests :in number-suite)
 
 ;;; ---------------------------------------------------------------------------
 ;;; Number Type Predicate Tests
@@ -65,7 +66,8 @@
   "Test <bignum>? predicate."
   (let ((big (1+ most-positive-fixnum)))
     (is-true (<bignum>? big))
-    (is-true (<bignum>? (- big)))
+    (is-false (<bignum>? (- big)))       ; false on 2's complement macchines
+    (is-true (<bignum>? (- (+ big 1))))  ; true on all machines
     (is-false (<bignum>? 42))
     (is-false (<bignum>? 3.14))))
 
@@ -140,6 +142,115 @@
   (is-true (<complex>? #c(0 1)))
   (is-false (<complex>? 42))
   (is-false (<complex>? 3.14)))
+
+;;; ---------------------------------------------------------------------------
+;;; Complex Conversion Function
+;;; ---------------------------------------------------------------------------
+
+(test complex-conversion-integer
+  "Test <complex> conversion from integer."
+  (let ((result (<complex> 42)))
+    (is-true (complexp result))
+    (is (= 42 (realpart result)))
+    (is (= 0 (imagpart result)))))
+
+(test complex-conversion-float
+  "Test <complex> conversion from float."
+  (let ((result (<complex> 3.14)))
+    (is-true (complexp result))
+    (is (= 3.14 (realpart result)))
+    (is (= 0.0 (imagpart result)))))
+
+(test complex-conversion-ratio
+  "Test <complex> conversion from ratio."
+  (let ((result (<complex> 1/2)))
+    (is-true (complexp result))
+    (is (= 1/2 (realpart result)))
+    (is (= 0 (imagpart result)))))
+
+(test complex-conversion-already-complex
+  "Test <complex> on complex returns unchanged."
+  (let* ((orig #c(3 4))
+         (result (<complex> orig)))
+    (is-true (complexp result))
+    (is (= orig result))))
+
+(test complex-conversion-negative
+  "Test <complex> conversion from negative number."
+  (let ((result (<complex> -5)))
+    (is-true (complexp result))
+    (is (= -5 (realpart result)))
+    (is (= 0 (imagpart result)))))
+
+;;; ---------------------------------------------------------------------------
+;;; Single-Float Conversion Function
+;;; ---------------------------------------------------------------------------
+
+(test single-float-conversion-integer
+  "Test <single-float> conversion from integer."
+  (let ((result (<single-float> 42)))
+    (is (typep result 'single-float))
+    (is (= 42.0 result))))
+
+(test single-float-conversion-ratio
+  "Test <single-float> conversion from ratio."
+  (let ((result (<single-float> 1/2)))
+    (is (typep result 'single-float))
+    (is (= 0.5 result))))
+
+(test single-float-conversion-double
+  "Test <single-float> conversion from double-float."
+  (let ((result (<single-float> 3.14d0)))
+    (is (typep result 'single-float))
+    (is (< (abs (- result 3.14)) 0.001))))
+
+(test single-float-conversion-already-single
+  "Test <single-float> on single-float returns unchanged."
+  (let* ((orig 3.14s0)
+         (result (<single-float> orig)))
+    (is (typep result 'single-float))
+    (is (= orig result))))
+
+(test single-float-conversion-negative
+  "Test <single-float> conversion from negative number."
+  (let ((result (<single-float> -5)))
+    (is (typep result 'single-float))
+    (is (= -5.0 result))))
+
+;;; ---------------------------------------------------------------------------
+;;; Double-Float Conversion Function
+;;; ---------------------------------------------------------------------------
+
+(test double-float-conversion-integer
+  "Test <double-float> conversion from integer."
+  (let ((result (<double-float> 42)))
+    (is (typep result 'double-float))
+    (is (= 42.0d0 result))))
+
+(test double-float-conversion-ratio
+  "Test <double-float> conversion from ratio."
+  (let ((result (<double-float> 1/2)))
+    (is (typep result 'double-float))
+    (is (= 0.5d0 result))))
+
+(test double-float-conversion-single
+  "Test <double-float> conversion from single-float."
+  (let ((result (<double-float> 3.14s0)))
+    (is (typep result 'double-float))
+    (is (< (abs (- result 3.14d0)) 0.001d0))))
+
+(test double-float-conversion-already-double
+  "Test <double-float> on double-float returns unchanged."
+  (let* ((orig 3.14d0)
+         (result (<double-float> orig)))
+    (is (typep result 'double-float))
+    (is (= orig result))))
+
+(test double-float-conversion-negative
+  "Test <double-float> conversion from negative number."
+  (let ((result (<double-float> -5)))
+    (is (typep result 'double-float))
+    (is (= -5.0d0 result))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Number Wrapping/Unwrapping Tests
@@ -319,6 +430,177 @@
   (is-true (integral? (wrap-number 42)))
   (is-false (integral? (wrap-number 3.14)))
   (is-false (integral? (wrap-number 1/2))))
+
+;;; ---------------------------------------------------------------------------
+;;; Natural and Positive Integer Predicates
+;;; ---------------------------------------------------------------------------
+
+(test nat-int-predicate-raw
+  "Test nat-int? predicate with raw integers."
+  (is-true (nat-int? 0))
+  (is-true (nat-int? 1))
+  (is-true (nat-int? 42))
+  (is-true (nat-int? most-positive-fixnum))
+  (is-false (nat-int? -1))
+  (is-false (nat-int? -42))
+  (is-false (nat-int? most-negative-fixnum)))
+
+(test nat-int-predicate-wrapped
+  "Test nat-int? predicate with wrapped integers."
+  (is-true (nat-int? (wrap-number 0)))
+  (is-true (nat-int? (wrap-number 1)))
+  (is-true (nat-int? (wrap-number 42)))
+  (is-false (nat-int? (wrap-number -1)))
+  (is-false (nat-int? (wrap-number -42))))
+
+(test nat-int-predicate-non-integers
+  "Test nat-int? returns NIL for non-integers."
+  (is-false (nat-int? 3.14))
+  (is-false (nat-int? 0.0))
+  (is-false (nat-int? 1/2))
+  (is-false (nat-int? #c(1 2)))
+  (is-false (nat-int? "42"))
+  (is-false (nat-int? 'forty-two)))
+
+(test pos-int-predicate-raw
+  "Test pos-int? predicate with raw integers."
+  (is-true (pos-int? 1))
+  (is-true (pos-int? 42))
+  (is-true (pos-int? most-positive-fixnum))
+  (is-false (pos-int? 0))
+  (is-false (pos-int? -1))
+  (is-false (pos-int? -42))
+  (is-false (pos-int? most-negative-fixnum)))
+
+(test pos-int-predicate-wrapped
+  "Test pos-int? predicate with wrapped integers."
+  (is-true (pos-int? (wrap-number 1)))
+  (is-true (pos-int? (wrap-number 42)))
+  (is-false (pos-int? (wrap-number 0)))
+  (is-false (pos-int? (wrap-number -1)))
+  (is-false (pos-int? (wrap-number -42))))
+
+(test pos-int-predicate-non-integers
+  "Test pos-int? returns NIL for non-integers."
+  (is-false (pos-int? 3.14))
+  (is-false (pos-int? 0.0))
+  (is-false (pos-int? 1/2))
+  (is-false (pos-int? #c(1 2)))
+  (is-false (pos-int? "42"))
+  (is-false (pos-int? 'forty-two)))
+
+;;; ---------------------------------------------------------------------------
+;;; NaN and Infinity Predicates
+;;; ---------------------------------------------------------------------------
+
+;; Helper macro to create IEEE special values without trapping
+(defmacro with-float-traps-masked (&body body)
+  "Execute BODY with floating-point traps disabled for invalid operations and division-by-zero."
+  #+sbcl `(sb-int:with-float-traps-masked (:invalid :divide-by-zero :overflow)
+            ,@body)
+  #-sbcl `(progn ,@body))
+
+(test nan-predicate-single-float
+  "Test NaN? predicate with single-float NaN."
+  (with-float-traps-masked
+    (let ((nan (/ 0.0 0.0)))
+      (is-true (NaN? nan)))))
+
+(test nan-predicate-double-float
+  "Test NaN? predicate with double-float NaN."
+  (with-float-traps-masked
+    (let ((nan (/ 0.0d0 0.0d0)))
+      (is-true (NaN? nan)))))
+
+(test nan-predicate-regular-floats
+  "Test NaN? returns NIL for regular floats."
+  (is-false (NaN? 0.0))
+  (is-false (NaN? 3.14))
+  (is-false (NaN? -1.0))
+  (is-false (NaN? 1.0d0))
+  (is-false (NaN? most-positive-single-float))
+  (is-false (NaN? most-negative-single-float)))
+
+(test nan-predicate-non-floats
+  "Test NaN? returns NIL for non-float numbers."
+  (is-false (NaN? 0))
+  (is-false (NaN? 42))
+  (is-false (NaN? -17))
+  (is-false (NaN? 1/2))
+  (is-false (NaN? #c(1 2))))
+
+(test nan-predicate-wrapped
+  "Test NaN? predicate with wrapped floats."
+  (with-float-traps-masked
+    (let ((nan (/ 0.0 0.0)))
+      (is-true (NaN? (wrap-number nan)))))
+  (is-false (NaN? (wrap-number 3.14))))
+
+(test nan-predicate-error
+  "Test NaN? signals error for non-numbers."
+  (signals error (NaN? "nan"))
+  (signals error (NaN? 'nan)))
+
+(test infinite-predicate-positive
+  "Test infinite? predicate with positive infinity."
+  (with-float-traps-masked
+    (let ((pos-inf (/ 1.0 0.0)))
+      (is-true (infinite? pos-inf)))))
+
+(test infinite-predicate-negative
+  "Test infinite? predicate with negative infinity."
+  (with-float-traps-masked
+    (let ((neg-inf (/ -1.0 0.0)))
+      (is-true (infinite? neg-inf)))))
+
+(test infinite-predicate-double-float
+  "Test infinite? predicate with double-float infinity."
+  (with-float-traps-masked
+    (let ((pos-inf (/ 1.0d0 0.0d0))
+          (neg-inf (/ -1.0d0 0.0d0)))
+      (is-true (infinite? pos-inf))
+      (is-true (infinite? neg-inf)))))
+
+(test infinite-predicate-regular-floats
+  "Test infinite? returns NIL for regular floats."
+  (is-false (infinite? 0.0))
+  (is-false (infinite? 3.14))
+  (is-false (infinite? -1.0))
+  (is-false (infinite? 1.0d0))
+  (is-false (infinite? most-positive-single-float))
+  (is-false (infinite? most-negative-single-float)))
+
+(test infinite-predicate-non-floats
+  "Test infinite? returns NIL for non-float numbers."
+  (is-false (infinite? 0))
+  (is-false (infinite? 42))
+  (is-false (infinite? most-positive-fixnum))
+  (is-false (infinite? 1/2))
+  (is-false (infinite? #c(1 2))))
+
+(test infinite-predicate-wrapped
+  "Test infinite? predicate with wrapped floats."
+  (with-float-traps-masked
+    (let ((pos-inf (/ 1.0 0.0)))
+      (is-true (infinite? (wrap-number pos-inf)))))
+  (is-false (infinite? (wrap-number 3.14))))
+
+(test infinite-predicate-error
+  "Test infinite? signals error for non-numbers."
+  (signals error (infinite? "inf"))
+  (signals error (infinite? 'infinity)))
+
+(test nan-not-infinite
+  "Test that NaN is not considered infinite."
+  (with-float-traps-masked
+    (let ((nan (/ 0.0 0.0)))
+      (is-false (infinite? nan)))))
+
+(test infinite-not-nan
+  "Test that infinity is not considered NaN."
+  (with-float-traps-masked
+    (let ((pos-inf (/ 1.0 0.0)))
+      (is-false (NaN? pos-inf)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Arithmetic Operations with Mixed Types

@@ -266,7 +266,8 @@
            exp ln expt sqrt
            rationalize numerator denominator
            real-part imag-part angle
-           gcd lcm)
+           gcd lcm
+           rationalize)
   (:export
    ;; Basic arithmetic
    + - * /
@@ -329,7 +330,10 @@
    <float>? <single-float>? <double-float>?
    <rational>? <ratio>? <integer>? <fixnum>? <bignum>?
    ;; Value predicates
-   odd? even? zero? positive? negative? integral?))
+   odd? even? zero? positive? negative? integral?
+   nat-int? pos-int? NaN? infinite?
+   ;; Type conversion functions
+   <complex> <single-float> <double-float>))
 
 (defpackage fol.eval
   (:use cl fol.wrappers fol.classes fol.collection fol.env)

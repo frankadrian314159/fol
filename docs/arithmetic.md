@@ -401,3 +401,193 @@ Returns x - 1. Equivalent to `(- x 1)`.
 (dec 1)        ; => 0
 (dec 3.5)      ; => 2.5
 ```
+
+---
+
+# Type Conversion Functions
+
+## \<complex\>
+
+```
+(<complex> x)
+```
+
+Converts a real number to a complex number with imaginary part 0. If the number is already complex, returns it unchanged.
+
+### Examples
+
+```fol
+(<complex> 42)       ; => #C(42.0 0.0)
+(<complex> 3.14)     ; => #C(3.14 0.0)
+(<complex> 1/2)      ; => #C(0.5 0.0)
+(<complex> -5)       ; => #C(-5.0 0.0)
+(<complex> #C(3 4))  ; => #C(3 4) (unchanged)
+```
+
+---
+
+## \<single-float\>
+
+```
+(<single-float> x)
+```
+
+Converts a real number to a single-precision floating point number. If the number is already a single-float, returns it unchanged.
+
+### Examples
+
+```fol
+(<single-float> 42)      ; => 42.0
+(<single-float> 1/2)     ; => 0.5
+(<single-float> 3.14d0)  ; => 3.14 (converted from double)
+(<single-float> -5)      ; => -5.0
+```
+
+---
+
+## \<double-float\>
+
+```
+(<double-float> x)
+```
+
+Converts a real number to a double-precision floating point number. If the number is already a double-float, returns it unchanged.
+
+### Examples
+
+```fol
+(<double-float> 42)      ; => 42.0d0
+(<double-float> 1/2)     ; => 0.5d0
+(<double-float> 3.14)    ; => 3.14d0 (converted from single)
+(<double-float> -5)      ; => -5.0d0
+```
+
+---
+
+## rationalize
+
+```
+(rationalize x)
+(rationalize x tolerance)
+```
+
+Converts a real number to a rational approximation.
+
+With one argument, returns a rational number that is mathematically equal to (or a close approximation of) the number. Integers and ratios are returned unchanged. Floats are converted to their closest rational representation.
+
+With two arguments, returns the simplest rational number within `tolerance` of `x`. The "simplest" rational is defined as the one with the smallest denominator that falls within the interval [x - tolerance, x + tolerance]. This implements Scheme's rationalize semantics.
+
+### Examples
+
+```fol
+;; One-argument form
+(rationalize 1/2)        ; => 1/2 (unchanged)
+(rationalize 5)          ; => 5 (unchanged)
+(rationalize 0.5)        ; => 1/2
+
+;; Two-argument form (Scheme-style)
+(rationalize 0.3333333 0.0001)  ; => 1/3
+(rationalize 0.3 0.1)           ; => 1/3
+(rationalize 2.1 0.2)           ; => 2
+(rationalize 3.14159 0.01)      ; => 22/7 (classic pi approximation)
+```
+
+---
+
+# Integer Predicates
+
+## nat-int?
+
+```
+(nat-int? x)
+```
+
+Returns `t` if `x` is a non-negative integer (natural number, >= 0), `nil` otherwise.
+
+This predicate returns `nil` for all non-integer types including floats, ratios, complex numbers, strings, and symbols.
+
+### Examples
+
+```fol
+(nat-int? 0)         ; => t
+(nat-int? 1)         ; => t
+(nat-int? 42)        ; => t
+(nat-int? -1)        ; => nil (negative)
+(nat-int? 3.14)      ; => nil (not an integer)
+(nat-int? 0.0)       ; => nil (float, not integer)
+(nat-int? 1/2)       ; => nil (ratio)
+```
+
+---
+
+## pos-int?
+
+```
+(pos-int? x)
+```
+
+Returns `t` if `x` is a positive integer (> 0), `nil` otherwise.
+
+This predicate returns `nil` for all non-integer types including floats, ratios, complex numbers, strings, and symbols. Note that `0` returns `nil` since it is not positive.
+
+### Examples
+
+```fol
+(pos-int? 1)         ; => t
+(pos-int? 42)        ; => t
+(pos-int? 0)         ; => nil (not positive)
+(pos-int? -1)        ; => nil (negative)
+(pos-int? 3.14)      ; => nil (not an integer)
+(pos-int? 1/2)       ; => nil (ratio)
+```
+
+---
+
+# Float Special Value Predicates
+
+## NaN?
+
+```
+(NaN? x)
+```
+
+Returns `t` if `x` is a floating-point NaN (Not a Number), `nil` otherwise.
+
+NaN values are produced by undefined operations such as dividing zero by zero, or taking the square root of a negative number (when not in complex mode). NaN is the only value that is not equal to itself, which is how this function detects it.
+
+Non-float numbers (integers, ratios, complex) always return `nil`.
+
+### Examples
+
+```fol
+(NaN? (/ 0.0 0.0))     ; => t
+(NaN? 3.14)            ; => nil
+(NaN? 0.0)             ; => nil
+(NaN? 42)              ; => nil (integers are never NaN)
+(NaN? 1/2)             ; => nil (ratios are never NaN)
+```
+
+---
+
+## infinite?
+
+```
+(infinite? x)
+```
+
+Returns `t` if `x` is a floating-point infinity (positive or negative), `nil` otherwise.
+
+Infinity values are produced by operations that overflow, such as dividing a non-zero number by zero. Both positive and negative infinity return `t`.
+
+Non-float numbers (integers, ratios, complex) always return `nil`.
+
+### Examples
+
+```fol
+(infinite? (/ 1.0 0.0))   ; => t (positive infinity)
+(infinite? (/ -1.0 0.0))  ; => t (negative infinity)
+(infinite? 3.14)          ; => nil
+(infinite? 0.0)           ; => nil
+(infinite? 42)            ; => nil (integers are never infinite)
+(infinite? (/ 0.0 0.0))   ; => nil (NaN is not infinite)
+```

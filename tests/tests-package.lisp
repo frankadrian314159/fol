@@ -63,10 +63,11 @@
                 :fol-intern :parse-qualified-name)
   ;; Import non-conflicting symbols from fol.number
   (:import-from :fol.number
-                :<number>? :<complex>?
-                :<real>? :<float>? :<single-float>? :<double-float>?
+                :<number>? :<complex>? :<complex>
+                :<real>? :<float>? :<single-float>? :<single-float> :<double-float>? :<double-float>
                 :<rational>? :<ratio>? :<integer>? :<fixnum>? :<bignum>?
-                :odd? :even? :zero? :positive? :negative? :integral?)
+                :odd? :even? :zero? :positive? :negative? :integral?
+                :nat-int? :pos-int? :NaN? :infinite?)
   ;; Import non-conflicting symbols from fol.wrappers
   (:import-from :fol.wrappers
                 :fol-value :fol-type-of

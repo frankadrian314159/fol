@@ -115,6 +115,15 @@
             'zero? #'fol.number:zero?
             'even? #'fol.number:even?
             'odd? #'fol.number:odd?
+            'nat-int? #'fol.number:nat-int?
+            'pos-int? #'fol.number:pos-int?
+            'NaN? #'fol.number:NaN?
+            'infinite? #'fol.number:infinite?
+            ;; Type conversion functions
+            '<complex> #'fol.number:<complex>
+            '<single-float> #'fol.number:<single-float>
+            '<double-float> #'fol.number:<double-float>
+            'rationalize #'fol.arithop:rationalize
             ;; List operations
             ;; list creates FOL <list> objects (Clojure-style)
             ;; Use cl-list for macro form construction (building CL lists)
