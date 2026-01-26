@@ -261,3 +261,72 @@ For negative integers, this is the number of zero bits.
 (bit-count -1)            ; => 0 (all bits are 1, so 0 zeros)
 (bit-count -2)            ; => 1 (one zero bit in ...11110)
 ```
+
+---
+
+## bit-shift
+
+```
+(bit-shift integer count)
+```
+
+Shifts integer by count bit positions. Positive count shifts left, negative count shifts right. Right shift is arithmetic (sign-extending for negative numbers).
+
+This is equivalent to multiplying or dividing by powers of 2:
+- `(bit-shift x n)` where n > 0 is equivalent to `(* x (expt 2 n))`
+- `(bit-shift x n)` where n < 0 is equivalent to `(floor x (expt 2 (- n)))`
+
+### Examples
+
+```fol
+;; Shift left (positive count)
+(bit-shift 1 2)           ; => 4    (1 << 2)
+(bit-shift 1 8)           ; => 256  (1 << 8)
+(bit-shift 5 3)           ; => 40   (5 * 8)
+
+;; Shift right (negative count)
+(bit-shift 16 -2)         ; => 4    (16 >> 2)
+(bit-shift 255 -4)        ; => 15   (255 >> 4)
+(bit-shift 1 -1)          ; => 0    (1 >> 1)
+
+;; Arithmetic shift preserves sign for negative numbers
+(bit-shift -1 2)          ; => -4   (-1 << 2)
+(bit-shift -8 -2)         ; => -2   (-8 >> 2, sign-extended)
+
+;; Zero count returns the value unchanged
+(bit-shift 42 0)          ; => 42
+```
+
+---
+
+## bit-rotate
+
+```
+(bit-rotate integer count width)
+```
+
+Rotates integer by count bit positions within a width-bit field. Positive count rotates left, negative count rotates right. Bits that shift out one end wrap around to the other end.
+
+The width parameter is required because rotation only makes sense for a fixed-size bit field. The result is always a non-negative integer with at most width bits.
+
+### Examples
+
+```fol
+;; 8-bit rotate left
+(bit-rotate #b00000001 1 8)   ; => 2   (#b00000010)
+(bit-rotate #b00000001 4 8)   ; => 16  (#b00010000)
+(bit-rotate #b10000000 1 8)   ; => 1   (#b00000001, wraps around)
+(bit-rotate #b11000001 2 8)   ; => 7   (#b00000111)
+
+;; 8-bit rotate right (negative count)
+(bit-rotate #b00000001 -1 8)  ; => 128 (#b10000000)
+(bit-rotate #b00010000 -4 8)  ; => 1   (#b00000001)
+
+;; Full rotation returns same value
+(bit-rotate #b10101010 8 8)   ; => 170 (#b10101010)
+(bit-rotate #b10101010 -8 8)  ; => 170 (#b10101010)
+
+;; Different bit widths
+(bit-rotate #b0001 3 4)       ; => 8   (#b1000, 4-bit rotate)
+(bit-rotate #xC000 1 16)      ; => #x8001 (16-bit rotate)
+```

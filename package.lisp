@@ -254,7 +254,8 @@
   (:shadow bit-nand bit-nor bit-andc1 bit-andc2 bit-orc1 bit-orc2)
   (:export bitnot bitand bitor bitxor
            bit-nand bit-nor bit-andc1 bit-andc2 bit-orc1 bit-orc2
-           bit-test bit-set bit-clear bit-count))
+           bit-test bit-set bit-clear bit-count
+           bit-shift bit-rotate))
 
 (defpackage fol.arithop
   (:use cl fol.wrappers fol.classes)
@@ -333,7 +334,9 @@
    odd? even? zero? positive? negative? integral?
    nat-int? pos-int? NaN? infinite?
    ;; Type conversion functions
-   <complex> <single-float> <double-float>))
+   <complex> <single-float> <double-float>
+   ;; Random number generation
+   rand make-seeded-random-state call-with-seed))
 
 (defpackage fol.eval
   (:use cl fol.wrappers fol.classes fol.collection fol.env)

@@ -30,6 +30,21 @@
    :rest-param 'body          ; rest param captures all body forms
    :name 'unless))
 
+(defun make-with-seed-macro ()
+  "Create the 'with-seed' macro.
+   (with-seed seed form0 form1 ... formN) expands to
+   (call-with-seed seed (fn [] form0 form1 ... formN))
+   This binds *random-state* to a seeded state for the duration of the body,
+   returning the value of the last form."
+  (make-macro
+   '(seed)                    ; params: seed value
+   '((syntax-quote            ; body: expand to (call-with-seed seed (fn [] body...))
+      (call-with-seed (unquote seed)
+                      (fn [] (unquote-splicing body)))))
+   nil                        ; env
+   :rest-param 'body          ; rest param captures all body forms
+   :name 'with-seed))
+
 ;;; ============================================================================
 ;;; Standard Environment
 ;;; ============================================================================
@@ -124,6 +139,9 @@
             '<single-float> #'fol.number:<single-float>
             '<double-float> #'fol.number:<double-float>
             'rationalize #'fol.arithop:rationalize
+            ;; Random number generation
+            'rand #'fol.number:rand
+            'call-with-seed #'fol.number:call-with-seed
             ;; List operations
             ;; list creates FOL <list> objects (Clojure-style)
             ;; Use cl-list for macro form construction (building CL lists)
@@ -233,6 +251,8 @@
             'bit-set #'fol.bitop:bit-set
             'bit-clear #'fol.bitop:bit-clear
             'bit-count #'fol.bitop:bit-count
+            'bit-shift #'fol.bitop:bit-shift
+            'bit-rotate #'fol.bitop:bit-rotate
             ;; FOL collection operations
             'conj #'fol.collection:conj
             'first #'fol.collection:first
@@ -707,4 +727,5 @@
                         (t (error "drop requires 1 or 2 arguments"))))
             ;; Standard macros
             'when (make-when-macro)
-            'unless (make-unless-macro)))
+            'unless (make-unless-macro)
+            'with-seed (make-with-seed-macro)))

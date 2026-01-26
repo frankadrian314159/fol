@@ -591,3 +591,64 @@ Non-float numbers (integers, ratios, complex) always return `nil`.
 (infinite? 42)            ; => nil (integers are never infinite)
 (infinite? (/ 0.0 0.0))   ; => nil (NaN is not infinite)
 ```
+
+---
+
+# Random Number Generation
+
+## rand
+
+```
+(rand)
+(rand n)
+```
+
+Returns a random number.
+
+With no argument, returns a random double-float in the half-open interval [0.0, 1.0).
+
+With a positive integer argument `n`, returns a random integer in the half-open interval [0, n).
+
+### Examples
+
+```fol
+(rand)              ; => 0.7234... (some double-float in [0.0, 1.0))
+(rand 6)            ; => 3 (some integer from 0 to 5)
+(rand 100)          ; => 42 (some integer from 0 to 99)
+(rand 2)            ; => 0 or 1 (coin flip)
+```
+
+---
+
+## with-seed
+
+```
+(with-seed seed form*)
+```
+
+Evaluates the forms with the random number generator seeded to `seed`, returning the value of the last form.
+
+The seed must be a non-negative integer. Using the same seed will produce the same sequence of random numbers, making it useful for reproducible testing or simulations.
+
+The seeded state is local to the body forms and does not affect the global random state.
+
+### Examples
+
+```fol
+;; Reproducible random sequence
+(with-seed 42
+  (list (rand 100) (rand 100) (rand 100)))
+; => (17 33 61) (same every time with seed 42)
+
+;; Different seeds give different sequences
+(with-seed 123
+  (list (rand 100) (rand 100) (rand 100)))
+; => (8 71 29) (different sequence)
+
+;; Returns the last form's value
+(with-seed 0
+  (rand)
+  (rand)
+  (* 6 7))
+; => 42
+```

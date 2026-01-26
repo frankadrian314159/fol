@@ -27,6 +27,14 @@
                 :atan2
                 :real-part :imag-part :angle
                 :%gcd :%lcm)
+  ;; Shadow CL symbols that FOL bitop redefines
+  (:shadowing-import-from :fol.bitop
+                          :bit-nand :bit-nor :bit-andc1 :bit-andc2 :bit-orc1 :bit-orc2)
+  ;; Import non-conflicting symbols from fol.bitop
+  (:import-from :fol.bitop
+                :bitnot :bitand :bitor :bitxor
+                :bit-test :bit-set :bit-clear :bit-count
+                :bit-shift :bit-rotate)
   ;; Import non-conflicting symbols from fol.compareop
   (:import-from :fol.compareop
                 :%= :%/= :%< :%> :%<= :%>=)
@@ -67,7 +75,8 @@
                 :<real>? :<float>? :<single-float>? :<single-float> :<double-float>? :<double-float>
                 :<rational>? :<ratio>? :<integer>? :<fixnum>? :<bignum>?
                 :odd? :even? :zero? :positive? :negative? :integral?
-                :nat-int? :pos-int? :NaN? :infinite?)
+                :nat-int? :pos-int? :NaN? :infinite?
+                :rand :make-seeded-random-state :call-with-seed)
   ;; Import non-conflicting symbols from fol.wrappers
   (:import-from :fol.wrappers
                 :fol-value :fol-type-of

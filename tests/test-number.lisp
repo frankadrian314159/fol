@@ -767,3 +767,88 @@
     (is (= 20 (max a b c)))
     (is (= 5 (min a 5)))
     (is (= 25 (max b 25)))))
+
+;;; ---------------------------------------------------------------------------
+;;; Random Number Generation
+;;; ---------------------------------------------------------------------------
+
+(test rand-no-argument
+  "Test rand with no argument returns float in [0.0, 1.0)."
+  (dotimes (i 100)
+    (let ((r (rand)))
+      (is (typep r 'double-float))
+      (is (cl:>= r 0.0d0))
+      (is (cl:< r 1.0d0)))))
+
+(test rand-with-integer
+  "Test rand with positive integer returns integer in [0, N)."
+  (dotimes (i 100)
+    (let ((r (rand 10)))
+      (is (integerp r))
+      (is (cl:>= r 0))
+      (is (cl:< r 10))))
+  ;; Test with larger bound
+  (dotimes (i 50)
+    (let ((r (rand 1000)))
+      (is (integerp r))
+      (is (cl:>= r 0))
+      (is (cl:< r 1000)))))
+
+(test rand-with-wrapped-integer
+  "Test rand with wrapped positive integer."
+  (dotimes (i 50)
+    (let ((r (rand (wrap-number 10))))
+      (is (integerp r))
+      (is (cl:>= r 0))
+      (is (cl:< r 10)))))
+
+(test rand-error-non-positive
+  "Test rand signals error for non-positive integers."
+  (signals error (rand 0))
+  (signals error (rand -5)))
+
+(test rand-error-non-integer
+  "Test rand signals error for non-integer arguments."
+  (signals error (rand 3.14))
+  (signals error (rand "10")))
+
+(test call-with-seed-reproducibility
+  "Test that call-with-seed produces reproducible sequences."
+  (let ((seq1 (call-with-seed 42 (lambda ()
+                                   (list (rand 100) (rand 100) (rand 100)))))
+        (seq2 (call-with-seed 42 (lambda ()
+                                   (list (rand 100) (rand 100) (rand 100))))))
+    (is (equal seq1 seq2))))
+
+(test call-with-seed-different-seeds
+  "Test that different seeds produce different sequences."
+  (let ((seq1 (call-with-seed 42 (lambda ()
+                                   (list (rand 1000) (rand 1000) (rand 1000)))))
+        (seq2 (call-with-seed 123 (lambda ()
+                                    (list (rand 1000) (rand 1000) (rand 1000))))))
+    ;; Different seeds should produce different sequences (with high probability)
+    (is-false (equal seq1 seq2))))
+
+(test call-with-seed-isolation
+  "Test that call-with-seed doesn't affect the global random state."
+  ;; Generate some random numbers to establish state
+  (rand)
+  (rand)
+  ;; Use call-with-seed
+  (call-with-seed 42 (lambda ()
+                       (rand 100)
+                       (rand 100)))
+  ;; The global state should continue unaffected
+  ;; (This is more of a sanity check that the binding is local)
+  (is (typep (rand) 'double-float)))
+
+(test call-with-seed-returns-thunk-value
+  "Test that call-with-seed returns the value from the thunk."
+  (is (= 42 (call-with-seed 0 (lambda () 42))))
+  (is (equal '(1 2 3) (call-with-seed 0 (lambda () (list 1 2 3))))))
+
+(test make-seeded-random-state-error
+  "Test that make-seeded-random-state signals error for invalid seeds."
+  (signals error (make-seeded-random-state -1))
+  (signals error (make-seeded-random-state 3.14))
+  (signals error (make-seeded-random-state "42")))

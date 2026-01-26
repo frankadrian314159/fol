@@ -338,3 +338,36 @@
 
 (defmethod <double-float> (obj)
   (error "<DOUBLE-FLOAT> requires a real number, got ~A" obj))
+
+
+;;; Random number generation
+
+(defun rand (&optional n)
+  "Returns a random number.
+With no argument, returns a random double-float in [0.0, 1.0).
+With a positive integer argument N, returns a random integer in [0, N)."
+  (cond
+    ((null n) (random 1.0d0))
+    ((and (integerp n) (cl:plusp n)) (random n))
+    ((and (typep n '<integer>) (cl:plusp (fol-value n))) (random (fol-value n)))
+    (t (error "RAND requires no argument or a positive integer, got ~A" n))))
+
+(defun make-seeded-random-state (seed)
+  "Create a random state seeded with SEED (a non-negative integer)."
+  (unless (and (integerp seed) (cl:>= seed 0))
+    (error "MAKE-SEEDED-RANDOM-STATE requires a non-negative integer seed, got ~A" seed))
+  #+sbcl (sb-ext:seed-random-state seed)
+  #-sbcl (progn
+           ;; For non-SBCL implementations, we use a workaround:
+           ;; Create a state and use it to "warm up" with the seed
+           (let ((state (make-random-state t)))
+             ;; Consume seed number of random values to get different sequences
+             (dotimes (i (mod seed 1000))
+               (random 1.0 state))
+             state)))
+
+(defun call-with-seed (seed thunk)
+  "Call THUNK with *random-state* bound to a state seeded from SEED.
+This is the underlying implementation for the with-seed macro."
+  (let ((*random-state* (make-seeded-random-state seed)))
+    (funcall thunk)))

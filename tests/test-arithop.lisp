@@ -618,6 +618,95 @@
   (is (cl:= 36 (%lcm (wrap 12) (wrap 18)))))
 
 ;;; ============================================================================
+;;; Bit Shift and Rotate Functions
+;;; ============================================================================
+
+(test bit-shift-left
+  "Test bit-shift with positive count (shift left)"
+  (is (cl:= 4 (bit-shift 1 2)))      ; 1 << 2 = 4
+  (is (cl:= 16 (bit-shift 1 4)))     ; 1 << 4 = 16
+  (is (cl:= 8 (bit-shift 2 2)))      ; 2 << 2 = 8
+  (is (cl:= 0 (bit-shift 0 5)))      ; 0 << 5 = 0
+  (is (cl:= 256 (bit-shift 1 8))))   ; 1 << 8 = 256
+
+(test bit-shift-right
+  "Test bit-shift with negative count (shift right)"
+  (is (cl:= 2 (bit-shift 8 -2)))     ; 8 >> 2 = 2
+  (is (cl:= 1 (bit-shift 16 -4)))    ; 16 >> 4 = 1
+  (is (cl:= 0 (bit-shift 1 -1)))     ; 1 >> 1 = 0
+  (is (cl:= 4 (bit-shift 16 -2)))    ; 16 >> 2 = 4
+  (is (cl:= 0 (bit-shift 7 -3))))    ; 7 >> 3 = 0
+
+(test bit-shift-negative-integers
+  "Test bit-shift with negative integers (arithmetic shift)"
+  (is (cl:= -4 (bit-shift -1 2)))    ; -1 << 2 = -4
+  (is (cl:= -1 (bit-shift -4 -2)))   ; -4 >> 2 = -1 (arithmetic shift preserves sign)
+  (is (cl:= -2 (bit-shift -8 -2))))  ; -8 >> 2 = -2
+
+(test bit-shift-zero-count
+  "Test bit-shift with zero count"
+  (is (cl:= 42 (bit-shift 42 0)))
+  (is (cl:= -17 (bit-shift -17 0)))
+  (is (cl:= 0 (bit-shift 0 0))))
+
+(test bit-shift-wrapped
+  "Test bit-shift with wrapped integers"
+  (is (cl:= 8 (bit-shift (wrap-number 2) 2)))
+  (is (cl:= 8 (bit-shift 2 (wrap-number 2))))
+  (is (cl:= 8 (bit-shift (wrap-number 2) (wrap-number 2)))))
+
+(test bit-rotate-left
+  "Test bit-rotate with positive count (rotate left)"
+  ;; 8-bit rotation: 0b00000001 rotated left by 1 = 0b00000010
+  (is (cl:= #b00000010 (bit-rotate #b00000001 1 8)))
+  ;; 8-bit rotation: 0b00000001 rotated left by 4 = 0b00010000
+  (is (cl:= #b00010000 (bit-rotate #b00000001 4 8)))
+  ;; 8-bit rotation: 0b10000000 rotated left by 1 = 0b00000001 (wraps around)
+  (is (cl:= #b00000001 (bit-rotate #b10000000 1 8)))
+  ;; 8-bit rotation: 0b11000001 rotated left by 2 = 0b00000111
+  (is (cl:= #b00000111 (bit-rotate #b11000001 2 8))))
+
+(test bit-rotate-right
+  "Test bit-rotate with negative count (rotate right)"
+  ;; 8-bit rotation: 0b00000001 rotated right by 1 = 0b10000000
+  (is (cl:= #b10000000 (bit-rotate #b00000001 -1 8)))
+  ;; 8-bit rotation: 0b00010000 rotated right by 4 = 0b00000001
+  (is (cl:= #b00000001 (bit-rotate #b00010000 -4 8)))
+  ;; 8-bit rotation: 0b00000010 rotated right by 1 = 0b00000001
+  (is (cl:= #b00000001 (bit-rotate #b00000010 -1 8))))
+
+(test bit-rotate-full-rotation
+  "Test bit-rotate with full rotation (count = width)"
+  ;; Rotating by width should return the same value
+  (is (cl:= #b10101010 (bit-rotate #b10101010 8 8)))
+  (is (cl:= #b10101010 (bit-rotate #b10101010 -8 8)))
+  ;; Rotating by multiples of width should also return the same value
+  (is (cl:= #b10101010 (bit-rotate #b10101010 16 8)))
+  (is (cl:= #b10101010 (bit-rotate #b10101010 24 8))))
+
+(test bit-rotate-zero-count
+  "Test bit-rotate with zero count"
+  (is (cl:= #b11110000 (bit-rotate #b11110000 0 8)))
+  (is (cl:= #b10101010 (bit-rotate #b10101010 0 8))))
+
+(test bit-rotate-different-widths
+  "Test bit-rotate with different bit widths"
+  ;; 4-bit rotation
+  (is (cl:= #b1000 (bit-rotate #b0001 3 4)))
+  (is (cl:= #b0001 (bit-rotate #b1000 1 4)))
+  ;; 16-bit rotation
+  (is (cl:= #x8001 (bit-rotate #xC000 1 16)))
+  ;; 32-bit rotation
+  (is (cl:= #x80000001 (bit-rotate #xC0000000 1 32))))
+
+(test bit-rotate-wrapped
+  "Test bit-rotate with wrapped integers"
+  (is (cl:= #b00000010 (bit-rotate (wrap-number #b00000001) 1 8)))
+  (is (cl:= #b00000010 (bit-rotate #b00000001 (wrap-number 1) 8)))
+  (is (cl:= #b00000010 (bit-rotate #b00000001 1 (wrap-number 8))))
+  (is (cl:= #b00000010 (bit-rotate (wrap-number #b00000001) (wrap-number 1) (wrap-number 8)))))
+
+;;; ============================================================================
 ;;; Error Cases
 ;;; ============================================================================
 

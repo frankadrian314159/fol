@@ -219,3 +219,87 @@ For negative integers, this is the number of zero bits."))
 
 (defmethod bit-count ((integer <integer>))
   (cl:logcount (fol-value integer)))
+
+
+;;; ============================================================================
+;;; Bit Shifting and Rotation
+;;; ============================================================================
+
+(defgeneric bit-shift (integer count)
+  (:documentation "Shifts INTEGER by COUNT bit positions.
+Positive COUNT shifts left, negative COUNT shifts right.
+Right shift is arithmetic (sign-extending for negative numbers)."))
+
+(defmethod bit-shift ((integer integer) (count integer))
+  (cl:ash integer count))
+
+(defmethod bit-shift ((integer <integer>) (count integer))
+  (cl:ash (fol-value integer) count))
+
+(defmethod bit-shift ((integer integer) (count <integer>))
+  (cl:ash integer (fol-value count)))
+
+(defmethod bit-shift ((integer <integer>) (count <integer>))
+  (cl:ash (fol-value integer) (fol-value count)))
+
+
+(defgeneric bit-rotate (integer count width)
+  (:documentation "Rotates INTEGER by COUNT bit positions within a WIDTH-bit field.
+Positive COUNT rotates left, negative COUNT rotates right.
+The result is always a non-negative integer with at most WIDTH bits."))
+
+(defun %bit-rotate (integer count width)
+  "Internal rotation implementation."
+  (let* ((count (cl:mod count width))  ; Normalize count to [0, width)
+         (mask (cl:1- (cl:ash 1 width)))  ; Create mask of WIDTH 1-bits
+         (val (cl:logand integer mask)))  ; Mask input to WIDTH bits
+    (if (cl:zerop count)
+        val
+        ;; Rotate left by count: high bits wrap to low
+        (cl:logand mask
+                   (cl:logior (cl:ash val count)
+                              (cl:ash val (cl:- count width)))))))
+
+(defmethod bit-rotate ((integer integer) (count integer) (width integer))
+  (unless (cl:plusp width)
+    (error "BIT-ROTATE width must be positive, got ~A" width))
+  (%bit-rotate integer count width))
+
+(defmethod bit-rotate ((integer <integer>) (count integer) (width integer))
+  (unless (cl:plusp width)
+    (error "BIT-ROTATE width must be positive, got ~A" width))
+  (%bit-rotate (fol-value integer) count width))
+
+(defmethod bit-rotate ((integer integer) (count <integer>) (width integer))
+  (unless (cl:plusp width)
+    (error "BIT-ROTATE width must be positive, got ~A" width))
+  (%bit-rotate integer (fol-value count) width))
+
+(defmethod bit-rotate ((integer integer) (count integer) (width <integer>))
+  (let ((w (fol-value width)))
+    (unless (cl:plusp w)
+      (error "BIT-ROTATE width must be positive, got ~A" w))
+    (%bit-rotate integer count w)))
+
+(defmethod bit-rotate ((integer <integer>) (count <integer>) (width integer))
+  (unless (cl:plusp width)
+    (error "BIT-ROTATE width must be positive, got ~A" width))
+  (%bit-rotate (fol-value integer) (fol-value count) width))
+
+(defmethod bit-rotate ((integer <integer>) (count integer) (width <integer>))
+  (let ((w (fol-value width)))
+    (unless (cl:plusp w)
+      (error "BIT-ROTATE width must be positive, got ~A" w))
+    (%bit-rotate (fol-value integer) count w)))
+
+(defmethod bit-rotate ((integer integer) (count <integer>) (width <integer>))
+  (let ((w (fol-value width)))
+    (unless (cl:plusp w)
+      (error "BIT-ROTATE width must be positive, got ~A" w))
+    (%bit-rotate integer (fol-value count) w)))
+
+(defmethod bit-rotate ((integer <integer>) (count <integer>) (width <integer>))
+  (let ((w (fol-value width)))
+    (unless (cl:plusp w)
+      (error "BIT-ROTATE width must be positive, got ~A" w))
+    (%bit-rotate (fol-value integer) (fol-value count) w)))
