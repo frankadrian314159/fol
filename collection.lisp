@@ -378,6 +378,38 @@
       (setf result (cl:cons (fol.wrappers:fol-value it) result)))
     result))
 
+;;; --- Stack-like operations (pop/push) ---
+
+(defgeneric pop (collection)
+  (:documentation "Returns a new collection without one element.
+   For lists: removes the first element (front of list).
+   For vectors: removes the last element (end of vector).
+   Returns nil if the collection is empty."))
+
+(defmethod pop ((lst <list>))
+  "Return a new list without the first item. Returns nil if empty."
+  (if (zerop (list-size lst))
+      nil
+      (or (list-rest lst)
+          (make-instance '<list> :first-elem nil :rest-list nil :list-size 0))))
+
+(defmethod pop ((lst null))
+  "Return nil for empty/nil list."
+  nil)
+
+(defgeneric push (item collection)
+  (:documentation "Returns a new collection with ITEM added.
+   For lists: adds to the front (like cons).
+   For vectors: adds to the end (like conj)."))
+
+(defmethod push (item (lst <list>))
+  "Add ITEM to the front of the list."
+  (conj lst item))
+
+(defmethod push (item (lst null))
+  "Create a new list with just ITEM."
+  (make-list item))
+
 ;;; --- Generic protocol implementations for <list> ---
 
 (defmethod size ((lst <list>))
@@ -866,7 +898,7 @@
       (let ((iter (iterator c))
             (result nil))
         (loop until (done? iter)
-              do (push (current iter) result)
+              do (cl:push (current iter) result)
                  (next iter))
         (apply #'make-list (nreverse result)))))
 
@@ -890,7 +922,7 @@
         nil
         (let ((pairs nil))
           (fset:do-map (k v items)
-            (push (cons k v) pairs))
+            (cl:push (cons k v) pairs))
           (apply #'make-list (nreverse pairs))))))
 
 (defmethod seq ((s <set>))
@@ -901,7 +933,7 @@
         (let ((elems nil))
           (fset:do-map (k v items)
             (declare (ignore v))
-            (push k elems))
+            (cl:push k elems))
           (apply #'make-list (nreverse elems))))))
 
 (defmethod seq ((b <bag>))
@@ -912,7 +944,7 @@
         (let ((elems nil))
           (fset:do-map (elem count items)
             (dotimes (i count)
-              (push elem elems)))
+              (cl:push elem elems)))
           (apply #'make-list (nreverse elems))))))
 
 ;;; --- Methods for CL lists (cons cells) ---
@@ -1018,6 +1050,19 @@
   "Arrays do not support conj."
   (declare (ignore item more-items))
   (error "Cannot conj to a fixed-dimension <array>. Use set-nth to modify elements."))
+
+;;; Vector pop and push methods (defined here after vector is fully defined)
+
+(defmethod pop ((v <vector>))
+  "Return a new vector without the last element. Returns empty vector if empty."
+  (let ((items (pslot-value v 'items)))
+    (if (fset:empty? items)
+        (make-vector)
+        (make-instance '<vector> :items (fset:less-last items)))))
+
+(defmethod push (item (v <vector>))
+  "Add ITEM to the end of the vector."
+  (conj v item))
 
 ;;; 6. REMOVE (Functional Deletion)
 (defgeneric remove (collection item)

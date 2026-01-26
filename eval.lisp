@@ -176,12 +176,12 @@
 
 (defun dynamic-var-push (dvar value)
   "Push a new value onto the dynamic variable's value stack."
-  (push value (dynamic-var-value-stack dvar)))
+  (cl:push value (dynamic-var-value-stack dvar)))
 
 (defun dynamic-var-pop (dvar)
   "Pop a value from the dynamic variable's value stack.
    Returns the popped value."
-  (pop (dynamic-var-value-stack dvar)))
+  (cl:pop (dynamic-var-value-stack dvar)))
 
 ;;; ============================================================================
 ;;; Recur Exception (for loop/recur)
@@ -361,49 +361,67 @@
 
 ;;; --- List Forms (Special Forms and Function Application) ---
 
+;;; Dispatch table for special forms - maps symbol name (string) to handler symbol.
+;;; Each handler is a symbol naming a function that takes (args env).
+(defparameter *special-form-dispatch*
+  (let ((table (make-hash-table :test 'equal)))
+    ;; Core special forms
+    (setf (gethash "QUOTE" table) 'eval-quote)
+    (setf (gethash "IF" table) 'eval-if)
+    (setf (gethash "DO" table) 'eval-do)
+    (setf (gethash "BIND" table) 'eval-bind)
+    (setf (gethash "FN" table) 'eval-fn)
+    (setf (gethash "Λ" table) 'eval-fn)  ; λ is a synonym for fn
+    (setf (gethash "DEF" table) 'eval-def)
+    (setf (gethash "LOOP" table) 'eval-loop)
+    (setf (gethash "RECUR" table) 'eval-recur)
+    (setf (gethash "THROW" table) 'eval-throw)
+    (setf (gethash "TRY" table) 'eval-try)
+    (setf (gethash "DEFN" table) 'eval-defn)
+    (setf (gethash "DEFMACRO" table) 'eval-defmacro)
+    (setf (gethash "SYNTAX-QUOTE" table) 'eval-syntax-quote)
+    (setf (gethash "MAKE-DYNAMIC" table) 'eval-make-dynamic)
+    (setf (gethash "BINDING" table) 'eval-binding)
+    (setf (gethash "LAZY-SEQ" table) 'eval-lazy-seq)
+    ;; Conditional forms
+    (setf (gethash "COND" table) 'eval-cond)
+    (setf (gethash "CASE" table) 'eval-case)
+    ;; Threading macros
+    (setf (gethash "->" table) 'eval-thread-first)
+    (setf (gethash "->>" table) 'eval-thread-last)
+    ;; FOL MOP forms
+    (setf (gethash "DEFGENERIC" table) 'eval-defgeneric*)
+    (setf (gethash "DEFCLASS" table) 'eval-defclass*)
+    (setf (gethash "DEFMETHOD" table) 'eval-defmethod*)
+    ;; Unquote forms are errors outside syntax-quote
+    (setf (gethash "UNQUOTE" table) 'eval-unquote-error)
+    (setf (gethash "UNQUOTE-SPLICING" table) 'eval-unquote-splicing-error)
+    table)
+  "Hash table mapping special form names (uppercase strings) to handler symbols.")
+
+(defun eval-unquote-error (args env)
+  "Signal error for unquote outside syntax-quote."
+  (declare (ignore env))
+  (error 'fol-eval-error
+         :message "unquote (~) is only valid inside syntax-quote"
+         :form (cl:cons 'unquote args)))
+
+(defun eval-unquote-splicing-error (args env)
+  "Signal error for unquote-splicing outside syntax-quote."
+  (declare (ignore env))
+  (error 'fol-eval-error
+         :message "unquote-splicing (~@) is only valid inside syntax-quote"
+         :form (cl:cons 'unquote-splicing args)))
+
 (defmethod fol-eval ((form cons) env)
   "Evaluate a list form. Dispatch on the operator."
-  (let ((op (car form))
-        (args (cdr form)))
-    (cond
-      ;; Special forms - compare by symbol name for package independence
-      ((special-form-p op 'quote)  (eval-quote args env))
-      ((special-form-p op 'if)     (eval-if args env))
-      ((special-form-p op 'do)     (eval-do args env))
-      ((special-form-p op 'bind)   (eval-bind args env))
-      ((special-form-p op 'fn)     (eval-fn args env))
-      ((special-form-p op 'λ)      (eval-fn args env))  ; λ is a synonym for fn
-      ((special-form-p op 'def)    (eval-def args env))
-      ((special-form-p op 'loop)   (eval-loop args env))
-      ((special-form-p op 'recur)  (eval-recur args env))
-      ((special-form-p op 'throw)  (eval-throw args env))
-      ((special-form-p op 'try)    (eval-try args env))
-      ((special-form-p op 'defn)   (eval-defn args env))
-      ((special-form-p op 'defmacro) (eval-defmacro args env))
-      ((special-form-p op 'syntax-quote) (eval-syntax-quote args env))
-      ((special-form-p op 'make-dynamic) (eval-make-dynamic args env))
-      ((special-form-p op 'binding) (eval-binding args env))
-      ((special-form-p op 'lazy-seq) (eval-lazy-seq args env))
-      ;; Conditional forms
-      ((special-form-p op 'cond) (eval-cond args env))
-      ((special-form-p op 'case) (eval-case args env))
-      ;; Threading macros
-      ((special-form-p op '->) (eval-thread-first args env))
-      ((special-form-p op '->>) (eval-thread-last args env))
-      ;; FOL MOP forms
-      ((special-form-p op 'defgeneric) (eval-defgeneric* args env))
-      ((special-form-p op 'defclass) (eval-defclass* args env))
-      ((special-form-p op 'defmethod) (eval-defmethod* args env))
-      ;; Unquote forms are errors outside syntax-quote
-      ((special-form-p op 'unquote)
-       (error 'fol-eval-error
-              :message "unquote (~) is only valid inside syntax-quote"
-              :form form))
-      ((special-form-p op 'unquote-splicing)
-       (error 'fol-eval-error
-              :message "unquote-splicing (~@) is only valid inside syntax-quote"
-              :form form))
-      (t (eval-application op args env)))))
+  (let* ((op (car form))
+         (args (cdr form))
+         (handler (cl:and (symbolp op)
+                          (gethash (symbol-name op) *special-form-dispatch*))))
+    (if handler
+        (funcall handler args env)
+        (eval-application op args env))))
 
 ;;; ============================================================================
 ;;; Special Form Evaluators
@@ -700,7 +718,7 @@
                 (incf current-idx))))
     ;; Add :as binding if present
     (when as-binding
-      (push as-binding bindings))
+      (cl:push as-binding bindings))
     bindings))
 
 (defun destructure-associative (pattern value)
@@ -732,7 +750,7 @@
               (let* ((sym (extract-symbol k))
                      (keyword (intern (symbol-name sym) :keyword))
                      (val (get-with-default keyword sym)))
-                (push (cons sym val) bindings))))))
+                (cl:push (cons sym val) bindings))))))
 
       ;; Check for :strs shortcut (string keys)
       (let ((strs-val (get pattern :strs nil)))
@@ -745,7 +763,7 @@
               (let* ((sym (extract-symbol s))
                      (str-key (symbol-name sym))
                      (val (get-with-default str-key sym)))
-                (push (cons sym val) bindings))))))
+                (cl:push (cons sym val) bindings))))))
 
       ;; Check for :syms shortcut (symbol keys)
       (let ((syms-val (get pattern :syms nil)))
@@ -757,7 +775,7 @@
             (dolist (s sym-list)
               (let* ((sym (extract-symbol s))
                      (val (get-with-default sym sym)))
-                (push (cons sym val) bindings))))))
+                (cl:push (cons sym val) bindings))))))
 
       ;; Check for :as whole binding
       (let ((as-val (get pattern :as nil)))
@@ -777,11 +795,11 @@
               ;; Support nested destructuring
               (if (or (<vector>? local-sym) (<dict>? local-sym) (cl:listp local-sym))
                   (setf bindings (append bindings (destructure-pattern k val)))
-                  (push (cons local-sym val) bindings))))))
+                  (cl:push (cons local-sym val) bindings))))))
 
       ;; Add :as binding if present
       (when as-binding
-        (push as-binding bindings))
+        (cl:push as-binding bindings))
 
       (nreverse bindings))))
 
@@ -789,8 +807,8 @@
   "Convert a FOL <list> to a CL list."
   (let ((result nil)
         (current fol-list))
-    (loop while (and current (> (list-size current) 0))
-          do (push (list-first current) result)
+    (loop while (cl:and current (cl:> (list-size current) 0))
+          do (cl:push (list-first current) result)
              (setf current (list-rest current)))
     (nreverse result)))
 
@@ -1271,11 +1289,11 @@
                     :message (format nil "unquote-splicing requires a list, got ~S" spliced)
                     :form form))
            (dolist (item spliced)
-             (push item result))))
+             (cl:push item result))))
 
         ;; Regular form: expand recursively
         (t
-         (push (expand-syntax-quote form env gensym-table) result))))
+         (cl:push (expand-syntax-quote form env gensym-table) result))))
     (nreverse result)))
 
 (defun get-or-create-gensym (symbol gensym-table)
@@ -1371,8 +1389,8 @@
                      (error 'fol-eval-error
                             :message (format nil "binding requires dynamic variables, got ~S" dvar)
                             :form dvar-form))
-                   (push dvar dvars)
-                   (push val new-values)))
+                   (cl:push dvar dvars)
+                   (cl:push val new-values)))
         (setf dvars (nreverse dvars))
         (setf new-values (nreverse new-values))
         ;; Push all values onto their respective stacks
@@ -1550,11 +1568,11 @@
     (loop while (cl:and remaining
                         (cl:not (<vector>? (car remaining)))
                         (cl:not (listp (car remaining))))
-          do (push (pop remaining) qualifiers))
+          do (cl:push (cl:pop remaining) qualifiers))
     (setf qualifiers (nreverse qualifiers))
     ;; Next should be the lambda list
     (when remaining
-      (setf lambda-list-vec (fol-eval (pop remaining) env))
+      (setf lambda-list-vec (fol-eval (cl:pop remaining) env))
       (setf body remaining))
     (fol.fol-mop:eval-defmethod* name qualifiers lambda-list-vec body)))
 
@@ -1575,8 +1593,8 @@
       (let ((params nil)
             (values nil))
         (loop for (var val-form) on binding-list by #'cddr
-              do (push (extract-symbol var) params)
-                 (push (fol-eval val-form env) values))
+              do (cl:push (extract-symbol var) params)
+                 (cl:push (fol-eval val-form env) values))
         (setf params (nreverse params))
         (setf values (nreverse values))
         ;; Loop until no recur
@@ -1626,7 +1644,7 @@
         ((cl:and (consp form) (symbolp (car form))
               (string= (symbol-name (car form)) "FINALLY"))
          (setf finally-clause form))
-        (t (push form body))))
+        (t (cl:push form body))))
     (setf body (nreverse body))
     ;; Execute with handler
     (let ((result nil))
@@ -1847,7 +1865,7 @@
          (setf saw-ampersand nil))
         ;; Regular param - can be symbol or destructuring pattern
         (t
-         (push p regular))))
+         (cl:push p regular))))
     (values (nreverse regular) rest-param)))
 
 (defun bind-param-with-destructuring (param value env)

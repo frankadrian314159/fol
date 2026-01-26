@@ -94,7 +94,7 @@
                 ;; Reduced (for early termination in reduce)
                 :<reduced> :<reduced>? :reduced :unreduced :reduced-value)
   ;; Shadow CL symbols that FOL redefines
-  (:shadowing-import-from :fol.collection :remove :get :make-array :make-list :first :rest :second :third :nth)
+  (:shadowing-import-from :fol.collection :remove :get :make-array :make-list :first :rest :second :third :nth :pop :push)
   ;; Import symbols from fol.env
   (:import-from :fol.env
                 :<env>? :make-env :lookup :env-previous
@@ -175,7 +175,9 @@
                 ;; Increment/decrement
                 :inc :dec
                 ;; String operations
-                :str)
+                :str
+                ;; Standard environment symbols (for macro form construction)
+                :cl-cons :cl-list)
   ;; Import symbols from fol.stream
   (:shadowing-import-from :fol.stream
                           :open :close

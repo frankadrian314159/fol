@@ -2382,7 +2382,7 @@
   "Test that macros receive unevaluated arguments."
   (let ((env (make-standard-env)))
     ;; Define a macro that returns its argument as a quoted form
-    (let* ((macro (fol-eval '(defmacro quote-it (x) (list 'quote x)) env))
+    (let* ((macro (fol-eval '(defmacro quote-it (x) (cl-list 'quote x)) env))
            (env2 (make-env env 'quote-it macro)))
       ;; (quote-it (+ 1 2)) should return the LIST (+ 1 2), not 3
       (is (equal '(+ 1 2) (fol-eval '(quote-it (+ 1 2)) env2))))))
@@ -2391,7 +2391,7 @@
   "Test that the result of macro expansion is evaluated."
   (let ((env (make-standard-env)))
     ;; Define a macro that builds an addition expression
-    (let* ((macro (fol-eval '(defmacro add-expr (a b) (list '+ a b)) env))
+    (let* ((macro (fol-eval '(defmacro add-expr (a b) (cl-list '+ a b)) env))
            (env2 (make-env env 'add-expr macro)))
       ;; (add-expr 1 2) expands to (+ 1 2) which evaluates to 3
       (is (cl:= 3 (fol-eval '(add-expr 1 2) env2))))))
@@ -2431,7 +2431,7 @@
   (let ((env (make-standard-env)))
     ;; (when test body...) => (if test (do body...))
     (let* ((macro (fol-eval '(defmacro my-when (test & body)
-                               (list 'if test (cons 'do body)))
+                               (cl-list 'if test (cl-cons 'do body)))
                             env))
            (env2 (make-env env 'my-when macro)))
       ;; Test when condition is true
@@ -2444,7 +2444,7 @@
   (let ((env (make-standard-env)))
     ;; (my-unless test body...) => (if test nil (do body...))
     (let* ((macro (fol-eval '(defmacro my-unless (test & body)
-                               (list 'if test nil (cons 'do body)))
+                               (cl-list 'if test nil (cl-cons 'do body)))
                             env))
            (env2 (make-env env 'my-unless macro)))
       ;; Test unless condition is false (body executes)
@@ -2457,7 +2457,7 @@
   (let ((env (make-standard-env)))
     ;; A macro that wraps all args in a list call
     (let* ((macro (fol-eval '(defmacro make-list (& items)
-                               (cons 'list items))
+                               (cl-cons 'cl-list items))
                             env))
            (env2 (make-env env 'make-list macro)))
       (is (equal '(1 2 3) (fol-eval '(make-list 1 2 3) env2))))))
@@ -2466,9 +2466,9 @@
   "Test nested macro calls."
   (let ((env (make-standard-env)))
     ;; Define two macros
-    (let* ((double-macro (fol-eval '(defmacro double (x) (list '* 2 x)) env))
+    (let* ((double-macro (fol-eval '(defmacro double (x) (cl-list '* 2 x)) env))
            (env2 (make-env env 'double double-macro))
-           (triple-macro (fol-eval '(defmacro triple (x) (list '* 3 x)) env2))
+           (triple-macro (fol-eval '(defmacro triple (x) (cl-list '* 3 x)) env2))
            (env3 (make-env env2 'triple triple-macro)))
       ;; (double (triple 5)) => (* 2 (* 3 5)) => 30
       (is (cl:= 30 (fol-eval '(double (triple 5)) env3))))))
@@ -2478,7 +2478,7 @@
   (let ((env (make-standard-env)))
     ;; Define a macro that uses a value from its definition environment
     (let* ((env2 (make-env env 'multiplier 10))
-           (macro (fol-eval '(defmacro scale (x) (list '* multiplier x)) env2))
+           (macro (fol-eval '(defmacro scale (x) (cl-list '* multiplier x)) env2))
            (env3 (make-env env2 'scale macro)))
       ;; (scale 5) expands to (* 10 5) => 50
       (is (cl:= 50 (fol-eval '(scale 5) env3))))))
@@ -2488,7 +2488,7 @@
   (let ((env (make-standard-env)))
     ;; (my-and a b) => (if a b nil)
     (let* ((macro (fol-eval '(defmacro my-and (a b)
-                               (list 'if a b nil))
+                               (cl-list 'if a b nil))
                             env))
            (env2 (make-env env 'my-and macro)))
       (is (eq t (fol-eval '(my-and t t) env2)))
@@ -2502,7 +2502,7 @@
     ;; (my-or a b) => (if a a b)
     ;; Note: This evaluates a twice, but demonstrates macro expansion
     (let* ((macro (fol-eval '(defmacro my-or (a b)
-                               (list 'if a a b))
+                               (cl-list 'if a a b))
                             env))
            (env2 (make-env env 'my-or macro)))
       (is (eq t (fol-eval '(my-or t t) env2)))
@@ -2513,7 +2513,7 @@
 (test macroexpand-1-basic
   "Test macroexpand-1 function."
   (let ((env (make-standard-env)))
-    (let* ((macro (fol-eval '(defmacro double (x) (list '* 2 x)) env))
+    (let* ((macro (fol-eval '(defmacro double (x) (cl-list '* 2 x)) env))
            (env2 (make-env env 'double macro)))
       ;; macroexpand-1 should expand once
       (multiple-value-bind (expanded expandedp)
@@ -2534,9 +2534,9 @@
   "Test macroexpand function for full expansion."
   (let ((env (make-standard-env)))
     ;; Define a macro that expands to another macro call
-    (let* ((inner-macro (fol-eval '(defmacro inner (x) (list '+ x 1)) env))
+    (let* ((inner-macro (fol-eval '(defmacro inner (x) (cl-list '+ x 1)) env))
            (env2 (make-env env 'inner inner-macro))
-           (outer-macro (fol-eval '(defmacro outer (x) (list 'inner x)) env2))
+           (outer-macro (fol-eval '(defmacro outer (x) (cl-list 'inner x)) env2))
            (env3 (make-env env2 'outer outer-macro)))
       ;; (outer 5) => (inner 5) => (+ 5 1)
       (let ((expanded (macroexpand '(outer 5) env3)))
@@ -2553,10 +2553,10 @@
                    '(defmacro my-cond (& clauses)
                       (if (= nil clauses)
                           nil
-                          (list 'if
+                          (cl-list 'if
                                 (first (first clauses))
                                 (first (rest (first clauses)))
-                                (cons 'my-cond (rest clauses)))))
+                                (cl-cons 'my-cond (rest clauses)))))
                    env))
            (env2 (make-env env 'my-cond macro)))
       ;; Test first clause matches
@@ -2573,10 +2573,10 @@
     ;; Flatten the bindings list
     (let* ((macro (fol-eval
                    '(defmacro my-let (bindings & body)
-                      (cons 'bind
-                            (cons (apply list
+                      (cl-cons 'bind
+                            (cl-cons (apply cl-list
                                         (apply append
-                                               (list bindings)))
+                                               (cl-list bindings)))
                                   body)))
                    env))
            (env2 (make-env env 'my-let macro 'append #'cl:append)))
@@ -3055,7 +3055,7 @@
   (let ((env (make-standard-env)))
     ;; Macro that destructures its parameter
     (let* ((macro (fol-eval (fol-form "(defmacro with-pair [[a b] & body]
-                               (list 'bind (list 'x a 'y b) (cons 'do body)))")
+                               (cl-list 'bind (cl-list 'x a 'y b) (cl-cons 'do body)))")
                             env))
            (env2 (make-env env 'with-pair macro)))
       ;; (with-pair [1 2] (+ x y)) expands to (bind (x 1 y 2) (do (+ x y)))
@@ -3066,7 +3066,7 @@
   (let ((env (make-standard-env)))
     ;; A macro that extracts the first two elements and returns them as a list
     (let* ((macro (fol-eval (fol-form "(defmacro get-first-two [[a b & rest]]
-                               (list 'list b a))")
+                               (cl-list 'cl-list b a))")
                             env))
            (env2 (make-env env 'get-first-two macro)))
       ;; (get-first-two (1 2 3)) => (2 1) - swapped first two elements
@@ -3090,7 +3090,7 @@
   (let ((env (make-standard-env)))
     ;; Macro that captures some args in destructuring and rest
     (let* ((macro (fol-eval (fol-form "(defmacro take-two-and-rest [[a b & more]]
-                               (list 'list a b (list 'quote more)))")
+                               (cl-list 'cl-list a b (cl-list 'quote more)))")
                             env))
            (env2 (make-env env 'take-two-and-rest macro)))
       (let ((result (fol-eval '(take-two-and-rest (1 2 3 4 5)) env2)))
@@ -3110,7 +3110,7 @@
     ;; Note: This tests destructuring of the *unevaluated* form
     ;; So we pass a literal dict form as the macro argument
     (let* ((macro (fol-eval (fol-form "(defmacro extract-keys [{:keys [a b]}]
-                               (list '+ a b))")
+                               (cl-list '+ a b))")
                             env))
            (env2 (make-env env 'extract-keys macro)))
       ;; (extract-keys {:a 1 :b 2}) - the {:a 1 :b 2} is passed as unevaluated
@@ -3123,7 +3123,7 @@
     ;; A let macro that supports one destructured binding pair
     ;; (my-let [pattern value] body) => (bind [pattern value] body)
     (let* ((macro (fol-eval (fol-form "(defmacro my-let [[pattern value] & body]
-                               (list 'bind (list pattern value) (cons 'do body)))")
+                               (cl-list 'bind (cl-list pattern value) (cl-cons 'do body)))")
                             env))
            (env2 (make-env env 'my-let macro)))
       ;; Test with simple binding
@@ -3140,7 +3140,7 @@
   (let ((env (make-standard-env)))
     (let ((multi-macro (fol-eval (fol-form "(defmacro my-macro
                                               ([x] x)
-                                              ([x y] (list x y)))")
+                                              ([x y] (cl-list x y)))")
                                  env)))
       (is-true (<multi-macro>? multi-macro)))))
 
@@ -3150,8 +3150,8 @@
     ;; Define a macro with different arities
     (fol-eval (fol-form "(defmacro my-case
                            ([val] val)
-                           ([val alt] (list 'if val val alt))
-                           ([val alt1 alt2] (list 'if val alt1 alt2)))")
+                           ([val alt] (cl-list 'if val val alt))
+                           ([val alt1 alt2] (cl-list 'if val alt1 alt2)))")
               env)
     ;; Test each arity
     (is (cl:= 42 (fol-eval '(my-case 42) env)))
@@ -3164,9 +3164,9 @@
     ;; Define macro with rest params in one clause
     ;; Use list instead of list* since list* isn't in standard env
     (fol-eval (fol-form "(defmacro list-items
-                           ([a] (list 'list a))
-                           ([a b] (list 'list a b))
-                           ([a b & more] (cons 'list (cons a (cons b more)))))")
+                           ([a] (cl-list 'cl-list a))
+                           ([a b] (cl-list 'cl-list a b))
+                           ([a b & more] (cl-cons 'cl-list (cl-cons a (cl-cons b more)))))")
               env)
     ;; Test arity 1
     (is (equal '(1) (fol-eval '(list-items 1) env)))
@@ -3186,7 +3186,7 @@
     ;; Define macro that dispatches based on destructuring pattern
     (fol-eval (fol-form "(defmacro extract
                            ([x] x)
-                           ([[a b]] (list '+ a b)))")
+                           ([[a b]] (cl-list '+ a b)))")
               env)
     ;; Test non-destructuring case
     (is (cl:= 5 (fol-eval '(extract 5) env)))
@@ -3200,8 +3200,8 @@
     ;; [x] matches anything, [[a b]] matches 2-element sequences
     ;; The [[a b]] pattern should be tried first
     (fol-eval (fol-form "(defmacro process
-                           ([x] (list 'quote x))
-                           ([[a b]] (list '+ a b)))")
+                           ([x] (cl-list 'quote x))
+                           ([[a b]] (cl-list '+ a b)))")
               env)
     ;; 2-element list should match destructuring pattern first
     (is (cl:= 7 (fol-eval '(process (3 4)) env)))
@@ -3214,8 +3214,8 @@
     ;; Define a 'when' equivalent with multiple patterns
     (fol-eval (fol-form "(defmacro my-when
                            ([test] nil)
-                           ([test form] (list 'if test form nil))
-                           ([test form & more] (list 'if test (cons 'do (cons form more)) nil)))")
+                           ([test form] (cl-list 'if test form nil))
+                           ([test form & more] (cl-list 'if test (cl-cons 'do (cl-cons form more)) nil)))")
               env)
     ;; Single arg - always nil
     (is (eq nil (fol-eval '(my-when t) env)))
@@ -3232,7 +3232,7 @@
     ;; Define macro that only accepts 1 or 2 args
     (fol-eval (fol-form "(defmacro one-or-two
                            ([x] x)
-                           ([x y] (list x y)))")
+                           ([x y] (cl-list x y)))")
               env)
     ;; Zero args should error
     (signals fol-arity-error
@@ -3246,8 +3246,8 @@
   (let ((env (make-standard-env)))
     ;; Define multi-pattern macro
     (fol-eval (fol-form "(defmacro expand-test
-                           ([x] (list 'quote x))
-                           ([x y] (list '+ x y)))")
+                           ([x] (cl-list 'quote x))
+                           ([x y] (cl-list '+ x y)))")
               env)
     ;; Test macroexpand-1 with first pattern
     (multiple-value-bind (expanded expandedp)
@@ -3268,7 +3268,7 @@
     ;; where the first element is a 1-element sequence
     (fol-eval (fol-form "(defmacro extract-inner
                            ([x] x)
-                           ([[[a] b]] (list '+ a b)))")
+                           ([[[a] b]] (cl-list '+ a b)))")
               env)
     ;; Simple case - matches [x]
     (is (cl:= 5 (fol-eval '(extract-inner 5) env)))

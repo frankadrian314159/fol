@@ -442,7 +442,7 @@
          (iter (iterator v))
          (collected '()))
     (loop until (done? iter)
-          do (push (current iter) collected)
+          do (cl:push (current iter) collected)
              (next iter))
     (is (equal '(5 4 3 2 1) collected))))
 
@@ -686,7 +686,7 @@
          (iter (iterator lst))
          (collected '()))
     (loop until (done? iter)
-          do (push (current iter) collected)
+          do (cl:push (current iter) collected)
              (next iter))
     (is (equal '(5 4 3 2 1) collected))))
 
@@ -1105,3 +1105,122 @@
     (is (= 3 (size lst2)))
     (is (= 3 (size vec2)))
     (is (= 3 (size st2)))))
+
+;;; ---------------------------------------------------------------------------
+;;; Pop Tests
+;;; ---------------------------------------------------------------------------
+
+(test pop-list-basic
+  "Test pop removes first element from list."
+  (let* ((lst (make-list 1 2 3))
+         (popped (pop lst)))
+    (is (= 2 (size popped)))
+    (is (= 2 (first popped)))
+    (is (= 3 (second popped)))))
+
+(test pop-list-single
+  "Test pop on single-element list returns empty list."
+  (let* ((lst (make-list 1))
+         (popped (pop lst)))
+    (is (<list>? popped))
+    (is (= 0 (size popped)))))
+
+(test pop-list-empty
+  "Test pop on empty list returns nil."
+  (let ((lst (make-list)))
+    (is (eq nil (pop lst)))))
+
+(test pop-list-nil
+  "Test pop on nil returns nil."
+  (is (eq nil (pop nil))))
+
+(test pop-vector-basic
+  "Test pop removes last element from vector."
+  (let* ((vec (make-vector 1 2 3))
+         (popped (pop vec)))
+    (is (= 2 (size popped)))
+    (is (= 1 (first popped)))
+    (is (= 2 (second popped)))))
+
+(test pop-vector-single
+  "Test pop on single-element vector returns empty vector."
+  (let* ((vec (make-vector 1))
+         (popped (pop vec)))
+    (is (<vector>? popped))
+    (is (= 0 (size popped)))))
+
+(test pop-vector-empty
+  "Test pop on empty vector returns empty vector."
+  (let* ((vec (make-vector))
+         (popped (pop vec)))
+    (is (<vector>? popped))
+    (is (= 0 (size popped)))))
+
+(test pop-immutability
+  "Test pop does not mutate original collection."
+  (let* ((lst (make-list 1 2 3))
+         (vec (make-vector 1 2 3))
+         (lst2 (pop lst))
+         (vec2 (pop vec)))
+    ;; Originals unchanged
+    (is (= 3 (size lst)))
+    (is (= 3 (size vec)))
+    ;; Popped collections have one less element
+    (is (= 2 (size lst2)))
+    (is (= 2 (size vec2)))))
+
+;;; ---------------------------------------------------------------------------
+;;; Push Tests
+;;; ---------------------------------------------------------------------------
+
+(test push-list-basic
+  "Test push adds element to front of list."
+  (let* ((lst (make-list 2 3))
+         (pushed (push 1 lst)))
+    (is (= 3 (size pushed)))
+    (is (= 1 (first pushed)))
+    (is (= 2 (second pushed)))
+    (is (= 3 (third pushed)))))
+
+(test push-list-empty
+  "Test push on empty list creates single-element list."
+  (let* ((lst (make-list))
+         (pushed (push 1 lst)))
+    (is (= 1 (size pushed)))
+    (is (= 1 (first pushed)))))
+
+(test push-list-nil
+  "Test push on nil creates single-element list."
+  (let ((pushed (push 1 nil)))
+    (is (<list>? pushed))
+    (is (= 1 (size pushed)))
+    (is (= 1 (first pushed)))))
+
+(test push-vector-basic
+  "Test push adds element to end of vector."
+  (let* ((vec (make-vector 1 2))
+         (pushed (push 3 vec)))
+    (is (= 3 (size pushed)))
+    (is (= 1 (first pushed)))
+    (is (= 2 (second pushed)))
+    (is (= 3 (third pushed)))))
+
+(test push-vector-empty
+  "Test push on empty vector creates single-element vector."
+  (let* ((vec (make-vector))
+         (pushed (push 1 vec)))
+    (is (= 1 (size pushed)))
+    (is (= 1 (first pushed)))))
+
+(test push-immutability
+  "Test push does not mutate original collection."
+  (let* ((lst (make-list 2 3))
+         (vec (make-vector 1 2))
+         (lst2 (push 1 lst))
+         (vec2 (push 3 vec)))
+    ;; Originals unchanged
+    (is (= 2 (size lst)))
+    (is (= 2 (size vec)))
+    ;; Pushed collections have one more element
+    (is (= 3 (size lst2)))
+    (is (= 3 (size vec2)))))

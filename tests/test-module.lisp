@@ -199,7 +199,7 @@
          (iter (iterator m))
          (keys '()))
     (loop until (done? iter)
-          do (push (car (current iter)) keys)
+          do (cl:push (car (current iter)) keys)
              (next iter))
     (is (= 2 (length keys)))))
 

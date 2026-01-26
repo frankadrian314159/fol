@@ -115,9 +115,50 @@
             'zero? #'fol.number:zero?
             'even? #'fol.number:even?
             'odd? #'fol.number:odd?
-            ;; CL list operations (for compatibility)
-            'list #'cl:list
-            'cons #'cl:cons
+            ;; List operations
+            ;; list creates FOL <list> objects (Clojure-style)
+            ;; Use cl-list for macro form construction (building CL lists)
+            'list #'fol.collection:make-list
+            'cl-list #'cl:list
+            'list* #'(lambda (&rest args)
+                       "Creates a new list containing the items prepended to the rest, the last of which
+                        will be treated as a sequence."
+                       (if (null args)
+                           (fol.collection:make-list)
+                           (let* ((all-but-last (butlast args))
+                                  (last-arg (car (last args)))
+                                  (tail-seq (fol.collection:seq last-arg)))
+                             ;; Build list from the tail backwards
+                             (let ((result (if (null tail-seq)
+                                               (fol.collection:make-list)
+                                               ;; Convert tail-seq to a <list>
+                                               (cl:labels ((seq-to-list (s)
+                                                             (if (cl:or (null s) (fol.collection:empty? s))
+                                                                 (fol.collection:make-list)
+                                                                 (fol.collection:conj
+                                                                  (seq-to-list (fol.collection:rest s))
+                                                                  (fol.collection:first s)))))
+                                                 (seq-to-list tail-seq)))))
+                               ;; Prepend the other args in reverse order
+                               (dolist (item (cl:reverse all-but-last))
+                                 (setf result (fol.collection:conj result item)))
+                               result))))
+            ;; cons prepends to FOL collections (Clojure-style)
+            ;; Use cl-cons for macro form construction (building CL cons cells)
+            'cons #'(lambda (x coll)
+                      "Returns a new seq where x is the first element and coll is the rest."
+                      (if (null coll)
+                          (fol.collection:make-list x)
+                          (fol.collection:conj (fol.collection:seq coll) x)))
+            'cl-cons #'cl:cons
+            'peek #'(lambda (coll)
+                      "For a list, returns the first element. Returns nil if empty."
+                      (if (cl:or (null coll) (fol.collection:empty? coll))
+                          nil
+                          (fol.collection:first coll)))
+            'pop #'fol.collection:pop
+            'push #'fol.collection:push
+            ;; CL sequence operations (for compatibility)
             'append #'cl:append
             'reverse #'cl:reverse
             ;; String operations

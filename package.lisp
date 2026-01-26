@@ -180,7 +180,7 @@
 
 (defpackage fol.collection
   (:use cl fol.persistent)
-  (:shadow make-array make-list get remove first rest second third nth)
+  (:shadow make-array make-list get remove first rest second third nth pop push)
   (:export <collection> <collection>?
            <unordered-collection> <unordered-collection>?
            <ordered-collection> <ordered-collection>?
@@ -202,7 +202,9 @@
            first rest second third nth
            list-first list-rest list-size
            ;; Additional operations
-           nth-element set-nth))
+           nth-element set-nth
+           ;; Stack-like operations
+           pop push))
 
 (defpackage fol.module
   (:use cl fol.persistent fol.collection)
@@ -215,7 +217,9 @@
                           rest
                           second
                           third
-                          nth)
+                          nth
+                          pop
+                          push)
   (:export <module> <module>? make-module
            module-name module-exports module-export module-import
            find-module register-module +module-registry+
@@ -232,7 +236,9 @@
                           rest
                           second
                           third
-                          nth)
+                          nth
+                          pop
+                          push)
   (:export <env> <env>? make-env lookup env-previous unbound-variable fol-unbound-variable fol-unbound-variable-name fol-unbound-variable-message))
 
 (defpackage fol.logop
@@ -337,7 +343,9 @@
                           rest
                           second
                           third
-                          nth)
+                          nth
+                          pop
+                          push)
   (:shadowing-import-from fol.logop
                           not and or)
   (:shadowing-import-from fol.arithop
@@ -411,7 +419,9 @@
    ;; String operations
    str
    ;; Misc utilities
-   identity complement type))
+   identity complement type
+   ;; Standard environment symbols (for macro form construction)
+   cl-cons cl-list))
 
 (defpackage fol.repl
   (:use cl)
