@@ -1248,7 +1248,7 @@
     ;; Skip to start position
     (loop for current = lst then (rest current)
           for idx from 0
-          while current
+          while (not (empty? current))
           when (and (>= idx start-idx)
                     (eql (first current) raw-value))
             return idx

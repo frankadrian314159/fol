@@ -459,10 +459,14 @@
 (defpackage fol.repl
   (:use cl)
   (:shadow * ** *** + ++ +++ / // ///)
+  (:import-from fol.reader fol-read-from-string *clojure-readtable*)
+  (:import-from fol.eval make-standard-env)
   (:export repl
            * ** ***
            + ++ +++
-           / // ///))
+           / // ///
+           fol-form
+           fol-test))
 
 ;;; Define the symbol unbound sentinel constant early so it can be used in classes.lisp
 (in-package fol.symbol)

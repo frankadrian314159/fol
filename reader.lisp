@@ -761,7 +761,7 @@
     (read-expr)))
 
 (defun fol-read-from-string (string &optional (eof-error-p t) eof-value
-                                      (readtable *fol-readtable*))
+                                      (readtable *clojure-readtable*))
   "Read one Clojure expression from STRING using the specified readtable.
 
    Parameters:

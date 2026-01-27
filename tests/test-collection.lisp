@@ -1224,3 +1224,155 @@
     ;; Pushed collections have one more element
     (is (= 3 (size lst2)))
     (is (= 3 (size vec2)))))
+
+;;; ---------------------------------------------------------------------------
+;;; Reverse Tests (for vectors)
+;;; ---------------------------------------------------------------------------
+
+(test reverse-vector-basic
+  "Test reverse with FOL vectors."
+  (let ((v (make-vector 1 2 3 4 5)))
+    (let ((r (reverse v)))
+      (is (= 5 (nth-element r 0)))
+      (is (= 4 (nth-element r 1)))
+      (is (= 3 (nth-element r 2)))
+      (is (= 2 (nth-element r 3)))
+      (is (= 1 (nth-element r 4))))))
+
+(test reverse-vector-empty
+  "Test reverse with empty vector."
+  (let ((v (make-vector)))
+    (is (= 0 (size (reverse v))))))
+
+(test reverse-vector-single
+  "Test reverse with single-element vector."
+  (let ((v (make-vector 42)))
+    (let ((r (reverse v)))
+      (is (= 1 (size r)))
+      (is (= 42 (nth-element r 0))))))
+
+;;; ---------------------------------------------------------------------------
+;;; Reverse Tests (for lists)
+;;; ---------------------------------------------------------------------------
+
+(test reverse-list-basic
+  "Test reverse with FOL lists."
+  (let ((lst (make-list 1 2 3 4 5)))
+    (let ((r (reverse lst)))
+      (is (= 5 (first r)))
+      (is (= 4 (first (rest r))))
+      (is (= 1 (first (rest (rest (rest (rest r))))))))))
+
+(test reverse-list-empty
+  "Test reverse with empty list."
+  (let ((lst (make-list)))
+    (is (empty? (reverse lst)))))
+
+(test reverse-list-single
+  "Test reverse with single-element list."
+  (let ((lst (make-list 42)))
+    (let ((r (reverse lst)))
+      (is (= 1 (size r)))
+      (is (= 42 (first r))))))
+
+(test reverse-cl-list
+  "Test reverse with CL lists."
+  (is (equal '(3 2 1) (reverse '(1 2 3))))
+  (is (equal '(c b a) (reverse '(a b c)))))
+
+;;; ---------------------------------------------------------------------------
+;;; index-of Tests for Vectors
+;;; ---------------------------------------------------------------------------
+
+(test index-of-vector-basic
+  "Test index-of with FOL vectors."
+  (let ((v (make-vector 1 2 3 4 5)))
+    (is (= 0 (index-of v 1)))
+    (is (= 2 (index-of v 3)))
+    (is (= 4 (index-of v 5)))
+    (is (null (index-of v 6)))))
+
+(test index-of-vector-with-start
+  "Test index-of with start index on vectors."
+  (let ((v (make-vector 1 2 3 2 1)))
+    (is (= 1 (index-of v 2)))
+    (is (= 3 (index-of v 2 2)))
+    (is (= 4 (index-of v 1 2)))
+    (is (null (index-of v 1 5)))))
+
+(test index-of-vector-symbols
+  "Test index-of with symbol values in vectors."
+  (let ((v (make-vector 'a 'b 'c 'd)))
+    (is (= 0 (index-of v 'a)))
+    (is (= 2 (index-of v 'c)))
+    (is (null (index-of v 'e)))))
+
+;;; ---------------------------------------------------------------------------
+;;; index-of Tests for Lists
+;;; ---------------------------------------------------------------------------
+
+(test index-of-list-basic
+  "Test index-of with FOL lists."
+  (let ((lst (make-list 1 2 3 4 5)))
+    (is (= 0 (index-of lst 1)))
+    (is (= 2 (index-of lst 3)))
+    (is (= 4 (index-of lst 5)))
+    (is (null (index-of lst 6)))))
+
+(test index-of-list-with-start
+  "Test index-of with start index on lists."
+  (let ((lst (make-list 1 2 3 2 1)))
+    (is (= 1 (index-of lst 2)))
+    (is (= 3 (index-of lst 2 2)))
+    (is (= 4 (index-of lst 1 2)))
+    (is (null (index-of lst 1 5)))))
+
+(test index-of-cl-list
+  "Test index-of with CL lists."
+  (is (= 1 (index-of '(a b c) 'b)))
+  (is (= 0 (index-of '(1 2 3) 1)))
+  (is (null (index-of '(1 2 3) 4))))
+
+;;; ---------------------------------------------------------------------------
+;;; last-index-of Tests for Vectors
+;;; ---------------------------------------------------------------------------
+
+(test last-index-of-vector-basic
+  "Test last-index-of with FOL vectors."
+  (let ((v (make-vector 1 2 3 2 1)))
+    (is (= 4 (last-index-of v 1)))
+    (is (= 3 (last-index-of v 2)))
+    (is (= 2 (last-index-of v 3)))
+    (is (null (last-index-of v 5)))))
+
+(test last-index-of-vector-with-start
+  "Test last-index-of with start index on vectors."
+  (let ((v (make-vector 1 2 3 2 1)))
+    (is (= 1 (last-index-of v 2 2)))
+    (is (= 0 (last-index-of v 1 2)))
+    (is (null (last-index-of v 3 1)))))
+
+;;; ---------------------------------------------------------------------------
+;;; last-index-of Tests for Lists
+;;; ---------------------------------------------------------------------------
+
+(test last-index-of-list-basic
+  "Test last-index-of with FOL lists."
+  (let ((lst (make-list 1 2 3 2 1)))
+    (is (= 4 (last-index-of lst 1)))
+    (is (= 3 (last-index-of lst 2)))
+    (is (= 2 (last-index-of lst 3)))
+    (is (null (last-index-of lst 5)))))
+
+(test last-index-of-list-with-start
+  "Test last-index-of with start index on lists."
+  (let ((lst (make-list 1 2 3 2 1)))
+    (is (= 1 (last-index-of lst 2 2)))
+    (is (= 0 (last-index-of lst 1 2)))
+    (is (null (last-index-of lst 3 1)))))
+
+(test last-index-of-cl-list
+  "Test last-index-of with CL lists."
+  (is (= 2 (last-index-of '(a b a) 'a)))
+  (is (= 2 (last-index-of '(1 2 1) 1)))
+  (is (null (last-index-of '(1 2 3) 4))))

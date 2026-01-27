@@ -33,3 +33,16 @@
               ;; Print results
               (dolist (r results)
                 (funcall print-fn r))))))))
+
+(defun fol-form (string)
+  "Parse STRING using the FOL reader and return the form.
+   This allows tests to use FOL syntax like [1 2 3] and {:a 1} in test cases."
+  (fol.reader:fol-read-from-string string))
+
+(defun fol-test (form-string &optional env)
+  "Evaluate FORM-STRING in the given ENV and return the result.
+   FORM-STRING is parsed using the FOL reader."
+  (let* ((form (fol-form form-string))
+         (eval-fn 'fol.eval:fol-eval)
+         (env (or env (fol.eval:make-standard-env))))
+    (funcall eval-fn form env)))

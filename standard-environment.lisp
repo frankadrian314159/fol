@@ -519,14 +519,15 @@
                              ;; (interpose sep) - return a transducer
                              ((= (cl:length args) 0)
                               (let ((started nil))
-                                #'(lambda (rf)
-                                    (let ((started nil))
-                                      #'(lambda (result input)
-                                          (if started
-                                              (funcall rf (funcall rf result sep) input)
-                                              (progn
-                                                (setf started t)
-                                                (funcall rf result input))))))))
+                                (declare (ignore started))
+                                  #'(lambda (rf)
+                                      (let ((started nil))
+                                        #'(lambda (result input)
+                                            (if started
+                                                (funcall rf (funcall rf result sep) input)
+                                                (progn
+                                                  (setf started t)
+                                                  (funcall rf result input))))))))
                              ;; (interpose sep coll) - return lazy-seq
                              ((= (cl:length args) 1)
                               (let ((coll (cl:first args)))

@@ -24,7 +24,8 @@
                (:file "fol-mop" :depends-on ("package" "collection"))
                (:file "eval" :depends-on ("package" "wrappers" "classes" "collection" "env"
                                           "logop" "arithop" "compareop" "fol-mop"))
-               (:file "standard-environment" :depends-on ("eval" "bitop" "number")))
+               (:file "standard-environment" :depends-on ("eval"))
+               (:file "repl" :depends-on ("eval" "reader")))
   :in-order-to ((test-op (test-op "fol/tests"))))
 
 (defsystem "fol/tests"
