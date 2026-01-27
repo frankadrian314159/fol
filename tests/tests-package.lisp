@@ -61,9 +61,15 @@
                 :<char>?
                 :alpha-char? :digit-char? :alphanumeric?
                 :upper-case? :lower-case? :whitespace?)
+  ;; Shadow CL string functions
+  (:shadowing-import-from :fol.string
+                          :trim :capitalize)
   ;; Import non-conflicting symbols from fol.string
   (:import-from :fol.string
                 :<string>?
+                :substr
+                :blank? :triml :trimr :trim-newline
+                :starts-with? :ends-with? :includes?
                 :<re-pattern>? :wrap-re-pattern
                 :<re-scanner>? :make-re-scanner
                 :re-find :re-seq)

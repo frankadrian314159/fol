@@ -312,6 +312,311 @@ line3")
     (is (string= original (fol-value wrapped)))))
 
 ;;; ============================================================================
+;;; Substring Operations
+;;; ============================================================================
+
+;;; ---------------------------------------------------------------------------
+;;; substr Tests
+;;; ---------------------------------------------------------------------------
+
+(test substr-basic
+  "Test substr with start only."
+  (is (string= "world" (substr "hello world" 6)))
+  (is (string= "hello world" (substr "hello world" 0)))
+  (is (string= "" (substr "hello" 5))))
+
+(test substr-with-end
+  "Test substr with start and end."
+  (is (string= "ell" (substr "hello" 1 4)))
+  (is (string= "hello" (substr "hello world" 0 5)))
+  (is (string= "" (substr "hello" 2 2))))
+
+(test substr-wrapped-string
+  "Test substr with wrapped <string>."
+  (let ((s (wrap-string "hello world")))
+    (is (string= "world" (substr s 6)))
+    (is (string= "ell" (substr s 1 4)))))
+
+(test substr-wrapped-indices
+  "Test substr with wrapped integer indices."
+  (is (string= "ell" (substr "hello" (wrap-number 1) (wrap-number 4))))
+  (is (string= "world" (substr "hello world" (wrap-number 6)))))
+
+(test substr-full-string
+  "Test substr returning full string."
+  (is (string= "hello" (substr "hello" 0)))
+  (is (string= "hello" (substr "hello" 0 5))))
+
+(test substr-empty-result
+  "Test substr returning empty string."
+  (is (string= "" (substr "hello" 5)))
+  (is (string= "" (substr "hello" 3 3))))
+
+(test substr-single-char
+  "Test substr returning single character."
+  (is (string= "e" (substr "hello" 1 2)))
+  (is (string= "o" (substr "hello" 4 5))))
+
+(test substr-error-start-negative
+  "Test substr signals error for negative start."
+  (signals error (substr "hello" -1)))
+
+(test substr-error-start-out-of-bounds
+  "Test substr signals error for start beyond string length."
+  (signals error (substr "hello" 6)))
+
+(test substr-error-end-before-start
+  "Test substr signals error for end before start."
+  (signals error (substr "hello" 3 2)))
+
+(test substr-error-end-out-of-bounds
+  "Test substr signals error for end beyond string length."
+  (signals error (substr "hello" 0 10)))
+
+(test substr-error-non-string
+  "Test substr signals error for non-string input."
+  (signals error (substr 123 0)))
+
+(test substr-error-non-integer-start
+  "Test substr signals error for non-integer start index."
+  (signals error (substr "hello" "1")))
+
+(test substr-error-non-integer-end
+  "Test substr signals error for non-integer end index."
+  (signals error (substr "hello" 0 "5")))
+
+(test substr-unicode
+  "Test substr with unicode characters."
+  (is (string= "世界" (substr "你好世界" 2)))
+  (is (string= "好世" (substr "你好世界" 1 3))))
+
+;;; ---------------------------------------------------------------------------
+;;; blank? Tests
+;;; ---------------------------------------------------------------------------
+
+(test blank-nil
+  "Test blank? returns true for nil."
+  (is-true (blank? nil)))
+
+(test blank-empty-string
+  "Test blank? returns true for empty string."
+  (is-true (blank? ""))
+  (is-true (blank? (wrap-string ""))))
+
+(test blank-whitespace-only
+  "Test blank? returns true for whitespace-only strings."
+  (is-true (blank? " "))
+  (is-true (blank? "   "))
+  (is-true (blank? "	"))  ; tab
+  (is-true (blank? (format nil "~%")))  ; newline
+  (is-true (blank? (format nil " ~% 	"))))  ; mixed whitespace
+
+(test blank-non-blank
+  "Test blank? returns false for non-blank strings."
+  (is-false (blank? "hello"))
+  (is-false (blank? " hello "))
+  (is-false (blank? "a"))
+  (is-false (blank? (wrap-string "test"))))
+
+;;; ---------------------------------------------------------------------------
+;;; trim Tests
+;;; ---------------------------------------------------------------------------
+
+(test trim-basic
+  "Test trim removes whitespace from both ends."
+  (is (string= "hello" (trim "  hello  ")))
+  (is (string= "hello" (trim "hello")))
+  (is (string= "hello world" (trim "  hello world  "))))
+
+(test trim-various-whitespace
+  "Test trim removes various whitespace characters."
+  (is (string= "test" (trim (format nil "~%test~%"))))
+  (is (string= "test" (trim (format nil "	test	"))))
+  (is (string= "test" (trim (format nil " ~%	test ~%	")))))
+
+(test trim-empty
+  "Test trim with empty string."
+  (is (string= "" (trim "")))
+  (is (string= "" (trim "   "))))
+
+(test trim-wrapped
+  "Test trim with wrapped string."
+  (is (string= "hello" (trim (wrap-string "  hello  ")))))
+
+;;; ---------------------------------------------------------------------------
+;;; triml Tests
+;;; ---------------------------------------------------------------------------
+
+(test triml-basic
+  "Test triml removes whitespace from left only."
+  (is (string= "hello  " (triml "  hello  ")))
+  (is (string= "hello" (triml "hello")))
+  (is (string= "hello " (triml "  hello "))))
+
+(test triml-empty
+  "Test triml with empty or whitespace-only string."
+  (is (string= "" (triml "")))
+  (is (string= "" (triml "   "))))
+
+(test triml-wrapped
+  "Test triml with wrapped string."
+  (is (string= "hello  " (triml (wrap-string "  hello  ")))))
+
+;;; ---------------------------------------------------------------------------
+;;; trimr Tests
+;;; ---------------------------------------------------------------------------
+
+(test trimr-basic
+  "Test trimr removes whitespace from right only."
+  (is (string= "  hello" (trimr "  hello  ")))
+  (is (string= "hello" (trimr "hello")))
+  (is (string= " hello" (trimr " hello  "))))
+
+(test trimr-empty
+  "Test trimr with empty or whitespace-only string."
+  (is (string= "" (trimr "")))
+  (is (string= "" (trimr "   "))))
+
+(test trimr-wrapped
+  "Test trimr with wrapped string."
+  (is (string= "  hello" (trimr (wrap-string "  hello  ")))))
+
+;;; ---------------------------------------------------------------------------
+;;; trim-newline Tests
+;;; ---------------------------------------------------------------------------
+
+(test trim-newline-basic
+  "Test trim-newline removes trailing newlines only."
+  (is (string= "hello" (trim-newline (format nil "hello~%"))))
+  (is (string= "hello" (trim-newline (format nil "hello~%~%"))))
+  (is (string= "hello" (trim-newline "hello"))))
+
+(test trim-newline-preserves-leading
+  "Test trim-newline preserves leading newlines."
+  (is (string= (format nil "~%hello") (trim-newline (format nil "~%hello~%")))))
+
+(test trim-newline-preserves-spaces
+  "Test trim-newline does not remove trailing spaces."
+  (is (string= "hello  " (trim-newline "hello  "))))
+
+(test trim-newline-wrapped
+  "Test trim-newline with wrapped string."
+  (is (string= "hello" (trim-newline (wrap-string (format nil "hello~%"))))))
+
+;;; ---------------------------------------------------------------------------
+;;; capitalize Tests
+;;; ---------------------------------------------------------------------------
+
+(test capitalize-basic
+  "Test capitalize uppercases first char, lowercases rest."
+  (is (string= "Hello" (capitalize "hello")))
+  (is (string= "Hello" (capitalize "HELLO")))
+  (is (string= "Hello" (capitalize "hELLO")))
+  (is (string= "Hello world" (capitalize "HELLO WORLD"))))
+
+(test capitalize-empty
+  "Test capitalize with empty string."
+  (is (string= "" (capitalize ""))))
+
+(test capitalize-single-char
+  "Test capitalize with single character."
+  (is (string= "A" (capitalize "a")))
+  (is (string= "A" (capitalize "A"))))
+
+(test capitalize-wrapped
+  "Test capitalize with wrapped string."
+  (is (string= "Hello" (capitalize (wrap-string "hello")))))
+
+(test capitalize-unicode
+  "Test capitalize with unicode."
+  (is (string= "Über" (capitalize "ÜBER"))))
+
+;;; ---------------------------------------------------------------------------
+;;; starts-with? Tests
+;;; ---------------------------------------------------------------------------
+
+(test starts-with-basic
+  "Test starts-with? with matching prefix."
+  (is-true (starts-with? "hello world" "hello"))
+  (is-true (starts-with? "hello" "hello"))
+  (is-true (starts-with? "hello" "h"))
+  (is-true (starts-with? "hello" "")))
+
+(test starts-with-no-match
+  "Test starts-with? with non-matching prefix."
+  (is-false (starts-with? "hello world" "world"))
+  (is-false (starts-with? "hello" "Hello"))
+  (is-false (starts-with? "hello" "hello world")))
+
+(test starts-with-empty
+  "Test starts-with? with empty string."
+  (is-true (starts-with? "" ""))
+  (is-false (starts-with? "" "a")))
+
+(test starts-with-wrapped
+  "Test starts-with? with wrapped strings."
+  (is-true (starts-with? (wrap-string "hello world") "hello"))
+  (is-true (starts-with? "hello world" (wrap-string "hello")))
+  (is-true (starts-with? (wrap-string "hello") (wrap-string "hel"))))
+
+;;; ---------------------------------------------------------------------------
+;;; ends-with? Tests
+;;; ---------------------------------------------------------------------------
+
+(test ends-with-basic
+  "Test ends-with? with matching suffix."
+  (is-true (ends-with? "hello world" "world"))
+  (is-true (ends-with? "hello" "hello"))
+  (is-true (ends-with? "hello" "o"))
+  (is-true (ends-with? "hello" "")))
+
+(test ends-with-no-match
+  "Test ends-with? with non-matching suffix."
+  (is-false (ends-with? "hello world" "hello"))
+  (is-false (ends-with? "hello" "Hello"))
+  (is-false (ends-with? "hello" "hello world")))
+
+(test ends-with-empty
+  "Test ends-with? with empty string."
+  (is-true (ends-with? "" ""))
+  (is-false (ends-with? "" "a")))
+
+(test ends-with-wrapped
+  "Test ends-with? with wrapped strings."
+  (is-true (ends-with? (wrap-string "hello world") "world"))
+  (is-true (ends-with? "hello world" (wrap-string "world")))
+  (is-true (ends-with? (wrap-string "hello") (wrap-string "llo"))))
+
+;;; ---------------------------------------------------------------------------
+;;; includes? Tests
+;;; ---------------------------------------------------------------------------
+
+(test includes-basic
+  "Test includes? finds substring."
+  (is-true (includes? "hello world" "world"))
+  (is-true (includes? "hello world" "hello"))
+  (is-true (includes? "hello world" "lo wo"))
+  (is-true (includes? "hello" "hello"))
+  (is-true (includes? "hello" "")))
+
+(test includes-no-match
+  "Test includes? with substring not found."
+  (is-false (includes? "hello world" "foo"))
+  (is-false (includes? "hello" "Hello"))
+  (is-false (includes? "hello" "hello world")))
+
+(test includes-empty
+  "Test includes? with empty string."
+  (is-true (includes? "" ""))
+  (is-false (includes? "" "a")))
+
+(test includes-wrapped
+  "Test includes? with wrapped strings."
+  (is-true (includes? (wrap-string "hello world") "lo wo"))
+  (is-true (includes? "hello world" (wrap-string "lo wo")))
+  (is-true (includes? (wrap-string "hello") (wrap-string "ell"))))
+
+;;; ============================================================================
 ;;; Regular Expression Pattern Tests
 ;;; ============================================================================
 

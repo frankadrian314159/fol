@@ -307,7 +307,13 @@
 
 (defpackage fol.string
   (:use cl fol.wrappers fol.classes)
+  (:shadow trim capitalize)
   (:export <string>?
+           ;; String manipulation
+           substr
+           blank? trim triml trimr trim-newline
+           capitalize
+           starts-with? ends-with? includes?
            ;; Regex pattern
            <re-pattern>? wrap-re-pattern
            ;; Regex scanner

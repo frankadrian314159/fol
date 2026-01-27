@@ -18,6 +18,119 @@
 
 
 ;;; ============================================================================
+;;; String Manipulation Operations
+;;; ============================================================================
+
+(defun substr (s start &optional end)
+  "Returns the substring of S beginning at START (inclusive) to END (exclusive).
+   If END is not provided, returns from START to the end of the string.
+   START and END are 0-based indices.
+
+   Equivalent to Clojure's subs function."
+  (let ((str (typecase s
+               (string s)
+               (<string> (fol.wrappers:fol-value s))
+               (t (error "SUBSTR requires a string, got ~A" (type-of s)))))
+        (start-idx (typecase start
+                     (integer start)
+                     (fol.classes:<integer> (fol.wrappers:fol-value start))
+                     (t (error "SUBSTR start index must be an integer, got ~A" (type-of start))))))
+    (let ((end-idx (if end
+                       (typecase end
+                         (integer end)
+                         (fol.classes:<integer> (fol.wrappers:fol-value end))
+                         (t (error "SUBSTR end index must be an integer, got ~A" (type-of end))))
+                       (length str))))
+      ;; Validate indices
+      (unless (cl:and (cl:>= start-idx 0) (cl:<= start-idx (length str)))
+        (error "SUBSTR start index ~A out of bounds for string of length ~A" start-idx (length str)))
+      (unless (cl:and (cl:>= end-idx start-idx) (cl:<= end-idx (length str)))
+        (error "SUBSTR end index ~A out of bounds (start=~A, length=~A)" end-idx start-idx (length str)))
+      (subseq str start-idx end-idx))))
+
+(defun %get-string (s func-name)
+  "Helper to extract raw string from S for FUNC-NAME."
+  (typecase s
+    (string s)
+    (<string> (fol.wrappers:fol-value s))
+    (t (error "~A requires a string, got ~A" func-name (type-of s)))))
+
+(defun blank? (s)
+  "Returns true if S is nil, empty, or contains only whitespace.
+   Equivalent to Clojure's clojure.string/blank?."
+  (or (null s)
+      (let ((str (%get-string s "BLANK?")))
+        (or (zerop (length str))
+            (every (lambda (c) (or (char= c #\Space)
+                                   (char= c #\Tab)
+                                   (char= c #\Newline)
+                                   (char= c #\Return)
+                                   (char= c #\Page)))
+                   str)))))
+
+(defun trim (s)
+  "Removes whitespace from both ends of string S.
+   Equivalent to Clojure's clojure.string/trim."
+  (string-trim '(#\Space #\Tab #\Newline #\Return #\Page)
+               (%get-string s "TRIM")))
+
+(defun triml (s)
+  "Removes whitespace from the left side of string S.
+   Equivalent to Clojure's clojure.string/triml."
+  (string-left-trim '(#\Space #\Tab #\Newline #\Return #\Page)
+                    (%get-string s "TRIML")))
+
+(defun trimr (s)
+  "Removes whitespace from the right side of string S.
+   Equivalent to Clojure's clojure.string/trimr."
+  (string-right-trim '(#\Space #\Tab #\Newline #\Return #\Page)
+                     (%get-string s "TRIMR")))
+
+(defun trim-newline (s)
+  "Removes all trailing newline characters (\\n and \\r) from string S.
+   Equivalent to Clojure's clojure.string/trim-newline."
+  (string-right-trim '(#\Newline #\Return)
+                     (%get-string s "TRIM-NEWLINE")))
+
+(defun capitalize (s)
+  "Converts first character of S to uppercase and the rest to lowercase.
+   Equivalent to Clojure's clojure.string/capitalize."
+  (let ((str (%get-string s "CAPITALIZE")))
+    (if (zerop (length str))
+        str
+        (concatenate 'string
+                     (string (char-upcase (char str 0)))
+                     (string-downcase (subseq str 1))))))
+
+(defun starts-with? (s substr)
+  "Returns true if string S starts with SUBSTR.
+   Equivalent to Clojure's clojure.string/starts-with?."
+  (let ((str (%get-string s "STARTS-WITH?"))
+        (sub (%get-string substr "STARTS-WITH?")))
+    (let ((sub-len (length sub))
+          (str-len (length str)))
+      (and (cl:>= str-len sub-len)
+           (string= str sub :end1 sub-len)))))
+
+(defun ends-with? (s substr)
+  "Returns true if string S ends with SUBSTR.
+   Equivalent to Clojure's clojure.string/ends-with?."
+  (let ((str (%get-string s "ENDS-WITH?"))
+        (sub (%get-string substr "ENDS-WITH?")))
+    (let ((sub-len (length sub))
+          (str-len (length str)))
+      (and (cl:>= str-len sub-len)
+           (string= str sub :start1 (cl:- str-len sub-len))))))
+
+(defun includes? (s substr)
+  "Returns true if string S contains SUBSTR.
+   Equivalent to Clojure's clojure.string/includes?."
+  (let ((str (%get-string s "INCLUDES?"))
+        (sub (%get-string substr "INCLUDES?")))
+    (if (search sub str) t nil)))
+
+
+;;; ============================================================================
 ;;; Regular Expression Pattern Operations
 ;;; ============================================================================
 
