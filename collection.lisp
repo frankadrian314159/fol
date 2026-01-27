@@ -1163,6 +1163,254 @@
 
 
 ;;; ============================================================================
+;;; Reverse: Generic Reverse for Collections and Strings
+;;; ============================================================================
+
+(defgeneric reverse (coll)
+  (:documentation "Return a new collection with elements in reverse order.
+   Works on strings, vectors, lists, and CL sequences."))
+
+;;; --- reverse for <vector> ---
+
+(defmethod reverse ((v <vector>))
+  "Return a new vector with elements in reverse order."
+  (let* ((seq (pslot-value v 'items))
+         (len (fset:size seq)))
+    (make-instance '<vector>
+                   :items (fset:convert 'fset:seq
+                                        (loop for i from (1- len) downto 0
+                                              collect (fset:@ seq i))))))
+
+;;; --- reverse for <list> ---
+
+(defmethod reverse ((lst <list>))
+  "Return a new list with elements in reverse order."
+  (labels ((rev-iter (current acc)
+             (if (or (null current) (empty? current))
+                 acc
+                 (rev-iter (rest current)
+                           (cl:cons (first current) acc)))))
+    (let ((reversed (rev-iter lst nil)))
+      (if reversed
+          (apply #'make-list reversed)
+          (make-list)))))
+
+;;; --- reverse for CL list ---
+
+(defmethod reverse ((lst list))
+  "Return a reversed CL list."
+  (cl:reverse lst))
+
+;;; --- reverse for strings ---
+
+(defmethod reverse ((s string))
+  "Return a string with characters in reverse order."
+  (cl:reverse s))
+
+(defmethod reverse ((s fol.classes:<string>))
+  "Return a string with characters in reverse order."
+  ;; Check if it's a regex pattern - can't reverse those
+  (if (typep s 'fol.classes:<re-pattern>)
+      (error "REVERSE: Cannot reverse a regex pattern")
+      (cl:reverse (fol.wrappers:fol-value s))))
+
+
+;;; ============================================================================
+;;; Index Operations: index-of and last-index-of
+;;; ============================================================================
+;;; Generic functions for finding the index of a value in ordered collections.
+
+(defgeneric index-of (coll value &optional start)
+  (:documentation "Return the index of VALUE in collection COLL, or NIL if not found.
+   Searches from index START (default 0) to the end of the collection.
+   For strings, VALUE can be a character, string, or regex pattern.
+   For lists and vectors, VALUE is compared using EQL."))
+
+;;; --- index-of for <vector> ---
+
+(defmethod index-of ((v <vector>) value &optional (start 0))
+  "Find VALUE in a FOL vector, starting from index START."
+  (let* ((seq (pslot-value v 'items))
+         (len (fset:size seq))
+         (raw-value (fol.wrappers:fol-value value))
+         (start-idx (fol.wrappers:fol-value start)))
+    (loop for i from start-idx below len
+          when (eql (fset:@ seq i) raw-value)
+            return i
+          finally (return nil))))
+
+;;; --- index-of for <list> ---
+
+(defmethod index-of ((lst <list>) value &optional (start 0))
+  "Find VALUE in a FOL list, starting from index START."
+  (let* ((raw-value (fol.wrappers:fol-value value))
+         (start-idx (fol.wrappers:fol-value start)))
+    ;; Skip to start position
+    (loop for current = lst then (rest current)
+          for idx from 0
+          while current
+          when (and (>= idx start-idx)
+                    (eql (first current) raw-value))
+            return idx
+          finally (return nil))))
+
+;;; --- index-of for CL lists ---
+
+(defmethod index-of ((lst list) value &optional (start 0))
+  "Find VALUE in a CL list, starting from index START."
+  (let* ((raw-value (fol.wrappers:fol-value value))
+         (start-idx (fol.wrappers:fol-value start)))
+    (loop for elem in (nthcdr start-idx lst)
+          for idx from start-idx
+          when (eql elem raw-value)
+            return idx
+          finally (return nil))))
+
+;;; --- index-of for strings ---
+
+(defmethod index-of ((s string) (value character) &optional (start 0))
+  "Find character VALUE in string S, starting from index START."
+  (let ((start-idx (fol.wrappers:fol-value start)))
+    (cl:position value s :start start-idx)))
+
+(defmethod index-of ((s string) (value fol.classes:<char>) &optional (start 0))
+  "Find wrapped character VALUE in string S."
+  (index-of s (fol.wrappers:fol-value value) start))
+
+(defmethod index-of ((s string) (value string) &optional (start 0))
+  "Find substring VALUE in string S, starting from index START."
+  (let ((start-idx (fol.wrappers:fol-value start)))
+    (cl:search value s :start2 start-idx)))
+
+(defmethod index-of ((s string) (value fol.classes:<string>) &optional (start 0))
+  "Find wrapped substring VALUE in string S."
+  ;; Check if it's a <re-pattern> (subclass of <string>)
+  (if (typep value 'fol.classes:<re-pattern>)
+      ;; Use regex search
+      (let ((start-idx (fol.wrappers:fol-value start)))
+        (multiple-value-bind (match-start match-end)
+            (cl-ppcre:scan (fol.wrappers:fol-value value) s :start start-idx)
+          (declare (ignore match-end))
+          match-start))
+      ;; Plain string search
+      (index-of s (fol.wrappers:fol-value value) start)))
+
+(defmethod index-of ((s string) (value fol.classes:<re-pattern>) &optional (start 0))
+  "Find regex pattern VALUE in string S, starting from index START."
+  (let ((start-idx (fol.wrappers:fol-value start)))
+    (multiple-value-bind (match-start match-end)
+        (cl-ppcre:scan (fol.wrappers:fol-value value) s :start start-idx)
+      (declare (ignore match-end))
+      match-start)))
+
+;;; --- index-of for wrapped strings ---
+
+(defmethod index-of ((s fol.classes:<string>) value &optional (start 0))
+  "Find VALUE in wrapped string S."
+  ;; Check if it's a <re-pattern> (subclass of <string>)
+  (if (typep s 'fol.classes:<re-pattern>)
+      (error "INDEX-OF: Cannot search within a regex pattern")
+      (index-of (fol.wrappers:fol-value s) value start)))
+
+
+;;; ============================================================================
+;;; last-index-of Generic Function
+;;; ============================================================================
+
+(defgeneric last-index-of (coll value &optional start)
+  (:documentation "Return the index of the last occurrence of VALUE in collection COLL, or NIL if not found.
+   Searches from the start of the collection to index START (if provided) or the end.
+   For strings, VALUE can be a character or string.
+   For lists and vectors, VALUE is compared using EQL."))
+
+;;; --- last-index-of for <vector> ---
+
+(defmethod last-index-of ((v <vector>) value &optional start)
+  "Find last occurrence of VALUE in a FOL vector."
+  (let* ((seq (pslot-value v 'items))
+         (len (fset:size seq))
+         (raw-value (fol.wrappers:fol-value value))
+         (end-idx (if start
+                      (cl:min (cl:1+ (fol.wrappers:fol-value start)) len)
+                      len)))
+    (loop for i from (1- end-idx) downto 0
+          when (eql (fset:@ seq i) raw-value)
+            return i
+          finally (return nil))))
+
+;;; --- last-index-of for <list> ---
+
+(defmethod last-index-of ((lst <list>) value &optional start)
+  "Find last occurrence of VALUE in a FOL list."
+  (let* ((raw-value (fol.wrappers:fol-value value))
+         (end-idx (if start
+                      (cl:1+ (fol.wrappers:fol-value start))
+                      (size lst)))
+         (result nil))
+    ;; Traverse and remember the last match
+    (loop for current = lst then (rest current)
+          for idx from 0 below end-idx
+          while current
+          when (eql (first current) raw-value)
+            do (setf result idx)
+          finally (return result))))
+
+;;; --- last-index-of for CL lists ---
+
+(defmethod last-index-of ((lst list) value &optional start)
+  "Find last occurrence of VALUE in a CL list."
+  (let* ((raw-value (fol.wrappers:fol-value value))
+         (result nil))
+    (if start
+        (let ((end-idx (cl:1+ (fol.wrappers:fol-value start))))
+          (loop for elem in lst
+                for idx from 0 below end-idx
+                when (eql elem raw-value)
+                  do (setf result idx)
+                finally (return result)))
+        (loop for elem in lst
+              for idx from 0
+              when (eql elem raw-value)
+                do (setf result idx)
+              finally (return result)))))
+
+;;; --- last-index-of for strings ---
+
+(defmethod last-index-of ((s string) (value character) &optional start)
+  "Find last occurrence of character VALUE in string S."
+  (let ((end-idx (if start
+                     (cl:min (cl:1+ (fol.wrappers:fol-value start)) (cl:length s))
+                     (cl:length s))))
+    (cl:position value s :end end-idx :from-end t)))
+
+(defmethod last-index-of ((s string) (value fol.classes:<char>) &optional start)
+  "Find last occurrence of wrapped character VALUE in string S."
+  (last-index-of s (fol.wrappers:fol-value value) start))
+
+(defmethod last-index-of ((s string) (value string) &optional start)
+  "Find last occurrence of substring VALUE in string S."
+  (let ((end-idx (if start
+                     (cl:min (cl:1+ (fol.wrappers:fol-value start)) (cl:length s))
+                     (cl:length s))))
+    (cl:search value s :end2 end-idx :from-end t)))
+
+(defmethod last-index-of ((s string) (value fol.classes:<string>) &optional start)
+  "Find last occurrence of wrapped substring VALUE in string S."
+  ;; For <re-pattern>, we don't support last-index-of
+  (if (typep value 'fol.classes:<re-pattern>)
+      (error "LAST-INDEX-OF: Regex patterns not supported for last-index-of")
+      (last-index-of s (fol.wrappers:fol-value value) start)))
+
+;;; --- last-index-of for wrapped strings ---
+
+(defmethod last-index-of ((s fol.classes:<string>) value &optional start)
+  "Find last occurrence of VALUE in wrapped string S."
+  (if (typep s 'fol.classes:<re-pattern>)
+      (error "LAST-INDEX-OF: Cannot search within a regex pattern")
+      (last-index-of (fol.wrappers:fol-value s) value start)))
+
+
+;;; ============================================================================
 ;;; String as Ordered Collection
 ;;; ============================================================================
 ;;; Strings can be treated as ordered collections of characters.

@@ -891,3 +891,575 @@ line3")
     (is (= 2 (fol.collection:size seq)))
     (is (string= "aa" (fol.collection:nth-element (first seq) 0)))
     (is (string= "aa" (fol.collection:nth-element (first (rest seq)) 0)))))
+
+
+;;; ============================================================================
+;;; String Replace Operations Tests
+;;; ============================================================================
+
+;;; ---------------------------------------------------------------------------
+;;; replace-first Tests
+;;; ---------------------------------------------------------------------------
+
+(test replace-first-string-basic
+  "Test replace-first with string literal match."
+  (is (string= "hello planet" (replace-first "hello world" "world" "planet")))
+  (is (string= "goodbye world" (replace-first "hello world" "hello" "goodbye")))
+  (is (string= "hXllo world" (replace-first "hello world" "e" "X"))))
+
+(test replace-first-string-no-match
+  "Test replace-first when match is not found."
+  (is (string= "hello world" (replace-first "hello world" "xyz" "abc")))
+  (is (string= "hello world" (replace-first "hello world" "World" "planet"))))
+
+(test replace-first-string-multiple-occurrences
+  "Test replace-first only replaces first occurrence."
+  (is (string= "Xabab" (replace-first "aabab" "a" "X")))
+  (is (string= "hello WORLD world" (replace-first "hello world world" "world" "WORLD"))))
+
+(test replace-first-wrapped-string
+  "Test replace-first with wrapped strings."
+  (is (string= "hello planet" (replace-first (wrap-string "hello world") "world" "planet")))
+  (is (string= "hello planet" (replace-first "hello world" (wrap-string "world") "planet")))
+  (is (string= "hello planet" (replace-first "hello world" "world" (wrap-string "planet")))))
+
+(test replace-first-regex-basic
+  "Test replace-first with regex pattern."
+  (let ((pat (wrap-re-pattern "\\d+")))
+    (is (string= "abc###def" (replace-first "abc123def" pat "###")))
+    (is (string= "hello NUMBERS" (replace-first "hello 123" pat "NUMBERS")))))
+
+(test replace-first-regex-no-match
+  "Test replace-first with regex that doesn't match."
+  (let ((pat (wrap-re-pattern "\\d+")))
+    (is (string= "hello world" (replace-first "hello world" pat "###")))))
+
+(test replace-first-regex-with-backreference
+  "Test replace-first with regex backreferences."
+  ;; CL-PPCRE uses \\1, \\2 for backreferences, not $1, $2
+  (let ((pat (wrap-re-pattern "(\\w+)@(\\w+)")))
+    (is (string= "contact: USER=test" (replace-first "contact: test@example" pat "USER=\\1")))))
+
+(test replace-first-with-function
+  "Test replace-first with function replacement."
+  (is (string= "hello WORLD" (replace-first "hello world" "world" (lambda (m) (string-upcase m)))))
+  (let ((pat (wrap-re-pattern "\\d+")))
+    (is (string= "abc[123]def" (replace-first "abc123def" pat (lambda (m groups)
+                                                                 (declare (ignore groups))
+                                                                 (concatenate 'string "[" m "]")))))))
+
+(test replace-first-empty
+  "Test replace-first with empty strings."
+  (is (string= "" (replace-first "" "a" "b")))
+  ;; Empty string pattern inserts at beginning (CL-PPCRE behavior)
+  (is (string= "Xhello world" (replace-first "hello world" "" "X"))))
+
+;;; ---------------------------------------------------------------------------
+;;; replace Tests
+;;; ---------------------------------------------------------------------------
+
+(test replace-string-basic
+  "Test replace with string literal match."
+  (is (string= "hello planet" (replace "hello world" "world" "planet")))
+  (is (string= "hellX wXrld" (replace "hello world" "o" "X"))))
+
+(test replace-string-no-match
+  "Test replace when match is not found."
+  (is (string= "hello world" (replace "hello world" "xyz" "abc"))))
+
+(test replace-string-all-occurrences
+  "Test replace replaces all occurrences."
+  (is (string= "XbXbXb" (replace "ababab" "a" "X")))
+  (is (string= "hello WORLD WORLD" (replace "hello world world" "world" "WORLD"))))
+
+(test replace-wrapped-string
+  "Test replace with wrapped strings."
+  (is (string= "hellX wXrld" (replace (wrap-string "hello world") "o" "X")))
+  (is (string= "hellX wXrld" (replace "hello world" (wrap-string "o") "X")))
+  (is (string= "hellX wXrld" (replace "hello world" "o" (wrap-string "X")))))
+
+(test replace-regex-basic
+  "Test replace with regex pattern."
+  (let ((pat (wrap-re-pattern "\\d+")))
+    (is (string= "abc###def###ghi" (replace "abc123def456ghi" pat "###")))))
+
+(test replace-regex-with-backreference
+  "Test replace with regex backreferences."
+  ;; CL-PPCRE uses \\1, \\2 for backreferences, not $1, $2
+  (let ((pat (wrap-re-pattern "(\\w+)=(\\d+)")))
+    (is (string= "a:[1] b:[2]" (replace "a=1 b=2" pat "\\1:[\\2]")))))
+
+(test replace-with-function
+  "Test replace with function replacement."
+  ;; Need to use regex pattern for word matching
+  (let ((word-pat (wrap-re-pattern "\\w+")))
+    (is (string= "HELLO WORLD" (replace "hello world" word-pat (lambda (m groups)
+                                                                  (declare (ignore groups))
+                                                                  (string-upcase m))))))
+  (let ((pat (wrap-re-pattern "\\d+")))
+    (is (string= "a[1]b[2]c[3]" (replace "a1b2c3" pat (lambda (m groups)
+                                                        (declare (ignore groups))
+                                                        (concatenate 'string "[" m "]")))))))
+
+(test replace-empty
+  "Test replace with empty strings."
+  (is (string= "" (replace "" "a" "b")))
+  (is (string= "hello world" (replace "hello world" "" "X"))))
+
+
+;;; ============================================================================
+;;; String Join, Split, and Misc Operations Tests
+;;; ============================================================================
+
+;;; ---------------------------------------------------------------------------
+;;; join Tests
+;;; ---------------------------------------------------------------------------
+
+(test join-basic-list
+  "Test join with a list of strings."
+  (is (string= "a,b,c" (join "," '("a" "b" "c"))))
+  (is (string= "hello world" (join " " '("hello" "world"))))
+  (is (string= "1-2-3" (join "-" '("1" "2" "3")))))
+
+(test join-empty-separator
+  "Test join with empty separator."
+  (is (string= "abc" (join "" '("a" "b" "c")))))
+
+(test join-single-element
+  "Test join with single element."
+  (is (string= "hello" (join "," '("hello"))))
+  (is (string= "test" (join " | " '("test")))))
+
+(test join-empty-list
+  "Test join with empty list."
+  (is (string= "" (join "," '()))))
+
+(test join-wrapped-separator
+  "Test join with wrapped separator."
+  (is (string= "a,b,c" (join (wrap-string ",") '("a" "b" "c")))))
+
+(test join-vector
+  "Test join with a FOL vector."
+  (let ((v (fol.collection:make-vector "a" "b" "c")))
+    (is (string= "a,b,c" (join "," v)))))
+
+(test join-fol-list
+  "Test join with a FOL list."
+  (let ((lst (fol.collection:make-list "a" "b" "c")))
+    (is (string= "a,b,c" (join "," lst)))))
+
+(test join-mixed-types
+  "Test join converts non-strings to strings."
+  (is (string= "1,2,3" (join "," '(1 2 3))))
+  (is (string= "a,1,b" (join "," '("a" 1 "b")))))
+
+(test join-characters
+  "Test join with characters."
+  (is (string= "a-b-c" (join "-" '(#\a #\b #\c)))))
+
+;;; ---------------------------------------------------------------------------
+;;; escape Tests
+;;; ---------------------------------------------------------------------------
+
+(test escape-basic
+  "Test escape with character map."
+  (let ((cmap (fol.collection:make-dict #\< "&lt;" #\> "&gt;")))
+    (is (string= "&lt;div&gt;hello&lt;/div&gt;" (escape "<div>hello</div>" cmap)))))
+
+(test escape-no-replacements
+  "Test escape when no characters match."
+  (let ((cmap (fol.collection:make-dict #\< "&lt;" #\> "&gt;")))
+    (is (string= "hello world" (escape "hello world" cmap)))))
+
+(test escape-all-characters
+  "Test escape when all characters match."
+  (let ((cmap (fol.collection:make-dict #\a "X" #\b "Y")))
+    (is (string= "XYX" (escape "aba" cmap)))))
+
+(test escape-empty-string
+  "Test escape with empty string."
+  (let ((cmap (fol.collection:make-dict #\a "X")))
+    (is (string= "" (escape "" cmap)))))
+
+(test escape-wrapped-string
+  "Test escape with wrapped string."
+  (let ((cmap (fol.collection:make-dict #\< "&lt;" #\> "&gt;")))
+    (is (string= "&lt;test&gt;" (escape (wrap-string "<test>") cmap)))))
+
+(test escape-html-entities
+  "Test escape for HTML entity escaping."
+  (let ((cmap (fol.collection:make-dict #\& "&amp;" #\< "&lt;" #\> "&gt;" #\" "&quot;")))
+    (is (string= "&lt;a href=&quot;test&quot;&gt;click &amp; go&lt;/a&gt;"
+                 (escape "<a href=\"test\">click & go</a>" cmap)))))
+
+;;; ---------------------------------------------------------------------------
+;;; split Tests
+;;; ---------------------------------------------------------------------------
+
+(test split-basic
+  "Test split with simple pattern."
+  (let ((result (split "a,b,c" ",")))
+    (is (typep result 'fol.collection:<vector>))
+    (is (= 3 (fol.collection:size result)))
+    (is (string= "a" (fol.collection:nth-element result 0)))
+    (is (string= "b" (fol.collection:nth-element result 1)))
+    (is (string= "c" (fol.collection:nth-element result 2)))))
+
+(test split-regex
+  "Test split with regex pattern."
+  (let ((result (split "a1b2c3d" "\\d")))
+    (is (= 4 (fol.collection:size result)))
+    (is (string= "a" (fol.collection:nth-element result 0)))
+    (is (string= "d" (fol.collection:nth-element result 3)))))
+
+(test split-with-limit
+  "Test split with limit argument."
+  (let ((result (split "a,b,c,d" "," 2)))
+    (is (= 2 (fol.collection:size result)))
+    (is (string= "a" (fol.collection:nth-element result 0)))
+    (is (string= "b,c,d" (fol.collection:nth-element result 1)))))
+
+(test split-no-match
+  "Test split when pattern doesn't match."
+  (let ((result (split "hello world" ",")))
+    (is (= 1 (fol.collection:size result)))
+    (is (string= "hello world" (fol.collection:nth-element result 0)))))
+
+(test split-empty-string
+  "Test split with empty string."
+  ;; CL-PPCRE returns empty list for empty string
+  (let ((result (split "" ",")))
+    (is (= 0 (fol.collection:size result)))))
+
+(test split-wrapped
+  "Test split with wrapped string."
+  (let ((result (split (wrap-string "a,b,c") ",")))
+    (is (= 3 (fol.collection:size result)))))
+
+(test split-re-pattern
+  "Test split with <re-pattern>."
+  (let* ((pat (wrap-re-pattern "\\s+"))
+         (result (split "hello   world  test" pat)))
+    (is (= 3 (fol.collection:size result)))
+    (is (string= "hello" (fol.collection:nth-element result 0)))
+    (is (string= "world" (fol.collection:nth-element result 1)))
+    (is (string= "test" (fol.collection:nth-element result 2)))))
+
+;;; ---------------------------------------------------------------------------
+;;; split-lines Tests
+;;; ---------------------------------------------------------------------------
+
+(test split-lines-basic
+  "Test split-lines with LF."
+  (let ((result (split-lines (format nil "line1~%line2~%line3"))))
+    (is (typep result 'fol.collection:<vector>))
+    (is (= 3 (fol.collection:size result)))
+    (is (string= "line1" (fol.collection:nth-element result 0)))
+    (is (string= "line2" (fol.collection:nth-element result 1)))
+    (is (string= "line3" (fol.collection:nth-element result 2)))))
+
+(test split-lines-crlf
+  "Test split-lines with CRLF."
+  (let ((result (split-lines (concatenate 'string "line1" (string #\Return) (string #\Newline)
+                                          "line2" (string #\Return) (string #\Newline)
+                                          "line3"))))
+    (is (= 3 (fol.collection:size result)))
+    (is (string= "line1" (fol.collection:nth-element result 0)))))
+
+(test split-lines-single-line
+  "Test split-lines with no newlines."
+  (let ((result (split-lines "hello world")))
+    (is (= 1 (fol.collection:size result)))
+    (is (string= "hello world" (fol.collection:nth-element result 0)))))
+
+(test split-lines-empty
+  "Test split-lines with empty string."
+  ;; CL-PPCRE returns empty list for empty string
+  (let ((result (split-lines "")))
+    (is (= 0 (fol.collection:size result)))))
+
+(test split-lines-wrapped
+  "Test split-lines with wrapped string."
+  (let ((result (split-lines (wrap-string (format nil "a~%b~%c")))))
+    (is (= 3 (fol.collection:size result)))))
+
+;;; ---------------------------------------------------------------------------
+;;; reverse Tests (for strings)
+;;; ---------------------------------------------------------------------------
+
+(test reverse-string-basic
+  "Test reverse with basic strings."
+  (is (string= "olleh" (reverse "hello")))
+  (is (string= "dlrow olleh" (reverse "hello world")))
+  (is (string= "321" (reverse "123"))))
+
+(test reverse-string-empty
+  "Test reverse with empty string."
+  (is (string= "" (reverse ""))))
+
+(test reverse-string-single-char
+  "Test reverse with single character."
+  (is (string= "a" (reverse "a"))))
+
+(test reverse-string-wrapped
+  "Test reverse with wrapped string."
+  (is (string= "olleh" (reverse (wrap-string "hello")))))
+
+(test reverse-string-palindrome
+  "Test reverse with palindrome."
+  (is (string= "racecar" (reverse "racecar")))
+  (is (string= "level" (reverse "level"))))
+
+(test reverse-string-unicode
+  "Test reverse with unicode."
+  (is (string= "界世好你" (reverse "你好世界"))))
+
+;;; ---------------------------------------------------------------------------
+;;; reverse Tests (for vectors)
+;;; ---------------------------------------------------------------------------
+
+(test reverse-vector-basic
+  "Test reverse with FOL vectors."
+  (let ((v (make-vector 1 2 3 4 5)))
+    (let ((r (reverse v)))
+      (is (= 5 (nth-element r 0)))
+      (is (= 4 (nth-element r 1)))
+      (is (= 3 (nth-element r 2)))
+      (is (= 2 (nth-element r 3)))
+      (is (= 1 (nth-element r 4))))))
+
+(test reverse-vector-empty
+  "Test reverse with empty vector."
+  (let ((v (make-vector)))
+    (is (= 0 (size (reverse v))))))
+
+(test reverse-vector-single
+  "Test reverse with single-element vector."
+  (let ((v (make-vector 42)))
+    (let ((r (reverse v)))
+      (is (= 1 (size r)))
+      (is (= 42 (nth-element r 0))))))
+
+;;; ---------------------------------------------------------------------------
+;;; reverse Tests (for lists)
+;;; ---------------------------------------------------------------------------
+
+(test reverse-list-basic
+  "Test reverse with FOL lists."
+  (let ((lst (make-list 1 2 3 4 5)))
+    (let ((r (reverse lst)))
+      (is (= 5 (first r)))
+      (is (= 4 (first (rest r))))
+      (is (= 1 (first (rest (rest (rest (rest r))))))))))
+
+(test reverse-list-empty
+  "Test reverse with empty list."
+  (let ((lst (make-list)))
+    (is (empty? (reverse lst)))))
+
+(test reverse-list-single
+  "Test reverse with single-element list."
+  (let ((lst (make-list 42)))
+    (let ((r (reverse lst)))
+      (is (= 1 (size r)))
+      (is (= 42 (first r))))))
+
+(test reverse-cl-list
+  "Test reverse with CL lists."
+  (is (equal '(3 2 1) (reverse '(1 2 3))))
+  (is (equal '(c b a) (reverse '(a b c)))))
+
+
+;;; ============================================================================
+;;; String Index Operations Tests
+;;; ============================================================================
+
+;;; ---------------------------------------------------------------------------
+;;; index-of Tests (for strings)
+;;; ---------------------------------------------------------------------------
+
+(test index-of-string-basic
+  "Test index-of with string search."
+  (is (= 6 (index-of "hello world" "world")))
+  (is (= 0 (index-of "hello world" "hello")))
+  (is (= 4 (index-of "hello world" "o"))))
+
+(test index-of-string-not-found
+  "Test index-of when substring not found."
+  (is (null (index-of "hello world" "xyz")))
+  (is (null (index-of "hello world" "World"))))
+
+(test index-of-string-character
+  "Test index-of with character search."
+  (is (= 4 (index-of "hello" #\o)))
+  (is (= 0 (index-of "hello" #\h)))
+  (is (null (index-of "hello" #\z))))
+
+(test index-of-string-from-index
+  "Test index-of with from-index."
+  (is (= 7 (index-of "hello world" "o" 5)))
+  (is (null (index-of "hello world" "hello" 1))))
+
+(test index-of-string-wrapped
+  "Test index-of with wrapped strings."
+  (is (= 6 (index-of (wrap-string "hello world") "world")))
+  (is (= 6 (index-of "hello world" (wrap-string "world")))))
+
+(test index-of-string-empty
+  "Test index-of with empty strings."
+  (is (= 0 (index-of "hello" "")))
+  (is (null (index-of "" "a"))))
+
+;;; ---------------------------------------------------------------------------
+;;; last-index-of Tests (for strings)
+;;; ---------------------------------------------------------------------------
+
+(test last-index-of-string-basic
+  "Test last-index-of with string search."
+  (is (= 6 (last-index-of "hello world" "world")))
+  (is (= 7 (last-index-of "hello world" "o")))
+  (is (= 10 (last-index-of "abracadabra" "a"))))
+
+(test last-index-of-string-not-found
+  "Test last-index-of when substring not found."
+  (is (null (last-index-of "hello world" "xyz")))
+  (is (null (last-index-of "hello world" "World"))))
+
+(test last-index-of-string-character
+  "Test last-index-of with character search."
+  (is (= 4 (last-index-of "hello" #\o)))
+  (is (= 3 (last-index-of "hello" #\l)))
+  (is (null (last-index-of "hello" #\z))))
+
+(test last-index-of-string-from-index
+  "Test last-index-of with from-index (searches up to that index)."
+  (is (= 4 (last-index-of "hello world" "o" 6)))
+  (is (= 4 (last-index-of "hello world" "o" 4)))
+  (is (null (last-index-of "hello world" "o" 3))))
+
+(test last-index-of-string-wrapped
+  "Test last-index-of with wrapped strings."
+  (is (= 7 (last-index-of (wrap-string "hello world") "o")))
+  (is (= 7 (last-index-of "hello world" (wrap-string "o")))))
+
+(test last-index-of-string-empty
+  "Test last-index-of with empty strings."
+  (is (= 5 (last-index-of "hello" "")))
+  (is (null (last-index-of "" "a"))))
+
+
+;;; ============================================================================
+;;; Index Operations for Lists and Vectors
+;;; ============================================================================
+
+;;; ---------------------------------------------------------------------------
+;;; index-of Tests for Vectors
+;;; ---------------------------------------------------------------------------
+
+(test index-of-vector-basic
+  "Test index-of with FOL vectors."
+  (let ((v (make-vector 1 2 3 4 5)))
+    (is (= 0 (index-of v 1)))
+    (is (= 2 (index-of v 3)))
+    (is (= 4 (index-of v 5)))
+    (is (null (index-of v 6)))))
+
+(test index-of-vector-with-start
+  "Test index-of with start index on vectors."
+  (let ((v (make-vector 1 2 3 2 1)))
+    (is (= 1 (index-of v 2)))
+    (is (= 3 (index-of v 2 2)))
+    (is (null (index-of v 1 2)))))
+
+(test index-of-vector-symbols
+  "Test index-of with symbol values in vectors."
+  (let ((v (make-vector 'a 'b 'c 'd)))
+    (is (= 0 (index-of v 'a)))
+    (is (= 2 (index-of v 'c)))
+    (is (null (index-of v 'e)))))
+
+;;; ---------------------------------------------------------------------------
+;;; index-of Tests for Lists
+;;; ---------------------------------------------------------------------------
+
+(test index-of-list-basic
+  "Test index-of with FOL lists."
+  (let ((lst (make-list 1 2 3 4 5)))
+    (is (= 0 (index-of lst 1)))
+    (is (= 2 (index-of lst 3)))
+    (is (= 4 (index-of lst 5)))
+    (is (null (index-of lst 6)))))
+
+(test index-of-list-with-start
+  "Test index-of with start index on lists."
+  (let ((lst (make-list 1 2 3 2 1)))
+    (is (= 1 (index-of lst 2)))
+    (is (= 3 (index-of lst 2 2)))
+    (is (null (index-of lst 1 2)))))
+
+(test index-of-cl-list
+  "Test index-of with CL lists."
+  (is (= 1 (index-of '(a b c) 'b)))
+  (is (= 0 (index-of '(1 2 3) 1)))
+  (is (null (index-of '(1 2 3) 4))))
+
+;;; ---------------------------------------------------------------------------
+;;; index-of Tests for Regex Patterns
+;;; ---------------------------------------------------------------------------
+
+(test index-of-string-regex
+  "Test index-of with regex pattern."
+  (let ((pat (wrap-re-pattern "\\d+")))
+    (is (= 5 (index-of "hello123world" pat)))
+    (is (= 0 (index-of "123abc" pat)))
+    (is (null (index-of "hello world" pat)))))
+
+(test index-of-string-regex-with-start
+  "Test index-of with regex pattern and start index."
+  (let ((pat (wrap-re-pattern "\\d+")))
+    (is (= 5 (index-of "hello123world456" pat)))
+    (is (= 13 (index-of "hello123world456" pat 6)))))
+
+;;; ---------------------------------------------------------------------------
+;;; last-index-of Tests for Vectors
+;;; ---------------------------------------------------------------------------
+
+(test last-index-of-vector-basic
+  "Test last-index-of with FOL vectors."
+  (let ((v (make-vector 1 2 3 2 1)))
+    (is (= 4 (last-index-of v 1)))
+    (is (= 3 (last-index-of v 2)))
+    (is (= 2 (last-index-of v 3)))
+    (is (null (last-index-of v 5)))))
+
+(test last-index-of-vector-with-start
+  "Test last-index-of with start index on vectors."
+  (let ((v (make-vector 1 2 3 2 1)))
+    (is (= 1 (last-index-of v 2 2)))
+    (is (= 0 (last-index-of v 1 2)))
+    (is (null (last-index-of v 3 1)))))
+
+;;; ---------------------------------------------------------------------------
+;;; last-index-of Tests for Lists
+;;; ---------------------------------------------------------------------------
+
+(test last-index-of-list-basic
+  "Test last-index-of with FOL lists."
+  (let ((lst (make-list 1 2 3 2 1)))
+    (is (= 4 (last-index-of lst 1)))
+    (is (= 3 (last-index-of lst 2)))
+    (is (= 2 (last-index-of lst 3)))
+    (is (null (last-index-of lst 5)))))
+
+(test last-index-of-list-with-start
+  "Test last-index-of with start index on lists."
+  (let ((lst (make-list 1 2 3 2 1)))
+    (is (= 1 (last-index-of lst 2 2)))
+    (is (= 0 (last-index-of lst 1 2)))
+    (is (null (last-index-of lst 3 1)))))
+
+(test last-index-of-cl-list
+  "Test last-index-of with CL lists."
+  (is (= 2 (last-index-of '(a b a) 'a)))
+  (is (= 2 (last-index-of '(1 2 1) 1)))
+  (is (null (last-index-of '(1 2 3) 4))))

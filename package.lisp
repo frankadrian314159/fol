@@ -183,7 +183,7 @@
 
 (defpackage fol.collection
   (:use cl fol.persistent)
-  (:shadow make-array make-list get remove first rest second third nth pop push)
+  (:shadow make-array make-list get remove first rest second third nth pop push reverse)
   (:export <collection> <collection>?
            <unordered-collection> <unordered-collection>?
            <ordered-collection> <ordered-collection>?
@@ -206,6 +206,10 @@
            list-first list-rest list-size
            ;; Additional operations
            nth-element set-nth
+           ;; Index operations
+           index-of last-index-of
+           ;; Reverse
+           reverse
            ;; Stack-like operations
            pop push))
 
@@ -222,7 +226,8 @@
                           third
                           nth
                           pop
-                          push)
+                          push
+                          reverse)
   (:export <module> <module>? make-module
            module-name module-exports module-export module-import
            find-module register-module +module-registry+
@@ -241,7 +246,8 @@
                           third
                           nth
                           pop
-                          push)
+                          push
+                          reverse)
   (:export <env> <env>? make-env lookup env-previous unbound-variable fol-unbound-variable fol-unbound-variable-name fol-unbound-variable-message))
 
 (defpackage fol.logop
@@ -307,13 +313,17 @@
 
 (defpackage fol.string
   (:use cl fol.wrappers fol.classes)
-  (:shadow trim capitalize)
+  (:shadow trim capitalize replace)
   (:export <string>?
            ;; String manipulation
            substr
            blank? trim triml trimr trim-newline
            capitalize
            starts-with? ends-with? includes?
+           ;; Replace operations
+           replace replace-first
+           ;; Join and split operations
+           join escape split split-lines
            ;; Regex pattern
            <re-pattern>? wrap-re-pattern
            ;; Regex scanner
@@ -367,7 +377,8 @@
                           third
                           nth
                           pop
-                          push)
+                          push
+                          reverse)
   (:shadowing-import-from fol.logop
                           not and or)
   (:shadowing-import-from fol.arithop

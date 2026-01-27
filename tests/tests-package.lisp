@@ -63,13 +63,17 @@
                 :upper-case? :lower-case? :whitespace?)
   ;; Shadow CL string functions
   (:shadowing-import-from :fol.string
-                          :trim :capitalize)
+                          :trim :capitalize :replace)
   ;; Import non-conflicting symbols from fol.string
   (:import-from :fol.string
                 :<string>?
                 :substr
                 :blank? :triml :trimr :trim-newline
                 :starts-with? :ends-with? :includes?
+                ;; Replace operations (replace is shadowed above)
+                :replace-first
+                ;; Join and split operations
+                :join :escape :split :split-lines
                 :<re-pattern>? :wrap-re-pattern
                 :<re-scanner>? :make-re-scanner
                 :re-find :re-seq)
@@ -113,10 +117,12 @@
                 :iterator :current :next :done?
                 :nth-element :set-nth
                 :list-first :list-rest :list-size
+                ;; Index operations
+                :index-of :last-index-of
                 ;; Reduced (for early termination in reduce)
                 :<reduced> :<reduced>? :reduced :unreduced :reduced-value)
   ;; Shadow CL symbols that FOL redefines
-  (:shadowing-import-from :fol.collection :remove :get :make-array :make-list :first :rest :second :third :nth :pop :push)
+  (:shadowing-import-from :fol.collection :remove :get :make-array :make-list :first :rest :second :third :nth :pop :push :reverse)
   ;; Import symbols from fol.env
   (:import-from :fol.env
                 :<env>? :make-env :lookup :env-previous

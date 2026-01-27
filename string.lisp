@@ -131,6 +131,231 @@
 
 
 ;;; ============================================================================
+;;; String Replace Operations
+;;; ============================================================================
+
+(defun %get-replacement (replacement func-name)
+  "Helper to extract replacement string or validate function."
+  (typecase replacement
+    (string replacement)
+    (<string> (fol.wrappers:fol-value replacement))
+    (function replacement)
+    (t (error "~A replacement must be a string or function, got ~A" func-name (type-of replacement)))))
+
+(defun replace-first (s match replacement)
+  "Replaces the first instance of MATCH in S with REPLACEMENT.
+   MATCH can be a string, <re-pattern>, or <re-scanner>.
+   REPLACEMENT can be a string or a function.
+
+   If MATCH is a string, performs literal string replacement.
+   If MATCH is a regex, REPLACEMENT can be:
+   - A string (with $1, $2, etc. for backreferences)
+   - A function that receives the match and groups dict, returning the replacement
+
+   Equivalent to Clojure's clojure.string/replace-first."
+  (let ((str (%get-string s "REPLACE-FIRST"))
+        (repl (%get-replacement replacement "REPLACE-FIRST")))
+    (typecase match
+      ;; Regex scanner (check before <re-pattern>)
+      (<re-scanner>
+       (if (functionp repl)
+           ;; Function replacement - need to capture groups
+           (multiple-value-bind (match-str groups) (re-find match str)
+             (if match-str
+                 (let* ((replacement-str (funcall repl match-str groups))
+                        (pos (search match-str str)))
+                   (concatenate 'string
+                                (subseq str 0 pos)
+                                replacement-str
+                                (subseq str (cl:+ pos (length match-str)))))
+                 str))
+           ;; String replacement with potential backreferences
+           (cl-ppcre:regex-replace (scanner-function match) str repl)))
+      ;; Regex pattern (check before <string> since it's a subclass)
+      (<re-pattern>
+       (if (functionp repl)
+           ;; Function replacement - need to capture groups
+           (multiple-value-bind (match-str groups) (re-find match str)
+             (if match-str
+                 (let* ((replacement-str (funcall repl match-str groups))
+                        (pos (search match-str str)))
+                   (concatenate 'string
+                                (subseq str 0 pos)
+                                replacement-str
+                                (subseq str (cl:+ pos (length match-str)))))
+                 str))
+           ;; String replacement with potential backreferences
+           (cl-ppcre:regex-replace (fol.wrappers:fol-value match) str repl)))
+      ;; Wrapped string literal match (not a regex pattern)
+      (<string>
+       (let* ((match-str (fol.wrappers:fol-value match))
+              (pos (search match-str str)))
+         (if pos
+             (concatenate 'string
+                          (subseq str 0 pos)
+                          (if (functionp repl) (funcall repl match-str) repl)
+                          (subseq str (cl:+ pos (length match-str))))
+             str)))
+      ;; String literal match
+      (string
+       (let ((pos (search match str)))
+         (if pos
+             (concatenate 'string
+                          (subseq str 0 pos)
+                          (if (functionp repl) (funcall repl match) repl)
+                          (subseq str (cl:+ pos (length match))))
+             str)))
+      (t (error "REPLACE-FIRST match must be a string or regex, got ~A" (type-of match))))))
+
+(defun %replace-with-function (str scanner repl)
+  "Helper to replace all regex matches using a function."
+  (with-output-to-string (out)
+    (let ((pos 0)
+          (seq (re-seq scanner str)))
+      ;; Iterate over lazy-seq properly
+      (do ((current seq (fol.collection:rest current)))
+          ((fol.collection:empty? current)
+           ;; Write remaining string
+           (write-string (subseq str pos) out))
+        (let* ((item (fol.collection:first current))
+               (match-str (fol.collection:nth-element item 0))
+               (groups (fol.collection:nth-element item 1))
+               (found (search match-str str :start2 pos)))
+          (when found
+            (write-string (subseq str pos found) out)
+            (write-string (funcall repl match-str groups) out)
+            (setf pos (cl:+ found (cl:max 1 (length match-str))))))))))
+
+(defun replace (s match replacement)
+  "Replaces all instances of MATCH in S with REPLACEMENT.
+   MATCH can be a string, <re-pattern>, or <re-scanner>.
+   REPLACEMENT can be a string or a function.
+
+   If MATCH is a string, performs literal string replacement.
+   If MATCH is a regex, REPLACEMENT can be:
+   - A string (with $1, $2, etc. for backreferences)
+   - A function that receives the match and groups dict, returning the replacement
+
+   Equivalent to Clojure's clojure.string/replace."
+  (let ((str (%get-string s "REPLACE"))
+        (repl (%get-replacement replacement "REPLACE")))
+    (typecase match
+      ;; Regex scanner (check before <re-pattern>)
+      (<re-scanner>
+       (if (functionp repl)
+           (%replace-with-function str match repl)
+           ;; String replacement with potential backreferences
+           (cl-ppcre:regex-replace-all (scanner-function match) str repl)))
+      ;; Regex pattern (check before <string> since it's a subclass)
+      (<re-pattern>
+       (if (functionp repl)
+           (%replace-with-function str match repl)
+           ;; String replacement with potential backreferences
+           (cl-ppcre:regex-replace-all (fol.wrappers:fol-value match) str repl)))
+      ;; Wrapped string literal match (not a regex pattern)
+      (<string>
+       (let ((match-str (fol.wrappers:fol-value match)))
+         (replace str match-str repl)))
+      ;; String literal match - replace all occurrences
+      (string
+       (if (zerop (length match))
+           str  ; Can't replace empty string
+           (with-output-to-string (out)
+             (loop with pos = 0
+                   with match-len = (length match)
+                   for found = (search match str :start2 pos)
+                   while found
+                   do (write-string (subseq str pos found) out)
+                      (write-string (if (functionp repl) (funcall repl match) repl) out)
+                      (setf pos (cl:+ found match-len))
+                   finally (write-string (subseq str pos) out)))))
+      (t (error "REPLACE match must be a string or regex, got ~A" (type-of match))))))
+
+
+;;; ============================================================================
+;;; String Join, Split, and Misc Operations
+;;; ============================================================================
+
+(defun join (separator coll)
+  "Returns a string of all elements in COLL separated by SEPARATOR.
+   Equivalent to Clojure's clojure.string/join."
+  (let ((sep (%get-string separator "JOIN")))
+    (with-output-to-string (out)
+      (let ((first-item t))
+        (flet ((process-item (item)
+                 (if first-item
+                     (setf first-item nil)
+                     (write-string sep out))
+                 (write-string (typecase item
+                                 (string item)
+                                 (<string> (fol.wrappers:fol-value item))
+                                 (character (string item))
+                                 (<char> (string (fol.wrappers:fol-value item)))
+                                 (t (princ-to-string item)))
+                               out)))
+          (typecase coll
+            (list (dolist (item coll) (process-item item)))
+            (fol.collection:<lazy-seq>
+             (dolist (item (fol.collection:seq coll)) (process-item item)))
+            (fol.collection:<vector>
+             (dotimes (i (fol.collection:size coll))
+               (process-item (fol.collection:nth-element coll i))))
+            (fol.collection:<list>
+             (do ((lst coll (fol.collection:rest lst)))
+                 ((fol.collection:empty? lst))
+               (process-item (fol.collection:first lst))))
+            (t (error "JOIN requires a collection, got ~A" (type-of coll)))))))))
+
+(defun escape (s cmap)
+  "Return a new string where characters in S are replaced according to CMAP.
+   CMAP is a <dict> mapping characters to their replacement strings.
+   Equivalent to Clojure's clojure.string/escape."
+  (let ((str (%get-string s "ESCAPE")))
+    (unless (typep cmap 'fol.collection:<dict>)
+      (error "ESCAPE requires a <dict> for character map, got ~A" (type-of cmap)))
+    (with-output-to-string (out)
+      (loop for char across str
+            for replacement = (fol.collection:get cmap char)
+            do (if replacement
+                   (write-string (typecase replacement
+                                   (string replacement)
+                                   (<string> (fol.wrappers:fol-value replacement))
+                                   (character (string replacement))
+                                   (<char> (string (fol.wrappers:fol-value replacement)))
+                                   (t (princ-to-string replacement)))
+                                 out)
+                   (write-char char out))))))
+
+(defun split (s re &optional limit)
+  "Splits string S on a regular expression RE.
+   Returns a <vector> of strings.
+   Optional LIMIT argument limits the number of splits.
+   Equivalent to Clojure's clojure.string/split."
+  (let ((str (%get-string s "SPLIT"))
+        (limit-val (if limit
+                       (typecase limit
+                         (integer limit)
+                         (fol.classes:<integer> (fol.wrappers:fol-value limit))
+                         (t (error "SPLIT limit must be an integer, got ~A" (type-of limit))))
+                       0)))
+    (let ((pattern (typecase re
+                     (<re-scanner> (scanner-function re))
+                     (<re-pattern> (fol.wrappers:fol-value re))
+                     (<string> (fol.wrappers:fol-value re))
+                     (string re)
+                     (t (error "SPLIT pattern must be a string or regex, got ~A" (type-of re))))))
+      (apply #'fol.collection:make-vector
+             (cl-ppcre:split pattern str :limit (if (cl:zerop limit-val) nil limit-val))))))
+
+(defun split-lines (s)
+  "Splits S on newlines. Returns a <vector> of strings.
+   Equivalent to Clojure's clojure.string/split-lines."
+  (let ((str (%get-string s "SPLIT-LINES")))
+    (apply #'fol.collection:make-vector
+           (cl-ppcre:split "\\r?\\n" str))))
+
+
+;;; ============================================================================
 ;;; Regular Expression Pattern Operations
 ;;; ============================================================================
 

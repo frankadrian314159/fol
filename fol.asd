@@ -16,7 +16,7 @@
                (:file "compareop" :depends-on ("package" "classes" "wrappers" "persistent"))
                (:file "bool"   :depends-on ("package" "wrappers"))
                (:file "char"   :depends-on ("package" "wrappers"))
-               (:file "string"   :depends-on ("package" "wrappers"))
+               (:file "string"   :depends-on ("package" "wrappers" "collection"))
                (:file "symbol"   :depends-on ("package" "wrappers"))
                (:file "number" :depends-on ("package" "wrappers"))
                (:file "stream" :depends-on ("package" "classes"))

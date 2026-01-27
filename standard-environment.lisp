@@ -187,11 +187,34 @@
             'push #'fol.collection:push
             ;; CL sequence operations (for compatibility)
             'append #'cl:append
-            'reverse #'cl:reverse
             ;; String operations
             'str #'(lambda (&rest args)
                      (apply #'concatenate 'string
                             (mapcar #'princ-to-string args)))
+            'substr #'fol.string:substr
+            'blank? #'fol.string:blank?
+            'trim #'fol.string:trim
+            'triml #'fol.string:triml
+            'trimr #'fol.string:trimr
+            'trim-newline #'fol.string:trim-newline
+            'capitalize #'fol.string:capitalize
+            'starts-with? #'fol.string:starts-with?
+            'ends-with? #'fol.string:ends-with?
+            'includes? #'fol.string:includes?
+            'replace #'fol.string:replace
+            'replace-first #'fol.string:replace-first
+            'join #'fol.string:join
+            'escape #'fol.string:escape
+            'split #'fol.string:split
+            'split-lines #'fol.string:split-lines
+            'reverse #'fol.collection:reverse
+            'index-of #'fol.collection:index-of
+            'last-index-of #'fol.collection:last-index-of
+            ;; Regex operations
+            're-find #'fol.string:re-find
+            're-seq #'fol.string:re-seq
+            're-pattern #'fol.string:wrap-re-pattern
+            're-scanner #'fol.string:make-re-scanner
             ;; Misc
             'identity #'cl:identity
             'complement #'cl:complement
