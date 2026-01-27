@@ -429,11 +429,12 @@
     (apply #'fol.collection:make-set elements)))
 
 (defun read-regex-dispatch (stream char arg)
-  "Read a Clojure regex starting with #\""
+  "Read a regex pattern starting with #\" and return a <re-pattern> object.
+   The pattern uses CL-PPCRE syntax (Perl-compatible regular expressions)."
   (declare (ignore char arg))
-  ;; Read the regex pattern as a string
+  ;; Read the regex pattern as a string and wrap it as <re-pattern>
   (let ((pattern (read-string stream #\")))
-    (list 'regex pattern)))
+    (fol.string:wrap-re-pattern pattern)))
 
 (defun read-var-quote-dispatch (stream char arg)
   "Read a Clojure var quote starting with #'"

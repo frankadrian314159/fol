@@ -43,6 +43,8 @@
                 :<bool> :<char> :<string> :<symbol> :<keyword>
                 :<number> :<complex> :<real> :<float> :<single-float> :<double-float>
                 :<rational> :<ratio> :<integer> :<fixnum> :<bignum>
+                :<re-pattern> :<re-scanner>
+                :scanner-function :scanner-register-names
                 :val)
   ;; Import non-conflicting symbols from fol.logop
   (:import-from :fol.logop
@@ -60,7 +62,11 @@
                 :alpha-char? :digit-char? :alphanumeric?
                 :upper-case? :lower-case? :whitespace?)
   ;; Import non-conflicting symbols from fol.string
-  (:import-from :fol.string :<string>?)
+  (:import-from :fol.string
+                :<string>?
+                :<re-pattern>? :wrap-re-pattern
+                :<re-scanner>? :make-re-scanner
+                :re-find :re-seq)
   ;; Import non-conflicting symbols from fol.symbol
   (:import-from :fol.symbol
                 :<symbol>? :<keyword>?

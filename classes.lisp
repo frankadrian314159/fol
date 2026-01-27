@@ -28,6 +28,26 @@
   (:metaclass fol.persistent:persistent-class)
   (:documentation "The string class holding a native Lisp string."))
 
+;;; --- Regular Expression Pattern Class ---
+
+(defclass <re-pattern> (<string>)
+  ()
+  (:metaclass fol.persistent:persistent-class)
+  (:documentation "A regular expression pattern. Inherits from <string> and holds the pattern string."))
+
+;;; --- Regular Expression Scanner Class ---
+;;; Note: Scanner class is NOT a persistent object because it holds a compiled
+;;; scanner function which is inherently mutable/stateful.
+
+(defclass <re-scanner> ()
+  ((val :initarg :val :accessor -fol-value :type <re-pattern>
+        :documentation "The <re-pattern> from which this scanner was created.")
+   (scanner :initarg :scanner :accessor scanner-function :type function
+            :documentation "The compiled scanner function from CL-PPCRE.")
+   (register-names :initarg :register-names :accessor scanner-register-names
+                   :documentation "A <vector> of register names for named groups."))
+  (:documentation "A compiled regular expression scanner wrapping CL-PPCRE's scanner."))
+
 ;;; --- Symbol Class ---
 
 (defclass <symbol> (<string>)

@@ -119,6 +119,15 @@
        (if (= (length values) 1)
            (fol.stream:make-file-output-stream (cl:first values))
            (error "make <file-output-stream> requires exactly one file path")))
+      ;; Regex types
+      ((string= name-string "<RE-PATTERN>")
+       (if (= (length values) 1)
+           (fol.string:wrap-re-pattern (cl:first values))
+           (error "make <re-pattern> requires exactly one pattern string")))
+      ((string= name-string "<RE-SCANNER>")
+       (if (>= (length values) 1)
+           (apply #'fol.string:make-re-scanner values)
+           (error "make <re-scanner> requires at least one <re-pattern>")))
       ;; Default: require at least one value for non-collection types
       (t
        (when (null values)

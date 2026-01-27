@@ -112,6 +112,9 @@
            <number> <complex> <real> <float>
            <single-float> <double-float> <rational>
            <integer> <fixnum> <bignum> <ratio>
+           ;; Regex classes
+           <re-pattern> <re-scanner>
+           scanner-function scanner-register-names
            ;; Stream classes
            <stream> <input-stream> <output-stream>
            <string-input-stream> <file-input-stream>
@@ -304,7 +307,13 @@
 
 (defpackage fol.string
   (:use cl fol.wrappers fol.classes)
-  (:export <string>?))
+  (:export <string>?
+           ;; Regex pattern
+           <re-pattern>? wrap-re-pattern
+           ;; Regex scanner
+           <re-scanner>? make-re-scanner
+           ;; Regex matching
+           re-find re-seq))
 
 (defpackage fol.symbol
   (:use cl fol.wrappers fol.classes)
