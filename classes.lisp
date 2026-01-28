@@ -119,6 +119,13 @@
   (:metaclass fol.persistent:persistent-class)
   (:documentation "The bignum number class."))
 
+;;; --- UUID Class ---
+
+(defclass <uuid> (fol.persistent:<persistent-object>)
+  ((val :initarg :val :accessor -fol-value :type uuid:uuid))
+  (:metaclass fol.persistent:persistent-class)
+  (:documentation "A UUID (Universally Unique Identifier) wrapping the uuid library's UUID object."))
+
 ;;; --- Stream Classes ---
 ;;; Note: Stream classes are NOT persistent objects because streams are inherently
 ;;; mutable and stateful. They use standard CLOS classes.

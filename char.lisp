@@ -120,3 +120,37 @@
 
 (defmethod whitespace? ((char <char>))
   (whitespace? (fol-value char)))
+
+
+;;; --- Character Name ---
+
+(defun capitalize-name (name)
+  "Capitalize a name: first letter uppercase, rest lowercase."
+  (when name
+    (concatenate 'string
+                 (string (cl:char-upcase (char name 0)))
+                 (string-downcase (subseq name 1)))))
+
+(defgeneric char-name-string (char)
+  (:documentation "Returns the name of the character as a capitalized string, or NIL if the character has no name.
+For example: (char-name-string #\\Space) => \"Space\"
+             (char-name-string #\\Newline) => \"Newline\"
+             (char-name-string #\\a) => NIL"))
+
+(defun named-char-p (char)
+  "Returns T if CHAR should have a name returned by char-name-string.
+   This follows Clojure's convention: special characters like space, newline,
+   tab, return, page (formfeed), and backspace have names; regular printable
+   characters (letters, digits, punctuation) do not."
+  (or (not (cl:graphic-char-p char))  ; Non-graphic chars (control chars, etc.)
+      (cl:char= char #\Space)))       ; Space is graphic but should have a name
+
+(defmethod char-name-string ((char character))
+  ;; Return names for special characters: non-graphic chars plus space
+  ;; Regular printable characters (letters, digits, punctuation) return nil
+  (if (named-char-p char)
+      (capitalize-name (cl:char-name char))
+      nil))
+
+(defmethod char-name-string ((char <char>))
+  (char-name-string (fol-value char)))

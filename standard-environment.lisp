@@ -138,6 +138,7 @@
             '<complex> #'fol.number:<complex>
             '<single-float> #'fol.number:<single-float>
             '<double-float> #'fol.number:<double-float>
+            'int #'fol.number:int
             'rationalize #'fol.arithop:rationalize
             ;; Random number generation
             'rand #'fol.number:rand
@@ -215,6 +216,13 @@
             're-seq #'fol.string:re-seq
             're-pattern #'fol.string:wrap-re-pattern
             're-scanner #'fol.string:make-re-scanner
+            ;; Parsing functions
+            'parse-bool #'fol.bool:parse-bool
+            'parse-int #'fol.number:parse-int
+            'parse-double #'fol.number:parse-double
+            'parse-uuid #'fol.string:parse-uuid
+            ;; Character operations
+            'char-name-string #'fol.char:char-name-string
             ;; Misc
             'identity #'cl:identity
             'complement #'cl:complement

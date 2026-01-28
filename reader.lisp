@@ -313,12 +313,89 @@
   (declare (ignore stream chr))
   nil)
 
+(defun valid-digit-for-base-p (char base)
+  "Return T if CHAR is a valid digit for the given BASE (2-36)."
+  (let ((code (char-code (char-upcase char))))
+    (cond
+      ;; 0-9 for bases up to 10
+      ((and (>= code (char-code #\0))
+            (<= code (char-code #\9)))
+       (< (- code (char-code #\0)) base))
+      ;; A-Z for bases above 10
+      ((and (>= code (char-code #\A))
+            (<= code (char-code #\Z)))
+       (< (+ 10 (- code (char-code #\A))) base))
+      (t nil))))
+
+(defun parse-radix-number (string radix start)
+  "Parse a number in the given RADIX starting at position START in STRING.
+   Returns the parsed integer or NIL if invalid."
+  (when (< start (length string))
+    (let ((negative (char= (char string start) #\-)))
+      (when negative (incf start))
+      (when (>= start (length string))
+        (return-from parse-radix-number nil))
+      ;; Check all remaining characters are valid digits
+      (loop for i from start below (length string)
+            for c = (char string i)
+            unless (valid-digit-for-base-p c radix)
+              do (return-from parse-radix-number nil))
+      ;; Parse the number
+      (let ((value (parse-integer string :start start :radix radix :junk-allowed nil)))
+        (if negative (- value) value)))))
+
 (defun parse-number (string)
-  "Try to parse a string as a number. Returns NIL if not a valid number."
-  (handler-case
-      (let ((*read-default-float-format* 'double-float))
-        (read-from-string string))
-    (error () nil)))
+  "Try to parse a string as a number. Returns NIL if not a valid number.
+   Supports:
+   - Standard decimal integers and floats
+   - Hexadecimal: 0xff or 0xFF or 16rff
+   - Octal: 017 (leading zero followed by octal digits) or 8r777
+   - Binary: 2r1011
+   - Arbitrary base: NrDIGITS where N is 2-36 (e.g., 36rCRAZY)"
+  (when (zerop (length string))
+    (return-from parse-number nil))
+
+  (let ((first-char (char string 0))
+        (len (length string)))
+
+    ;; Check for 0x or 0X prefix (hexadecimal)
+    (when (and (>= len 2)
+               (char= first-char #\0)
+               (member (char string 1) '(#\x #\X)))
+      (return-from parse-number
+        (handler-case
+            (parse-radix-number string 16 2)
+          (error () nil))))
+
+    ;; Check for NrDIGITS format (arbitrary base)
+    (let ((r-pos (position #\r string :test #'char-equal)))
+      (when (and r-pos (> r-pos 0))
+        (handler-case
+            (let* ((base-str (subseq string 0 r-pos))
+                   (base (parse-integer base-str :junk-allowed nil)))
+              (when (and base (>= base 2) (<= base 36))
+                (return-from parse-number
+                  (parse-radix-number string base (1+ r-pos)))))
+          (error () nil))))
+
+    ;; Check for octal (leading 0 followed by only octal digits)
+    ;; But not "0" alone, not "0.x" (floats), and not negative
+    (when (and (>= len 2)
+               (char= first-char #\0)
+               (not (member (char string 1) '(#\. #\x #\X)))
+               (every (lambda (c) (octal-digit-p c)) (subseq string 1)))
+      (return-from parse-number
+        (handler-case
+            (parse-integer string :radix 8)
+          (error () nil))))
+
+    ;; Fall back to standard CL number parsing
+    (handler-case
+        (let ((*read-default-float-format* 'double-float)
+              (*read-eval* nil))
+          (let ((result (read-from-string string)))
+            (if (numberp result) result nil)))
+      (error () nil))))
 
 ;; Reader functions for Clojure special forms
 
@@ -351,8 +428,48 @@
       (error "Map literal must contain an even number of forms"))
     (apply #'fol.collection:make-dict pairs)))
 
+(defun octal-digit-p (char)
+  "Return T if CHAR is an octal digit (0-7)."
+  (and (characterp char)
+       (member char '(#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7))))
+
+(defun hex-digit-p (char)
+  "Return T if CHAR is a hexadecimal digit."
+  (and (characterp char)
+       (or (digit-char-p char)
+           (member char '(#\a #\b #\c #\d #\e #\f #\A #\B #\C #\D #\E #\F)))))
+
+(defun parse-octal-escape (stream first-digit)
+  "Parse an octal escape sequence starting with FIRST-DIGIT.
+   Reads up to 2 more octal digits for a max of 3 digits total."
+  (let ((digits (list first-digit)))
+    ;; Read up to 2 more octal digits
+    (dotimes (i 2)
+      (let ((next (peek-char nil stream nil nil)))
+        (when (and next (octal-digit-p next))
+          (push (read-char stream) digits))))
+    ;; Convert octal string to character
+    (let ((code (parse-integer (coerce (nreverse digits) 'string) :radix 8)))
+      (code-char code))))
+
+(defun parse-unicode-escape (stream)
+  "Parse a Unicode escape sequence (\\uXXXX - exactly 4 hex digits)."
+  (let ((digits nil))
+    (dotimes (i 4)
+      (let ((c (read-char stream t nil t)))
+        (unless (hex-digit-p c)
+          (error "Invalid Unicode escape: expected hex digit, got ~C" c))
+        (push c digits)))
+    (let ((code (parse-integer (coerce (nreverse digits) 'string) :radix 16)))
+      (code-char code))))
+
 (defun read-string (stream chr)
-  "Read a Clojure string starting with \""
+  "Read a Clojure string starting with \"
+   Supports escape sequences:
+   - \\b (backspace), \\f (form feed), \\n (newline), \\t (tab), \\r (return)
+   - \\\\ (backslash), \\\" (double quote)
+   - \\OOO (octal escape, 1-3 digits)
+   - \\uXXXX (Unicode escape, exactly 4 hex digits)"
   (declare (ignore chr))
   (let ((result (make-array 0 :element-type 'character
                               :fill-pointer 0
@@ -368,12 +485,22 @@
           ((char= c #\\)
            (let ((next (read-char stream t nil t)))
              (vector-push-extend
-              (case next
-                (#\n #\Newline)
-                (#\t #\Tab)
-                (#\r #\Return)
-                (#\\ #\\)
-                (#\" #\")
+              (cond
+                ;; Standard escape characters
+                ((char= next #\b) #\Backspace)
+                ((char= next #\f) #\Page)
+                ((char= next #\n) #\Newline)
+                ((char= next #\t) #\Tab)
+                ((char= next #\r) #\Return)
+                ((char= next #\\) #\\)
+                ((char= next #\") #\")
+                ;; Unicode escape \uXXXX (case-insensitive)
+                ((or (char= next #\u) (char= next #\U))
+                 (parse-unicode-escape stream))
+                ;; Octal escape \OOO
+                ((octal-digit-p next)
+                 (parse-octal-escape stream next))
+                ;; Unknown escape - just use the character as-is
                 (t next))
               result)))
 

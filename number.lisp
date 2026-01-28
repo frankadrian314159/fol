@@ -316,25 +316,59 @@
 (defmethod <single-float> (obj)
   (error "<SINGLE-FLOAT> requires a real number, got ~A" obj))
 
+(defun check-double-float-range (num)
+  "Check if NUM is within the range representable by double-float.
+   Signals an error if out of range."
+  (let ((abs-num (cl:abs num)))
+    (when (and (cl:> abs-num 0)
+               (or (cl:> abs-num most-positive-double-float)
+                   (cl:< abs-num least-positive-normalized-double-float)))
+      ;; Allow denormalized numbers and exact zero, but error on overflow
+      (when (cl:> abs-num most-positive-double-float)
+        (error "<DOUBLE-FLOAT> value ~A is out of range for double-float" num)))))
+
 (defgeneric <double-float> (num)
   (:documentation "Converts a real number to a double-float.
-   If the number is already a double-float, returns it unchanged."))
+   If the number is already a double-float, returns it unchanged.
+   Signals an error if the number is out of range for double-float."))
 
 (defmethod <double-float> ((num double-float))
   "Double-floats are returned unchanged."
   num)
 
-(defmethod <double-float> ((num real))
-  "Convert a real number to double-float."
+(defmethod <double-float> ((num single-float))
+  "Convert a single-float to double-float."
+  (coerce num 'double-float))
+
+(defmethod <double-float> ((num integer))
+  "Convert an integer to double-float with range checking."
+  (check-double-float-range num)
+  (coerce num 'double-float))
+
+(defmethod <double-float> ((num ratio))
+  "Convert a ratio to double-float with range checking."
+  (check-double-float-range num)
   (coerce num 'double-float))
 
 (defmethod <double-float> ((num <double-float>))
   "Wrapped double-floats are unwrapped and returned."
   (fol-value num))
 
-(defmethod <double-float> ((num <real>))
-  "Convert a wrapped real number to double-float."
+(defmethod <double-float> ((num <single-float>))
+  "Convert a wrapped single-float to double-float."
   (coerce (fol-value num) 'double-float))
+
+(defmethod <double-float> ((num <integer>))
+  "Convert a wrapped integer to double-float with range checking."
+  (let ((val (fol-value num)))
+    (check-double-float-range val)
+    (coerce val 'double-float)))
+
+(defmethod <double-float> ((num <ratio>))
+  "Convert a wrapped ratio to double-float with range checking."
+  (let ((val (fol-value num)))
+    (check-double-float-range val)
+    (coerce val 'double-float)))
 
 (defmethod <double-float> (obj)
   (error "<DOUBLE-FLOAT> requires a real number, got ~A" obj))
@@ -371,3 +405,79 @@ With a positive integer argument N, returns a random integer in [0, N)."
 This is the underlying implementation for the with-seed macro."
   (let ((*random-state* (make-seeded-random-state seed)))
     (funcall thunk)))
+
+
+;;; Parsing functions
+
+(defun parse-int (int-string)
+  "Parses an integer string and returns a FOL <integer> instance.
+   INT-STRING should contain a valid integer representation.
+   Example: (parse-int \"42\") => 42
+            (parse-int \"-17\") => -17
+            (parse-int \"3.14\") => ERROR"
+  (let ((str (typecase int-string
+               (string int-string)
+               (<string> (fol-value int-string))
+               (t (error "Expected a string for parse-int, got ~A" (type-of int-string))))))
+    (let ((form (let ((*read-eval* nil))  ; Safety: disable #. reader macro
+                  (read-from-string str))))
+      (if (integerp form)
+          (wrap-number form)
+          (error "Expected an integer, got ~S" form)))))
+
+(defun parse-double (double-string)
+  "Parses a floating-point string and returns a FOL <double-float> instance.
+   DOUBLE-STRING should contain a valid floating-point representation.
+   Integers are automatically converted to double-float.
+   Example: (parse-double \"3.14\") => 3.14d0
+            (parse-double \"42\") => 42.0d0
+            (parse-double \"-1.5e10\") => -1.5d10"
+  (let ((str (typecase double-string
+               (string double-string)
+               (<string> (fol-value double-string))
+               (t (error "Expected a string for parse-double, got ~A" (type-of double-string))))))
+    (let ((form (let ((*read-eval* nil))  ; Safety: disable #. reader macro
+                  (read-from-string str))))
+      (if (realp form)
+          (wrap-number (coerce form 'double-float))
+          (error "Expected a real number, got ~S" form)))))
+
+
+;;; Integer conversion function
+
+(defgeneric int (obj)
+  (:documentation "Converts an object to an integer.
+   - Characters are converted to their character code.
+   - Booleans are converted to 1 (true) or 0 (false/nil).
+   - Integers are returned unchanged."))
+
+(defmethod int ((obj character))
+  "Convert a character to its character code."
+  (cl:char-code obj))
+
+(defmethod int ((obj <char>))
+  "Convert a wrapped character to its character code."
+  (cl:char-code (fol-value obj)))
+
+(defmethod int ((obj (eql t)))
+  "Convert true to 1."
+  1)
+
+(defmethod int ((obj (eql nil)))
+  "Convert nil/false to 0."
+  0)
+
+(defmethod int ((obj <bool>))
+  "Convert a wrapped boolean to 1 or 0."
+  (if (fol-value obj) 1 0))
+
+(defmethod int ((obj integer))
+  "Integers are returned unchanged."
+  obj)
+
+(defmethod int ((obj <integer>))
+  "Wrapped integers are unwrapped and returned."
+  (fol-value obj))
+
+(defmethod int (obj)
+  (error "INT requires a character, boolean, or integer, got ~A" obj))

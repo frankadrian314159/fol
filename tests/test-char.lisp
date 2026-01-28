@@ -383,3 +383,54 @@
     (is (stringp (format nil "~A" space)))
     (is (stringp (format nil "~A" newline)))
     (is (stringp (format nil "~A" tab)))))
+
+;;; ============================================================================
+;;; Character Name String
+;;; ============================================================================
+
+(test char-name-string-special
+  "Test char-name-string with special characters"
+  (is (string= "Space" (char-name-string #\Space)))
+  (is (string= "Newline" (char-name-string #\Newline)))
+  (is (string= "Tab" (char-name-string #\Tab)))
+  (is (string= "Return" (char-name-string #\Return)))
+  (is (string= "Page" (char-name-string #\Page)))
+  (is (string= "Backspace" (char-name-string #\Backspace)))
+  (is (string= "Rubout" (char-name-string #\Rubout)))
+  ;; Note: Character names are implementation-dependent
+  ;; In SBCL, #\Linefeed is the same character as #\Newline (code 10)
+  ;; and is named "Newline", so we test that they're equal
+  (is (char= #\Newline #\Linefeed))
+  (is (string= "Newline" (char-name-string #\Linefeed)))
+  ;; SBCL uses abbreviated names for some characters
+  (is (string= "Nul" (char-name-string #\Null)))
+  (is (string= "Esc" (char-name-string #\Escape))))
+
+(test char-name-string-regular
+  "Test char-name-string with regular characters (returns nil)"
+  (is (null (char-name-string #\a)))
+  (is (null (char-name-string #\A)))
+  (is (null (char-name-string #\z)))
+  (is (null (char-name-string #\Z)))
+  (is (null (char-name-string #\0)))
+  (is (null (char-name-string #\9)))
+  (is (null (char-name-string #\!)))
+  (is (null (char-name-string #\@))))
+
+(test char-name-string-wrapped
+  "Test char-name-string with wrapped characters"
+  (is (string= "Space" (char-name-string (wrap #\Space))))
+  (is (string= "Newline" (char-name-string (wrap #\Newline))))
+  (is (string= "Tab" (char-name-string (wrap #\Tab))))
+  (is (null (char-name-string (wrap #\a))))
+  (is (null (char-name-string (wrap #\Z)))))
+
+(test char-name-string-capitalization
+  "Test that char-name-string returns properly capitalized names"
+  ;; The result should have first letter uppercase and rest lowercase
+  (let ((space-name (char-name-string #\Space)))
+    (is (upper-case-p (char space-name 0)))
+    (is (every #'lower-case-p (subseq space-name 1))))
+  (let ((newline-name (char-name-string #\Newline)))
+    (is (upper-case-p (char newline-name 0)))
+    (is (every #'lower-case-p (subseq newline-name 1)))))

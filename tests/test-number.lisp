@@ -852,3 +852,172 @@
   (signals error (make-seeded-random-state -1))
   (signals error (make-seeded-random-state 3.14))
   (signals error (make-seeded-random-state "42")))
+
+;;; ---------------------------------------------------------------------------
+;;; parse-int Tests
+;;; ---------------------------------------------------------------------------
+
+(test parse-int-positive
+  "Test parse-int with positive integer."
+  (let ((result (parse-int "42")))
+    (is (typep result '<integer>))
+    (is (= 42 (fol-value result)))))
+
+(test parse-int-negative
+  "Test parse-int with negative integer."
+  (let ((result (parse-int "-17")))
+    (is (typep result '<integer>))
+    (is (= -17 (fol-value result)))))
+
+(test parse-int-zero
+  "Test parse-int with zero."
+  (let ((result (parse-int "0")))
+    (is (typep result '<integer>))
+    (is (= 0 (fol-value result)))))
+
+(test parse-int-large-number
+  "Test parse-int with large number (bignum)."
+  (let ((result (parse-int "999999999999999999")))
+    (is (typep result '<integer>))
+    (is (= 999999999999999999 (fol-value result)))))
+
+(test parse-int-invalid-float
+  "Test parse-int with float string signals error."
+  (signals error (parse-int "3.14")))
+
+(test parse-int-invalid-string
+  "Test parse-int with non-numeric string signals error."
+  (signals error (parse-int "hello")))
+
+(test parse-int-invalid-type
+  "Test parse-int with invalid input type signals error."
+  (signals error (parse-int 42)))
+
+;;; ---------------------------------------------------------------------------
+;;; parse-double Tests
+;;; ---------------------------------------------------------------------------
+
+(test parse-double-basic
+  "Test parse-double with basic floating-point number."
+  (let ((result (parse-double "3.14")))
+    (is (typep result '<double-float>))
+    (is (cl:< (cl:abs (cl:- (fol-value result) 3.14d0)) 0.001d0))))
+
+(test parse-double-from-integer
+  "Test parse-double with integer string (converts to double)."
+  (let ((result (parse-double "42")))
+    (is (typep result '<double-float>))
+    (is (= 42.0d0 (fol-value result)))))
+
+(test parse-double-negative
+  "Test parse-double with negative number."
+  (let ((result (parse-double "-2.5")))
+    (is (typep result '<double-float>))
+    (is (= -2.5d0 (fol-value result)))))
+
+(test parse-double-scientific-notation
+  "Test parse-double with scientific notation."
+  (let ((result (parse-double "1.5d10")))  ; Use 'd' for double-float literal
+    (is (typep result '<double-float>))
+    (is (= 1.5d10 (fol-value result)))))
+
+(test parse-double-negative-exponent
+  "Test parse-double with negative exponent."
+  (let ((result (parse-double "2.5e-3")))
+    (is (typep result '<double-float>))
+    (is (cl:< (cl:abs (cl:- (fol-value result) 0.0025d0)) 0.00001d0))))
+
+(test parse-double-invalid-string
+  "Test parse-double with non-numeric string signals error."
+  (signals error (parse-double "hello")))
+
+(test parse-double-invalid-type
+  "Test parse-double with invalid input type signals error."
+  (signals error (parse-double 42)))
+
+;;; ---------------------------------------------------------------------------
+;;; int Conversion Tests
+;;; ---------------------------------------------------------------------------
+
+(test int-from-char-raw
+  "Test int conversion from raw characters."
+  (is (= 65 (int #\A)))
+  (is (= 97 (int #\a)))
+  (is (= 32 (int #\Space)))
+  (is (= 10 (int #\Newline)))
+  (is (= 9 (int #\Tab)))
+  (is (= 48 (int #\0)))
+  (is (= 57 (int #\9))))
+
+(test int-from-char-wrapped
+  "Test int conversion from wrapped characters."
+  (is (= 65 (int (wrap #\A))))
+  (is (= 97 (int (wrap #\a))))
+  (is (= 32 (int (wrap #\Space)))))
+
+(test int-from-bool-raw
+  "Test int conversion from raw booleans."
+  (is (= 1 (int t)))
+  (is (= 0 (int nil))))
+
+(test int-from-bool-wrapped
+  "Test int conversion from wrapped booleans."
+  (is (= 1 (int (wrap-bool t))))
+  (is (= 0 (int (wrap-bool nil)))))
+
+(test int-from-integer-raw
+  "Test int conversion from raw integers (identity)."
+  (is (= 42 (int 42)))
+  (is (= -17 (int -17)))
+  (is (= 0 (int 0)))
+  (is (= most-positive-fixnum (int most-positive-fixnum))))
+
+(test int-from-integer-wrapped
+  "Test int conversion from wrapped integers."
+  (is (= 42 (int (wrap-number 42))))
+  (is (= -17 (int (wrap-number -17)))))
+
+(test int-invalid-type
+  "Test int with invalid input signals error."
+  (signals error (int "42"))
+  (signals error (int 3.14))
+  (signals error (int 1/2)))
+
+;;; ---------------------------------------------------------------------------
+;;; <double-float> Conversion Tests
+;;; ---------------------------------------------------------------------------
+
+(test double-float-from-integer
+  "Test <double-float> conversion from integer."
+  (is (= 42.0d0 (<double-float> 42)))
+  (is (= -17.0d0 (<double-float> -17)))
+  (is (= 0.0d0 (<double-float> 0))))
+
+(test double-float-from-ratio
+  "Test <double-float> conversion from ratio."
+  (is (= 0.5d0 (<double-float> 1/2)))
+  (is (= 0.25d0 (<double-float> 1/4)))
+  (is (cl:< (cl:abs (cl:- (<double-float> 1/3) 0.3333333333333333d0)) 1d-15)))
+
+(test double-float-from-single
+  "Test <double-float> conversion from single-float."
+  (is (typep (<double-float> 3.14f0) 'double-float))
+  (is (cl:< (cl:abs (cl:- (<double-float> 3.14f0) 3.14d0)) 0.001d0)))
+
+(test double-float-identity
+  "Test <double-float> returns double-float unchanged."
+  (let ((d 3.14159d0))
+    (is (eq d (<double-float> d)))))
+
+(test double-float-wrapped-integer
+  "Test <double-float> conversion from wrapped integer."
+  (is (= 42.0d0 (<double-float> (wrap-number 42)))))
+
+(test double-float-wrapped-ratio
+  "Test <double-float> conversion from wrapped ratio."
+  (is (= 0.5d0 (<double-float> (wrap-number 1/2)))))
+
+(test double-float-out-of-range
+  "Test <double-float> signals error for out of range values."
+  ;; A very large integer that exceeds double-float range
+  (signals error (<double-float> (cl:expt 10 400))))

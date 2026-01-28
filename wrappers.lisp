@@ -44,6 +44,7 @@
 (defmethod fol-value ((obj <string>)) (slot-value obj 'val))
 (defmethod fol-value ((obj <symbol>)) (slot-value obj 'val))
 (defmethod fol-value ((obj <number>)) (slot-value obj 'val))
+(defmethod fol-value ((obj <uuid>)) (slot-value obj 'val))
 
 ;;; ============================================================================
 ;;; Core Protocol: fol-type-of

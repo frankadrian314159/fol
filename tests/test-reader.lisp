@@ -740,3 +740,149 @@ c)"))))
     (is (<vector>? (cl:second form)))
     ;; Should have at least: arg1, &, rest
     (is (>= (size (cl:second form)) 3))))
+
+;;; ---------------------------------------------------------------------------
+;;; Reader String Extended Escape Tests
+;;; ---------------------------------------------------------------------------
+
+(test reader-string-escape-backspace
+  "Test reading string with backspace escape."
+  (is (char= #\Backspace (char (fol-read-from-string-clj "\"\\b\"") 0))))
+
+(test reader-string-escape-formfeed
+  "Test reading string with form feed escape."
+  (is (char= #\Page (char (fol-read-from-string-clj "\"\\f\"") 0))))
+
+(test reader-string-escape-all-standard
+  "Test reading string with all standard escape sequences."
+  (let ((s (fol-read-from-string-clj "\"\\b\\f\\n\\t\\r\\\\\\\"\"")))
+    (is (= 7 (length s)))
+    (is (char= #\Backspace (char s 0)))
+    (is (char= #\Page (char s 1)))
+    (is (char= #\Newline (char s 2)))
+    (is (char= #\Tab (char s 3)))
+    (is (char= #\Return (char s 4)))
+    (is (char= #\\ (char s 5)))
+    (is (char= #\" (char s 6)))))
+
+(test reader-string-escape-octal
+  "Test reading string with octal escape sequences."
+  ;; \101 = 65 = 'A'
+  (is (string= "A" (fol-read-from-string-clj "\"\\101\"")))
+  ;; \141 = 97 = 'a'
+  (is (string= "a" (fol-read-from-string-clj "\"\\141\"")))
+  ;; \60 = 48 = '0'
+  (is (string= "0" (fol-read-from-string-clj "\"\\60\"")))
+  ;; \7 = 7 = BEL
+  (is (char= (code-char 7) (char (fol-read-from-string-clj "\"\\7\"") 0))))
+
+(test reader-string-escape-octal-partial
+  "Test reading string with partial octal sequences."
+  ;; \1 followed by non-octal should only consume the 1
+  (is (string= (format nil "~CA" (code-char 1)) (fol-read-from-string-clj "\"\\1A\"")))
+  ;; \77 = 63 = '?'
+  (is (string= "?" (fol-read-from-string-clj "\"\\77\""))))
+
+(test reader-string-escape-unicode
+  "Test reading string with Unicode escape sequences."
+  ;; \u0041 = 65 = 'A'
+  (is (string= "A" (fol-read-from-string-clj "\"\\u0041\"")))
+  ;; \u03BB = 955 = Greek lambda
+  (is (char= (code-char 955) (char (fol-read-from-string-clj "\"\\u03BB\"") 0)))
+  ;; \u0048\u0069 = "Hi"
+  (is (string= "Hi" (fol-read-from-string-clj "\"\\u0048\\u0069\""))))
+
+(test reader-string-escape-unicode-case-insensitive
+  "Test that Unicode escapes are case-insensitive."
+  (is (string= "A" (fol-read-from-string-clj "\"\\u0041\"")))
+  (is (string= "A" (fol-read-from-string-clj "\"\\U0041\""))))
+
+(test reader-string-escape-mixed
+  "Test reading string with mixed escape types."
+  ;; "A\tB" using unicode and standard escape
+  (is (string= (format nil "A~CB" #\Tab)
+               (fol-read-from-string-clj "\"\\u0041\\tB\""))))
+
+;;; ---------------------------------------------------------------------------
+;;; Reader Number Format Tests
+;;; ---------------------------------------------------------------------------
+
+(test reader-number-hex-0x
+  "Test reading hexadecimal numbers with 0x prefix."
+  (is (= 255 (fol-read-from-string-clj "0xff")))
+  (is (= 255 (fol-read-from-string-clj "0xFF")))
+  (is (= 255 (fol-read-from-string-clj "0XFF")))
+  (is (= 16 (fol-read-from-string-clj "0x10")))
+  (is (= 256 (fol-read-from-string-clj "0x100")))
+  (is (= 65535 (fol-read-from-string-clj "0xFFFF"))))
+
+(test reader-number-hex-radix
+  "Test reading hexadecimal numbers with 16r prefix."
+  (is (= 255 (fol-read-from-string-clj "16rff")))
+  (is (= 255 (fol-read-from-string-clj "16rFF")))
+  ;; 16rfeFe = 0xfefe = 15*4096 + 14*256 + 15*16 + 14 = 65278
+  (is (= 65278 (fol-read-from-string-clj "16rfeFe")))
+  (is (= 4095 (fol-read-from-string-clj "16rfff"))))
+
+(test reader-number-octal-leading-zero
+  "Test reading octal numbers with leading zero."
+  (is (= 7 (fol-read-from-string-clj "07")))
+  (is (= 15 (fol-read-from-string-clj "017")))
+  (is (= 63 (fol-read-from-string-clj "077")))
+  (is (= 511 (fol-read-from-string-clj "0777"))))
+
+(test reader-number-octal-radix
+  "Test reading octal numbers with 8r prefix."
+  (is (= 4012 (fol-read-from-string-clj "8r7654")))
+  (is (= 7 (fol-read-from-string-clj "8r7")))
+  (is (= 63 (fol-read-from-string-clj "8r77"))))
+
+(test reader-number-binary
+  "Test reading binary numbers with 2r prefix."
+  (is (= 11 (fol-read-from-string-clj "2r1011")))
+  (is (= 0 (fol-read-from-string-clj "2r0")))
+  (is (= 1 (fol-read-from-string-clj "2r1")))
+  (is (= 255 (fol-read-from-string-clj "2r11111111")))
+  (is (= 170 (fol-read-from-string-clj "2r10101010"))))
+
+(test reader-number-base-36
+  "Test reading base-36 numbers."
+  ;; 36rZ = 35
+  (is (= 35 (fol-read-from-string-clj "36rZ")))
+  ;; 36r10 = 36
+  (is (= 36 (fol-read-from-string-clj "36r10")))
+  ;; Test CRAZY in base 36: C=12, R=27, A=10, Z=35, Y=34
+  ;; = 12*36^4 + 27*36^3 + 10*36^2 + 35*36 + 34
+  ;; = 12*1679616 + 27*46656 + 10*1296 + 35*36 + 34
+  ;; = 20155392 + 1259712 + 12960 + 1260 + 34
+  ;; = 21429358
+  (is (= 21429358 (fol-read-from-string-clj "36rCRAZY"))))
+
+(test reader-number-various-bases
+  "Test reading numbers in various bases."
+  ;; Base 3
+  (is (= 8 (fol-read-from-string-clj "3r22")))  ; 2*3 + 2 = 8
+  ;; Base 7
+  (is (= 50 (fol-read-from-string-clj "7r101")))  ; 1*49 + 0*7 + 1 = 50
+  ;; Base 12
+  (is (= 23 (fol-read-from-string-clj "12r1B")))  ; 1*12 + 11 = 23
+  ;; Base 20: J=19 in base 20, so 19*20 + 9 = 389
+  (is (= 389 (fol-read-from-string-clj "20rJ9"))))
+
+(test reader-number-zero-special-cases
+  "Test that zero handling is correct."
+  ;; Just "0" should be 0 (not octal)
+  (is (= 0 (fol-read-from-string-clj "0")))
+  ;; "00" should be octal 0
+  (is (= 0 (fol-read-from-string-clj "00")))
+  ;; 0x0 should be hex 0
+  (is (= 0 (fol-read-from-string-clj "0x0"))))
+
+(test reader-number-decimal-not-octal
+  "Test that numbers starting with 0 but containing 8 or 9 are not read as octal."
+  ;; 09 contains 9 which is not octal, should not parse as octal
+  ;; This should fall back to decimal parsing or be read as symbol
+  (let ((result (fol-read-from-string-clj "09")))
+    ;; Since 09 has a non-octal digit after leading 0,
+    ;; it should fall back to standard CL parsing (as 9 decimal)
+    (is (= 9 result))))

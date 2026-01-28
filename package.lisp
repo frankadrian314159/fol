@@ -115,6 +115,8 @@
            ;; Regex classes
            <re-pattern> <re-scanner>
            scanner-function scanner-register-names
+           ;; UUID class
+           <uuid>
            ;; Stream classes
            <stream> <input-stream> <output-stream>
            <string-input-stream> <file-input-stream>
@@ -301,7 +303,7 @@
 
 (defpackage fol.bool
   (:use cl fol.wrappers fol.classes)
-  (:export <bool>?))
+  (:export <bool>? parse-bool))
 
 (defpackage fol.char
   (:use cl fol.wrappers fol.classes)
@@ -309,7 +311,8 @@
   (:export <char>?
            char-upcase char-downcase
            alpha-char? digit-char? alphanumeric?
-           upper-case? lower-case? whitespace?))
+           upper-case? lower-case? whitespace?
+           char-name-string))
 
 (defpackage fol.string
   (:use cl fol.wrappers fol.classes)
@@ -329,7 +332,9 @@
            ;; Regex scanner
            <re-scanner>? make-re-scanner
            ;; Regex matching
-           re-find re-seq))
+           re-find re-seq
+           ;; UUID
+           <uuid>? parse-uuid))
 
 (defpackage fol.symbol
   (:use cl fol.wrappers fol.classes)
@@ -359,7 +364,9 @@
    odd? even? zero? positive? negative? integral?
    nat-int? pos-int? NaN? infinite?
    ;; Type conversion functions
-   <complex> <single-float> <double-float>
+   <complex> <single-float> <double-float> int
+   ;; Parsing functions
+   parse-int parse-double
    ;; Random number generation
    rand make-seeded-random-state call-with-seed))
 

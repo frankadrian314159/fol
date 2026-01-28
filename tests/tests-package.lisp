@@ -45,6 +45,7 @@
                 :<rational> :<ratio> :<integer> :<fixnum> :<bignum>
                 :<re-pattern> :<re-scanner>
                 :scanner-function :scanner-register-names
+                :<uuid>
                 :val)
   ;; Import non-conflicting symbols from fol.logop
   (:import-from :fol.logop
@@ -52,7 +53,7 @@
                 :%and :%or :%xor
                 :implies :nand :nor)
   ;; Import non-conflicting symbols from fol.bool
-  (:import-from :fol.bool :<bool>?)
+  (:import-from :fol.bool :<bool>? :parse-bool)
   ;; Shadow CL char functions
   (:shadowing-import-from :fol.char
                           :char-upcase :char-downcase)
@@ -60,7 +61,8 @@
   (:import-from :fol.char
                 :<char>?
                 :alpha-char? :digit-char? :alphanumeric?
-                :upper-case? :lower-case? :whitespace?)
+                :upper-case? :lower-case? :whitespace?
+                :char-name-string)
   ;; Shadow CL string functions
   (:shadowing-import-from :fol.string
                           :trim :capitalize :replace)
@@ -76,7 +78,8 @@
                 :join :escape :split :split-lines
                 :<re-pattern>? :wrap-re-pattern
                 :<re-scanner>? :make-re-scanner
-                :re-find :re-seq)
+                :re-find :re-seq
+                :<uuid>? :parse-uuid)
   ;; Import non-conflicting symbols from fol.symbol
   (:import-from :fol.symbol
                 :<symbol>? :<keyword>?
@@ -92,7 +95,8 @@
                 :<rational>? :<ratio>? :<integer>? :<fixnum>? :<bignum>?
                 :odd? :even? :zero? :positive? :negative? :integral?
                 :nat-int? :pos-int? :NaN? :infinite?
-                :rand :make-seeded-random-state :call-with-seed)
+                :rand :make-seeded-random-state :call-with-seed
+                :parse-int :parse-double :int)
   ;; Import non-conflicting symbols from fol.wrappers
   (:import-from :fol.wrappers
                 :fol-value :fol-type-of

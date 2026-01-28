@@ -1309,3 +1309,40 @@ line3")
   (let ((pat (wrap-re-pattern "\\d+")))
     (is (= 5 (index-of "hello123world456" pat)))
     (is (= 13 (index-of "hello123world456" pat 8)))))
+
+
+;;; ---------------------------------------------------------------------------
+;;; parse-uuid Tests
+;;; ---------------------------------------------------------------------------
+
+(test parse-uuid-basic
+  "Test parse-uuid with standard UUID format."
+  (let ((result (parse-uuid "6ba7b810-9dad-11d1-80b4-00c04fd430c8")))
+    (is-true (<uuid>? result))
+    (is (typep result '<uuid>))))
+
+(test parse-uuid-uppercase
+  "Test parse-uuid with uppercase UUID."
+  (let ((result (parse-uuid "6BA7B810-9DAD-11D1-80B4-00C04FD430C8")))
+    (is-true (<uuid>? result))
+    (is (typep result '<uuid>))))
+
+(test parse-uuid-mixed-case
+  "Test parse-uuid with mixed case UUID."
+  (let ((result (parse-uuid "6Ba7B810-9dAd-11D1-80b4-00C04fD430c8")))
+    (is-true (<uuid>? result))
+    (is (typep result '<uuid>))))
+
+(test parse-uuid-nil-uuid
+  "Test parse-uuid with nil UUID (all zeros)."
+  (let ((result (parse-uuid "00000000-0000-0000-0000-000000000000")))
+    (is-true (<uuid>? result))
+    (is (typep result '<uuid>))))
+
+(test parse-uuid-invalid-format
+  "Test parse-uuid with invalid format signals error."
+  (signals error (parse-uuid "invalid")))
+
+(test parse-uuid-invalid-type
+  "Test parse-uuid with invalid input type signals error."
+  (signals error (parse-uuid 123)))

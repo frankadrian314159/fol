@@ -537,3 +537,29 @@
                                                   match-end)))
                               (cl:cons result (make-seq-from next-start)))))))))))
         (make-seq-from 0)))))
+
+
+;;; ============================================================================
+;;; UUID Operations
+;;; ============================================================================
+
+;;; UUID type predicate
+(defgeneric <uuid>? (obj)
+  (:documentation "Returns T if OBJ is a FOL <uuid>."))
+
+(defmethod <uuid>? (obj) nil)
+(defmethod <uuid>? ((obj <uuid>)) t)
+
+;;; Print Object for UUID
+(defmethod print-object ((obj <uuid>) stream)
+  (format stream "#uuid \"~A\"" (fol-value obj)))
+
+(defun parse-uuid (uuid-string)
+  "Parses a UUID string and returns a FOL <uuid> instance.
+   UUID-STRING should be in the standard UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+   Example: (parse-uuid \"6ba7b810-9dad-11d1-80b4-00c04fd430c8\")"
+  (let ((str (typecase uuid-string
+               (string uuid-string)
+               (<string> (fol-value uuid-string))
+               (t (error "Expected a string for UUID, got ~A" (type-of uuid-string))))))
+    (make-instance '<uuid> :val (uuid:make-uuid-from-string str))))

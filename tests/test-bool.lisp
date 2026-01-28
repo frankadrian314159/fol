@@ -430,3 +430,59 @@
     (dolist (b '(t nil))
       (is (eq (nor a b)
               (not (%or a b)))))))
+
+;;; ---------------------------------------------------------------------------
+;;; parse-bool Tests
+;;; ---------------------------------------------------------------------------
+
+(test parse-bool-t-lowercase
+  "Test parse-bool with lowercase 't'."
+  (let ((result (parse-bool "t")))
+    (is (typep result '<bool>))
+    (is-true (fol-value result))))
+
+(test parse-bool-t-uppercase
+  "Test parse-bool with uppercase 'T'."
+  (let ((result (parse-bool "T")))
+    (is (typep result '<bool>))
+    (is-true (fol-value result))))
+
+(test parse-bool-nil-lowercase
+  "Test parse-bool with lowercase 'nil'."
+  (let ((result (parse-bool "nil")))
+    (is (typep result '<bool>))
+    (is-false (fol-value result))))
+
+(test parse-bool-nil-uppercase
+  "Test parse-bool with uppercase 'NIL'."
+  (let ((result (parse-bool "NIL")))
+    (is (typep result '<bool>))
+    (is-false (fol-value result))))
+
+(test parse-bool-nil-mixed-case
+  "Test parse-bool with mixed case 'Nil'."
+  (let ((result (parse-bool "Nil")))
+    (is (typep result '<bool>))
+    (is-false (fol-value result))))
+
+(test parse-bool-empty-list
+  "Test parse-bool with empty list '()'."
+  (let ((result (parse-bool "()")))
+    (is (typep result '<bool>))
+    (is-false (fol-value result))))
+
+(test parse-bool-invalid-true
+  "Test parse-bool with invalid 'true' string."
+  (signals error (parse-bool "true")))
+
+(test parse-bool-invalid-false
+  "Test parse-bool with invalid 'false' string."
+  (signals error (parse-bool "false")))
+
+(test parse-bool-invalid-number
+  "Test parse-bool with invalid number string."
+  (signals error (parse-bool "1")))
+
+(test parse-bool-invalid-type
+  "Test parse-bool with invalid input type."
+  (signals error (parse-bool 42)))
