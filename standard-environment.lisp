@@ -303,6 +303,10 @@
             'sized? #'fol.collection:sized?
             'bounded-size #'fol.collection:bounded-size
             'into #'fol.collection:into
+            'vector #'fol.collection:vector
+            'vec #'fol.collection:vec
+            'mapv #'fol.collection:mapv
+            'filterv #'fol.collection:filterv
             ;; Higher-order collection operations
             'reduce #'(lambda (f &rest args)
                         "Reduce a collection using function f.

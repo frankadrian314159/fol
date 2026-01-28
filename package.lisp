@@ -185,7 +185,7 @@
 
 (defpackage fol.collection
   (:use cl fol.persistent)
-  (:shadow make-array make-list get remove first rest second third nth pop push reverse)
+  (:shadow make-array make-list get remove first rest second third nth pop push reverse vector)
   (:export <collection> <collection>?
            <unordered-collection> <unordered-collection>?
            <ordered-collection> <ordered-collection>?
@@ -219,7 +219,9 @@
            ;; Sizing operations
            sized? bounded-size
            ;; Into
-           into))
+           into
+           ;; Eager vector operations
+           vector vec mapv filterv))
 
 (defpackage fol.module
   (:use cl fol.persistent fol.collection)
@@ -235,7 +237,8 @@
                           nth
                           pop
                           push
-                          reverse)
+                          reverse
+                          vector)
   (:export <module> <module>? make-module
            module-name module-exports module-export module-import
            find-module register-module +module-registry+
@@ -255,7 +258,8 @@
                           nth
                           pop
                           push
-                          reverse)
+                          reverse
+                          vector)
   (:export <env> <env>? make-env lookup env-previous unbound-variable fol-unbound-variable fol-unbound-variable-name fol-unbound-variable-message))
 
 (defpackage fol.logop
@@ -396,7 +400,8 @@
                           nth
                           pop
                           push
-                          reverse)
+                          reverse
+                          vector)
   (:shadowing-import-from fol.logop
                           not and or)
   (:shadowing-import-from fol.arithop

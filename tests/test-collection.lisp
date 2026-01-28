@@ -1526,3 +1526,123 @@
     (is (= 2 (nth result 0)))
     (is (= 4 (nth result 1)))
     (is (= 6 (nth result 2)))))
+
+;;; ---------------------------------------------------------------------------
+;;; vector Tests
+;;; ---------------------------------------------------------------------------
+
+(test vector-no-args
+  "Test (vector) returns an empty vector."
+  (let ((v (vector)))
+    (is-true (<vector>? v))
+    (is (= 0 (size v)))))
+
+(test vector-with-elements
+  "Test (vector a b c) returns a vector with those elements."
+  (let ((v (vector 1 2 3)))
+    (is-true (<vector>? v))
+    (is (= 3 (size v)))
+    (is (= 1 (nth v 0)))
+    (is (= 2 (nth v 1)))
+    (is (= 3 (nth v 2)))))
+
+(test vector-single-element
+  "Test (vector x) returns a single-element vector."
+  (let ((v (vector :foo)))
+    (is-true (<vector>? v))
+    (is (= 1 (size v)))
+    (is (eq :foo (nth v 0)))))
+
+;;; ---------------------------------------------------------------------------
+;;; vec Tests
+;;; ---------------------------------------------------------------------------
+
+(test vec-from-list
+  "Test (vec list) converts a list to a vector."
+  (let ((v (vec (make-list 1 2 3))))
+    (is-true (<vector>? v))
+    (is (= 3 (size v)))
+    (is (= 1 (nth v 0)))
+    (is (= 2 (nth v 1)))
+    (is (= 3 (nth v 2)))))
+
+(test vec-from-vector
+  "Test (vec vector) returns the elements as a new vector."
+  (let ((v (vec (make-vector 4 5 6))))
+    (is-true (<vector>? v))
+    (is (= 3 (size v)))
+    (is (= 4 (nth v 0)))))
+
+(test vec-from-set
+  "Test (vec set) converts a set to a vector."
+  (let ((v (vec (make-set 1 2 3))))
+    (is-true (<vector>? v))
+    (is (= 3 (size v)))))
+
+(test vec-empty
+  "Test (vec empty-coll) returns an empty vector."
+  (let ((v (vec (make-list))))
+    (is-true (<vector>? v))
+    (is (= 0 (size v)))))
+
+;;; ---------------------------------------------------------------------------
+;;; mapv Tests
+;;; ---------------------------------------------------------------------------
+
+(test mapv-basic
+  "Test mapv applies function and returns a vector."
+  (let ((v (mapv #'cl:1+ (make-list 1 2 3))))
+    (is-true (<vector>? v))
+    (is (= 3 (size v)))
+    (is (= 2 (nth v 0)))
+    (is (= 3 (nth v 1)))
+    (is (= 4 (nth v 2)))))
+
+(test mapv-from-vector
+  "Test mapv works on vectors."
+  (let ((v (mapv (lambda (x) (cl:* x 2)) (make-vector 1 2 3))))
+    (is-true (<vector>? v))
+    (is (= 3 (size v)))
+    (is (= 2 (nth v 0)))
+    (is (= 4 (nth v 1)))
+    (is (= 6 (nth v 2)))))
+
+(test mapv-empty
+  "Test mapv on empty collection returns empty vector."
+  (let ((v (mapv #'cl:1+ (make-list))))
+    (is-true (<vector>? v))
+    (is (= 0 (size v)))))
+
+;;; ---------------------------------------------------------------------------
+;;; filterv Tests
+;;; ---------------------------------------------------------------------------
+
+(test filterv-basic
+  "Test filterv filters and returns a vector."
+  (let ((v (filterv #'cl:evenp (make-list 1 2 3 4 5 6))))
+    (is-true (<vector>? v))
+    (is (= 3 (size v)))
+    (is (= 2 (nth v 0)))
+    (is (= 4 (nth v 1)))
+    (is (= 6 (nth v 2)))))
+
+(test filterv-from-vector
+  "Test filterv works on vectors."
+  (let ((v (filterv #'cl:oddp (make-vector 1 2 3 4 5))))
+    (is-true (<vector>? v))
+    (is (= 3 (size v)))
+    (is (= 1 (nth v 0)))
+    (is (= 3 (nth v 1)))
+    (is (= 5 (nth v 2)))))
+
+(test filterv-none-match
+  "Test filterv when no elements match."
+  (let ((v (filterv #'cl:evenp (make-list 1 3 5))))
+    (is-true (<vector>? v))
+    (is (= 0 (size v)))))
+
+(test filterv-all-match
+  "Test filterv when all elements match."
+  (let ((v (filterv #'cl:evenp (make-list 2 4 6))))
+    (is-true (<vector>? v))
+    (is (= 3 (size v)))))

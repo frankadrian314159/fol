@@ -1626,6 +1626,43 @@
        (unreduced acc)))))
 
 ;;; ============================================================================
+;;; VECTOR, VEC, MAPV, FILTERV - Eager vector operations
+;;; ============================================================================
+
+(defun vector (&rest elements)
+  "Creates a new vector containing the supplied elements.
+   (vector)       - returns []
+   (vector a b c) - returns [a b c]"
+  (apply #'make-vector elements))
+
+(defun vec (coll)
+  "Coerces COLL to a vector.
+   Equivalent to (into [] coll)."
+  (into (make-vector) coll))
+
+(defun mapv (f coll)
+  "Returns a vector of applying F to each element of COLL.
+   Eager (non-lazy) version of map."
+  (let ((result (make-vector))
+        (s (seq coll)))
+    (loop while (and s (not (empty? s)))
+          do (setf result (conj result (funcall f (first s))))
+             (setf s (rest s)))
+    result))
+
+(defun filterv (pred coll)
+  "Returns a vector of the items in COLL for which (PRED item) returns true.
+   Eager (non-lazy) version of filter."
+  (let ((result (make-vector))
+        (s (seq coll)))
+    (loop while (and s (not (empty? s)))
+          do (let ((item (first s)))
+               (when (funcall pred item)
+                 (setf result (conj result item))))
+             (setf s (rest s)))
+    result))
+
+;;; ============================================================================
 ;;; FOL Type Reflection for Collections
 ;;; ============================================================================
 ;;; These methods must be defined here (after collection classes exist)

@@ -1266,7 +1266,7 @@
     ;; Handle CL vectors (from reader syntax like #(a b c)) - but not strings
     ((cl:and (vectorp form) (cl:not (<vector>? form)))
      (let ((expanded (expand-syntax-quote-list (coerce form 'list) env gensym-table)))
-       (coerce expanded 'vector)))
+       (coerce expanded 'cl:vector)))
 
     ;; Handle FOL vectors
     ((<vector>? form)

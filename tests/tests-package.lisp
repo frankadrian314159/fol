@@ -127,9 +127,11 @@
                 ;; Reduced (for early termination in reduce)
                 :<reduced> :<reduced>? :reduced :unreduced :reduced-value
                 ;; Sizing and into
-                :sized? :bounded-size :into)
+                :sized? :bounded-size :into
+                ;; Eager vector operations
+                :vec :mapv :filterv)
   ;; Shadow CL symbols that FOL redefines
-  (:shadowing-import-from :fol.collection :remove :get :make-array :make-list :first :rest :second :third :nth :pop :push :reverse)
+  (:shadowing-import-from :fol.collection :remove :get :make-array :make-list :first :rest :second :third :nth :pop :push :reverse :vector)
   ;; Import symbols from fol.env
   (:import-from :fol.env
                 :<env>? :make-env :lookup :env-previous
