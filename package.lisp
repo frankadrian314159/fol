@@ -213,7 +213,9 @@
            ;; Reverse
            reverse
            ;; Stack-like operations
-           pop push))
+           peek pop push
+           ;; Disjoin (removal for unordered collections)
+           disj))
 
 (defpackage fol.module
   (:use cl fol.persistent fol.collection)

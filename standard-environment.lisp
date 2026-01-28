@@ -179,11 +179,7 @@
                           (fol.collection:make-list x)
                           (fol.collection:conj (fol.collection:seq coll) x)))
             'cl-cons #'cl:cons
-            'peek #'(lambda (coll)
-                      "For a list, returns the first element. Returns nil if empty."
-                      (if (cl:or (null coll) (fol.collection:empty? coll))
-                          nil
-                          (fol.collection:first coll)))
+            'peek #'fol.collection:peek
             'pop #'fol.collection:pop
             'push #'fol.collection:push
             ;; CL sequence operations (for compatibility)
@@ -298,6 +294,7 @@
             'seq #'fol.collection:seq
             'add #'fol.collection:add
             'remove #'fol.collection:remove
+            'disj #'fol.collection:disj
             ;; Higher-order collection operations
             'reduce #'(lambda (f &rest args)
                         "Reduce a collection using function f.

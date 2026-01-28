@@ -1039,15 +1039,15 @@
 (test conj-dict-single
   "Test conj adds key-value pair to dict."
   (let* ((d (make-dict :a 1))
-         (result (conj d (cons :b 2))))
+         (result (conj d :b 2)))
     (is (= 2 (size result)))
     (is (= 1 (get result :a)))
     (is (= 2 (get result :b)))))
 
 (test conj-dict-multiple
-  "Test conj with multiple pairs on dict."
+  "Test conj with multiple pairs on dict (chained calls)."
   (let* ((d (make-dict))
-         (result (conj d (cons :a 1) (cons :b 2) (cons :c 3))))
+         (result (conj (conj (conj d :a 1) :b 2) :c 3)))
     (is (= 3 (size result)))
     (is (= 1 (get result :a)))
     (is (= 2 (get result :b)))
@@ -1056,15 +1056,16 @@
 (test conj-dict-update
   "Test conj updates existing key in dict."
   (let* ((d (make-dict :a 1))
-         (result (conj d (cons :a 100))))
+         (result (conj d :a 100)))
     (is (= 1 (size result)))
     (is (= 100 (get result :a)))))
 
-(test conj-dict-requires-pair
-  "Test conj on dict requires cons pair."
+(test conj-dict-requires-key-value
+  "Test conj on dict requires exactly key and value."
   (let ((d (make-dict)))
+    ;; Too few args (just key, no value)
     (signals error
-      (conj d :not-a-pair))))
+      (conj d :key-only))))
 
 (test conj-array-error
   "Test conj on array signals error."

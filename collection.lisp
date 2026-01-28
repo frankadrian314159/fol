@@ -378,7 +378,36 @@
       (setf result (cl:cons (fol.wrappers:fol-value it) result)))
     result))
 
-;;; --- Stack-like operations (pop/push) ---
+;;; --- Stack-like operations (peek/pop/push) ---
+
+(defgeneric peek (collection &optional indices)
+  (:documentation "Returns an element from a collection without modifying it.
+   For strings: returns the last character.
+   For lists: returns the first element.
+   For vectors: returns the last element.
+   For arrays: INDICES is a <vector> of indices; returns the element at that position."))
+
+(defmethod peek ((lst <list>) &optional indices)
+  "Return the first element of the list, or NIL if empty."
+  (declare (ignore indices))
+  (if (zerop (list-size lst))
+      nil
+      (list-first lst)))
+
+(defmethod peek ((lst null) &optional indices)
+  "Return nil for empty/nil list."
+  (declare (ignore indices))
+  nil)
+
+(defmethod peek ((v <vector>) &optional indices)
+  "Return the last element of the vector, or NIL if empty."
+  (declare (ignore indices))
+  (let ((items (pslot-value v 'items)))
+    (if (fset:empty? items)
+        nil
+        (fset:@ items (1- (fset:size items))))))
+
+;;; Note: peek for <array> is defined later after the <array> class
 
 (defgeneric pop (collection)
   (:documentation "Returns a new collection without one element.
@@ -787,6 +816,13 @@
 (defmethod <array>? (obj) nil)
 (defmethod <array>? ((obj <array>)) t)
 
+;;; peek for <array> (defined here after <array> class)
+(defmethod peek ((a <array>) &optional indices)
+  "Return the element at INDICES (a <vector> of integers)."
+  (unless indices
+    (error "PEEK on <array> requires indices"))
+  (get a indices nil))
+
 
 ;;; ============================================================================
 ;;; GENERIC GET (Shadows cl:get)
@@ -1035,16 +1071,12 @@
       (setf result (add result it)))
     result))
 
-(defmethod conj ((d <dict>) item &rest more-items)
-  "Add key-value pairs to a dict. Each item should be a cons pair (key . value)."
-  (unless (consp item)
-    (error "conj on <dict> requires a cons pair (key . value), got ~A" item))
-  (let ((result (add d (car item) (cdr item))))
-    (dolist (it more-items)
-      (unless (consp it)
-        (error "conj on <dict> requires cons pairs (key . value), got ~A" it))
-      (setf result (add result (car it) (cdr it))))
-    result))
+(defmethod conj ((d <dict>) key &rest args)
+  "Add a key-value pair to a dict: (conj dict key value).
+   If key already exists, its value is updated to the new value."
+  (unless (= 1 (length args))
+    (error "CONJ on <dict> requires exactly one value argument: (conj dict key value)"))
+  (add d key (cl:first args)))
 
 (defmethod conj ((a <array>) item &rest more-items)
   "Arrays do not support conj."
@@ -1097,7 +1129,27 @@
         (make-instance (class-of v) :items (fset:less seq idx))
         v)))
 
-;;; 6. ITERATOR PROTOCOL
+;;; 7. DISJ (Clojure-style removal for unordered collections)
+
+(defgeneric disj (collection item)
+  (:documentation "Returns a new collection with ITEM removed.
+   For dicts: removes the key and its value.
+   For sets: removes the item.
+   For bags: decrements the count of item; removes if count becomes 0."))
+
+(defmethod disj ((d <dict>) key)
+  "Return a copy of the dict with KEY and its value removed."
+  (remove d key))
+
+(defmethod disj ((s <set>) item)
+  "Return a copy of the set with ITEM removed."
+  (remove s item))
+
+(defmethod disj ((b <bag>) item)
+  "Decrement count of ITEM; remove if count becomes 0."
+  (remove b item))
+
+;;; 8. ITERATOR PROTOCOL
 
 (defclass <list-iterator> ()
   ((items :initarg :items :accessor iter-items))

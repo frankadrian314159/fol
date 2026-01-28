@@ -654,6 +654,105 @@
 
 
 ;;; ============================================================================
+;;; String Stack Operations (peek, pop, push, conj)
+;;; ============================================================================
+
+;;; --- peek for strings ---
+(defmethod fol.collection:peek ((source string) &optional indices)
+  "Return the last character from the string, or NIL if empty."
+  (declare (ignore indices))
+  (if (zerop (length source))
+      nil
+      (char source (1- (length source)))))
+
+(defmethod fol.collection:peek ((source <string>) &optional indices)
+  "Return the last character from the wrapped string, or NIL if empty."
+  (declare (ignore indices))
+  (fol.collection:peek (fol.wrappers:fol-value source)))
+
+;;; --- pop for strings ---
+(defmethod fol.collection:pop ((source string))
+  "Return a copy of the string with the last character removed."
+  (if (zerop (length source))
+      ""
+      (subseq source 0 (1- (length source)))))
+
+(defmethod fol.collection:pop ((source <string>))
+  "Return a copy of the wrapped string with the last character removed."
+  (fol.collection:pop (fol.wrappers:fol-value source)))
+
+;;; --- push for strings ---
+(defmethod fol.collection:push ((char character) (source string))
+  "Return a copy of the string with CHAR appended."
+  (concatenate 'string source (string char)))
+
+(defmethod fol.collection:push ((char character) (source <string>))
+  (fol.collection:push char (fol.wrappers:fol-value source)))
+
+(defmethod fol.collection:push ((char <char>) (source string))
+  (fol.collection:push (fol.wrappers:fol-value char) source))
+
+(defmethod fol.collection:push ((char <char>) (source <string>))
+  (fol.collection:push (fol.wrappers:fol-value char) (fol.wrappers:fol-value source)))
+
+(defmethod fol.collection:push ((str string) (source string))
+  "Return a copy of the string with STR appended."
+  (concatenate 'string source str))
+
+(defmethod fol.collection:push ((str string) (source <string>))
+  (fol.collection:push str (fol.wrappers:fol-value source)))
+
+(defmethod fol.collection:push ((str <string>) (source string))
+  (fol.collection:push (fol.wrappers:fol-value str) source))
+
+(defmethod fol.collection:push ((str <string>) (source <string>))
+  (fol.collection:push (fol.wrappers:fol-value str) (fol.wrappers:fol-value source)))
+
+;;; --- conj for strings ---
+(defmethod fol.collection:conj ((source string) (char character) &rest more-items)
+  "Return a copy of the string with CHAR appended. Additional items must be characters."
+  (when more-items
+    (error "CONJ on strings does not accept additional value arguments"))
+  (concatenate 'string source (string char)))
+
+(defmethod fol.collection:conj ((source <string>) (char character) &rest more-items)
+  (when more-items
+    (error "CONJ on strings does not accept additional value arguments"))
+  (fol.collection:conj (fol.wrappers:fol-value source) char))
+
+(defmethod fol.collection:conj ((source string) (char <char>) &rest more-items)
+  (when more-items
+    (error "CONJ on strings does not accept additional value arguments"))
+  (fol.collection:conj source (fol.wrappers:fol-value char)))
+
+(defmethod fol.collection:conj ((source <string>) (char <char>) &rest more-items)
+  (when more-items
+    (error "CONJ on strings does not accept additional value arguments"))
+  (fol.collection:conj (fol.wrappers:fol-value source) (fol.wrappers:fol-value char)))
+
+(defmethod fol.collection:conj ((source string) (str string) &rest more-items)
+  "Return a copy of the string with STR appended."
+  (when more-items
+    (error "CONJ on strings does not accept additional value arguments"))
+  (concatenate 'string source str))
+
+(defmethod fol.collection:conj ((source <string>) (str string) &rest more-items)
+  (when more-items
+    (error "CONJ on strings does not accept additional value arguments"))
+  (fol.collection:conj (fol.wrappers:fol-value source) str))
+
+(defmethod fol.collection:conj ((source string) (str <string>) &rest more-items)
+  (when more-items
+    (error "CONJ on strings does not accept additional value arguments"))
+  (fol.collection:conj source (fol.wrappers:fol-value str)))
+
+(defmethod fol.collection:conj ((source <string>) (str <string>) &rest more-items)
+  (when more-items
+    (error "CONJ on strings does not accept additional value arguments"))
+  (fol.collection:conj (fol.wrappers:fol-value source) (fol.wrappers:fol-value str)))
+
+
+;;; ============================================================================
 ;;; Regular Expression Pattern Operations
 ;;; ============================================================================
 
