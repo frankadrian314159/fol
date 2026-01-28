@@ -340,6 +340,7 @@
 
 (defpackage fol.symbol
   (:use cl fol.wrappers fol.classes)
+  (:shadow keyword symbol gensym)
   (:export <symbol>? <keyword>?
            symbol-name-str
            symbol-package-str
@@ -347,6 +348,10 @@
            set-symbol-value
            symbol-bound?
            as
+           keyword
+           find-keyword
+           symbol
+           gensym
            +symbol-unbound-sentinel+
            ;; Module constants and interning
            +keyword-module+

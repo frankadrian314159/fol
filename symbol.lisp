@@ -108,12 +108,12 @@
 (defgeneric <symbol>? (obj) (:documentation "Returns T if OBJ is a FOL <symbol> or raw symbol."))
 (defmethod <symbol>? (obj) nil)
 (defmethod <symbol>? ((obj <symbol>)) t)
-(defmethod <symbol>? ((obj symbol)) t)
+(defmethod <symbol>? ((obj cl:symbol)) t)
 
 (defgeneric <keyword>? (obj) (:documentation "Returns T if OBJ is a FOL <keyword> or raw keyword."))
 (defmethod <keyword>? (obj) nil)
 (defmethod <keyword>? ((obj <keyword>)) t)
-(defmethod <keyword>? ((obj symbol))
+(defmethod <keyword>? ((obj cl:symbol))
   (keywordp obj))
 
 ;;; Type conversion with as
@@ -165,7 +165,7 @@
   "Convert a FOL symbol to a FOL string. Returns lowercase name."
   (wrap-string (string-downcase (symbol-name (fol-value value)))))
 
-(defmethod as ((type (eql '<string>)) (value symbol))
+(defmethod as ((type (eql '<string>)) (value cl:symbol))
   "Convert a native symbol to a FOL string. Returns lowercase name."
   (wrap-string (string-downcase (symbol-name value))))
 
@@ -173,6 +173,177 @@
 (defmethod as ((type (eql '<string>)) (value <keyword>))
   "Convert a FOL keyword to a FOL string. Returns lowercase name."
   (wrap-string (string-downcase (symbol-name (fol-value value)))))
+
+;;; ============================================================================
+;;; Keyword Constructor Function
+;;; ============================================================================
+
+(defgeneric keyword (name)
+  (:documentation "Creates a keyword from NAME.
+   NAME can be a string, symbol, or keyword.
+   The leading ':' is stripped if present in strings.
+   Returns a CL keyword symbol."))
+
+(defmethod keyword ((name string))
+  "Create a keyword from a string. Leading ':' is stripped if present."
+  (let ((str (if (and (> (length name) 0) (char= (char name 0) #\:))
+                 (subseq name 1)
+                 name)))
+    (intern (string-upcase str) :keyword)))
+
+(defmethod keyword ((name <string>))
+  "Create a keyword from a FOL string."
+  (keyword (fol-value name)))
+
+(defmethod keyword ((name cl:symbol))
+  "Create a keyword from a symbol. If already a keyword, returns it unchanged."
+  (if (keywordp name)
+      name
+      (intern (symbol-name name) :keyword)))
+
+(defmethod keyword ((name <symbol>))
+  "Create a keyword from a FOL symbol."
+  (keyword (fol-value name)))
+
+(defmethod keyword ((name <keyword>))
+  "A keyword passed to keyword returns the underlying keyword."
+  (fol-value name))
+
+;;; ============================================================================
+;;; Find-Keyword Function
+;;; ============================================================================
+
+(defgeneric find-keyword (name)
+  (:documentation "Finds a keyword with NAME if it exists.
+   NAME can be a string, symbol, or keyword.
+   The leading ':' is stripped if present in strings.
+   Returns the keyword if found, or NIL if not found."))
+
+(defmethod find-keyword ((name string))
+  "Find a keyword from a string. Leading ':' is stripped if present."
+  (let ((str (if (and (> (length name) 0) (char= (char name 0) #\:))
+                 (subseq name 1)
+                 name)))
+    (find-symbol (string-upcase str) :keyword)))
+
+(defmethod find-keyword ((name <string>))
+  "Find a keyword from a FOL string."
+  (find-keyword (fol-value name)))
+
+(defmethod find-keyword ((name cl:symbol))
+  "Find a keyword from a symbol name. If already a keyword, returns it."
+  (if (keywordp name)
+      name
+      (find-symbol (symbol-name name) :keyword)))
+
+(defmethod find-keyword ((name <symbol>))
+  "Find a keyword from a FOL symbol."
+  (find-keyword (fol-value name)))
+
+(defmethod find-keyword ((name <keyword>))
+  "A keyword passed to find-keyword returns the underlying keyword."
+  (fol-value name))
+
+;;; ============================================================================
+;;; Symbol Constructor Function
+;;; ============================================================================
+
+(defun %get-name-string (name func-name)
+  "Extract the name string from NAME (string, <string>, symbol, or <symbol>)."
+  (typecase name
+    (string name)
+    (<string> (fol-value name))
+    (cl:keyword (cl:symbol-name name))
+    (<keyword> (cl:symbol-name (fol-value name)))
+    (cl:symbol (cl:symbol-name name))
+    (<symbol> (cl:symbol-name (fol-value name)))
+    (t (error "~A requires a string or symbol for name, got ~A" func-name (type-of name)))))
+
+(defun symbol (name &optional module)
+  "Creates a symbol from NAME and interns it in a module.
+
+   If MODULE is not provided:
+     Creates a symbol from NAME and interns it in the current module
+     (or default module if *current-module* is nil).
+
+   If MODULE is provided:
+     NAME is the module name, MODULE is the symbol name.
+     Creates a symbol from MODULE and interns it in the module named by NAME.
+
+   Returns a FOL <symbol> with the module-name slot set appropriately."
+  (let* ((actual-name (if module
+                          (%get-name-string module "SYMBOL")
+                          (%get-name-string name "SYMBOL")))
+         (actual-module (if module
+                            (%get-name-string name "SYMBOL")
+                            (or *current-module* +default-module+)))
+         ;; Create the underlying CL symbol
+         (cl-symbol (make-symbol (string-upcase actual-name))))
+    ;; Create the FOL <symbol> wrapper with module-name set
+    (make-instance '<symbol>
+                   :val cl-symbol
+                   :module-name actual-module)))
+
+;;; ============================================================================
+;;; Gensym Function
+;;; ============================================================================
+
+(defvar *fol-gensym-counter* 0
+  "Counter for generating unique gensym names.")
+
+(defun gensym (&optional prefix module)
+  "Creates a unique symbol with an auto-generated name.
+
+   (gensym)
+     Name is G__###. Interned in the current module.
+
+   (gensym prefix)
+     Name is PREFIX__###. Interned in the current module.
+
+   (gensym prefix module)
+     Name is MODULE__###. Interned in the module named by PREFIX.
+
+   (gensym nil module)
+     Name is MODULE__###. Not interned in any module (module-name is NIL)."
+  (let ((count (incf *fol-gensym-counter*)))
+    (cond
+      ;; Case 1: No arguments - G__###, intern in current module
+      ((and (null prefix) (null module))
+       (let* ((name (format nil "G__~D" count))
+              (actual-module (or *current-module* +default-module+))
+              (cl-symbol (make-symbol (string-upcase name))))
+         (make-instance '<symbol>
+                        :val cl-symbol
+                        :module-name actual-module)))
+
+      ;; Case 4: prefix is nil, module present - MODULE__###, not interned
+      ((and (null prefix) module)
+       (let* ((mod-str (%get-name-string module "GENSYM"))
+              (name (format nil "~A__~D" (string-upcase mod-str) count))
+              (cl-symbol (make-symbol name)))
+         (make-instance '<symbol>
+                        :val cl-symbol
+                        :module-name nil)))
+
+      ;; Case 2: prefix present, no module - PREFIX__###, intern in current module
+      ((and prefix (null module))
+       (let* ((prefix-str (%get-name-string prefix "GENSYM"))
+              (name (format nil "~A__~D" (string-upcase prefix-str) count))
+              (actual-module (or *current-module* +default-module+))
+              (cl-symbol (make-symbol name)))
+         (make-instance '<symbol>
+                        :val cl-symbol
+                        :module-name actual-module)))
+
+      ;; Case 3: both present - MODULE__###, intern in module named by prefix
+      (t
+       (let* ((mod-str (%get-name-string module "GENSYM"))
+              (prefix-str (%get-name-string prefix "GENSYM"))
+              (name (format nil "~A__~D" (string-upcase mod-str) count))
+              (cl-symbol (make-symbol name)))
+         (make-instance '<symbol>
+                        :val cl-symbol
+                        :module-name prefix-str))))))
 
 ;;; Print Object
 (defmethod print-object ((obj <symbol>) stream)
@@ -191,7 +362,7 @@
 (defgeneric symbol-name-str (symbol)
   (:documentation "Returns the name of the symbol as a string."))
 
-(defmethod symbol-name-str ((sym symbol))
+(defmethod symbol-name-str ((sym cl:symbol))
   (symbol-name sym))
 
 (defmethod symbol-name-str ((sym <symbol>))
@@ -201,7 +372,7 @@
 (defgeneric symbol-package-str (symbol)
   (:documentation "Returns the package name of the symbol as a string, or NIL if uninterned."))
 
-(defmethod symbol-package-str ((sym symbol))
+(defmethod symbol-package-str ((sym cl:symbol))
   (let ((pkg (symbol-package sym)))
     (if pkg (package-name pkg) nil)))
 

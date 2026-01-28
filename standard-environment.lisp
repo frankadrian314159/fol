@@ -217,6 +217,11 @@
             'parse-int #'fol.number:parse-int
             'parse-double #'fol.number:parse-double
             'parse-uuid #'fol.string:parse-uuid
+            ;; Keyword and symbol functions
+            'keyword #'fol.symbol:keyword
+            'find-keyword #'fol.symbol:find-keyword
+            'symbol #'fol.symbol:symbol
+            'gensym #'fol.symbol:gensym
             ;; Character operations
             'char-name-string #'fol.char:char-name-string
             ;; Misc

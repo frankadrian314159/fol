@@ -81,11 +81,12 @@
                 :re-find :re-seq
                 :<uuid>? :parse-uuid)
   ;; Import non-conflicting symbols from fol.symbol
+  (:shadowing-import-from :fol.symbol :keyword :symbol :gensym)
   (:import-from :fol.symbol
                 :<symbol>? :<keyword>?
                 :symbol-name-str :symbol-package-str
                 :get-symbol-value :set-symbol-value :symbol-bound?
-                :as
+                :as :find-keyword
                 :+keyword-module+ :+default-module+ :*current-module*
                 :fol-intern :parse-qualified-name)
   ;; Import non-conflicting symbols from fol.number

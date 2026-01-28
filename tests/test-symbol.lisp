@@ -463,3 +463,197 @@
     (is (string= "LOWERCASE" (symbol-name (fol-value lower))))
     (is (string= "UPPERCASE" (symbol-name (fol-value upper))))
     (is (string= "MIXEDCASE" (symbol-name (fol-value mixed))))))
+
+;;; ---------------------------------------------------------------------------
+;;; Keyword Constructor Function Tests
+;;; ---------------------------------------------------------------------------
+
+(test keyword-from-string
+  "Test creating keyword from string."
+  (is (eq :foo (keyword "foo")))
+  (is (eq :bar (keyword "bar")))
+  (is (eq :hello-world (keyword "hello-world"))))
+
+(test keyword-from-string-case-insensitive
+  "Test that keyword is case-insensitive."
+  (is (eq :foo (keyword "FOO")))
+  (is (eq :foo (keyword "foo")))
+  (is (eq :foo (keyword "Foo"))))
+
+(test keyword-from-string-with-colon
+  "Test that leading colon is stripped from string."
+  (is (eq :bar (keyword ":bar")))
+  (is (eq :baz (keyword ":baz"))))
+
+(test keyword-from-wrapped-string
+  "Test creating keyword from FOL <string>."
+  (is (eq :test (keyword (wrap-string "test"))))
+  (is (eq :xyz (keyword (wrap-string "xyz")))))
+
+(test keyword-from-symbol
+  "Test creating keyword from symbol."
+  (is (eq :foo (keyword 'foo)))
+  (is (eq :bar (keyword 'bar))))
+
+(test keyword-from-keyword
+  "Test that keyword returns keyword unchanged."
+  (is (eq :foo (keyword :foo)))
+  (is (eq :bar (keyword :bar))))
+
+(test keyword-from-wrapped-symbol
+  "Test creating keyword from wrapped FOL <symbol>."
+  (is (eq :test (keyword (wrap-symbol 'test))))
+  (is (eq :abc (keyword (wrap-symbol 'abc)))))
+
+(test keyword-from-wrapped-keyword
+  "Test creating keyword from wrapped FOL <keyword>."
+  (is (eq :baz (keyword (wrap-symbol :baz)))))
+
+;;; ---------------------------------------------------------------------------
+;;; Find-Keyword Function Tests
+;;; ---------------------------------------------------------------------------
+
+(test find-keyword-existing
+  "Test finding existing keywords."
+  ;; :test should exist since we just used it
+  (keyword "test-find-keyword-marker")  ; Create it first
+  (is (eq :test-find-keyword-marker (find-keyword "test-find-keyword-marker")))
+  (is (eq :test-find-keyword-marker (find-keyword "TEST-FIND-KEYWORD-MARKER")))
+  (is (eq :test-find-keyword-marker (find-keyword ":test-find-keyword-marker"))))
+
+(test find-keyword-not-found
+  "Test that find-keyword returns nil for non-existent keywords."
+  ;; Use a very unlikely name that shouldn't exist
+  (is (null (find-keyword "this-keyword-should-definitely-not-exist-xyz123"))))
+
+(test find-keyword-from-symbol
+  "Test finding keyword from symbol."
+  (keyword "find-keyword-symbol-test")  ; Create it first
+  (is (eq :find-keyword-symbol-test (find-keyword 'find-keyword-symbol-test))))
+
+(test find-keyword-from-keyword
+  "Test that find-keyword returns keyword unchanged."
+  (is (eq :foo (find-keyword :foo)))
+  (is (eq :bar (find-keyword :bar))))
+
+(test find-keyword-from-wrapped-string
+  "Test finding keyword from FOL <string>."
+  (keyword "find-keyword-wrapped-test")  ; Create it first
+  (is (eq :find-keyword-wrapped-test (find-keyword (wrap-string "find-keyword-wrapped-test")))))
+
+(test find-keyword-from-wrapped-symbol
+  "Test finding keyword from wrapped FOL <symbol>."
+  (keyword "find-keyword-wrapped-sym")  ; Create it first
+  (is (eq :find-keyword-wrapped-sym (find-keyword (wrap-symbol 'find-keyword-wrapped-sym)))))
+
+(test find-keyword-case-insensitive
+  "Test that find-keyword is case-insensitive."
+  (keyword "case-test-keyword")  ; Create it first
+  (is (eq :case-test-keyword (find-keyword "case-test-keyword")))
+  (is (eq :case-test-keyword (find-keyword "CASE-TEST-KEYWORD")))
+  (is (eq :case-test-keyword (find-keyword "Case-Test-Keyword"))))
+
+;;; ---------------------------------------------------------------------------
+;;; Symbol Constructor Function Tests
+;;; ---------------------------------------------------------------------------
+
+(test symbol-from-string
+  "Test creating symbol from string in default module."
+  (let ((sym (symbol "test-sym")))
+    (is-true (<symbol>? sym))
+    (is (string= "TEST-SYM" (cl:symbol-name (fol-value sym))))
+    (is (string= +default-module+ (fol.classes:symbol-module-name sym)))))
+
+(test symbol-from-string-current-module
+  "Test creating symbol uses *current-module*."
+  (let ((*current-module* "my-test-module"))
+    (let ((sym (symbol "my-var")))
+      (is-true (<symbol>? sym))
+      (is (string= "MY-VAR" (cl:symbol-name (fol-value sym))))
+      (is (string= "my-test-module" (fol.classes:symbol-module-name sym))))))
+
+(test symbol-with-module-arg
+  "Test creating symbol in specific module."
+  (let ((sym (symbol "custom-module" "my-symbol")))
+    (is-true (<symbol>? sym))
+    (is (string= "MY-SYMBOL" (cl:symbol-name (fol-value sym))))
+    (is (string= "custom-module" (fol.classes:symbol-module-name sym)))))
+
+(test symbol-from-wrapped-string
+  "Test creating symbol from FOL <string>."
+  (let ((sym (symbol (wrap-string "wrapped-name"))))
+    (is-true (<symbol>? sym))
+    (is (string= "WRAPPED-NAME" (cl:symbol-name (fol-value sym))))))
+
+(test symbol-from-symbol-name
+  "Test creating symbol from symbol name."
+  (let ((sym (symbol 'source-sym)))
+    (is-true (<symbol>? sym))
+    (is (string= "SOURCE-SYM" (cl:symbol-name (fol-value sym))))))
+
+(test symbol-with-module-from-symbol
+  "Test creating symbol with module from symbol."
+  (let ((sym (symbol 'mod-name 'sym-name)))
+    (is-true (<symbol>? sym))
+    (is (string= "SYM-NAME" (cl:symbol-name (fol-value sym))))
+    (is (string= "MOD-NAME" (fol.classes:symbol-module-name sym)))))
+
+(test symbol-case-insensitive
+  "Test that symbol name is uppercased."
+  (let ((lower (symbol "lowercase"))
+        (upper (symbol "UPPERCASE"))
+        (mixed (symbol "MixedCase")))
+    (is (string= "LOWERCASE" (cl:symbol-name (fol-value lower))))
+    (is (string= "UPPERCASE" (cl:symbol-name (fol-value upper))))
+    (is (string= "MIXEDCASE" (cl:symbol-name (fol-value mixed))))))
+
+;;; ============================================================================
+;;; Gensym Tests
+;;; ============================================================================
+
+(test gensym-no-args
+  "Test gensym with no arguments creates G__### in current module."
+  (let ((sym (gensym)))
+    (is-true (<symbol>? sym))
+    (is-true (cl:search "G__" (cl:symbol-name (fol-value sym))))
+    (is (string= +default-module+ (fol.classes:symbol-module-name sym)))))
+
+(test gensym-unique-names
+  "Test that successive gensyms produce unique names."
+  (let ((sym1 (gensym))
+        (sym2 (gensym)))
+    (is (not (string= (cl:symbol-name (fol-value sym1))
+                      (cl:symbol-name (fol-value sym2)))))))
+
+(test gensym-with-prefix
+  "Test gensym with prefix creates PREFIX__### in current module."
+  (let ((sym (gensym "foo")))
+    (is-true (<symbol>? sym))
+    (is-true (cl:search "FOO__" (cl:symbol-name (fol-value sym))))
+    (is (string= +default-module+ (fol.classes:symbol-module-name sym)))))
+
+(test gensym-with-prefix-and-module
+  "Test gensym with prefix and module creates MODULE__### in prefix's module."
+  (let ((sym (gensym "my-module" "bar")))
+    (is-true (<symbol>? sym))
+    (is-true (cl:search "BAR__" (cl:symbol-name (fol-value sym))))
+    (is (string= "my-module" (fol.classes:symbol-module-name sym)))))
+
+(test gensym-nil-prefix-with-module
+  "Test gensym with nil prefix and module creates MODULE__### with nil module-name."
+  (let ((sym (gensym nil "baz")))
+    (is-true (<symbol>? sym))
+    (is-true (cl:search "BAZ__" (cl:symbol-name (fol-value sym))))
+    (is (null (fol.classes:symbol-module-name sym)))))
+
+(test gensym-with-current-module
+  "Test gensym respects *current-module*."
+  (let ((*current-module* "test-module"))
+    (let ((sym (gensym)))
+      (is (string= "test-module" (fol.classes:symbol-module-name sym))))))
+
+(test gensym-with-symbol-prefix
+  "Test gensym accepts symbol as prefix."
+  (let ((sym (gensym 'myprefix)))
+    (is-true (<symbol>? sym))
+    (is-true (cl:search "MYPREFIX__" (cl:symbol-name (fol-value sym))))))

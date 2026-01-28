@@ -235,6 +235,166 @@ Parses a UUID string and returns a `<uuid>` instance.
 
 ---
 
+## keyword
+
+```
+(keyword name)
+```
+
+Creates a keyword from NAME.
+
+### Arguments
+
+- `name` - A string or symbol
+
+### Behavior
+
+- **Strings**: Converts to uppercase and interns as a keyword. Leading `:` is stripped if present.
+- **Symbols**: Converts the symbol name to a keyword.
+- **Keywords**: Returns the keyword unchanged.
+
+### Examples
+
+```fol
+;; From strings
+(keyword "foo")               ; => :FOO
+(keyword "hello-world")       ; => :HELLO-WORLD
+(keyword ":bar")              ; => :BAR (leading colon stripped)
+
+;; Case insensitive
+(keyword "FOO")               ; => :FOO
+(keyword "Foo")               ; => :FOO
+
+;; From symbols
+(keyword 'baz)                ; => :BAZ
+
+;; Keywords unchanged
+(keyword :qux)                ; => :QUX
+```
+
+---
+
+## find-keyword
+
+```
+(find-keyword name)
+```
+
+Finds a keyword with NAME if it exists in the keyword package.
+
+### Arguments
+
+- `name` - A string or symbol
+
+### Behavior
+
+- **Strings**: Looks up the keyword (case-insensitive). Leading `:` is stripped if present.
+- **Symbols**: Looks up a keyword with the same name.
+- **Keywords**: Returns the keyword unchanged.
+
+Returns the keyword if found, or `NIL` if no such keyword exists.
+
+### Examples
+
+```fol
+;; Finding existing keywords
+(find-keyword "foo")          ; => :FOO (if :FOO exists)
+(find-keyword "FOO")          ; => :FOO (case-insensitive)
+(find-keyword ":bar")         ; => :BAR (if :BAR exists)
+
+;; Non-existent keyword
+(find-keyword "nonexistent")  ; => NIL
+
+;; From symbols
+(find-keyword 'baz)           ; => :BAZ (if :BAZ exists)
+
+;; Keywords unchanged
+(find-keyword :qux)           ; => :QUX
+```
+
+---
+
+## symbol
+
+```
+(symbol name)
+(symbol module-name symbol-name)
+```
+
+Creates a symbol and associates it with a module.
+
+### Arguments
+
+- `name` - A string, symbol, or keyword used as the symbol name
+- `module-name` - (optional first arg) A string or symbol naming the module
+- `symbol-name` - (optional second arg) A string or symbol used as the symbol name
+
+### Behavior
+
+- **One argument**: Creates a symbol from `name` and interns it in the current module (or the default module if no current module is set).
+- **Two arguments**: The first argument is the module name, the second is the symbol name. Creates a symbol from the second argument and interns it in the module named by the first argument.
+
+In both cases, the `module-name` slot on the resulting `<symbol>` is set to the module it was interned in.
+
+### Examples
+
+```fol
+;; Create symbol in current/default module
+(symbol "foo")                ; => user::FOO
+(symbol "my-var")             ; => user::MY-VAR
+
+;; Create symbol in a specific module
+(symbol "math" "pi")          ; => math::PI
+(symbol "utils" "helper")     ; => utils::HELPER
+
+;; From existing symbols
+(symbol 'bar)                 ; => user::BAR
+(symbol 'math 'sqrt)          ; => math::SQRT
+```
+
+---
+
+## gensym
+
+```
+(gensym)
+(gensym prefix)
+(gensym prefix module)
+```
+
+Creates a unique symbol with an auto-generated name containing a monotonically increasing counter.
+
+### Arguments
+
+- `prefix` - (optional) A string or symbol used as the name prefix, or `nil`
+- `module` - (optional) A string or symbol used as the name component and controlling interning behavior
+
+### Behavior
+
+- **No arguments**: Creates a symbol named `G__N` (where N is a unique number) and interns it in the current module.
+- **Prefix only**: Creates a symbol named `PREFIX__N` and interns it in the current module.
+- **Prefix and module**: Creates a symbol named `MODULE__N` and interns it in the module named by `prefix`.
+- **Nil prefix with module**: Creates a symbol named `MODULE__N` that is not interned in any module (`module-name` is `nil`).
+
+### Examples
+
+```fol
+;; No arguments - G__N in current module
+(gensym)                      ; => user::G__1
+(gensym)                      ; => user::G__2
+
+;; With prefix - PREFIX__N in current module
+(gensym "temp")               ; => user::TEMP__3
+
+;; With prefix and module - MODULE__N in prefix's module
+(gensym "math" "x")           ; => math::X__4
+
+;; Nil prefix with module - MODULE__N, uninterned
+(gensym nil "scratch")        ; => SCRATCH__5 (no module)
+```
+
+---
+
 ## int
 
 ```
