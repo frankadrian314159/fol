@@ -1346,3 +1346,301 @@ line3")
 (test parse-uuid-invalid-type
   "Test parse-uuid with invalid input type signals error."
   (signals error (parse-uuid 123)))
+
+
+;;; ============================================================================
+;;; Collection Replace Operations Tests
+;;; ============================================================================
+
+;;; ---------------------------------------------------------------------------
+;;; replace with <char> target and replacement
+;;; ---------------------------------------------------------------------------
+
+(test replace-char-to-char
+  "Test replace with char-to-char in strings."
+  (is (string= "hXllo" (replace "hello" #\e #\X)))
+  (is (string= "hXllo world" (replace "hello world" #\e #\X)))
+  (is (string= "hXXllo" (replace "heello" #\e #\X)))
+  ;; No match
+  (is (string= "hello" (replace "hello" #\z #\X))))
+
+(test replace-char-to-string
+  "Test replace with char-to-string in strings."
+  (is (string= "h[E]llo" (replace "hello" #\e "[E]")))
+  (is (string= "h[E]llo world" (replace "hello world" #\e "[E]")))
+  (is (string= "h[E][E]llo" (replace "heello" #\e "[E]"))))
+
+(test replace-char-wrapped
+  "Test replace with wrapped chars."
+  (is (string= "hXllo" (replace "hello" (wrap-char #\e) #\X)))
+  (is (string= "hXllo" (replace (wrap-string "hello") #\e #\X)))
+  (is (string= "h[E]llo" (replace "hello" #\e (wrap-string "[E]")))))
+
+;;; ---------------------------------------------------------------------------
+;;; replace for <list>
+;;; ---------------------------------------------------------------------------
+
+(test replace-list-basic
+  "Test replace for list."
+  (let ((lst (make-list 1 2 3 2 4)))
+    (let ((result (replace lst 2 99)))
+      (is (= 1 (nth-element result 0)))
+      (is (= 99 (nth-element result 1)))
+      (is (= 3 (nth-element result 2)))
+      (is (= 99 (nth-element result 3)))
+      (is (= 4 (nth-element result 4))))))
+
+(test replace-list-no-match
+  "Test replace for list with no matches."
+  (let ((lst (make-list 1 2 3)))
+    (let ((result (replace lst 5 99)))
+      (is (= 1 (nth-element result 0)))
+      (is (= 2 (nth-element result 1)))
+      (is (= 3 (nth-element result 2))))))
+
+(test replace-list-all-match
+  "Test replace for list when all elements match."
+  (let ((lst (make-list 1 1 1)))
+    (let ((result (replace lst 1 99)))
+      (is (= 99 (nth-element result 0)))
+      (is (= 99 (nth-element result 1)))
+      (is (= 99 (nth-element result 2))))))
+
+;;; ---------------------------------------------------------------------------
+;;; replace for <vector>
+;;; ---------------------------------------------------------------------------
+
+(test replace-vector-basic
+  "Test replace for vector."
+  (let ((vec (make-vector 1 2 3 2 4)))
+    (let ((result (replace vec 2 99)))
+      (is (= 1 (nth-element result 0)))
+      (is (= 99 (nth-element result 1)))
+      (is (= 3 (nth-element result 2)))
+      (is (= 99 (nth-element result 3)))
+      (is (= 4 (nth-element result 4))))))
+
+(test replace-vector-no-match
+  "Test replace for vector with no matches."
+  (let ((vec (make-vector 1 2 3)))
+    (let ((result (replace vec 5 99)))
+      (is (= 1 (nth-element result 0)))
+      (is (= 2 (nth-element result 1)))
+      (is (= 3 (nth-element result 2))))))
+
+(test replace-vector-strings
+  "Test replace for vector of strings."
+  (let ((vec (make-vector "a" "b" "a" "c")))
+    (let ((result (replace vec "a" "X")))
+      (is (string= "X" (nth-element result 0)))
+      (is (string= "b" (nth-element result 1)))
+      (is (string= "X" (nth-element result 2)))
+      (is (string= "c" (nth-element result 3))))))
+
+;;; ---------------------------------------------------------------------------
+;;; replace for <array>
+;;; ---------------------------------------------------------------------------
+
+(test replace-array-basic
+  "Test replace for array."
+  (let ((arr (fol.collection:make-array (make-vector 2 2) 1 2 3 2)))
+    (let ((result (replace arr 2 99)))
+      (is (= 1 (nth-element result 0)))
+      (is (= 99 (nth-element result 1)))
+      (is (= 3 (nth-element result 2)))
+      (is (= 99 (nth-element result 3))))))
+
+;;; ---------------------------------------------------------------------------
+;;; replace for <dict>
+;;; ---------------------------------------------------------------------------
+
+(test replace-dict-basic
+  "Test replace for dict (replaces value at key)."
+  (let ((d (make-dict :a 1 :b 2 :c 3)))
+    (let ((result (replace d :b 99)))
+      (is (= 1 (get result :a)))
+      (is (= 99 (get result :b)))
+      (is (= 3 (get result :c))))))
+
+(test replace-dict-no-match
+  "Test replace for dict when key doesn't exist."
+  (let ((d (make-dict :a 1 :b 2)))
+    (let ((result (replace d :z 99)))
+      ;; Dict unchanged
+      (is (= 1 (get result :a)))
+      (is (= 2 (get result :b)))
+      (is (null (get result :z))))))
+
+;;; ---------------------------------------------------------------------------
+;;; replace for <set>
+;;; ---------------------------------------------------------------------------
+
+(test replace-set-basic
+  "Test replace for set (removes target, adds replacement)."
+  (let ((s (make-set 1 2 3)))
+    (let ((result (replace s 2 99)))
+      (is-true (contains? result 1))
+      (is-false (contains? result 2))
+      (is-true (contains? result 3))
+      (is-true (contains? result 99)))))
+
+(test replace-set-no-match
+  "Test replace for set when target not present."
+  (let ((s (make-set 1 2 3)))
+    (let ((result (replace s 5 99)))
+      ;; Set unchanged
+      (is-true (contains? result 1))
+      (is-true (contains? result 2))
+      (is-true (contains? result 3))
+      (is-false (contains? result 99)))))
+
+;;; ---------------------------------------------------------------------------
+;;; replace for <bag>
+;;; ---------------------------------------------------------------------------
+
+(test replace-bag-basic
+  "Test replace for bag (removes all target, adds same count of replacement)."
+  (let ((b (make-bag 1 2 2 3)))
+    (let ((result (replace b 2 99)))
+      (is-true (contains? result 1))
+      (is-false (contains? result 2))
+      (is-true (contains? result 3))
+      (is-true (contains? result 99))
+      ;; Count of 99 should be 2 (the count that 2 had)
+      (is (= 2 (fset:lookup (fol.persistent:pslot-value result 'fol.collection::items) 99))))))
+
+(test replace-bag-merge-counts
+  "Test replace for bag merges counts when replacement already exists."
+  (let ((b (make-bag 1 2 2 99)))  ; 99 already has count 1
+    (let ((result (replace b 2 99)))
+      (is-false (contains? result 2))
+      (is-true (contains? result 99))
+      ;; Count of 99 should be 3 (1 original + 2 from replacement)
+      (is (= 3 (fset:lookup (fol.persistent:pslot-value result 'fol.collection::items) 99))))))
+
+
+;;; ============================================================================
+;;; Collection Replace-First Operations Tests
+;;; ============================================================================
+
+;;; ---------------------------------------------------------------------------
+;;; replace-first with <char>
+;;; ---------------------------------------------------------------------------
+
+(test replace-first-char-to-char
+  "Test replace-first with char-to-char in strings."
+  (is (string= "hXllo" (replace-first "hello" #\e #\X)))
+  (is (string= "hXllo world" (replace-first "hello world" #\e #\X)))
+  ;; Only first occurrence
+  (is (string= "hXello" (replace-first "heello" #\e #\X))))
+
+(test replace-first-char-to-string
+  "Test replace-first with char-to-string in strings."
+  (is (string= "h[E]llo" (replace-first "hello" #\e "[E]")))
+  ;; Only first occurrence
+  (is (string= "h[E]ello" (replace-first "heello" #\e "[E]"))))
+
+;;; ---------------------------------------------------------------------------
+;;; replace-first for <list>
+;;; ---------------------------------------------------------------------------
+
+(test replace-first-list-basic
+  "Test replace-first for list."
+  (let ((lst (make-list 1 2 3 2 4)))
+    (let ((result (replace-first lst 2 99)))
+      (is (= 1 (nth-element result 0)))
+      (is (= 99 (nth-element result 1)))
+      (is (= 3 (nth-element result 2)))
+      (is (= 2 (nth-element result 3)))  ; Second 2 unchanged
+      (is (= 4 (nth-element result 4))))))
+
+(test replace-first-list-no-match
+  "Test replace-first for list with no match."
+  (let ((lst (make-list 1 2 3)))
+    (let ((result (replace-first lst 5 99)))
+      (is (= 1 (nth-element result 0)))
+      (is (= 2 (nth-element result 1)))
+      (is (= 3 (nth-element result 2))))))
+
+;;; ---------------------------------------------------------------------------
+;;; replace-first for <vector>
+;;; ---------------------------------------------------------------------------
+
+(test replace-first-vector-basic
+  "Test replace-first for vector."
+  (let ((vec (make-vector 1 2 3 2 4)))
+    (let ((result (replace-first vec 2 99)))
+      (is (= 1 (nth-element result 0)))
+      (is (= 99 (nth-element result 1)))
+      (is (= 3 (nth-element result 2)))
+      (is (= 2 (nth-element result 3)))  ; Second 2 unchanged
+      (is (= 4 (nth-element result 4))))))
+
+(test replace-first-vector-no-match
+  "Test replace-first for vector with no match."
+  (let ((vec (make-vector 1 2 3)))
+    (let ((result (replace-first vec 5 99)))
+      (is (= 1 (nth-element result 0)))
+      (is (= 2 (nth-element result 1)))
+      (is (= 3 (nth-element result 2))))))
+
+;;; ---------------------------------------------------------------------------
+;;; replace-first for <array>
+;;; ---------------------------------------------------------------------------
+
+(test replace-first-array-basic
+  "Test replace-first for array."
+  (let ((arr (fol.collection:make-array (make-vector 2 2) 1 2 3 2)))
+    (let ((result (replace-first arr 2 99)))
+      (is (= 1 (nth-element result 0)))
+      (is (= 99 (nth-element result 1)))
+      (is (= 3 (nth-element result 2)))
+      (is (= 2 (nth-element result 3))))))  ; Second 2 unchanged
+
+;;; ---------------------------------------------------------------------------
+;;; replace-first for <dict>
+;;; ---------------------------------------------------------------------------
+
+(test replace-first-dict-basic
+  "Test replace-first for dict (same as replace - only one key)."
+  (let ((d (make-dict :a 1 :b 2)))
+    (let ((result (replace-first d :b 99)))
+      (is (= 1 (get result :a)))
+      (is (= 99 (get result :b))))))
+
+;;; ---------------------------------------------------------------------------
+;;; replace-first for <set>
+;;; ---------------------------------------------------------------------------
+
+(test replace-first-set-basic
+  "Test replace-first for set (same as replace - only one occurrence)."
+  (let ((s (make-set 1 2 3)))
+    (let ((result (replace-first s 2 99)))
+      (is-true (contains? result 1))
+      (is-false (contains? result 2))
+      (is-true (contains? result 3))
+      (is-true (contains? result 99)))))
+
+;;; ---------------------------------------------------------------------------
+;;; replace-first for <bag>
+;;; ---------------------------------------------------------------------------
+
+(test replace-first-bag-basic
+  "Test replace-first for bag (removes one occurrence, adds one replacement)."
+  (let ((b (make-bag 1 2 2 3)))  ; 2 has count 2
+    (let ((result (replace-first b 2 99)))
+      (is-true (contains? result 1))
+      (is-true (contains? result 2))  ; Still has one 2
+      (is-true (contains? result 3))
+      (is-true (contains? result 99))
+      ;; Count of 2 should be 1 (was 2, now 1)
+      (is (= 1 (fset:lookup (fol.persistent:pslot-value result 'fol.collection::items) 2)))
+      ;; Count of 99 should be 1
+      (is (= 1 (fset:lookup (fol.persistent:pslot-value result 'fol.collection::items) 99))))))
+
+(test replace-first-bag-last-occurrence
+  "Test replace-first for bag when removing last occurrence."
+  (let ((b (make-bag 1 2 3)))  ; 2 has count 1
+    (let ((result (replace-first b 2 99)))
+      (is-false (contains? result 2))  ; 2 completely removed
+      (is-true (contains? result 99)))))

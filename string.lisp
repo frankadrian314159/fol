@@ -131,7 +131,7 @@
 
 
 ;;; ============================================================================
-;;; String Replace Operations
+;;; String Replace Operations (Generic Functions)
 ;;; ============================================================================
 
 (defun %get-replacement (replacement func-name)
@@ -141,71 +141,6 @@
     (<string> (fol.wrappers:fol-value replacement))
     (function replacement)
     (t (error "~A replacement must be a string or function, got ~A" func-name (type-of replacement)))))
-
-(defun replace-first (s match replacement)
-  "Replaces the first instance of MATCH in S with REPLACEMENT.
-   MATCH can be a string, <re-pattern>, or <re-scanner>.
-   REPLACEMENT can be a string or a function.
-
-   If MATCH is a string, performs literal string replacement.
-   If MATCH is a regex, REPLACEMENT can be:
-   - A string (with $1, $2, etc. for backreferences)
-   - A function that receives the match and groups dict, returning the replacement
-
-   Equivalent to Clojure's clojure.string/replace-first."
-  (let ((str (%get-string s "REPLACE-FIRST"))
-        (repl (%get-replacement replacement "REPLACE-FIRST")))
-    (typecase match
-      ;; Regex scanner (check before <re-pattern>)
-      (<re-scanner>
-       (if (functionp repl)
-           ;; Function replacement - need to capture groups
-           (multiple-value-bind (match-str groups) (re-find match str)
-             (if match-str
-                 (let* ((replacement-str (funcall repl match-str groups))
-                        (pos (search match-str str)))
-                   (concatenate 'string
-                                (subseq str 0 pos)
-                                replacement-str
-                                (subseq str (cl:+ pos (length match-str)))))
-                 str))
-           ;; String replacement with potential backreferences
-           (cl-ppcre:regex-replace (scanner-function match) str repl)))
-      ;; Regex pattern (check before <string> since it's a subclass)
-      (<re-pattern>
-       (if (functionp repl)
-           ;; Function replacement - need to capture groups
-           (multiple-value-bind (match-str groups) (re-find match str)
-             (if match-str
-                 (let* ((replacement-str (funcall repl match-str groups))
-                        (pos (search match-str str)))
-                   (concatenate 'string
-                                (subseq str 0 pos)
-                                replacement-str
-                                (subseq str (cl:+ pos (length match-str)))))
-                 str))
-           ;; String replacement with potential backreferences
-           (cl-ppcre:regex-replace (fol.wrappers:fol-value match) str repl)))
-      ;; Wrapped string literal match (not a regex pattern)
-      (<string>
-       (let* ((match-str (fol.wrappers:fol-value match))
-              (pos (search match-str str)))
-         (if pos
-             (concatenate 'string
-                          (subseq str 0 pos)
-                          (if (functionp repl) (funcall repl match-str) repl)
-                          (subseq str (cl:+ pos (length match-str))))
-             str)))
-      ;; String literal match
-      (string
-       (let ((pos (search match str)))
-         (if pos
-             (concatenate 'string
-                          (subseq str 0 pos)
-                          (if (functionp repl) (funcall repl match) repl)
-                          (subseq str (cl:+ pos (length match))))
-             str)))
-      (t (error "REPLACE-FIRST match must be a string or regex, got ~A" (type-of match))))))
 
 (defun %replace-with-function (str scanner repl)
   "Helper to replace all regex matches using a function."
@@ -226,50 +161,413 @@
             (write-string (funcall repl match-str groups) out)
             (setf pos (cl:+ found (cl:max 1 (length match-str))))))))))
 
-(defun replace (s match replacement)
-  "Replaces all instances of MATCH in S with REPLACEMENT.
-   MATCH can be a string, <re-pattern>, or <re-scanner>.
-   REPLACEMENT can be a string or a function.
 
-   If MATCH is a string, performs literal string replacement.
-   If MATCH is a regex, REPLACEMENT can be:
-   - A string (with $1, $2, etc. for backreferences)
-   - A function that receives the match and groups dict, returning the replacement
+;;; ============================================================================
+;;; REPLACE Generic Function
+;;; ============================================================================
 
-   Equivalent to Clojure's clojure.string/replace."
-  (let ((str (%get-string s "REPLACE"))
-        (repl (%get-replacement replacement "REPLACE")))
-    (typecase match
-      ;; Regex scanner (check before <re-pattern>)
-      (<re-scanner>
-       (if (functionp repl)
-           (%replace-with-function str match repl)
-           ;; String replacement with potential backreferences
-           (cl-ppcre:regex-replace-all (scanner-function match) str repl)))
-      ;; Regex pattern (check before <string> since it's a subclass)
-      (<re-pattern>
-       (if (functionp repl)
-           (%replace-with-function str match repl)
-           ;; String replacement with potential backreferences
-           (cl-ppcre:regex-replace-all (fol.wrappers:fol-value match) str repl)))
-      ;; Wrapped string literal match (not a regex pattern)
-      (<string>
-       (let ((match-str (fol.wrappers:fol-value match)))
-         (replace str match-str repl)))
-      ;; String literal match - replace all occurrences
-      (string
-       (if (zerop (length match))
-           str  ; Can't replace empty string
-           (with-output-to-string (out)
-             (loop with pos = 0
-                   with match-len = (length match)
-                   for found = (search match str :start2 pos)
-                   while found
-                   do (write-string (subseq str pos found) out)
-                      (write-string (if (functionp repl) (funcall repl match) repl) out)
-                      (setf pos (cl:+ found match-len))
-                   finally (write-string (subseq str pos) out)))))
-      (t (error "REPLACE match must be a string or regex, got ~A" (type-of match))))))
+(defgeneric replace (source target replacement)
+  (:documentation "Replace occurrences of TARGET with REPLACEMENT in SOURCE.
+   For strings: replaces all matching substrings/characters/regex matches.
+   For collections: replaces all elements equal to TARGET with REPLACEMENT.
+   For dicts: TARGET is a key, REPLACEMENT is the new value.
+   For sets/bags: removes TARGET and adds REPLACEMENT."))
+
+;;; --- replace for <string> with <char> target and <char> replacement ---
+(defmethod replace ((source string) (target character) (replacement character))
+  "Replace all occurrences of TARGET character with REPLACEMENT character in SOURCE string."
+  (substitute replacement target source))
+
+(defmethod replace ((source <string>) (target character) (replacement character))
+  (replace (fol.wrappers:fol-value source) target replacement))
+
+(defmethod replace ((source string) (target <char>) replacement)
+  (replace source (fol.wrappers:fol-value target) replacement))
+
+(defmethod replace ((source <string>) (target <char>) replacement)
+  (replace (fol.wrappers:fol-value source) (fol.wrappers:fol-value target) replacement))
+
+;;; --- replace for <string> with <char> target and <string> replacement ---
+(defmethod replace ((source string) (target character) (replacement string))
+  "Replace all occurrences of TARGET character with REPLACEMENT string in SOURCE."
+  (with-output-to-string (out)
+    (loop for char across source
+          do (if (char= char target)
+                 (write-string replacement out)
+                 (write-char char out)))))
+
+(defmethod replace ((source <string>) (target character) (replacement string))
+  (replace (fol.wrappers:fol-value source) target replacement))
+
+(defmethod replace ((source string) (target character) (replacement <string>))
+  (replace source target (fol.wrappers:fol-value replacement)))
+
+(defmethod replace ((source <string>) (target character) (replacement <string>))
+  (replace (fol.wrappers:fol-value source) target (fol.wrappers:fol-value replacement)))
+
+(defmethod replace ((source string) (target <char>) (replacement string))
+  (replace source (fol.wrappers:fol-value target) replacement))
+
+(defmethod replace ((source <string>) (target <char>) (replacement string))
+  (replace (fol.wrappers:fol-value source) (fol.wrappers:fol-value target) replacement))
+
+(defmethod replace ((source string) (target <char>) (replacement <string>))
+  (replace source (fol.wrappers:fol-value target) (fol.wrappers:fol-value replacement)))
+
+(defmethod replace ((source <string>) (target <char>) (replacement <string>))
+  (replace (fol.wrappers:fol-value source) (fol.wrappers:fol-value target) (fol.wrappers:fol-value replacement)))
+
+;;; --- replace for <string> with <string> target and <string> replacement ---
+(defmethod replace ((source string) (target string) replacement)
+  "Replace all occurrences of TARGET string with REPLACEMENT in SOURCE string."
+  (let ((repl (%get-replacement replacement "REPLACE")))
+    (if (zerop (length target))
+        source  ; Can't replace empty string
+        (with-output-to-string (out)
+          (loop with pos = 0
+                with match-len = (length target)
+                for found = (search target source :start2 pos)
+                while found
+                do (write-string (subseq source pos found) out)
+                   (write-string (if (functionp repl) (funcall repl target) repl) out)
+                   (setf pos (cl:+ found match-len))
+                finally (write-string (subseq source pos) out))))))
+
+(defmethod replace ((source <string>) (target string) replacement)
+  (replace (fol.wrappers:fol-value source) target replacement))
+
+(defmethod replace ((source string) (target <string>) replacement)
+  ;; Check if it's actually a <re-pattern> (subclass of <string>)
+  (if (typep target '<re-pattern>)
+      ;; Delegate to regex method
+      (replace source (the <re-pattern> target) replacement)
+      (replace source (fol.wrappers:fol-value target) replacement)))
+
+(defmethod replace ((source <string>) (target <string>) replacement)
+  (if (typep target '<re-pattern>)
+      (replace (fol.wrappers:fol-value source) (the <re-pattern> target) replacement)
+      (replace (fol.wrappers:fol-value source) (fol.wrappers:fol-value target) replacement)))
+
+;;; --- replace for <string> with <re-pattern> target ---
+(defmethod replace ((source string) (target <re-pattern>) replacement)
+  "Replace all regex matches of TARGET in SOURCE with REPLACEMENT."
+  (let ((repl (%get-replacement replacement "REPLACE")))
+    (if (functionp repl)
+        (%replace-with-function source target repl)
+        (cl-ppcre:regex-replace-all (fol.wrappers:fol-value target) source repl))))
+
+(defmethod replace ((source <string>) (target <re-pattern>) replacement)
+  (replace (fol.wrappers:fol-value source) target replacement))
+
+;;; --- replace for <string> with <re-scanner> target ---
+(defmethod replace ((source string) (target <re-scanner>) replacement)
+  "Replace all regex matches of TARGET scanner in SOURCE with REPLACEMENT."
+  (let ((repl (%get-replacement replacement "REPLACE")))
+    (if (functionp repl)
+        (%replace-with-function source target repl)
+        (cl-ppcre:regex-replace-all (scanner-function target) source repl))))
+
+(defmethod replace ((source <string>) (target <re-scanner>) replacement)
+  (replace (fol.wrappers:fol-value source) target replacement))
+
+;;; --- replace for <list> ---
+(defmethod replace ((source fol.collection:<list>) target replacement)
+  "Replace all occurrences of TARGET with REPLACEMENT in the list."
+  (let ((raw-target (fol.wrappers:fol-value target))
+        (raw-replacement (fol.wrappers:fol-value replacement)))
+    (labels ((replace-in-list (lst)
+               (if (fol.collection:empty? lst)
+                   nil
+                   (let ((item (fol.collection:first lst))
+                         (rest-result (replace-in-list (fol.collection:rest lst))))
+                     (if (equalp item raw-target)
+                         (cl:cons raw-replacement rest-result)
+                         (cl:cons item rest-result))))))
+      (let ((result (replace-in-list source)))
+        (if result
+            (apply #'fol.collection:make-list result)
+            (fol.collection:make-list))))))
+
+;;; --- replace for <vector> ---
+(defmethod replace ((source fol.collection:<vector>) target replacement)
+  "Replace all occurrences of TARGET with REPLACEMENT in the vector."
+  (let ((raw-target (fol.wrappers:fol-value target))
+        (raw-replacement (fol.wrappers:fol-value replacement))
+        (seq (fol.persistent:pslot-value source 'fol.collection::items)))
+    (make-instance 'fol.collection:<vector>
+                   :items (fset:image (lambda (item)
+                                        (if (equalp item raw-target)
+                                            raw-replacement
+                                            item))
+                                      seq))))
+
+;;; --- replace for <array> ---
+(defmethod replace ((source fol.collection:<array>) target replacement)
+  "Replace all occurrences of TARGET with REPLACEMENT in the array."
+  (let ((raw-target (fol.wrappers:fol-value target))
+        (raw-replacement (fol.wrappers:fol-value replacement))
+        (seq (fol.persistent:pslot-value source 'fol.collection::items))
+        (dims (fol.persistent:pslot-value source 'fol.collection::dimensions)))
+    (make-instance 'fol.collection:<array>
+                   :dimensions dims
+                   :items (fset:image (lambda (item)
+                                        (if (equalp item raw-target)
+                                            raw-replacement
+                                            item))
+                                      seq))))
+
+;;; --- replace for <dict> ---
+(defmethod replace ((source fol.collection:<dict>) key replacement)
+  "Replace the value at KEY with REPLACEMENT in the dict.
+   If KEY doesn't exist, returns the dict unchanged."
+  (let ((raw-key (fol.wrappers:fol-value key))
+        (raw-replacement (fol.wrappers:fol-value replacement))
+        (map (fol.persistent:pslot-value source 'fol.collection::items)))
+    (multiple-value-bind (val found) (fset:lookup map raw-key)
+      (declare (ignore val))
+      (if found
+          (make-instance (class-of source)
+                         :items (fset:with map raw-key raw-replacement))
+          source))))
+
+;;; --- replace for <set> ---
+(defmethod replace ((source fol.collection:<set>) target replacement)
+  "Remove TARGET from set and add REPLACEMENT."
+  (let ((raw-target (fol.wrappers:fol-value target))
+        (raw-replacement (fol.wrappers:fol-value replacement))
+        (map (fol.persistent:pslot-value source 'fol.collection::items)))
+    (multiple-value-bind (val found) (fset:lookup map raw-target)
+      (declare (ignore val))
+      (if found
+          (let ((new-map (fset:less map raw-target)))
+            (make-instance (class-of source)
+                           :items (fset:with new-map raw-replacement t)))
+          source))))
+
+;;; --- replace for <bag> ---
+(defmethod replace ((source fol.collection:<bag>) target replacement)
+  "Remove all occurrences of TARGET from bag and add same count of REPLACEMENT."
+  (let ((raw-target (fol.wrappers:fol-value target))
+        (raw-replacement (fol.wrappers:fol-value replacement))
+        (map (fol.persistent:pslot-value source 'fol.collection::items)))
+    (let ((count (fset:lookup map raw-target)))
+      (if (and count (cl:> count 0))
+          (let* ((new-map (fset:less map raw-target))
+                 (existing-count (or (fset:lookup new-map raw-replacement) 0)))
+            (make-instance (class-of source)
+                           :items (fset:with new-map raw-replacement (cl:+ existing-count count))))
+          source))))
+
+
+;;; ============================================================================
+;;; REPLACE-FIRST Generic Function
+;;; ============================================================================
+
+(defgeneric replace-first (source target replacement)
+  (:documentation "Replace the first occurrence of TARGET with REPLACEMENT in SOURCE.
+   For strings: replaces first matching substring/character/regex match.
+   For collections: replaces first element equal to TARGET with REPLACEMENT.
+   For dicts: same as replace (replace value at key).
+   For sets/bags: removes TARGET and adds REPLACEMENT (once)."))
+
+;;; --- replace-first for <string> with <char> target and <char> replacement ---
+(defmethod replace-first ((source string) (target character) (replacement character))
+  "Replace first occurrence of TARGET character with REPLACEMENT character."
+  (let ((pos (position target source)))
+    (if pos
+        (let ((result (copy-seq source)))
+          (setf (char result pos) replacement)
+          result)
+        source)))
+
+(defmethod replace-first ((source <string>) (target character) (replacement character))
+  (replace-first (fol.wrappers:fol-value source) target replacement))
+
+(defmethod replace-first ((source string) (target <char>) replacement)
+  (replace-first source (fol.wrappers:fol-value target) replacement))
+
+(defmethod replace-first ((source <string>) (target <char>) replacement)
+  (replace-first (fol.wrappers:fol-value source) (fol.wrappers:fol-value target) replacement))
+
+;;; --- replace-first for <string> with <char> target and <string> replacement ---
+(defmethod replace-first ((source string) (target character) (replacement string))
+  "Replace first occurrence of TARGET character with REPLACEMENT string."
+  (let ((pos (position target source)))
+    (if pos
+        (concatenate 'string
+                     (subseq source 0 pos)
+                     replacement
+                     (subseq source (1+ pos)))
+        source)))
+
+(defmethod replace-first ((source <string>) (target character) (replacement string))
+  (replace-first (fol.wrappers:fol-value source) target replacement))
+
+(defmethod replace-first ((source string) (target character) (replacement <string>))
+  (replace-first source target (fol.wrappers:fol-value replacement)))
+
+(defmethod replace-first ((source <string>) (target character) (replacement <string>))
+  (replace-first (fol.wrappers:fol-value source) target (fol.wrappers:fol-value replacement)))
+
+(defmethod replace-first ((source string) (target <char>) (replacement string))
+  (replace-first source (fol.wrappers:fol-value target) replacement))
+
+(defmethod replace-first ((source <string>) (target <char>) (replacement string))
+  (replace-first (fol.wrappers:fol-value source) (fol.wrappers:fol-value target) replacement))
+
+(defmethod replace-first ((source string) (target <char>) (replacement <string>))
+  (replace-first source (fol.wrappers:fol-value target) (fol.wrappers:fol-value replacement)))
+
+(defmethod replace-first ((source <string>) (target <char>) (replacement <string>))
+  (replace-first (fol.wrappers:fol-value source) (fol.wrappers:fol-value target) (fol.wrappers:fol-value replacement)))
+
+;;; --- replace-first for <string> with <string> target ---
+(defmethod replace-first ((source string) (target string) replacement)
+  "Replace first occurrence of TARGET string with REPLACEMENT."
+  (let ((repl (%get-replacement replacement "REPLACE-FIRST"))
+        (pos (search target source)))
+    (if pos
+        (concatenate 'string
+                     (subseq source 0 pos)
+                     (if (functionp repl) (funcall repl target) repl)
+                     (subseq source (cl:+ pos (length target))))
+        source)))
+
+(defmethod replace-first ((source <string>) (target string) replacement)
+  (replace-first (fol.wrappers:fol-value source) target replacement))
+
+(defmethod replace-first ((source string) (target <string>) replacement)
+  (if (typep target '<re-pattern>)
+      (replace-first source (the <re-pattern> target) replacement)
+      (replace-first source (fol.wrappers:fol-value target) replacement)))
+
+(defmethod replace-first ((source <string>) (target <string>) replacement)
+  (if (typep target '<re-pattern>)
+      (replace-first (fol.wrappers:fol-value source) (the <re-pattern> target) replacement)
+      (replace-first (fol.wrappers:fol-value source) (fol.wrappers:fol-value target) replacement)))
+
+;;; --- replace-first for <string> with <re-pattern> target ---
+(defmethod replace-first ((source string) (target <re-pattern>) replacement)
+  "Replace first regex match of TARGET in SOURCE with REPLACEMENT."
+  (let ((repl (%get-replacement replacement "REPLACE-FIRST")))
+    (if (functionp repl)
+        (multiple-value-bind (match-str groups) (re-find target source)
+          (if match-str
+              (let* ((replacement-str (funcall repl match-str groups))
+                     (pos (search match-str source)))
+                (concatenate 'string
+                             (subseq source 0 pos)
+                             replacement-str
+                             (subseq source (cl:+ pos (length match-str)))))
+              source))
+        (cl-ppcre:regex-replace (fol.wrappers:fol-value target) source repl))))
+
+(defmethod replace-first ((source <string>) (target <re-pattern>) replacement)
+  (replace-first (fol.wrappers:fol-value source) target replacement))
+
+;;; --- replace-first for <string> with <re-scanner> target ---
+(defmethod replace-first ((source string) (target <re-scanner>) replacement)
+  "Replace first regex match of TARGET scanner in SOURCE with REPLACEMENT."
+  (let ((repl (%get-replacement replacement "REPLACE-FIRST")))
+    (if (functionp repl)
+        (multiple-value-bind (match-str groups) (re-find target source)
+          (if match-str
+              (let* ((replacement-str (funcall repl match-str groups))
+                     (pos (search match-str source)))
+                (concatenate 'string
+                             (subseq source 0 pos)
+                             replacement-str
+                             (subseq source (cl:+ pos (length match-str)))))
+              source))
+        (cl-ppcre:regex-replace (scanner-function target) source repl))))
+
+(defmethod replace-first ((source <string>) (target <re-scanner>) replacement)
+  (replace-first (fol.wrappers:fol-value source) target replacement))
+
+;;; --- replace-first for <list> ---
+(defmethod replace-first ((source fol.collection:<list>) target replacement)
+  "Replace first occurrence of TARGET with REPLACEMENT in the list."
+  (let ((raw-target (fol.wrappers:fol-value target))
+        (raw-replacement (fol.wrappers:fol-value replacement))
+        (found nil))
+    (labels ((replace-in-list (lst)
+               (if (or found (fol.collection:empty? lst))
+                   (if (fol.collection:empty? lst)
+                       nil
+                       ;; Copy rest unchanged
+                       (let ((item (fol.collection:first lst))
+                             (rest-result (replace-in-list (fol.collection:rest lst))))
+                         (cl:cons item rest-result)))
+                   (let ((item (fol.collection:first lst)))
+                     (if (equalp item raw-target)
+                         (progn
+                           (setf found t)
+                           (cl:cons raw-replacement (replace-in-list (fol.collection:rest lst))))
+                         (cl:cons item (replace-in-list (fol.collection:rest lst))))))))
+      (let ((result (replace-in-list source)))
+        (if result
+            (apply #'fol.collection:make-list result)
+            (fol.collection:make-list))))))
+
+;;; --- replace-first for <vector> ---
+(defmethod replace-first ((source fol.collection:<vector>) target replacement)
+  "Replace first occurrence of TARGET with REPLACEMENT in the vector."
+  (let ((raw-target (fol.wrappers:fol-value target))
+        (raw-replacement (fol.wrappers:fol-value replacement))
+        (seq (fol.persistent:pslot-value source 'fol.collection::items))
+        (idx nil))
+    ;; Find the first matching index
+    (fset:do-seq (item seq :index i)
+      (when (and (null idx) (equalp item raw-target))
+        (setf idx i)))
+    (if idx
+        (make-instance 'fol.collection:<vector>
+                       :items (fset:with seq idx raw-replacement))
+        source)))
+
+;;; --- replace-first for <array> ---
+(defmethod replace-first ((source fol.collection:<array>) target replacement)
+  "Replace first occurrence of TARGET with REPLACEMENT in the array."
+  (let ((raw-target (fol.wrappers:fol-value target))
+        (raw-replacement (fol.wrappers:fol-value replacement))
+        (seq (fol.persistent:pslot-value source 'fol.collection::items))
+        (dims (fol.persistent:pslot-value source 'fol.collection::dimensions))
+        (idx nil))
+    ;; Find the first matching index
+    (fset:do-seq (item seq :index i)
+      (when (and (null idx) (equalp item raw-target))
+        (setf idx i)))
+    (if idx
+        (make-instance 'fol.collection:<array>
+                       :dimensions dims
+                       :items (fset:with seq idx raw-replacement))
+        source)))
+
+;;; --- replace-first for <dict> ---
+(defmethod replace-first ((source fol.collection:<dict>) key replacement)
+  "Replace the value at KEY with REPLACEMENT in the dict (same as replace)."
+  (replace source key replacement))
+
+;;; --- replace-first for <set> ---
+(defmethod replace-first ((source fol.collection:<set>) target replacement)
+  "Remove TARGET from set and add REPLACEMENT (same as replace for sets)."
+  (replace source target replacement))
+
+;;; --- replace-first for <bag> ---
+(defmethod replace-first ((source fol.collection:<bag>) target replacement)
+  "Remove one occurrence of TARGET from bag and add one REPLACEMENT."
+  (let ((raw-target (fol.wrappers:fol-value target))
+        (raw-replacement (fol.wrappers:fol-value replacement))
+        (map (fol.persistent:pslot-value source 'fol.collection::items)))
+    (let ((count (fset:lookup map raw-target)))
+      (if (and count (cl:> count 0))
+          (let* ((new-map (if (cl:<= count 1)
+                              (fset:less map raw-target)
+                              (fset:with map raw-target (cl:1- count))))
+                 (existing-count (or (fset:lookup new-map raw-replacement) 0)))
+            (make-instance (class-of source)
+                           :items (fset:with new-map raw-replacement (cl:1+ existing-count))))
+          source))))
 
 
 ;;; ============================================================================
