@@ -188,7 +188,7 @@
             'str #'(lambda (&rest args)
                      (apply #'concatenate 'string
                             (mapcar #'princ-to-string args)))
-            'substr #'fol.string:substr
+            'sub #'fol.collection:sub
             'blank? #'fol.string:blank?
             'trim #'fol.string:trim
             'triml #'fol.string:triml
@@ -307,6 +307,8 @@
             'vec #'fol.collection:vec
             'mapv #'fol.collection:mapv
             'filterv #'fol.collection:filterv
+            'assoc #'fol.collection:assoc
+            'assoc-in #'fol.collection:assoc-in
             ;; Higher-order collection operations
             'reduce #'(lambda (f &rest args)
                         "Reduce a collection using function f.

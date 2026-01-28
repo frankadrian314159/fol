@@ -69,7 +69,6 @@
   ;; Import non-conflicting symbols from fol.string
   (:import-from :fol.string
                 :<string>?
-                :substr
                 :blank? :triml :trimr :trim-newline
                 :starts-with? :ends-with? :includes?
                 ;; Replace operations (replace is shadowed above)
@@ -118,7 +117,6 @@
                 :<dict>? :<set>? :<bag>? :<vector>? :<array>? :<list>?
                 :<lazy-seq>? :make-lazy-seq :realize-lazy-seq :lazy-seq-realized-p
                 :make-dict :make-set :make-bag :make-vector
-                :add :conj :contains? :size :empty? :seq
                 :iterator :current :next :done?
                 :nth-element :set-nth
                 :list-first :list-rest :list-size
@@ -129,9 +127,16 @@
                 ;; Sizing and into
                 :sized? :bounded-size :into
                 ;; Eager vector operations
-                :vec :mapv :filterv)
+                :vec :mapv :filterv
+                ;; Associative operations
+                :assoc-in :sub)
+  ;; Inport symbols from fol.seqop
+  (:import-from :fol.seqop
+                ::add :conj :contains? :size :empty? :seq)
   ;; Shadow CL symbols that FOL redefines
-  (:shadowing-import-from :fol.collection :remove :get :make-array :make-list :first :rest :second :third :nth :pop :push :reverse :vector)
+  (:shadowing-import-from :fol.seqop :remove :get :first :rest :nth :pop :push :reverse :assoc)
+  ;; Shadow CL symbols that FOL redefines
+  (:shadowing-import-from :fol.collection :remove :get :make-array :make-list :first :rest :second :third :nth :pop :push :reverse :vector :assoc)
   ;; Import symbols from fol.env
   (:import-from :fol.env
                 :<env>? :make-env :lookup :env-previous

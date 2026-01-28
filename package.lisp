@@ -1,6 +1,6 @@
 ;;; Delete packages in reverse dependency order to ensure clean reload
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (dolist (pkg '(:fol.repl :fol.eval :fol.env :fol.module :fol.collection
+  (dolist (pkg '(:fol.repl :fol.eval :fol.env :fol.module :fol.seqop :fol.collection
                  :fol.number :fol.symbol :fol.string :fol.char :fol.bool
                  :fol.compareop :fol.arithop :fol.bitop :fol.logop
                  :fol.wrappers :fol.reader :fol.stream :fol.classes :fol.mop :fol.fol-mop :fol.persistent))
@@ -185,7 +185,7 @@
 
 (defpackage fol.collection
   (:use cl fol.persistent)
-  (:shadow make-array make-list get remove first rest second third nth pop push reverse vector)
+  (:shadow make-array make-list get remove first rest second third nth pop push reverse vector assoc)
   (:export <collection> <collection>?
            <unordered-collection> <unordered-collection>?
            <ordered-collection> <ordered-collection>?
@@ -221,7 +221,19 @@
            ;; Into
            into
            ;; Eager vector operations
-           vector vec mapv filterv))
+           vector vec mapv filterv
+           ;; Associative operations
+           assoc assoc-in sub))
+
+(defpackage fol.seqop 
+  (:use cl fol.wrappers fol.classes fol.collection)
+  (:shadow assoc get rest first reverse remove pop push make-list third second nth
+           vector make-array)
+  (:export
+   ;; Sequence operations
+    get seq
+    size empty? contains?
+    add conj remove))
 
 (defpackage fol.module
   (:use cl fol.persistent fol.collection)
@@ -238,7 +250,8 @@
                           pop
                           push
                           reverse
-                          vector)
+                          vector
+                          assoc)
   (:export <module> <module>? make-module
            module-name module-exports module-export module-import
            find-module register-module +module-registry+
@@ -259,7 +272,8 @@
                           pop
                           push
                           reverse
-                          vector)
+                          vector
+                          assoc)
   (:export <env> <env>? make-env lookup env-previous unbound-variable fol-unbound-variable fol-unbound-variable-name fol-unbound-variable-message))
 
 (defpackage fol.logop
@@ -329,7 +343,6 @@
   (:shadow trim capitalize replace)
   (:export <string>?
            ;; String manipulation
-           substr
            blank? trim triml trimr trim-newline
            capitalize
            starts-with? ends-with? includes?
@@ -401,7 +414,8 @@
                           pop
                           push
                           reverse
-                          vector)
+                          vector
+                          assoc)
   (:shadowing-import-from fol.logop
                           not and or)
   (:shadowing-import-from fol.arithop

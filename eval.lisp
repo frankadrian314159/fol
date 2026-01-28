@@ -1076,7 +1076,7 @@
                               when (args-match-pattern-p
                                     (subseq call-args 0 (min (length sig) call-arity))
                                     sig)
-                                return (let ((internal-fn (cdr (assoc internal-name internal-fns))))
+                                return (let ((internal-fn (cdr (cl:assoc internal-name internal-fns))))
                                          (apply-function internal-fn call-args))
                             finally (error 'fol-arity-error
                                            :expected valid-arities
@@ -1187,7 +1187,7 @@
                               when (macro-args-match-pattern-p
                                     (subseq call-args 0 (min (length sig) call-arity))
                                     sig)
-                                return (let ((internal-macro (cdr (assoc internal-name internal-macros))))
+                                return (let ((internal-macro (cdr (cl:assoc internal-name internal-macros))))
                                          (expand-macro internal-macro call-args))
                             finally (error 'fol-arity-error
                                            :expected valid-arities

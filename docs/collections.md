@@ -266,3 +266,4 @@ For dicts, removes the key-value pair with the given key.
 (remove {:a 1 :b 2} :a)     ; => {:b 2}
 (remove [1 2 3 2] 2)        ; => [1 3 2] (removes first occurrence)
 ```
+

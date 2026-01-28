@@ -21,33 +21,6 @@
 ;;; String Manipulation Operations
 ;;; ============================================================================
 
-(defun substr (s start &optional end)
-  "Returns the substring of S beginning at START (inclusive) to END (exclusive).
-   If END is not provided, returns from START to the end of the string.
-   START and END are 0-based indices.
-
-   Equivalent to Clojure's subs function."
-  (let ((str (typecase s
-               (string s)
-               (<string> (fol.wrappers:fol-value s))
-               (t (error "SUBSTR requires a string, got ~A" (type-of s)))))
-        (start-idx (typecase start
-                     (integer start)
-                     (fol.classes:<integer> (fol.wrappers:fol-value start))
-                     (t (error "SUBSTR start index must be an integer, got ~A" (type-of start))))))
-    (let ((end-idx (if end
-                       (typecase end
-                         (integer end)
-                         (fol.classes:<integer> (fol.wrappers:fol-value end))
-                         (t (error "SUBSTR end index must be an integer, got ~A" (type-of end))))
-                       (length str))))
-      ;; Validate indices
-      (unless (cl:and (cl:>= start-idx 0) (cl:<= start-idx (length str)))
-        (error "SUBSTR start index ~A out of bounds for string of length ~A" start-idx (length str)))
-      (unless (cl:and (cl:>= end-idx start-idx) (cl:<= end-idx (length str)))
-        (error "SUBSTR end index ~A out of bounds (start=~A, length=~A)" end-idx start-idx (length str)))
-      (subseq str start-idx end-idx))))
-
 (defun %get-string (s func-name)
   "Helper to extract raw string from S for FUNC-NAME."
   (typecase s

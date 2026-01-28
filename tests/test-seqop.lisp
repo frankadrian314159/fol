@@ -1,0 +1,629 @@
+(in-package :fol.tests)
+
+;;; ============================================================================
+;;; Sequence Operation Tests - Tests for functions in seqop.lisp
+;;; ============================================================================
+
+(def-suite seqop-suite :in fol-suite)
+(def-suite* :fol.seqop-tests :in seqop-suite)
+
+;;; ---------------------------------------------------------------------------
+;;; Seq Tests
+;;; ---------------------------------------------------------------------------
+
+(test seq-empty-collections
+  "Test that seq returns NIL for empty collections."
+  (is (eq nil (seq (make-list))))
+  (is (eq nil (seq (make-vector))))
+  (is (eq nil (seq (make-dict))))
+  (is (eq nil (seq (make-set))))
+  (is (eq nil (seq (make-bag)))))
+
+(test seq-list
+  "Test seq on list returns the list itself."
+  (let ((lst (make-list 1 2 3)))
+    ;; seq on non-empty list returns the list itself
+    (is (eq lst (seq lst)))
+    (is-true (<list>? (seq lst)))
+    (is (= 3 (size (seq lst))))))
+
+(test seq-vector
+  "Test seq on vector returns a list."
+  (let* ((v (make-vector 1 2 3))
+         (s (seq v)))
+    (is-true (<list>? s))
+    (is (= 3 (size s)))
+    (is (= 1 (first s)))
+    (is (= 2 (first (rest s))))
+    (is (= 3 (first (rest (rest s)))))))
+
+(test seq-dict
+  "Test seq on dict returns a list of pairs."
+  (let* ((d (make-dict :a 1 :b 2))
+         (s (seq d)))
+    (is-true (<list>? s))
+    (is (= 2 (size s)))
+    ;; Each element should be a cons pair
+    (is-true (consp (first s)))
+    (is-true (consp (first (rest s))))))
+
+(test seq-set
+  "Test seq on set returns a list of elements."
+  (let* ((st (make-set 1 2 3))
+         (s (seq st)))
+    (is-true (<list>? s))
+    (is (= 3 (size s)))
+    ;; All elements should be in the seq
+    (is-true (contains? s 1))
+    (is-true (contains? s 2))
+    (is-true (contains? s 3))))
+
+(test seq-bag
+  "Test seq on bag returns elements repeated by count."
+  (let* ((b (make-bag :a :a :a :b :b))
+         (s (seq b)))
+    (is-true (<list>? s))
+    ;; 3 :a's and 2 :b's = 5 total
+    (is (= 5 (size s)))))
+
+(test seq-preserves-vector-order
+  "Test that seq preserves vector element order."
+  (let* ((v (make-vector 10 20 30 40))
+         (s (seq v)))
+    (is (= 10 (get s 0)))
+    (is (= 20 (get s 1)))
+    (is (= 30 (get s 2)))
+    (is (= 40 (get s 3)))))
+
+(test seq-idempotent-on-list
+  "Test that seq on a list is idempotent."
+  (let* ((lst (make-list 1 2 3))
+         (s1 (seq lst))
+         (s2 (seq s1)))
+    ;; seq of seq of list is the same list
+    (is (eq lst s1))
+    (is (eq s1 s2))))
+
+;;; ---------------------------------------------------------------------------
+;;; Conj Tests (Clojure-style addition)
+;;; ---------------------------------------------------------------------------
+
+(test conj-list-single
+  "Test conj adds to front of list."
+  (let* ((lst (make-list 2 3))
+         (result (conj lst 1)))
+    (is (= 3 (size result)))
+    (is (= 1 (first result)))
+    (is (= 2 (first (rest result))))))
+
+(test conj-list-multiple
+  "Test conj with multiple items on list."
+  (let* ((lst (make-list 4 5))
+         (result (conj lst 1 2 3)))
+    ;; Items are added left-to-right, so 3 ends up first
+    (is (= 5 (size result)))
+    (is (= 3 (first result)))
+    (is (= 2 (first (rest result))))
+    (is (= 1 (first (rest (rest result)))))))
+
+(test conj-list-empty
+  "Test conj to empty list."
+  (let* ((empty (make-list))
+         (result (conj empty :first)))
+    (is (= 1 (size result)))
+    (is (eq :first (first result)))))
+
+(test conj-vector-single
+  "Test conj adds to end of vector."
+  (let* ((v (make-vector 1 2))
+         (result (conj v 3)))
+    (is (= 3 (size result)))
+    (is (= 1 (get result 0)))
+    (is (= 2 (get result 1)))
+    (is (= 3 (get result 2)))))
+
+(test conj-vector-multiple
+  "Test conj with multiple items on vector."
+  (let* ((v (make-vector 1))
+         (result (conj v 2 3 4)))
+    (is (= 4 (size result)))
+    (is (= 1 (get result 0)))
+    (is (= 2 (get result 1)))
+    (is (= 3 (get result 2)))
+    (is (= 4 (get result 3)))))
+
+(test conj-set-single
+  "Test conj adds element to set."
+  (let* ((s (make-set 1 2))
+         (result (conj s 3)))
+    (is (= 3 (size result)))
+    (is-true (contains? result 1))
+    (is-true (contains? result 2))
+    (is-true (contains? result 3))))
+
+(test conj-set-duplicate
+  "Test conj with duplicate element on set."
+  (let* ((s (make-set 1 2))
+         (result (conj s 2)))
+    ;; Set should still have 2 elements
+    (is (= 2 (size result)))))
+
+(test conj-set-multiple
+  "Test conj with multiple items on set."
+  (let* ((s (make-set 1))
+         (result (conj s 2 3 4)))
+    (is (= 4 (size result)))
+    (is-true (contains? result 1))
+    (is-true (contains? result 2))
+    (is-true (contains? result 3))
+    (is-true (contains? result 4))))
+
+(test conj-bag-single
+  "Test conj adds element to bag."
+  (let* ((b (make-bag :a :a))
+         (result (conj b :a)))
+    ;; Bag size is unique elements, but seq gives total count
+    (is (= 1 (size result)))  ; 1 unique element
+    (is (= 3 (size (seq result))))))  ; 3 total occurrences
+
+(test conj-bag-multiple
+  "Test conj with multiple items on bag."
+  (let* ((b (make-bag :x))
+         (result (conj b :x :y :y)))
+    ;; 2 unique elements (:x and :y)
+    (is (= 2 (size result)))
+    ;; 2 :x's and 2 :y's = 4 total in seq
+    (is (= 4 (size (seq result))))))
+
+(test conj-dict-single
+  "Test conj adds key-value pair to dict."
+  (let* ((d (make-dict :a 1))
+         (result (conj d :b 2)))
+    (is (= 2 (size result)))
+    (is (= 1 (get result :a)))
+    (is (= 2 (get result :b)))))
+
+(test conj-dict-multiple
+  "Test conj with multiple pairs on dict (chained calls)."
+  (let* ((d (make-dict))
+         (result (conj (conj (conj d :a 1) :b 2) :c 3)))
+    (is (= 3 (size result)))
+    (is (= 1 (get result :a)))
+    (is (= 2 (get result :b)))
+    (is (= 3 (get result :c)))))
+
+(test conj-dict-update
+  "Test conj updates existing key in dict."
+  (let* ((d (make-dict :a 1))
+         (result (conj d :a 100)))
+    (is (= 1 (size result)))
+    (is (= 100 (get result :a)))))
+
+(test conj-dict-requires-key-value
+  "Test conj on dict requires exactly key and value."
+  (let ((d (make-dict)))
+    ;; Too few args (just key, no value)
+    (signals error
+      (conj d :key-only))))
+
+(test conj-array-error
+  "Test conj on array signals error."
+  (let ((a (make-array (make-vector 2 2) 1 2 3 4)))
+    (signals error
+      (conj a 5))))
+
+(test conj-lazy-seq
+  "Test conj adds to front of lazy-seq."
+  (let* ((ls (make-lazy-seq (lambda () (make-list 2 3))))
+         (result (conj ls 1)))
+    (is (= 1 (first result)))
+    (is (= 2 (first (rest result))))))
+
+(test conj-lazy-seq-multiple
+  "Test conj with multiple items on lazy-seq."
+  (let* ((ls (make-lazy-seq (lambda () (make-list 4))))
+         (result (conj ls 1 2 3)))
+    ;; Items added left-to-right, so 3 is first
+    (is (= 3 (first result)))
+    (is (= 2 (first (rest result))))
+    (is (= 1 (first (rest (rest result)))))
+    (is (= 4 (first (rest (rest (rest result))))))))
+
+(test conj-immutability
+  "Test conj does not mutate original collection."
+  (let* ((lst (make-list 1 2))
+         (vec (make-vector 1 2))
+         (st (make-set 1 2))
+         (lst2 (conj lst 0))
+         (vec2 (conj vec 3))
+         (st2 (conj st 3)))
+    ;; Originals unchanged
+    (is (= 2 (size lst)))
+    (is (= 2 (size vec)))
+    (is (= 2 (size st)))
+    ;; New collections have added elements
+    (is (= 3 (size lst2)))
+    (is (= 3 (size vec2)))
+    (is (= 3 (size st2)))))
+
+;;; ---------------------------------------------------------------------------
+;;; Pop Tests
+;;; ---------------------------------------------------------------------------
+
+(test pop-list-basic
+  "Test pop removes first element from list."
+  (let* ((lst (make-list 1 2 3))
+         (popped (pop lst)))
+    (is (= 2 (size popped)))
+    (is (= 2 (first popped)))
+    (is (= 3 (second popped)))))
+
+(test pop-list-single
+  "Test pop on single-element list returns empty list."
+  (let* ((lst (make-list 1))
+         (popped (pop lst)))
+    (is (<list>? popped))
+    (is (= 0 (size popped)))))
+
+(test pop-list-empty
+  "Test pop on empty list returns nil."
+  (let ((lst (make-list)))
+    (is (eq nil (pop lst)))))
+
+(test pop-list-nil
+  "Test pop on nil returns nil."
+  (is (eq nil (pop nil))))
+
+(test pop-vector-basic
+  "Test pop removes last element from vector."
+  (let* ((vec (make-vector 1 2 3))
+         (popped (pop vec)))
+    (is (= 2 (size popped)))
+    (is (= 1 (first popped)))
+    (is (= 2 (second popped)))))
+
+(test pop-vector-single
+  "Test pop on single-element vector returns empty vector."
+  (let* ((vec (make-vector 1))
+         (popped (pop vec)))
+    (is (<vector>? popped))
+    (is (= 0 (size popped)))))
+
+(test pop-vector-empty
+  "Test pop on empty vector returns empty vector."
+  (let* ((vec (make-vector))
+         (popped (pop vec)))
+    (is (<vector>? popped))
+    (is (= 0 (size popped)))))
+
+(test pop-immutability
+  "Test pop does not mutate original collection."
+  (let* ((lst (make-list 1 2 3))
+         (vec (make-vector 1 2 3))
+         (lst2 (pop lst))
+         (vec2 (pop vec)))
+    ;; Originals unchanged
+    (is (= 3 (size lst)))
+    (is (= 3 (size vec)))
+    ;; Popped collections have one less element
+    (is (= 2 (size lst2)))
+    (is (= 2 (size vec2)))))
+
+;;; ---------------------------------------------------------------------------
+;;; Push Tests
+;;; ---------------------------------------------------------------------------
+
+(test push-list-basic
+  "Test push adds element to front of list."
+  (let* ((lst (make-list 2 3))
+         (pushed (push 1 lst)))
+    (is (= 3 (size pushed)))
+    (is (= 1 (first pushed)))
+    (is (= 2 (second pushed)))
+    (is (= 3 (third pushed)))))
+
+(test push-list-empty
+  "Test push on empty list creates single-element list."
+  (let* ((lst (make-list))
+         (pushed (push 1 lst)))
+    (is (= 1 (size pushed)))
+    (is (= 1 (first pushed)))))
+
+(test push-list-nil
+  "Test push on nil creates single-element list."
+  (let ((pushed (push 1 nil)))
+    (is (<list>? pushed))
+    (is (= 1 (size pushed)))
+    (is (= 1 (first pushed)))))
+
+(test push-vector-basic
+  "Test push adds element to end of vector."
+  (let* ((vec (make-vector 1 2))
+         (pushed (push 3 vec)))
+    (is (= 3 (size pushed)))
+    (is (= 1 (first pushed)))
+    (is (= 2 (second pushed)))
+    (is (= 3 (third pushed)))))
+
+(test push-vector-empty
+  "Test push on empty vector creates single-element vector."
+  (let* ((vec (make-vector))
+         (pushed (push 1 vec)))
+    (is (= 1 (size pushed)))
+    (is (= 1 (first pushed)))))
+
+(test push-immutability
+  "Test push does not mutate original collection."
+  (let* ((lst (make-list 2 3))
+         (vec (make-vector 1 2))
+         (lst2 (push 1 lst))
+         (vec2 (push 3 vec)))
+    ;; Originals unchanged
+    (is (= 2 (size lst)))
+    (is (= 2 (size vec)))
+    ;; Pushed collections have one more element
+    (is (= 3 (size lst2)))
+    (is (= 3 (size vec2)))))
+
+;;; ---------------------------------------------------------------------------
+;;; Reverse Tests (for vectors)
+;;; ---------------------------------------------------------------------------
+
+(test reverse-vector-basic
+  "Test reverse with FOL vectors."
+  (let ((v (make-vector 1 2 3 4 5)))
+    (let ((r (reverse v)))
+      (is (= 5 (nth-element r 0)))
+      (is (= 4 (nth-element r 1)))
+      (is (= 3 (nth-element r 2)))
+      (is (= 2 (nth-element r 3)))
+      (is (= 1 (nth-element r 4))))))
+
+(test reverse-vector-empty
+  "Test reverse with empty vector."
+  (let ((v (make-vector)))
+    (is (= 0 (size (reverse v))))))
+
+(test reverse-vector-single
+  "Test reverse with single-element vector."
+  (let ((v (make-vector 42)))
+    (let ((r (reverse v)))
+      (is (= 1 (size r)))
+      (is (= 42 (nth-element r 0))))))
+
+;;; ---------------------------------------------------------------------------
+;;; Reverse Tests (for lists)
+;;; ---------------------------------------------------------------------------
+
+(test reverse-list-basic
+  "Test reverse with FOL lists."
+  (let ((lst (make-list 1 2 3 4 5)))
+    (let ((r (reverse lst)))
+      (is (= 5 (first r)))
+      (is (= 4 (first (rest r))))
+      (is (= 1 (first (rest (rest (rest (rest r))))))))))
+
+(test reverse-list-empty
+  "Test reverse with empty list."
+  (let ((lst (make-list)))
+    (is (empty? (reverse lst)))))
+
+(test reverse-list-single
+  "Test reverse with single-element list."
+  (let ((lst (make-list 42)))
+    (let ((r (reverse lst)))
+      (is (= 1 (size r)))
+      (is (= 42 (first r))))))
+
+(test reverse-cl-list
+  "Test reverse with CL lists."
+  (is (equal '(3 2 1) (reverse '(1 2 3))))
+  (is (equal '(c b a) (reverse '(a b c)))))
+
+;;; ---------------------------------------------------------------------------
+;;; index-of Tests for Vectors
+;;; ---------------------------------------------------------------------------
+
+(test index-of-vector-basic
+  "Test index-of with FOL vectors."
+  (let ((v (make-vector 1 2 3 4 5)))
+    (is (= 0 (index-of v 1)))
+    (is (= 2 (index-of v 3)))
+    (is (= 4 (index-of v 5)))
+    (is (null (index-of v 6)))))
+
+(test index-of-vector-with-start
+  "Test index-of with start index on vectors."
+  (let ((v (make-vector 1 2 3 2 1)))
+    (is (= 1 (index-of v 2)))
+    (is (= 3 (index-of v 2 2)))
+    (is (= 4 (index-of v 1 2)))
+    (is (null (index-of v 1 5)))))
+
+(test index-of-vector-symbols
+  "Test index-of with symbol values in vectors."
+  (let ((v (make-vector 'a 'b 'c 'd)))
+    (is (= 0 (index-of v 'a)))
+    (is (= 2 (index-of v 'c)))
+    (is (null (index-of v 'e)))))
+
+;;; ---------------------------------------------------------------------------
+;;; index-of Tests for Lists
+;;; ---------------------------------------------------------------------------
+
+(test index-of-list-basic
+  "Test index-of with FOL lists."
+  (let ((lst (make-list 1 2 3 4 5)))
+    (is (= 0 (index-of lst 1)))
+    (is (= 2 (index-of lst 3)))
+    (is (= 4 (index-of lst 5)))
+    (is (null (index-of lst 6)))))
+
+(test index-of-list-with-start
+  "Test index-of with start index on lists."
+  (let ((lst (make-list 1 2 3 2 1)))
+    (is (= 1 (index-of lst 2)))
+    (is (= 3 (index-of lst 2 2)))
+    (is (= 4 (index-of lst 1 2)))
+    (is (null (index-of lst 1 5)))))
+
+(test index-of-cl-list
+  "Test index-of with CL lists."
+  (is (= 1 (index-of '(a b c) 'b)))
+  (is (= 0 (index-of '(1 2 3) 1)))
+  (is (null (index-of '(1 2 3) 4))))
+
+;;; ---------------------------------------------------------------------------
+;;; last-index-of Tests for Vectors
+;;; ---------------------------------------------------------------------------
+
+(test last-index-of-vector-basic
+  "Test last-index-of with FOL vectors."
+  (let ((v (make-vector 1 2 3 2 1)))
+    (is (= 4 (last-index-of v 1)))
+    (is (= 3 (last-index-of v 2)))
+    (is (= 2 (last-index-of v 3)))
+    (is (null (last-index-of v 5)))))
+
+(test last-index-of-vector-with-start
+  "Test last-index-of with start index on vectors."
+  (let ((v (make-vector 1 2 3 2 1)))
+    (is (= 1 (last-index-of v 2 2)))
+    (is (= 0 (last-index-of v 1 2)))
+    (is (null (last-index-of v 3 1)))))
+
+;;; ---------------------------------------------------------------------------
+;;; last-index-of Tests for Lists
+;;; ---------------------------------------------------------------------------
+
+(test last-index-of-list-basic
+  "Test last-index-of with FOL lists."
+  (let ((lst (make-list 1 2 3 2 1)))
+    (is (= 4 (last-index-of lst 1)))
+    (is (= 3 (last-index-of lst 2)))
+    (is (= 2 (last-index-of lst 3)))
+    (is (null (last-index-of lst 5)))))
+
+(test last-index-of-list-with-start
+  "Test last-index-of with start index on lists."
+  (let ((lst (make-list 1 2 3 2 1)))
+    (is (= 1 (last-index-of lst 2 2)))
+    (is (= 0 (last-index-of lst 1 2)))
+    (is (null (last-index-of lst 3 1)))))
+
+(test last-index-of-cl-list
+  "Test last-index-of with CL lists."
+  (is (= 2 (last-index-of '(a b a) 'a)))
+  (is (= 2 (last-index-of '(1 2 1) 1)))
+  (is (null (last-index-of '(1 2 3) 4))))
+
+;;; ---------------------------------------------------------------------------
+;;; assoc Tests
+;;; ---------------------------------------------------------------------------
+
+(test assoc-dict-new-key
+  "Test assoc adds a new key to a dict."
+  (let* ((d (make-dict :a 1 :b 2))
+         (result (assoc d :c 3)))
+    (is-true (<dict>? result))
+    (is (= 3 (get result :c)))
+    (is (= 1 (get d :a)))  ; original unchanged
+    (is (null (get d :c)))))  ; original doesn't have :c
+
+(test assoc-dict-existing-key
+  "Test assoc updates an existing key in a dict."
+  (let* ((d (make-dict :a 1 :b 2))
+         (result (assoc d :a 100)))
+    (is-true (<dict>? result))
+    (is (= 100 (get result :a)))
+    (is (= 1 (get d :a)))))  ; original unchanged
+
+(test assoc-vector
+  "Test assoc updates an element in a vector."
+  (let* ((v (make-vector 10 20 30))
+         (result (assoc v 1 99)))
+    (is-true (<vector>? result))
+    (is (= 10 (nth result 0)))
+    (is (= 99 (nth result 1)))
+    (is (= 30 (nth result 2)))
+    (is (= 20 (nth v 1)))))  ; original unchanged
+
+;;; ---------------------------------------------------------------------------
+;;; assoc-in Tests
+;;; ---------------------------------------------------------------------------
+
+(test assoc-in-single-key
+  "Test assoc-in with a single key."
+  (let* ((d (make-dict :a 1))
+         (result (assoc-in d (make-vector :b) 2)))
+    (is-true (<dict>? result))
+    (is (= 2 (get result :b)))))
+
+(test assoc-in-nested-dict
+  "Test assoc-in with nested dicts."
+  (let* ((d (make-dict :a (make-dict :b 1)))
+         (result (assoc-in d (make-vector :a :b) 99)))
+    (is-true (<dict>? result))
+    (is (= 99 (get (get result :a) :b)))))
+
+(test assoc-in-creates-intermediate
+  "Test assoc-in creates intermediate dicts."
+  (let* ((d (make-dict))
+         (result (assoc-in d (make-vector :a :b :c) 42)))
+    (is-true (<dict>? result))
+    (is (= 42 (get (get (get result :a) :b) :c)))))
+
+(test assoc-in-vector-root
+  "Test assoc-in with vector as root."
+  (let* ((v (make-vector (make-dict :a 1) (make-dict :b 2)))
+         (result (assoc-in v (make-vector 0 :a) 100)))
+    (is-true (<vector>? result))
+    (is (= 100 (get (nth result 0) :a)))))
+
+;;; ---------------------------------------------------------------------------
+;;; sub Tests
+;;; ---------------------------------------------------------------------------
+
+(test sub-string-basic
+  "Test sub on a string with start and end."
+  (is (string= "ell" (sub "hello" 1 4))))
+
+(test sub-string-no-end
+  "Test sub on a string with only start."
+  (is (string= "lo" (sub "hello" 3))))
+
+(test sub-string-full
+  "Test sub on a string from 0 to length."
+  (is (string= "hello" (sub "hello" 0 5))))
+
+(test sub-vector-basic
+  "Test sub on a vector with start and end."
+  (let ((v (sub (make-vector 1 2 3 4 5) 1 4)))
+    (is-true (<vector>? v))
+    (is (= 3 (size v)))
+    (is (= 2 (nth v 0)))
+    (is (= 3 (nth v 1)))
+    (is (= 4 (nth v 2)))))
+
+(test sub-vector-no-end
+  "Test sub on a vector with only start."
+  (let ((v (sub (make-vector 1 2 3 4 5) 2)))
+    (is-true (<vector>? v))
+    (is (= 3 (size v)))
+    (is (= 3 (nth v 0)))
+    (is (= 4 (nth v 1)))
+    (is (= 5 (nth v 2)))))
+
+(test sub-list-basic
+  "Test sub on a list with start and end."
+  (let ((lst (sub (make-list 1 2 3 4 5) 1 4)))
+    (is-true (<list>? lst))
+    (is (= 3 (size lst)))
+    (is (= 2 (first lst)))))
+
+(test sub-list-no-end
+  "Test sub on a list with only start."
+  (let ((lst (sub (make-list 1 2 3 4 5) 3)))
+    (is-true (<list>? lst))
+    (is (= 2 (size lst)))
+    (is (= 4 (first lst)))))
