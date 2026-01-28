@@ -300,6 +300,9 @@
             'add #'fol.collection:add
             'remove #'fol.collection:remove
             'disj #'fol.collection:disj
+            'sized? #'fol.collection:sized?
+            'bounded-size #'fol.collection:bounded-size
+            'into #'fol.collection:into
             ;; Higher-order collection operations
             'reduce #'(lambda (f &rest args)
                         "Reduce a collection using function f.

@@ -125,7 +125,9 @@
                 ;; Index operations
                 :index-of :last-index-of
                 ;; Reduced (for early termination in reduce)
-                :<reduced> :<reduced>? :reduced :unreduced :reduced-value)
+                :<reduced> :<reduced>? :reduced :unreduced :reduced-value
+                ;; Sizing and into
+                :sized? :bounded-size :into)
   ;; Shadow CL symbols that FOL redefines
   (:shadowing-import-from :fol.collection :remove :get :make-array :make-list :first :rest :second :third :nth :pop :push :reverse)
   ;; Import symbols from fol.env

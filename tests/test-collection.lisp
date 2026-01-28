@@ -1377,3 +1377,152 @@
   (is (= 2 (last-index-of '(a b a) 'a)))
   (is (= 2 (last-index-of '(1 2 1) 1)))
   (is (null (last-index-of '(1 2 3) 4))))
+
+;;; ---------------------------------------------------------------------------
+;;; sized? Tests
+;;; ---------------------------------------------------------------------------
+
+(test sized?-collections
+  "Test sized? returns T for sized collections."
+  (is-true (sized? (make-vector 1 2 3)))
+  (is-true (sized? (make-vector)))
+  (is-true (sized? (make-list 1 2 3)))
+  (is-true (sized? (make-list)))
+  (is-true (sized? (make-dict :a 1 :b 2)))
+  (is-true (sized? (make-dict)))
+  (is-true (sized? (make-set 1 2 3)))
+  (is-true (sized? (make-set)))
+  (is-true (sized? (make-bag 1 2 3)))
+  (is-true (sized? (make-bag))))
+
+(test sized?-unsized
+  "Test sized? returns NIL for unsized types."
+  (is-false (sized? (make-lazy-seq (lambda () nil))))
+  (is-false (sized? 42))
+  (is-false (sized? :foo)))
+
+(test sized?-cl-types
+  "Test sized? on CL native types."
+  (is-true (sized? '(1 2 3)))
+  (is-true (sized? nil))
+  (is-true (sized? "hello")))
+
+;;; ---------------------------------------------------------------------------
+;;; bounded-size Tests
+;;; ---------------------------------------------------------------------------
+
+(test bounded-size-sized-collections
+  "Test bounded-size returns exact size for sized collections."
+  (is (= 3 (bounded-size 10 (make-vector 1 2 3))))
+  (is (= 0 (bounded-size 10 (make-vector))))
+  (is (= 3 (bounded-size 10 (make-list 1 2 3))))
+  (is (= 2 (bounded-size 10 (make-dict :a 1 :b 2))))
+  (is (= 3 (bounded-size 10 (make-set 1 2 3)))))
+
+(test bounded-size-lazy-seq
+  "Test bounded-size counts at most n elements for unsized collections."
+  ;; Create a lazy seq of 5 elements
+  (let ((ls (make-lazy-seq
+             (lambda ()
+               (cl:cons 1 (make-lazy-seq
+                           (lambda ()
+                             (cl:cons 2 (make-lazy-seq
+                                         (lambda ()
+                                           (cl:cons 3 (make-lazy-seq
+                                                       (lambda ()
+                                                         (cl:cons 4 (make-lazy-seq
+                                                                     (lambda ()
+                                                                       (cl:cons 5 (make-lazy-seq
+                                                                                   (lambda () nil)))))))))))))))))))
+    ;; Request more than available: returns actual count
+    (is (= 5 (bounded-size 10 ls)))
+    ;; Request fewer than available: returns the cap
+    (is (= 3 (bounded-size 3 ls)))))
+
+;;; ---------------------------------------------------------------------------
+;;; into Tests
+;;; ---------------------------------------------------------------------------
+
+(test into-no-args
+  "Test (into) returns an empty vector."
+  (let ((result (into)))
+    (is-true (<vector>? result))
+    (is (= 0 (size result)))))
+
+(test into-one-arg
+  "Test (into to) returns to unchanged."
+  (let ((v (make-vector 1 2 3)))
+    (is (eq v (into v))))
+  (let ((d (make-dict :a 1)))
+    (is (eq d (into d)))))
+
+(test into-vector-from-list
+  "Test (into vec list) conjoins list elements into vector."
+  (let* ((v (make-vector 1 2))
+         (lst (make-list 3 4 5))
+         (result (into v lst)))
+    (is-true (<vector>? result))
+    (is (= 5 (size result)))
+    (is (= 1 (nth result 0)))
+    (is (= 2 (nth result 1)))
+    (is (= 3 (nth result 2)))
+    (is (= 4 (nth result 3)))
+    (is (= 5 (nth result 4)))))
+
+(test into-list-from-vector
+  "Test (into list vector) conjoins vector elements into list."
+  (let* ((lst (make-list))
+         (v (make-vector 1 2 3))
+         (result (into lst v)))
+    (is-true (<list>? result))
+    (is (= 3 (size result)))))
+
+(test into-set-from-vector
+  "Test (into set vector) conjoins vector elements into set."
+  (let* ((s (make-set 1 2))
+         (v (make-vector 2 3 4))
+         (result (into s v)))
+    (is-true (<set>? result))
+    (is-true (contains? result 1))
+    (is-true (contains? result 2))
+    (is-true (contains? result 3))
+    (is-true (contains? result 4))))
+
+(test into-empty-from
+  "Test (into to empty-from) returns to unchanged."
+  (let* ((v (make-vector 1 2 3))
+         (result (into v (make-list))))
+    (is-true (<vector>? result))
+    (is (= 3 (size result)))))
+
+(test into-with-transducer
+  "Test (into to xform from) applies transducer."
+  ;; Use a simple mapping transducer that doubles each element
+  (let* ((double-xf (lambda (rf)
+                      (lambda (result input)
+                        (funcall rf result (cl:* input 2)))))
+         (v (make-vector))
+         (lst (make-list 1 2 3))
+         (result (into v double-xf lst)))
+    (is-true (<vector>? result))
+    (is (= 3 (size result)))
+    (is (= 2 (nth result 0)))
+    (is (= 4 (nth result 1)))
+    (is (= 6 (nth result 2)))))
+
+(test into-with-filtering-transducer
+  "Test (into to xform from) with a filtering transducer."
+  ;; Transducer that only keeps even numbers
+  (let* ((even-xf (lambda (rf)
+                    (lambda (result input)
+                      (if (cl:evenp input)
+                          (funcall rf result input)
+                          result))))
+         (v (make-vector))
+         (lst (make-list 1 2 3 4 5 6))
+         (result (into v even-xf lst)))
+    (is-true (<vector>? result))
+    (is (= 3 (size result)))
+    (is (= 2 (nth result 0)))
+    (is (= 4 (nth result 1)))
+    (is (= 6 (nth result 2)))))

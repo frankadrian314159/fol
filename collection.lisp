@@ -1517,6 +1517,115 @@
       (apply #'make-list (coerce s 'list))))
 
 ;;; ============================================================================
+;;; SIZED? - Check if a collection has a known size
+;;; ============================================================================
+
+(defgeneric sized? (collection)
+  (:documentation "Returns T if COLLECTION has a known finite size, NIL otherwise.
+   Vectors, lists, dicts, sets, bags, and arrays are sized.
+   Lazy sequences and other types are not."))
+
+(defmethod sized? (obj)
+  "Default: not sized."
+  (declare (ignore obj))
+  nil)
+
+(defmethod sized? ((c <vector>)) t)
+(defmethod sized? ((c <list>)) t)
+(defmethod sized? ((c <dict>)) t)
+(defmethod sized? ((c <set>)) t)
+(defmethod sized? ((c <bag>)) t)
+(defmethod sized? ((c <array>)) t)
+(defmethod sized? ((c <lazy-seq>)) nil)
+(defmethod sized? ((lst cons)) t)
+(defmethod sized? ((lst null)) t)
+(defmethod sized? ((s string)) t)
+
+;;; ============================================================================
+;;; BOUNDED-SIZE - Get size with a limit for unsized collections
+;;; ============================================================================
+
+(defun bounded-size (n coll)
+  "If COLL is sized?, returns its size.
+   Otherwise, counts at most the first N elements of COLL."
+  (if (sized? coll)
+      (size coll)
+      (let ((s (seq coll))
+            (count 0))
+        (loop while (and s
+                        (not (empty? s))
+                        (cl:< count n))
+              do (cl:incf count)
+                 (setf s (rest s)))
+        count)))
+
+;;; ============================================================================
+;;; INTO - Conjoin elements from one collection into another
+;;; ============================================================================
+
+(defun into (&optional (to nil to-supplied-p) (xform-or-from nil xform-or-from-supplied-p)
+                       (from nil from-supplied-p))
+  "Returns a new collection consisting of TO with all of the items of FROM conjoined.
+   A transducer may be supplied.
+
+   (into)              - returns []
+   (into to)           - returns to
+   (into to from)      - conjoins all items of FROM into TO
+   (into to xform from) - applies transducer XFORM while conjoining FROM into TO"
+  (cond
+    ;; (into) => []
+    ((not to-supplied-p)
+     (make-vector))
+
+    ;; (into to) => to
+    ((not xform-or-from-supplied-p)
+     to)
+
+    ;; (into to from) or (into to xform from)?
+    ((not from-supplied-p)
+     ;; Two args: (into to from) — no transducer
+     (let ((from xform-or-from)
+           (result to))
+       (let ((s (seq from))
+             (dict-target (and (typep result '<dict>)
+                               (not (typep result '<set>))
+                               (not (typep result '<bag>)))))
+         (loop while (and s (not (empty? s)))
+               do (if dict-target
+                      ;; For dicts, elements from seq come as cons pairs (key . value)
+                      (let ((pair (first s)))
+                        (setf result (add result (car pair) (cdr pair))))
+                      (setf result (conj result (first s))))
+                  (setf s (rest s))))
+       result))
+
+    ;; (into to xform from) — with transducer
+    (t
+     (let* ((xform xform-or-from)
+            ;; Build the reducing function: conj (or add for dicts)
+            (dict-target (and (typep to '<dict>)
+                              (not (typep to '<set>))
+                              (not (typep to '<bag>))))
+            (rf (if dict-target
+                    #'(lambda (acc elem)
+                        (if (consp elem)
+                            (add acc (car elem) (cdr elem))
+                            (error "INTO <dict> with transducer: each element must be a cons pair (key . value), got ~A" elem)))
+                    #'(lambda (acc elem)
+                        (conj acc elem))))
+            ;; Apply the transducer to get the transformed reducing function
+            (xrf (funcall xform rf))
+            ;; Reduce over from using the transformed reducing function
+            (s (seq from))
+            (acc to))
+       (loop while (and s
+                        (not (empty? s))
+                        (not (<reduced>? acc)))
+             do (setf acc (funcall xrf acc (first s)))
+                (setf s (rest s)))
+       (unreduced acc)))))
+
+;;; ============================================================================
 ;;; FOL Type Reflection for Collections
 ;;; ============================================================================
 ;;; These methods must be defined here (after collection classes exist)

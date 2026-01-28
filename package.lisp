@@ -215,7 +215,11 @@
            ;; Stack-like operations
            peek pop push
            ;; Disjoin (removal for unordered collections)
-           disj))
+           disj
+           ;; Sizing operations
+           sized? bounded-size
+           ;; Into
+           into))
 
 (defpackage fol.module
   (:use cl fol.persistent fol.collection)
