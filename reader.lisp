@@ -298,11 +298,16 @@
     ;; Convert to symbol or number
     (let ((atom-string (coerce chars 'string)))
       (or (parse-number atom-string)
-          (if (char= (char atom-string 0) #\:)
-              ;; Keyword
-              (intern (string-upcase (subseq atom-string 1)) :keyword)
-              ;; Regular symbol
-              (intern (string-upcase atom-string)))))))
+          (cond
+            ;; Keyword (starts with :)
+            ((char= (char atom-string 0) #\:)
+             (intern (string-upcase (subseq atom-string 1)) :keyword))
+            ;; & is interned in keyword package (for destructuring)
+            ((string= atom-string "&")
+             (intern "&" :keyword))
+            ;; Regular symbol
+            (t
+             (intern (string-upcase atom-string))))))))
 
 (defun accumulate-atom (stream chr)
   "Read a complete atom starting with CHR."

@@ -627,3 +627,180 @@
     (is-true (<list>? lst))
     (is (= 2 (size lst)))
     (is (= 4 (first lst)))))
+
+;;; ---------------------------------------------------------------------------
+;;; rseq Tests
+;;; ---------------------------------------------------------------------------
+
+(test rseq-vector-basic
+  "Test rseq on a vector returns elements in reverse order."
+  (let ((v (make-vector 1 2 3 4 5)))
+    (let ((rs (rseq v)))
+      (is-true (<list>? rs))
+      (is (= 5 (first rs)))
+      (is (= 4 (first (rest rs))))
+      (is (= 1 (first (rest (rest (rest (rest rs))))))))))
+
+(test rseq-vector-empty
+  "Test rseq on empty vector returns NIL."
+  (let ((v (make-vector)))
+    (is (null (rseq v)))))
+
+(test rseq-list-basic
+  "Test rseq on a list returns elements in reverse order."
+  (let ((lst (make-list 1 2 3)))
+    (let ((rs (rseq lst)))
+      (is-true (<list>? rs))
+      (is (= 3 (first rs)))
+      (is (= 2 (first (rest rs))))
+      (is (= 1 (first (rest (rest rs))))))))
+
+(test rseq-list-empty
+  "Test rseq on empty list returns NIL."
+  (let ((lst (make-list)))
+    (is (null (rseq lst)))))
+
+(test rseq-cl-list
+  "Test rseq on CL list."
+  (is (equal '(3 2 1) (rseq '(1 2 3))))
+  (is (null (rseq nil))))
+
+;;; ---------------------------------------------------------------------------
+;;; update Tests
+;;; ---------------------------------------------------------------------------
+
+(test update-dict-basic
+  "Test update applies function to value in dict."
+  (let* ((d (make-dict :a 1 :b 2))
+         (result (update d :a #'cl:1+)))
+    (is-true (<dict>? result))
+    (is (= 2 (get result :a)))
+    (is (= 1 (get d :a)))))  ; original unchanged
+
+(test update-dict-with-args
+  "Test update with additional arguments."
+  (let* ((d (make-dict :a 10))
+         (result (update d :a #'cl:+ 5)))
+    (is (= 15 (get result :a)))))
+
+(test update-dict-missing-key
+  "Test update on missing key passes NIL to function."
+  (let* ((d (make-dict :a 1))
+         (result (update d :b (lambda (x) (if x (cl:1+ x) 100)))))
+    (is (= 100 (get result :b)))))
+
+(test update-vector-basic
+  "Test update applies function to value in vector."
+  (let* ((v (make-vector 10 20 30))
+         (result (update v 1 #'cl:1+)))
+    (is-true (<vector>? result))
+    (is (= 21 (nth result 1)))
+    (is (= 20 (nth v 1)))))  ; original unchanged
+
+(test update-vector-with-args
+  "Test update on vector with additional arguments."
+  (let* ((v (make-vector 10 20 30))
+         (result (update v 0 #'cl:* 2)))
+    (is (= 20 (nth result 0)))))
+
+;;; ---------------------------------------------------------------------------
+;;; update-in Tests
+;;; ---------------------------------------------------------------------------
+
+(test update-in-single-key
+  "Test update-in with a single key."
+  (let* ((d (make-dict :a 1))
+         (result (update-in d (make-vector :a) #'cl:1+)))
+    (is-true (<dict>? result))
+    (is (= 2 (get result :a)))))
+
+(test update-in-nested-dict
+  "Test update-in with nested dicts."
+  (let* ((d (make-dict :a (make-dict :b 10)))
+         (result (update-in d (make-vector :a :b) #'cl:1+)))
+    (is-true (<dict>? result))
+    (is (= 11 (get (get result :a) :b)))))
+
+(test update-in-creates-intermediate
+  "Test update-in creates intermediate dicts."
+  (let* ((d (make-dict))
+         (result (update-in d (make-vector :a :b) (lambda (x) (if x x 42)))))
+    (is-true (<dict>? result))
+    (is (= 42 (get (get result :a) :b)))))
+
+(test update-in-with-args
+  "Test update-in with additional arguments."
+  (let* ((d (make-dict :a (make-dict :b 10)))
+         (result (update-in d (make-vector :a :b) #'cl:+ 5)))
+    (is (= 15 (get (get result :a) :b)))))
+
+(test update-in-vector-root
+  "Test update-in with vector as root."
+  (let* ((v (make-vector (make-dict :a 1) (make-dict :b 2)))
+         (result (update-in v (make-vector 0 :a) #'cl:1+)))
+    (is-true (<vector>? result))
+    (is (= 2 (get (nth result 0) :a)))))
+
+;;; ---------------------------------------------------------------------------
+;;; reduce-kv Tests
+;;; ---------------------------------------------------------------------------
+
+(test reduce-kv-dict-basic
+  "Test reduce-kv on a dict."
+  (let* ((d (make-dict :a 1 :b 2 :c 3))
+         ;; Sum of all values
+         (result (reduce-kv (lambda (acc k v)
+                              (declare (ignore k))
+                              (cl:+ acc v))
+                            0 d)))
+    (is (= 6 result))))
+
+(test reduce-kv-dict-with-keys
+  "Test reduce-kv uses keys."
+  (let* ((d (make-dict :a 1 :b 2))
+         ;; Collect keys into a list
+         (result (reduce-kv (lambda (acc k v)
+                              (declare (ignore v))
+                              (cl:cons k acc))
+                            nil d)))
+    (is (= 2 (cl:length result)))
+    (is-true (cl:member :a result))
+    (is-true (cl:member :b result))))
+
+(test reduce-kv-vector-basic
+  "Test reduce-kv on a vector uses indices as keys."
+  (let* ((v (make-vector 10 20 30))
+         ;; Sum of index * value
+         (result (reduce-kv (lambda (acc idx val)
+                              (cl:+ acc (cl:* idx val)))
+                            0 v)))
+    ;; 0*10 + 1*20 + 2*30 = 0 + 20 + 60 = 80
+    (is (= 80 result))))
+
+(test reduce-kv-empty-dict
+  "Test reduce-kv on empty dict returns init."
+  (let ((result (reduce-kv (lambda (acc k v)
+                             (declare (ignore k v))
+                             (cl:1+ acc))
+                           42 (make-dict))))
+    (is (= 42 result))))
+
+(test reduce-kv-empty-vector
+  "Test reduce-kv on empty vector returns init."
+  (let ((result (reduce-kv (lambda (acc k v)
+                             (declare (ignore k v))
+                             (cl:1+ acc))
+                           42 (make-vector))))
+    (is (= 42 result))))
+
+(test reduce-kv-early-termination
+  "Test reduce-kv with early termination via reduced."
+  (let* ((v (make-vector 1 2 3 4 5))
+         ;; Stop when we reach index 2
+         (result (reduce-kv (lambda (acc idx val)
+                              (if (cl:= idx 2)
+                                  (reduced acc)
+                                  (cl:+ acc val)))
+                            0 v)))
+    ;; 1 + 2 = 3 (stopped at idx 2)
+    (is (= 3 result))))

@@ -373,6 +373,51 @@
           (let ((val (fset:lookup (pslot-value arr 'items) flat-index)))
             (or val default))))))
 
+;;; --- GET for Sets ---
+;;; For sets, get returns the key itself if present, default otherwise.
+;;; This enables Clojure-style (set key) => key or nil semantics.
+
+(defmethod get ((s <set>) key &optional default)
+  "Get KEY from set: returns KEY if present, DEFAULT otherwise."
+  (let ((raw-key (fol.wrappers:fol-value key)))
+    (multiple-value-bind (val found)
+        (fset:lookup (pslot-value s 'fol.collection::items) raw-key)
+      (declare (ignore val))
+      (if found raw-key default))))
+
+(defmethod get ((s <sorted-set>) key &optional default)
+  "Get KEY from sorted-set: returns KEY if present, DEFAULT otherwise."
+  (let ((raw-key (fol.wrappers:fol-value key)))
+    (if (fset:contains? (pslot-value s 'fol.collection::items) raw-key)
+        raw-key
+        default)))
+
+(defmethod get ((s <ordered-set>) key &optional default)
+  "Get KEY from ordered-set: returns KEY if present, DEFAULT otherwise."
+  (let ((raw-key (fol.wrappers:fol-value key)))
+    (multiple-value-bind (val found)
+        (fset:lookup (pslot-value s 'fol.collection::items) raw-key)
+      (declare (ignore val))
+      (if found raw-key default))))
+
+(defmethod get ((s <dense-int-set>) (key integer) &optional default)
+  "Get KEY from dense-int-set: returns KEY if present, DEFAULT otherwise."
+  (let* ((base (pslot-value s 'fol.collection::base))
+         (bits (pslot-value s 'fol.collection::bits))
+         (idx (- key base)))
+    (if (and (>= idx 0)
+             (< idx (length bits))
+             (= 1 (aref bits idx)))
+        key
+        default)))
+
+(defmethod get ((s <dense-int-set>) key &optional default)
+  "Get KEY from dense-int-set with wrapped key."
+  (let ((raw-key (fol.wrappers:fol-value key)))
+    (if (integerp raw-key)
+        (get s raw-key default)
+        default)))
+
 
 ;;; ============================================================================
 ;;; GENERIC COLLECTION PROTOCOLS
@@ -385,12 +430,42 @@
 (defmethod size ((c <collection>))
   (fset:size (pslot-value c 'items)))
 
+(defmethod size ((s <sorted-set>))
+  "Return number of elements in sorted-set."
+  (fset:size (pslot-value s 'items)))
+
+(defmethod size ((s <ordered-set>))
+  "Return number of elements in ordered-set."
+  (fset:size (pslot-value s 'fol.collection::items)))
+
+(defmethod size ((s <dense-int-set>))
+  "Return number of elements in dense-int-set (count of 1 bits)."
+  (count 1 (pslot-value s 'fol.collection::bits)))
+
 ;;; 2. EMPTY?
 (defgeneric empty? (collection)
   (:documentation "Returns T if the collection is empty, NIL otherwise."))
 
 (defmethod empty? ((c <collection>))
   (if (fset:empty? (pslot-value c 'items))
+      t
+      nil))
+
+(defmethod empty? ((s <sorted-set>))
+  "Check if sorted-set is empty."
+  (if (fset:empty? (pslot-value s 'items))
+      t
+      nil))
+
+(defmethod empty? ((s <ordered-set>))
+  "Check if ordered-set is empty."
+  (if (fset:empty? (pslot-value s 'fol.collection::items))
+      t
+      nil))
+
+(defmethod empty? ((s <dense-int-set>))
+  "Check if dense-int-set is empty (no 1 bits)."
+  (if (zerop (count 1 (pslot-value s 'fol.collection::bits)))
       t
       nil))
 
@@ -463,6 +538,36 @@
             (cl:push k elems))
           (apply #'make-list (nreverse elems))))))
 
+(defmethod seq ((s <sorted-set>))
+  "For sorted-sets, return a list of elements in sorted order."
+  (let ((items (pslot-value s 'items)))
+    (if (fset:empty? items)
+        nil
+        (let ((elems nil))
+          (fset:do-set (item items)
+            (cl:push item elems))
+          ;; Elements are pushed in sorted order, so reverse to get ascending
+          (apply #'make-list (nreverse elems))))))
+
+(defmethod seq ((s <ordered-set>))
+  "For ordered-sets, return a list of elements in insertion order."
+  (let ((order (pslot-value s 'fol.collection::order)))
+    (if (fset:empty? order)
+        nil
+        (apply #'make-list (fset:convert 'list order)))))
+
+(defmethod seq ((s <dense-int-set>))
+  "For dense-int-sets, return a list of elements in ascending order."
+  (let ((base (pslot-value s 'fol.collection::base))
+        (bits (pslot-value s 'fol.collection::bits))
+        (elems nil))
+    (loop for i from (1- (length bits)) downto 0
+          when (= 1 (aref bits i))
+          do (cl:push (+ base i) elems))
+    (if elems
+        (apply #'make-list elems)
+        nil)))
+
 (defmethod seq ((b <bag>))
   "For bags, return a list with elements repeated by their count."
   (let ((items (pslot-value b 'items)))
@@ -503,6 +608,32 @@
         t
         nil)))
 
+(defmethod contains? ((s <sorted-set>) item)
+  "Check if ITEM is in sorted-set."
+  (if (fset:contains? (pslot-value s 'items) (fol.wrappers:fol-value item))
+      t
+      nil))
+
+(defmethod contains? ((s <ordered-set>) item)
+  "Check if ITEM is in ordered-set."
+  (multiple-value-bind (val found)
+      (fset:lookup (pslot-value s 'fol.collection::items) (fol.wrappers:fol-value item))
+    (declare (ignore val))
+    (if found t nil)))
+
+(defmethod contains? ((s <dense-int-set>) item)
+  "Check if ITEM is in dense-int-set."
+  (let* ((raw (fol.wrappers:fol-value item))
+         (base (pslot-value s 'fol.collection::base))
+         (bits (pslot-value s 'fol.collection::bits))
+         (idx (- raw base)))
+    (if (and (integerp raw)
+             (>= idx 0)
+             (< idx (length bits))
+             (= 1 (aref bits idx)))
+        t
+        nil)))
+
 ;;; 4. ADD (Functional Insertion)
 (defgeneric add (collection item &optional value)
   (:documentation "Returns a new collection with ITEM added.
@@ -520,6 +651,45 @@
   (let ((new-map (fset:with (pslot-value s 'items)
                             (fol.wrappers:fol-value item) t)))
     (make-instance (class-of s) :items new-map)))
+
+(defmethod add ((s <sorted-set>) item &optional value)
+  "Add ITEM to sorted-set, maintaining sorted order."
+  (declare (ignore value))
+  (let ((new-set (fset:with (pslot-value s 'items)
+                            (fol.wrappers:fol-value item))))
+    (make-instance (class-of s) :items new-set)))
+
+(defmethod add ((s <ordered-set>) item &optional value)
+  "Add ITEM to ordered-set, maintaining insertion order."
+  (declare (ignore value))
+  (let* ((raw (fol.wrappers:fol-value item))
+         (items (pslot-value s 'fol.collection::items))
+         (order (pslot-value s 'fol.collection::order)))
+    (multiple-value-bind (val found) (fset:lookup items raw)
+      (declare (ignore val))
+      (if found
+          ;; Already present, return same set
+          s
+          ;; Add to both items and order
+          (make-instance (class-of s)
+                         :items (fset:with items raw t)
+                         :order (fset:with-last order raw))))))
+
+(defmethod add ((s <dense-int-set>) item &optional value)
+  "Add ITEM to dense-int-set."
+  (declare (ignore value))
+  (let* ((raw (fol.wrappers:fol-value item))
+         (base (pslot-value s 'fol.collection::base))
+         (bits (pslot-value s 'fol.collection::bits))
+         (idx (- raw base)))
+    (unless (integerp raw)
+      (error "DENSE-INT-SET only accepts integers, got ~S" raw))
+    (unless (and (>= idx 0) (< idx (length bits)))
+      (error "Integer ~A is outside range [~A, ~A]" raw base (+ base (1- (length bits)))))
+    ;; Create new bit vector with the bit set
+    (let ((new-bits (copy-seq bits)))
+      (setf (aref new-bits idx) 1)
+      (make-instance (class-of s) :base base :bits new-bits))))
 
 (defmethod add ((b <bag>) item &optional value)
   (declare (ignore value))
@@ -601,6 +771,47 @@
   (make-instance (class-of s)
                  :items (fset:less (pslot-value s 'items)
                                    (fol.wrappers:fol-value item))))
+
+(defmethod remove ((s <sorted-set>) item)
+  "Remove ITEM from sorted-set."
+  (let ((raw (fol.wrappers:fol-value item)))
+    (make-instance (class-of s)
+                   :items (fset:less (pslot-value s 'items) raw))))
+
+(defmethod remove ((s <ordered-set>) item)
+  "Remove ITEM from ordered-set, maintaining insertion order of remaining elements."
+  (let* ((raw (fol.wrappers:fol-value item))
+         (items (pslot-value s 'fol.collection::items))
+         (order (pslot-value s 'fol.collection::order)))
+    (multiple-value-bind (val found) (fset:lookup items raw)
+      (declare (ignore val))
+      (if found
+          ;; Remove from both items and order
+          (let ((new-order (fset:empty-seq)))
+            (fset:do-seq (elem order)
+              (unless (equal elem raw)
+                (setf new-order (fset:with-last new-order elem))))
+            (make-instance (class-of s)
+                           :items (fset:less items raw)
+                           :order new-order))
+          ;; Not present, return same set
+          s))))
+
+(defmethod remove ((s <dense-int-set>) item)
+  "Remove ITEM from dense-int-set."
+  (let* ((raw (fol.wrappers:fol-value item))
+         (base (pslot-value s 'fol.collection::base))
+         (bits (pslot-value s 'fol.collection::bits))
+         (idx (- raw base)))
+    (if (and (integerp raw)
+             (>= idx 0)
+             (< idx (length bits)))
+        ;; Create new bit vector with the bit cleared
+        (let ((new-bits (copy-seq bits)))
+          (setf (aref new-bits idx) 0)
+          (make-instance (class-of s) :base base :bits new-bits))
+        ;; Not in range, return same set
+        s)))
 
 (defmethod remove ((b <bag>) item)
   (let* ((raw-item (fol.wrappers:fol-value item))
@@ -1107,3 +1318,156 @@
   (if (typep s 'fol.classes:<re-pattern>)
       (error "LAST-INDEX-OF: Cannot search within a regex pattern")
       (last-index-of (fol.wrappers:fol-value s) value start)))
+
+;;; ============================================================================
+;;; RSEQ: Reversed Sequence View
+;;; ============================================================================
+;;; Returns a seq of the items in an ordered collection in reverse order.
+
+(defgeneric rseq (coll)
+  (:documentation "Return a seq of the items in COLL in reverse order.
+   Only works on ordered collections (vectors, lists, arrays).
+   Returns NIL for empty collections."))
+
+(defmethod rseq ((v <vector>))
+  "Return a seq of vector elements in reverse order."
+  (if (empty? v)
+      nil
+      (let* ((items (pslot-value v 'items))
+             (len (fset:size items)))
+        (labels ((build-list (idx acc)
+                   (if (cl:>= idx len)
+                       acc
+                       (build-list (cl:1+ idx) (cl:cons (fset:@ items idx) acc)))))
+          (apply #'make-list (build-list 0 nil))))))
+
+(defmethod rseq ((lst <list>))
+  "Return a seq of list elements in reverse order."
+  (if (empty? lst)
+      nil
+      (reverse lst)))
+
+(defmethod rseq ((arr <array>))
+  "Return a seq of array elements in reverse order (flattened)."
+  (if (empty? arr)
+      nil
+      (let* ((items (pslot-value arr 'items))
+             (len (fset:size items)))
+        (labels ((build-list (idx acc)
+                   (if (cl:>= idx len)
+                       acc
+                       (build-list (cl:1+ idx) (cl:cons (fset:@ items idx) acc)))))
+          (apply #'make-list (build-list 0 nil))))))
+
+(defmethod rseq ((lst list))
+  "Return a seq of CL list elements in reverse order."
+  (if (null lst)
+      nil
+      (cl:reverse lst)))
+
+;;; ============================================================================
+;;; UPDATE: Update a value by applying a function
+;;; ============================================================================
+;;; Updates the value at key k by applying function f to the current value.
+
+(defgeneric update (coll k f &rest args)
+  (:documentation "Return a new collection with the value at key K updated by
+   applying function F to the current value and any additional ARGS.
+   For dicts: (update m k f) => (assoc m k (f (get m k)))
+   For vectors: (update v idx f) => (assoc v idx (f (get v idx)))
+   If the key doesn't exist, F is called with NIL."))
+
+(defmethod update ((d <dict>) k f &rest args)
+  "Update the value at key K in dict D by applying F."
+  (let* ((raw-key (fol.wrappers:fol-value k))
+         (current-val (get d raw-key))
+         (new-val (apply f current-val args)))
+    (add d raw-key new-val)))
+
+(defmethod update ((v <vector>) k f &rest args)
+  "Update the value at index K in vector V by applying F."
+  (let* ((idx (fol.wrappers:fol-value k))
+         (current-val (get v idx))
+         (new-val (apply f current-val args)))
+    (assoc v idx new-val)))
+
+;;; ============================================================================
+;;; UPDATE-IN: Update a value in a nested structure
+;;; ============================================================================
+;;; Updates the value in a nested associative structure by applying a function.
+
+(defgeneric update-in (coll ks f &rest args)
+  (:documentation "Return a new nested structure with the value at path KS updated
+   by applying function F to the current value and any additional ARGS.
+   KS is a vector of keys specifying the path to the value.
+   Creates intermediate dicts if they don't exist."))
+
+(defmethod update-in ((d <dict>) (ks <vector>) f &rest args)
+  "Update the value at path KS in dict D by applying F."
+  (let ((keys-size (size ks)))
+    (cond
+      ((cl:= 0 keys-size)
+       (error "UPDATE-IN: keys vector cannot be empty"))
+      ((cl:= 1 keys-size)
+       (apply #'update d (get ks 0) f args))
+      (t
+       (let* ((k (get ks 0))
+              (raw-key (fol.wrappers:fol-value k))
+              (rest-keys (sub ks 1))
+              (nested (get d raw-key))
+              (nested-or-empty (if nested nested (make-dict))))
+         (add d raw-key (apply #'update-in nested-or-empty rest-keys f args)))))))
+
+(defmethod update-in ((v <vector>) (ks <vector>) f &rest args)
+  "Update the value at path KS in vector V by applying F."
+  (let ((keys-size (size ks)))
+    (cond
+      ((cl:= 0 keys-size)
+       (error "UPDATE-IN: keys vector cannot be empty"))
+      ((cl:= 1 keys-size)
+       (apply #'update v (get ks 0) f args))
+      (t
+       (let* ((idx (fol.wrappers:fol-value (get ks 0)))
+              (rest-keys (sub ks 1))
+              (nested (get v idx))
+              (nested-or-empty (if nested nested (make-dict))))
+         (assoc v idx (apply #'update-in nested-or-empty rest-keys f args)))))))
+
+;;; ============================================================================
+;;; REDUCE-KV: Reduce over key-value pairs
+;;; ============================================================================
+;;; Reduces an associative collection using a function that takes
+;;; accumulator, key, and value.
+
+(defgeneric reduce-kv (f init coll)
+  (:documentation "Reduce over the key-value pairs of COLL.
+   F is a function of 3 arguments: accumulator, key, and value.
+   INIT is the initial accumulator value.
+   For vectors, keys are indices (0, 1, 2, ...).
+   For dicts, keys are the map keys.
+   Supports early termination with reduced."))
+
+(defmethod reduce-kv (f init (d <dict>))
+  "Reduce over key-value pairs in dict D."
+  (let ((items (pslot-value d 'items))
+        (acc init))
+    (fset:do-map (k v items)
+      (when (<reduced>? acc)
+        (return-from reduce-kv (unreduced acc)))
+      (setf acc (funcall f acc k v)))
+    (if (<reduced>? acc)
+        (unreduced acc)
+        acc)))
+
+(defmethod reduce-kv (f init (v <vector>))
+  "Reduce over index-value pairs in vector V."
+  (let* ((items (pslot-value v 'items))
+         (len (fset:size items))
+         (acc init))
+    (loop for idx from 0 below len
+          do (when (<reduced>? acc)
+               (return-from reduce-kv (unreduced acc)))
+             (setf acc (funcall f acc idx (fset:@ items idx))))
+    (if (<reduced>? acc)
+        (unreduced acc)
+        acc)))

@@ -112,11 +112,14 @@
   (:import-from :fol.collection
                 ;; Type symbols (for type function tests)
                 :<vector> :<list> :<dict> :<set> :<bag> :<array> :<lazy-seq>
+                :<sorted-set> :<ordered-set> :<int-set> :<dense-int-set>
                 ;; Type predicates
                 :<collection>? :<ordered-collection>? :<unordered-collection>?
                 :<dict>? :<set>? :<bag>? :<vector>? :<array>? :<list>?
+                :<sorted-set>? :<ordered-set>? :<int-set>? :<dense-int-set>?
                 :<lazy-seq>? :make-lazy-seq :realize-lazy-seq :lazy-seq-realized-p
                 :make-dict :make-set :make-bag :make-vector
+                :make-sorted-set :make-ordered-set :make-int-set :make-dense-int-set
                 :iterator :current :next :done?
                 :nth-element :set-nth
                 :list-first :list-rest :list-size
@@ -129,7 +132,13 @@
                 ;; Eager vector operations
                 :vec :mapv :filterv
                 ;; Associative operations
-                :assoc-in :sub)
+                :assoc-in :sub
+                ;; Reversed sequence
+                :rseq
+                ;; Update operations
+                :update :update-in
+                ;; Key-value reduce
+                :reduce-kv)
   ;; Inport symbols from fol.seqop
   (:import-from :fol.seqop
                 ::add :conj :contains? :size :empty? :seq)

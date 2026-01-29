@@ -267,3 +267,110 @@ For dicts, removes the key-value pair with the given key.
 (remove [1 2 3 2] 2)        ; => [1 3 2] (removes first occurrence)
 ```
 
+## Specialized Set Types
+
+FOL provides several specialized set implementations for different use cases.
+
+### `<sorted-set>` - Sorted Set
+
+A persistent set that maintains elements in natural sorted order.
+
+```fol
+(sorted-set 3 1 4 1 5 9 2)  ; => #S{1 2 3 4 5 9}
+(seq (sorted-set 3 1 2))    ; => (1 2 3) - elements in sorted order
+```
+
+### `<ordered-set>` - Insertion-Order Set
+
+A persistent set that maintains elements in insertion order.
+
+```fol
+(ordered-set 3 1 4 1 5)     ; => #O{3 1 4 5} - preserves insertion order
+(seq (ordered-set 3 1 4))   ; => (3 1 4) - first inserted first
+```
+
+### `<int-set>` - Integer Set
+
+A sorted set optimized for integers. Only accepts integer elements.
+
+```fol
+(int-set 5 3 8 1)           ; => #S{1 3 5 8}
+(int-set 1 2 "a")           ; ERROR: only integers allowed
+```
+
+### `<dense-int-set>` - Dense Integer Set
+
+A set optimized for dense integer ranges using bit vectors. Requires specifying the range bounds.
+
+```fol
+(make-dense-int-set 0 10 1 3 5 7 9)  ; => #D{1 3 5 7 9}
+```
+
+### Set Constructor Functions
+
+| Function | Creates | Description |
+|----------|---------|-------------|
+| `set` | `<set>` | Alias for hash set (unordered) |
+| `hash-set` | `<set>` | Hash set (unordered) |
+| `sorted-set` | `<sorted-set>` | Sorted set |
+| `ordered-set` | `<ordered-set>` | Insertion-order set |
+| `int-set` | `<int-set>` | Integer-only sorted set |
+| `dense-int-set` | `<dense-int-set>` | Dense integer range set (requires min/max bounds) |
+
+## Get on Sets
+
+For sets, `get` returns the element itself if present, or the default value otherwise.
+This enables Clojure-style set membership testing.
+
+```fol
+(get #{:a :b :c} :b)           ; => :b
+(get #{:a :b :c} :missing)     ; => nil
+(get #{:a :b :c} :missing :default)  ; => :default
+```
+
+## Collections as Functions
+
+Collections can be used as functions to access their elements (Clojure-style).
+
+### Syntax
+
+```fol
+(coll key)           ; => (get coll key)
+(coll key default)   ; => (get coll key default)
+```
+
+### Examples
+
+```fol
+;; Vectors as functions (index lookup)
+(def v [10 20 30])
+(v 0)                ; => 10
+(v 2)                ; => 30
+
+;; Dicts as functions (key lookup)
+(def person {:name "Alice" :age 30})
+(person :name)       ; => "Alice"
+(person :missing :default)  ; => :default
+
+;; Sets as functions (membership)
+(def s #{:a :b :c})
+(s :b)               ; => :b
+(s :missing)         ; => nil
+```
+
+## Keywords as Functions on Sets
+
+Keywords can be used as functions to access sets (extending existing dict support).
+
+```fol
+(:keyword set)       ; => (get set :keyword)
+```
+
+### Examples
+
+```fol
+(def colors #{:red :green :blue})
+(:red colors)        ; => :red
+(:yellow colors)     ; => nil
+```
+

@@ -1138,3 +1138,201 @@
     (is-true (<vector>? v))
     (is (= 3 (size v)))))
 
+;;; ---------------------------------------------------------------------------
+;;; Sorted Set Tests
+;;; ---------------------------------------------------------------------------
+
+(test sorted-set-predicate
+  "Test <sorted-set>? predicate."
+  (is-true (<sorted-set>? (make-sorted-set)))
+  (is-true (<sorted-set>? (make-sorted-set 1 2 3)))
+  (is-false (<sorted-set>? (make-set 1 2 3)))
+  (is-false (<sorted-set>? nil)))
+
+(test sorted-set-creation
+  "Test creating sorted sets."
+  (let ((s (make-sorted-set 3 1 4 1 5 9 2 6)))
+    (is-true (<sorted-set>? s))
+    ;; Duplicates should be removed
+    (is (= 7 (size s)))))
+
+(test sorted-set-contains
+  "Test contains? on sorted set."
+  (let ((s (make-sorted-set 1 3 5 7 9)))
+    (is-true (contains? s 5))
+    (is-false (contains? s 4))))
+
+(test sorted-set-get
+  "Test get on sorted set returns element if present."
+  (let ((s (make-sorted-set :a :b :c)))
+    (is (eq :b (get s :b)))
+    (is (eq nil (get s :missing)))
+    (is (eq :default (get s :missing :default)))))
+
+(test sorted-set-add-remove
+  "Test add and remove on sorted set."
+  (let* ((s (make-sorted-set 1 3 5))
+         (s2 (add s 4))
+         (s3 (remove s2 3)))
+    (is (= 4 (size s2)))
+    (is-true (contains? s2 4))
+    (is (= 3 (size s3)))
+    (is-false (contains? s3 3))))
+
+(test sorted-set-seq
+  "Test seq on sorted set returns elements in sorted order."
+  (let* ((s (make-sorted-set 3 1 4 1 5 9 2))
+         (lst (seq s)))
+    (is-true (<list>? lst))
+    ;; Elements should be in sorted order
+    (is (= 1 (first lst)))))
+
+;;; ---------------------------------------------------------------------------
+;;; Ordered Set Tests
+;;; ---------------------------------------------------------------------------
+
+(test ordered-set-predicate
+  "Test <ordered-set>? predicate."
+  (is-true (<ordered-set>? (make-ordered-set)))
+  (is-true (<ordered-set>? (make-ordered-set 1 2 3)))
+  (is-false (<ordered-set>? (make-set 1 2 3))))
+
+(test ordered-set-creation
+  "Test creating ordered sets maintains insertion order."
+  (let ((s (make-ordered-set 3 1 4 1 5 9)))
+    (is-true (<ordered-set>? s))
+    ;; Duplicates removed (1 appears twice)
+    (is (= 5 (size s)))))
+
+(test ordered-set-seq-preserves-order
+  "Test seq on ordered set preserves insertion order."
+  (let* ((s (make-ordered-set 3 1 4 5 9))
+         (lst (seq s)))
+    (is-true (<list>? lst))
+    ;; First element should be 3 (first inserted)
+    (is (= 3 (first lst)))
+    ;; Second should be 1
+    (is (= 1 (first (rest lst))))))
+
+(test ordered-set-contains
+  "Test contains? on ordered set."
+  (let ((s (make-ordered-set :a :b :c)))
+    (is-true (contains? s :b))
+    (is-false (contains? s :d))))
+
+(test ordered-set-get
+  "Test get on ordered set."
+  (let ((s (make-ordered-set :x :y :z)))
+    (is (eq :y (get s :y)))
+    (is (eq nil (get s :missing)))
+    (is (eq :default (get s :missing :default)))))
+
+(test ordered-set-add-remove
+  "Test add and remove on ordered set."
+  (let* ((s (make-ordered-set 1 2 3))
+         (s2 (add s 4))
+         (s3 (remove s2 2)))
+    (is (= 4 (size s2)))
+    (is-true (contains? s2 4))
+    (is (= 3 (size s3)))
+    (is-false (contains? s3 2))
+    ;; Order should be preserved for remaining elements
+    (let ((lst (seq s3)))
+      (is (= 1 (first lst)))
+      (is (= 3 (first (rest lst)))))))
+
+;;; ---------------------------------------------------------------------------
+;;; Int Set Tests
+;;; ---------------------------------------------------------------------------
+
+(test int-set-predicate
+  "Test <int-set>? predicate."
+  (is-true (<int-set>? (make-int-set)))
+  (is-true (<int-set>? (make-int-set 1 2 3)))
+  (is-false (<int-set>? (make-sorted-set 1 2 3))))
+
+(test int-set-rejects-non-integers
+  "Test that int-set rejects non-integer elements."
+  (signals error (make-int-set 1 2 "three")))
+
+(test int-set-operations
+  "Test int-set operations."
+  (let* ((s (make-int-set 5 3 8 1 9))
+         (lst (seq s)))
+    (is (= 5 (size s)))
+    (is-true (contains? s 8))
+    (is-false (contains? s 6))
+    ;; Should be sorted
+    (is (= 1 (first lst)))))
+
+;;; ---------------------------------------------------------------------------
+;;; Dense Int Set Tests
+;;; ---------------------------------------------------------------------------
+
+(test dense-int-set-predicate
+  "Test <dense-int-set>? predicate."
+  (is-true (<dense-int-set>? (make-dense-int-set 0 10)))
+  (is-false (<dense-int-set>? (make-int-set 1 2 3))))
+
+(test dense-int-set-creation
+  "Test creating dense int sets."
+  (let ((s (make-dense-int-set 0 10 1 3 5 7 9)))
+    (is-true (<dense-int-set>? s))
+    (is (= 5 (size s)))))
+
+(test dense-int-set-membership
+  "Test dense-int-set membership operations."
+  (let ((s (make-dense-int-set 0 10 1 3 5 7 9)))
+    (is-true (contains? s 1))
+    (is-true (contains? s 5))
+    (is-false (contains? s 2))
+    (is-false (contains? s 4))))
+
+(test dense-int-set-get
+  "Test get on dense-int-set."
+  (let ((s (make-dense-int-set 0 10 2 4 6 8)))
+    (is (= 4 (get s 4)))
+    (is (eq nil (get s 5)))
+    (is (eq :default (get s 5 :default)))))
+
+(test dense-int-set-add-remove
+  "Test add and remove on dense-int-set."
+  (let* ((s (make-dense-int-set 0 10 1 2 3))
+         (s2 (add s 5))
+         (s3 (remove s2 2)))
+    (is (= 4 (size s2)))
+    (is-true (contains? s2 5))
+    (is (= 3 (size s3)))
+    (is-false (contains? s3 2))))
+
+(test dense-int-set-out-of-range
+  "Test dense-int-set rejects out-of-range integers."
+  (signals error (make-dense-int-set 0 10 15)))
+
+(test dense-int-set-seq
+  "Test seq on dense-int-set returns elements in order."
+  (let* ((s (make-dense-int-set 0 10 5 2 8 1))
+         (lst (seq s)))
+    (is-true (<list>? lst))
+    (is (= 4 (size lst)))
+    ;; Should be in ascending order
+    (is (= 1 (first lst)))
+    (is (= 2 (first (rest lst))))))
+
+;;; ---------------------------------------------------------------------------
+;;; Set Get Tests
+;;; ---------------------------------------------------------------------------
+
+(test set-get-basic
+  "Test get on regular set returns element if present."
+  (let ((s (make-set :a :b :c)))
+    (is (eq :b (get s :b)))
+    (is (eq nil (get s :missing)))
+    (is (eq :default (get s :missing :default)))))
+
+(test set-get-with-numbers
+  "Test get on set with numbers."
+  (let ((s (make-set 1 2 3 4 5)))
+    (is (= 3 (get s 3)))
+    (is (eq nil (get s 10)))))
+

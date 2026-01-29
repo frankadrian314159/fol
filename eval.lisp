@@ -1743,14 +1743,29 @@
 
 ;;; Symbols (including keywords) as functions (for collection access, Clojure style)
 (defmethod apply-function ((fn symbol) args)
-  "Symbols and keywords can be used as functions to access collections."
+  "Symbols and keywords can be used as functions to access collections.
+   Works on dicts and sets: (:key coll) => (get coll :key)"
   (unless (= (length args) 1)
     (error 'fol-arity-error :expected 1 :got (length args)))
   (let ((coll (first args)))
-    (if (<dict>? coll)
-        (get coll fn)
-        (error 'fol-eval-error
-               :message (format nil "Cannot use symbol ~S as function on ~S" fn coll)))))
+    (cond
+      ((<dict>? coll) (get coll fn))
+      ((<set>? coll) (get coll fn))
+      (t (error 'fol-eval-error
+                :message (format nil "Cannot use symbol ~S as function on ~S" fn coll))))))
+
+;;; Collections as functions (for element access, Clojure style)
+(defmethod apply-function ((coll <collection>) args)
+  "Collections can be used as functions to access their elements.
+   (coll key) => (get coll key)
+   (coll key default) => (get coll key default)"
+  (let ((num-args (length args)))
+    (cond
+      ((= num-args 1)
+       (get coll (first args)))
+      ((= num-args 2)
+       (get coll (first args) (second args)))
+      (t (error 'fol-arity-error :expected "1 or 2" :got num-args)))))
 
 ;;; ============================================================================
 ;;; Macro Expansion

@@ -1016,6 +1016,96 @@
     (is (string= "Alice" (fol-eval '(:name person) env)))
     (is (cl:= 30 (fol-eval '(:age person) env)))))
 
+(test eval-keyword-as-function-on-set
+  "Test using keywords as functions on sets."
+  (let* ((s (make-set :a :b :c))
+         (env (make-env nil 'my-set s)))
+    (is (eq :b (fol-eval '(:b my-set) env)))
+    (is (eq nil (fol-eval '(:missing my-set) env)))))
+
+(test eval-collection-as-function-dict
+  "Test using dict as function for key lookup."
+  (let* ((dict (make-dict :name "Alice" :age 30))
+         (env (make-env nil 'person dict)))
+    (is (string= "Alice" (fol-eval '(person :name) env)))
+    (is (cl:= 30 (fol-eval '(person :age) env)))))
+
+(test eval-collection-as-function-vector
+  "Test using vector as function for index lookup."
+  (let* ((v (make-vector 10 20 30 40))
+         (env (make-env nil 'v v)))
+    (is (cl:= 10 (fol-eval '(v 0) env)))
+    (is (cl:= 30 (fol-eval '(v 2) env)))
+    (is (eq nil (fol-eval '(v 10) env)))))
+
+(test eval-collection-as-function-set
+  "Test using set as function for membership lookup."
+  (let* ((s (make-set 1 2 3 4 5))
+         (env (make-env nil 's s)))
+    (is (cl:= 3 (fol-eval '(s 3) env)))
+    (is (eq nil (fol-eval '(s 10) env)))))
+
+(test eval-collection-as-function-with-default
+  "Test using collection as function with default value."
+  (let* ((dict (make-dict :a 1))
+         (env (make-env nil 'd dict)))
+    (is (cl:= 1 (fol-eval '(d :a) env)))
+    (is (eq :not-found (fol-eval '(d :missing :not-found) env)))))
+
+;;; ---------------------------------------------------------------------------
+;;; Set Constructor Tests
+;;; ---------------------------------------------------------------------------
+
+(test eval-set-constructor
+  "Test set constructor function."
+  (let ((env (make-standard-env)))
+    (let ((result (fol-eval '(set 1 2 3 2 1) env)))
+      (is-true (<set>? result))
+      (is (cl:= 3 (size result))))))
+
+(test eval-hash-set-constructor
+  "Test hash-set constructor function."
+  (let ((env (make-standard-env)))
+    (let ((result (fol-eval '(hash-set :a :b :c) env)))
+      (is-true (<set>? result))
+      (is (cl:= 3 (size result))))))
+
+(test eval-sorted-set-constructor
+  "Test sorted-set constructor function."
+  (let ((env (make-standard-env)))
+    (let ((result (fol-eval '(sorted-set 3 1 4 1 5 9 2) env)))
+      (is-true (<sorted-set>? result))
+      (is (cl:= 6 (size result)))
+      ;; Check elements are in sorted order
+      (is (cl:= 1 (first (seq result)))))))
+
+(test eval-ordered-set-constructor
+  "Test ordered-set constructor function."
+  (let ((env (make-standard-env)))
+    (let ((result (fol-eval '(ordered-set 3 1 4 5 9) env)))
+      (is-true (<ordered-set>? result))
+      (is (cl:= 5 (size result)))
+      ;; Check elements preserve insertion order
+      (is (cl:= 3 (first (seq result)))))))
+
+(test eval-int-set-constructor
+  "Test int-set constructor function."
+  (let ((env (make-standard-env)))
+    (let ((result (fol-eval '(int-set 5 3 8 1) env)))
+      (is-true (<int-set>? result))
+      (is (cl:= 4 (size result)))
+      ;; Should be sorted
+      (is (cl:= 1 (first (seq result)))))))
+
+(test eval-dense-int-set-constructor
+  "Test dense-int-set constructor function."
+  (let ((env (make-standard-env)))
+    (let ((result (fol-eval '(dense-int-set 0 10 1 3 5 7 9) env)))
+      (is-true (<dense-int-set>? result))
+      (is (cl:= 5 (size result)))
+      (is-true (contains? result 5))
+      (is-false (contains? result 4)))))
+
 ;;; ---------------------------------------------------------------------------
 ;;; LOOP/RECUR Special Forms
 ;;; ---------------------------------------------------------------------------

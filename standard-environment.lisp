@@ -309,6 +309,23 @@
             'filterv #'fol.collection:filterv
             'assoc #'fol.collection:assoc
             'assoc-in #'fol.collection:assoc-in
+            'rseq #'fol.collection:rseq
+            'update #'fol.collection:update
+            'update-in #'fol.collection:update-in
+            'reduce-kv #'fol.collection:reduce-kv
+            ;; Set constructors (Clojure-style)
+            'set #'fol.collection:make-set
+            'hash-set #'fol.collection:make-set
+            'sorted-set #'fol.collection:make-sorted-set
+            'ordered-set #'fol.collection:make-ordered-set
+            'int-set #'fol.collection:make-int-set
+            'dense-int-set #'fol.collection:make-dense-int-set
+            ;; Set type predicates
+            '<set>? #'fol.collection:<set>?
+            '<sorted-set>? #'fol.collection:<sorted-set>?
+            '<ordered-set>? #'fol.collection:<ordered-set>?
+            '<int-set>? #'fol.collection:<int-set>?
+            '<dense-int-set>? #'fol.collection:<dense-int-set>?
             ;; Higher-order collection operations
             'reduce #'(lambda (f &rest args)
                         "Reduce a collection using function f.

@@ -192,6 +192,10 @@
            <dict> <dict>? make-dict
            <bag> <bag>? make-bag
            <set> <set>? make-set
+           <sorted-set> <sorted-set>? make-sorted-set
+           <ordered-set> <ordered-set>? make-ordered-set
+           <int-set> <int-set>? make-int-set
+           <dense-int-set> <dense-int-set>? make-dense-int-set
            <vector> <vector>? make-vector
            <list> <list>? make-list
            <lazy-seq> <lazy-seq>? make-lazy-seq
@@ -223,7 +227,13 @@
            ;; Eager vector operations
            vector vec mapv filterv
            ;; Associative operations
-           assoc assoc-in sub))
+           assoc assoc-in sub
+           ;; Reversed sequence
+           rseq
+           ;; Update operations
+           update update-in
+           ;; Key-value reduce
+           reduce-kv))
 
 (defpackage fol.seqop 
   (:use cl fol.wrappers fol.classes fol.collection)

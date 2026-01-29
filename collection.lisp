@@ -181,6 +181,175 @@
 
 
 ;;; ============================================================================
+;;; Sorted Set Class (<sorted-set>)
+;;; ============================================================================
+;;; A persistent sorted set maintaining elements in natural sorted order.
+;;; Uses FSet's weight-balanced set (wb-set) for O(log n) operations.
+
+(defclass <sorted-set> (<set> <ordered-collection>)
+  ((items :initarg :items
+          :initform (fset:empty-set)
+          :documentation "An FSet wb-set for sorted storage."))
+  (:metaclass persistent-class)
+  (:documentation "A persistent sorted set maintaining elements in natural sorted order."))
+
+(defun make-sorted-set (&rest elements)
+  "Create a new <sorted-set> from the given elements.
+   Elements are stored in sorted order."
+  (let ((set (fset:empty-set)))
+    (dolist (item elements)
+      (setf set (fset:with set (fol.wrappers:fol-value item))))
+    (make-instance '<sorted-set> :items set)))
+
+(defgeneric <sorted-set>? (obj) (:documentation "Returns T if OBJ is a FOL <sorted-set>."))
+(defmethod <sorted-set>? (obj) nil)
+(defmethod <sorted-set>? ((obj <sorted-set>)) t)
+
+(defmethod print-object ((obj <sorted-set>) stream)
+  "Print sorted set as #S{elem1 elem2 ...} in sorted order."
+  (format stream "#S{")
+  (let ((first t))
+    (fset:do-set (item (pslot-value obj 'items))
+      (unless first (format stream " "))
+      (setf first nil)
+      (cond ((eq item t) (format stream "#t"))
+            ((eq item nil) (format stream "#f"))
+            ((keywordp item) (format stream "~S" item))
+            ((symbolp item)  (format stream "'~S" item))
+            (t (format stream "~S" item)))))
+  (format stream "}"))
+
+
+;;; ============================================================================
+;;; Ordered Set Class (<ordered-set>)
+;;; ============================================================================
+;;; A persistent set maintaining insertion order.
+;;; Uses dual structure: map for O(1) membership, seq for insertion order.
+
+(defclass <ordered-set> (<set> <ordered-collection>)
+  ((items :initarg :items
+          :initform (fset:empty-map)
+          :documentation "FSet map for O(1) membership testing.")
+   (order :initarg :order
+          :initform (fset:empty-seq)
+          :documentation "FSet seq maintaining insertion order."))
+  (:metaclass persistent-class)
+  (:documentation "A persistent set maintaining insertion order."))
+
+(defun make-ordered-set (&rest elements)
+  "Create a new <ordered-set> from the given elements.
+   Elements are maintained in insertion order, duplicates ignored."
+  (let ((map (fset:empty-map))
+        (seq (fset:empty-seq)))
+    (dolist (item elements)
+      (let ((raw (fol.wrappers:fol-value item)))
+        (multiple-value-bind (val found) (fset:lookup map raw)
+          (declare (ignore val))
+          (unless found
+            (setf map (fset:with map raw t))
+            (setf seq (fset:with-last seq raw))))))
+    (make-instance '<ordered-set> :items map :order seq)))
+
+(defgeneric <ordered-set>? (obj) (:documentation "Returns T if OBJ is a FOL <ordered-set>."))
+(defmethod <ordered-set>? (obj) nil)
+(defmethod <ordered-set>? ((obj <ordered-set>)) t)
+
+(defmethod print-object ((obj <ordered-set>) stream)
+  "Print ordered set as #O{elem1 elem2 ...} in insertion order."
+  (format stream "#O{")
+  (let ((first t))
+    (fset:do-seq (item (pslot-value obj 'order))
+      (unless first (format stream " "))
+      (setf first nil)
+      (cond ((eq item t) (format stream "#t"))
+            ((eq item nil) (format stream "#f"))
+            ((keywordp item) (format stream "~S" item))
+            ((symbolp item)  (format stream "'~S" item))
+            (t (format stream "~S" item)))))
+  (format stream "}"))
+
+
+;;; ============================================================================
+;;; Integer Set Class (<int-set>)
+;;; ============================================================================
+;;; A persistent sorted set optimized for integers.
+
+(defclass <int-set> (<sorted-set>)
+  ()
+  (:metaclass persistent-class)
+  (:documentation "A persistent sorted set optimized for integers."))
+
+(defun make-int-set (&rest elements)
+  "Create a new <int-set> from the given integer elements.
+   Signals an error if any element is not an integer."
+  (let ((set (fset:empty-set)))
+    (dolist (item elements)
+      (let ((raw (fol.wrappers:fol-value item)))
+        (unless (integerp raw)
+          (error "INT-SET only accepts integers, got ~S" raw))
+        (setf set (fset:with set raw))))
+    (make-instance '<int-set> :items set)))
+
+(defgeneric <int-set>? (obj) (:documentation "Returns T if OBJ is a FOL <int-set>."))
+(defmethod <int-set>? (obj) nil)
+(defmethod <int-set>? ((obj <int-set>)) t)
+
+;; <int-set> inherits print-object from <sorted-set>
+
+
+;;; ============================================================================
+;;; Dense Integer Set Class (<dense-int-set>)
+;;; ============================================================================
+;;; A persistent set optimized for dense integer ranges using bit vectors.
+;;; Efficient when integers are clustered within a known range.
+
+(defclass <dense-int-set> (<set> <ordered-collection>)
+  ((base :initarg :base
+         :initform 0
+         :documentation "The base (minimum) integer of the range.")
+   (bits :initarg :bits
+         :initform (cl:make-array 0 :element-type 'bit)
+         :documentation "Bit vector representing membership."))
+  (:metaclass persistent-class)
+  (:documentation "A persistent set optimized for dense integer ranges using bit vectors."))
+
+(defun make-dense-int-set (min-val max-val &rest elements)
+  "Create a new <dense-int-set> spanning [min-val, max-val].
+   Elements must be integers within the specified range."
+  (unless (and (integerp min-val) (integerp max-val))
+    (error "DENSE-INT-SET requires integer bounds, got ~S and ~S" min-val max-val))
+  (unless (<= min-val max-val)
+    (error "DENSE-INT-SET min (~A) must be <= max (~A)" min-val max-val))
+  (let* ((range-size (1+ (- max-val min-val)))
+         (bits (cl:make-array range-size :element-type 'bit :initial-element 0)))
+    (dolist (item elements)
+      (let ((raw (fol.wrappers:fol-value item)))
+        (unless (integerp raw)
+          (error "DENSE-INT-SET only accepts integers, got ~S" raw))
+        (unless (<= min-val raw max-val)
+          (error "Integer ~A is outside range [~A, ~A]" raw min-val max-val))
+        (setf (aref bits (- raw min-val)) 1)))
+    (make-instance '<dense-int-set> :base min-val :bits bits)))
+
+(defgeneric <dense-int-set>? (obj) (:documentation "Returns T if OBJ is a FOL <dense-int-set>."))
+(defmethod <dense-int-set>? (obj) nil)
+(defmethod <dense-int-set>? ((obj <dense-int-set>)) t)
+
+(defmethod print-object ((obj <dense-int-set>) stream)
+  "Print dense-int-set as #D{elem1 elem2 ...} in ascending order."
+  (format stream "#D{")
+  (let ((base (pslot-value obj 'base))
+        (bits (pslot-value obj 'bits))
+        (first t))
+    (loop for i from 0 below (length bits)
+          when (= 1 (aref bits i))
+          do (unless first (format stream " "))
+             (setf first nil)
+             (format stream "~D" (+ base i))))
+  (format stream "}"))
+
+
+;;; ============================================================================
 ;;; Vector Class (<vector>)
 ;;; ============================================================================
 
@@ -736,6 +905,10 @@
 (defmethod fol.wrappers:fol-type-of ((obj <list>)) '<list>)
 (defmethod fol.wrappers:fol-type-of ((obj <dict>)) '<dict>)
 (defmethod fol.wrappers:fol-type-of ((obj <set>)) '<set>)
+(defmethod fol.wrappers:fol-type-of ((obj <sorted-set>)) '<sorted-set>)
+(defmethod fol.wrappers:fol-type-of ((obj <ordered-set>)) '<ordered-set>)
+(defmethod fol.wrappers:fol-type-of ((obj <int-set>)) '<int-set>)
+(defmethod fol.wrappers:fol-type-of ((obj <dense-int-set>)) '<dense-int-set>)
 (defmethod fol.wrappers:fol-type-of ((obj <bag>)) '<bag>)
 (defmethod fol.wrappers:fol-type-of ((obj <array>)) '<array>)
 (defmethod fol.wrappers:fol-type-of ((obj <lazy-seq>)) '<lazy-seq>)
