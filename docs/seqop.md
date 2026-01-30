@@ -336,3 +336,330 @@ elements are returned in reverse order. Similar to Clojure's `rsubseq`.
 ;; On sorted sets (by value range, reversed)
 (rsubs (sorted-set 1 3 5 7 9) 3 8)  ; => (7 5 3) - elements >= 3 and < 8, reversed
 ```
+
+---
+
+## Dictionary Operations
+
+These functions provide comprehensive dictionary manipulation capabilities following Clojure semantics.
+
+### get-in
+
+```
+(get-in coll keys)
+(get-in coll keys default)
+```
+
+Gets the value at a path in nested associative structures. KEYS is a sequence
+of keys identifying the path. Returns the value at the path, or DEFAULT (or nil)
+if not found.
+
+#### Examples
+
+```fol
+(get-in {:a {:b {:c 42}}} [:a :b :c])        ; => 42
+(get-in {:a {:b 1}} [:a :x])                 ; => nil
+(get-in {:a {:b 1}} [:a :x] :not-found)      ; => :not-found
+(get-in {:x [10 20 30]} [:x 1])              ; => 20
+```
+
+---
+
+### find
+
+```
+(find coll key)
+```
+
+Returns the key-value pair for KEY in dict COLL as a cons cell, or nil if not found.
+Useful for distinguishing between a missing key and a key mapped to nil.
+
+#### Examples
+
+```fol
+(find {:a 1 :b 2} :a)         ; => (:a . 1)
+(find {:a nil} :a)            ; => (:a . nil)
+(find {:a 1} :c)              ; => nil
+```
+
+---
+
+### keys
+
+```
+(keys dict)
+```
+
+Returns a sequence of all keys in the dictionary. For ordered dicts (array-dict,
+ordered-dict), returns keys in insertion order. For sorted-dict, returns keys
+in sorted order. For priority-dict, returns keys in priority (value) order.
+
+#### Examples
+
+```fol
+(keys {:a 1 :b 2 :c 3})                  ; => (:a :b :c) or similar
+(keys (sorted-dict :z 3 :a 1 :m 2))      ; => (:a :m :z)
+(keys (ordered-dict :z 3 :a 1 :m 2))     ; => (:z :a :m)
+(keys (priority-dict :low 10 :high 100 :mid 50))  ; => (:low :mid :high)
+```
+
+---
+
+### vals
+
+```
+(vals dict)
+```
+
+Returns a sequence of all values in the dictionary. The order corresponds to
+the order of keys for the dict type.
+
+#### Examples
+
+```fol
+(vals {:a 1 :b 2 :c 3})                  ; => (1 2 3) or similar
+(vals (sorted-dict :z 3 :a 1 :m 2))      ; => (1 2 3)
+(vals (priority-dict :low 10 :high 100 :mid 50))  ; => (10 50 100)
+```
+
+---
+
+### key
+
+```
+(key entry)
+```
+
+Extracts the key from a map entry (cons cell). The entry is typically obtained
+from `find` or when iterating over a dict.
+
+#### Examples
+
+```fol
+(key (cons :a 1))             ; => :a
+(key (find {:a 1} :a))        ; => :a
+```
+
+---
+
+### val
+
+```
+(val entry)
+```
+
+Extracts the value from a map entry (cons cell). The entry is typically obtained
+from `find` or when iterating over a dict.
+
+#### Examples
+
+```fol
+(val (cons :a 1))             ; => 1
+(val (find {:a 1} :a))        ; => 1
+```
+
+---
+
+### dissoc
+
+```
+(dissoc dict & keys)
+```
+
+Returns a new dictionary with the specified KEYS removed. For ordered dicts,
+maintains the insertion order of remaining keys.
+
+#### Examples
+
+```fol
+(dissoc {:a 1 :b 2 :c 3} :b)             ; => {:a 1 :c 3}
+(dissoc {:a 1 :b 2 :c 3} :b :c)          ; => {:a 1}
+(dissoc (ordered-dict :a 1 :b 2 :c 3) :b)  ; => {#:a 1 :c 3#}
+```
+
+---
+
+### merge
+
+```
+(merge & dicts)
+```
+
+Returns a new dictionary that combines all input dictionaries. When keys overlap,
+later dictionaries' values win. The result type matches the first dict's type.
+
+#### Examples
+
+```fol
+(merge {:a 1} {:b 2})                    ; => {:a 1 :b 2}
+(merge {:a 1 :b 2} {:b 20 :c 3})         ; => {:a 1 :b 20 :c 3}
+(merge {:a 1} {:b 2} {:c 3})             ; => {:a 1 :b 2 :c 3}
+```
+
+---
+
+### merge-with
+
+```
+(merge-with f & dicts)
+```
+
+Returns a new dictionary that combines all input dictionaries. When keys overlap,
+the combining function F is called with the conflicting values to produce the
+merged value.
+
+#### Examples
+
+```fol
+(merge-with + {:a 1 :b 2} {:b 3 :c 4})   ; => {:a 1 :b 5 :c 4}
+(merge-with * {:a 2} {:a 3})             ; => {:a 6}
+(merge-with concat {:a [1]} {:a [2]})    ; => {:a [1 2]}
+```
+
+---
+
+### select-keys
+
+```
+(select-keys dict keyseq)
+```
+
+Returns a new dictionary containing only the entries for keys present in KEYSEQ.
+Keys in KEYSEQ that don't exist in dict are ignored.
+
+#### Examples
+
+```fol
+(select-keys {:a 1 :b 2 :c 3} [:a :c])   ; => {:a 1 :c 3}
+(select-keys {:a 1 :b 2} [:a :x])        ; => {:a 1}
+```
+
+---
+
+### rename-keys
+
+```
+(rename-keys dict keymap)
+```
+
+Returns a new dictionary with keys renamed according to KEYMAP. KEYMAP is a
+dictionary mapping old keys to new keys. Keys not in keymap are unchanged.
+
+#### Examples
+
+```fol
+(rename-keys {:a 1 :b 2} {:a :x})        ; => {:x 1 :b 2}
+(rename-keys {:a 1 :b 2} {:a :x :b :y})  ; => {:x 1 :y 2}
+```
+
+---
+
+### map-invert
+
+```
+(map-invert dict)
+```
+
+Returns a new dictionary with keys and values swapped. If multiple keys map to
+the same value, only one key-value pair will be in the result (unspecified which).
+
+#### Examples
+
+```fol
+(map-invert {:a 1 :b 2 :c 3})            ; => {1 :a 2 :b 3 :c}
+(map-invert {:name "Alice" :age 30})     ; => {"Alice" :name 30 :age}
+```
+
+---
+
+### update-keys
+
+```
+(update-keys dict f)
+```
+
+Returns a new dictionary with function F applied to all keys. The values remain unchanged.
+
+#### Examples
+
+```fol
+(update-keys {1 "a" 2 "b"} (fn [k] (* k 10)))  ; => {10 "a" 20 "b"}
+(update-keys {:a 1 :b 2} name)                  ; => {"a" 1 "b" 2}
+```
+
+---
+
+### update-vals
+
+```
+(update-vals dict f)
+```
+
+Returns a new dictionary with function F applied to all values. The keys remain unchanged.
+
+#### Examples
+
+```fol
+(update-vals {:a 1 :b 2 :c 3} (fn [v] (* v 10)))  ; => {:a 10 :b 20 :c 30}
+(update-vals {:a 1 :b 2} inc)                      ; => {:a 2 :b 3}
+```
+
+---
+
+### freqs
+
+```
+(freqs coll)
+```
+
+Returns a dictionary mapping each unique element in COLL to the number of times
+it occurs. Like Clojure's `frequencies`.
+
+#### Examples
+
+```fol
+(freqs [1 2 3 1 2 1])                   ; => {1 3 2 2 3 1}
+(freqs "hello")                         ; => {\h 1 \e 1 \l 2 \o 1}
+(freqs [:a :b :a :c :b :a])             ; => {:a 3 :b 2 :c 1}
+```
+
+---
+
+### group-by
+
+```
+(group-by f coll)
+```
+
+Returns a dictionary mapping the result of applying F to each element to a
+vector of all elements that produced that result.
+
+#### Examples
+
+```fol
+(group-by odd? [1 2 3 4 5])             ; => {true [1 3 5] false [2 4]}
+(group-by count ["a" "as" "asd" "aa"])  ; => {1 ["a"] 2 ["as" "aa"] 3 ["asd"]}
+(group-by :type [{:type :a :val 1} {:type :b :val 2} {:type :a :val 3}])
+; => {:a [{:type :a :val 1} {:type :a :val 3}] :b [{:type :b :val 2}]}
+```
+
+---
+
+### index
+
+```
+(index coll f)
+```
+
+Returns a dictionary mapping the result of applying F to each element to that element.
+If multiple elements produce the same key, only one will be in the result (unspecified which).
+
+#### Examples
+
+```fol
+(index [:a :b :c] identity)              ; => {:a :a :b :b :c :c}
+(index [{:id 1 :name "Alice"} {:id 2 :name "Bob"}] :id)
+; => {1 {:id 1 :name "Alice"} 2 {:id 2 :name "Bob"}}
+```
+
+---

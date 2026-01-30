@@ -156,8 +156,8 @@
   "Test slot definition property accessors"
   (let* ((slot-def (find-slot-definition '<test-derived> 'derived-slot))
          ;; Get direct slot for readers/writers
-         (direct-slot (find 'derived-slot (class-direct-slots* '<test-derived>)
-                           :key #'slot-definition-name*)))
+         (direct-slot (cl:find 'derived-slot (class-direct-slots* '<test-derived>)
+                               :key #'slot-definition-name*)))
     ;; Name
     (is (eq 'derived-slot (slot-definition-name* slot-def)))
 
@@ -185,8 +185,8 @@
   "Test slot definition readers and writers"
   ;; another-slot has only a reader, no writer
   ;; Use direct slot definition to get readers/writers
-  (let ((slot-def (find 'another-slot (class-direct-slots* '<test-derived>)
-                        :key #'slot-definition-name*)))
+  (let ((slot-def (cl:find 'another-slot (class-direct-slots* '<test-derived>)
+                           :key #'slot-definition-name*)))
     (is (member 'another-slot (slot-definition-readers* slot-def)))
     (is (null (slot-definition-writers* slot-def)))))
 

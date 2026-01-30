@@ -333,6 +333,21 @@
                    (fol.wrappers:fol-value key))
     (if found val default)))
 
+(defmethod get ((dict <sorted-dict>) key &optional default)
+  "Look up KEY in sorted-dict (uses SYCAMORE tree-map)."
+  (multiple-value-bind (val found)
+      (sycamore:tree-map-find (pslot-value dict 'fol.collection::items)
+                              (fol.wrappers:fol-value key))
+    (if found val default)))
+
+(defmethod contains? ((dict <sorted-dict>) key)
+  "Check if KEY is in sorted-dict (uses SYCAMORE tree-map)."
+  (multiple-value-bind (val found)
+      (sycamore:tree-map-find (pslot-value dict 'fol.collection::items)
+                              (fol.wrappers:fol-value key))
+    (declare (ignore val))
+    (if found t nil)))
+
 (defmethod get ((vec <vector>) (index integer) &optional default)
   "Get element at INDEX from vector. Returns raw value."
   (let ((seq (pslot-value vec 'fol.collection::items)))
@@ -438,6 +453,22 @@
 (defmethod size ((c <collection>))
   (fset:size (pslot-value c 'fol.collection::items)))
 
+(defmethod size ((d <sorted-dict>))
+  "Return number of entries in sorted-dict (uses SYCAMORE tree-map)."
+  (sycamore:tree-map-count (pslot-value d 'fol.collection::items)))
+
+(defmethod size ((d <array-dict>))
+  "Return number of entries in array-dict."
+  (fset:size (pslot-value d 'fol.collection::order)))
+
+(defmethod size ((d <ordered-dict>))
+  "Return number of entries in ordered-dict."
+  (fset:size (pslot-value d 'fol.collection::order)))
+
+(defmethod size ((d <priority-dict>))
+  "Return number of entries in priority-dict."
+  (fset:size (pslot-value d 'fol.collection::items)))
+
 (defmethod size ((s <sorted-set>))
   "Return number of elements in sorted-set."
   (fset:size (pslot-value s 'fol.collection::items)))
@@ -541,6 +572,30 @@
         (let ((pairs nil))
           (fset:do-map (k v items)
             (cl:push (cons k v) pairs))
+          (apply #'make-list (nreverse pairs))))))
+
+(defmethod seq ((d <array-dict>))
+  "For array-dicts, return a list of (key . value) pairs in insertion order."
+  (let ((order (pslot-value d 'fol.collection::order))
+        (items (pslot-value d 'fol.collection::items)))
+    (if (fset:empty? order)
+        nil
+        (let ((pairs nil))
+          (fset:do-seq (k order)
+            (let ((v (fset:lookup items k)))
+              (cl:push (cons k v) pairs)))
+          (apply #'make-list (nreverse pairs))))))
+
+(defmethod seq ((d <ordered-dict>))
+  "For ordered-dicts, return a list of (key . value) pairs in insertion order."
+  (let ((order (pslot-value d 'fol.collection::order))
+        (items (pslot-value d 'fol.collection::items)))
+    (if (fset:empty? order)
+        nil
+        (let ((pairs nil))
+          (fset:do-seq (k order)
+            (let ((v (fset:lookup items k)))
+              (cl:push (cons k v) pairs)))
           (apply #'make-list (nreverse pairs))))))
 
 (defmethod seq ((s <set>))
@@ -676,6 +731,69 @@
                             (fol.wrappers:fol-value key)
                             (fol.wrappers:fol-value value))))
     (make-instance (class-of d) :items new-map)))
+
+(defmethod add ((d <sorted-dict>) key &optional value)
+  "Add key-value pair to sorted-dict (uses SYCAMORE tree-map)."
+  (unless value (error "Adding to a <sorted-dict> requires a value."))
+  (let ((new-tree (sycamore:tree-map-insert (pslot-value d 'fol.collection::items)
+                                             (fol.wrappers:fol-value key)
+                                             (fol.wrappers:fol-value value))))
+    (make-instance '<sorted-dict> :items new-tree)))
+
+(defmethod add ((d <array-dict>) key &optional value)
+  "Add key-value pair to array-dict (maintains insertion order)."
+  (unless value (error "Adding to an <array-dict> requires a value."))
+  (let* ((raw-key (fol.wrappers:fol-value key))
+         (raw-val (fol.wrappers:fol-value value))
+         (items (pslot-value d 'fol.collection::items))
+         (order (pslot-value d 'fol.collection::order))
+         (max-size (pslot-value d 'fol.collection::max-size)))
+    (multiple-value-bind (old-val found) (fset:lookup items raw-key)
+      (declare (ignore old-val))
+      (let ((new-items (fset:with items raw-key raw-val))
+            (new-order (if found
+                           order
+                           (progn
+                             (when (>= (fset:size order) max-size)
+                               (error "ARRAY-DICT size limit exceeded: cannot add more than ~D entries" max-size))
+                             (fset:with-last order raw-key)))))
+        (make-instance '<array-dict> :items new-items :order new-order :max-size max-size)))))
+
+(defmethod add ((d <ordered-dict>) key &optional value)
+  "Add key-value pair to ordered-dict (maintains insertion order)."
+  (unless value (error "Adding to an <ordered-dict> requires a value."))
+  (let* ((raw-key (fol.wrappers:fol-value key))
+         (raw-val (fol.wrappers:fol-value value))
+         (items (pslot-value d 'fol.collection::items))
+         (order (pslot-value d 'fol.collection::order)))
+    (multiple-value-bind (old-val found) (fset:lookup items raw-key)
+      (declare (ignore old-val))
+      (let ((new-items (fset:with items raw-key raw-val))
+            (new-order (if found order (fset:with-last order raw-key))))
+        (make-instance '<ordered-dict> :items new-items :order new-order)))))
+
+(defmethod add ((d <priority-dict>) key &optional value)
+  "Add key-value pair to priority-dict (maintains priority order)."
+  (unless value (error "Adding to a <priority-dict> requires a value."))
+  (let* ((raw-key (fol.wrappers:fol-value key))
+         (raw-val (fol.wrappers:fol-value value))
+         (items (pslot-value d 'fol.collection::items))
+         (priorities (pslot-value d 'fol.collection::priorities)))
+    ;; Remove old priority if key exists
+    (multiple-value-bind (old-priority found) (fset:lookup items raw-key)
+      (when found
+        (let ((item-set (fset:lookup priorities old-priority)))
+          (when item-set
+            (setf item-set (fset:less item-set raw-key))
+            (if (fset:empty? item-set)
+                (setf priorities (fset:less priorities old-priority))
+                (setf priorities (fset:with priorities old-priority item-set)))))))
+    ;; Add new priority
+    (setf items (fset:with items raw-key raw-val))
+    (let ((item-set (or (fset:lookup priorities raw-val) (fset:empty-set))))
+      (setf item-set (fset:with item-set raw-key))
+      (setf priorities (fset:with priorities raw-val item-set)))
+    (make-instance '<priority-dict> :items items :priorities priorities)))
 
 (defmethod add ((s <set>) item &optional value)
   (declare (ignore value))
@@ -2152,3 +2270,353 @@
     (if result
         (apply #'make-list result)
         nil)))
+;;; This file contains dict function additions for seqop.lisp
+;;; To be appended to the end of seqop.lisp
+
+;;; ============================================================================
+;;; Dictionary Query Functions
+;;; ============================================================================
+
+(defgeneric get-in (coll keys &optional not-found)
+  (:documentation "Returns the value in a nested associative structure.
+   KEYS is a sequence of keys identifying the path.
+   Returns NOT-FOUND if the path doesn't exist."))
+
+(defmethod get-in ((coll <dict>) keys &optional (not-found nil))
+  "Get value at nested path KEYS in dict."
+  (let ((ks (%keys-to-list keys))
+        (current coll))
+    (dolist (k ks)
+      (if (typep current '<dict>)
+          (let ((raw-k (fol.wrappers:fol-value k)))
+            (multiple-value-bind (val found)
+                (fset:lookup (pslot-value current 'fol.collection::items) raw-k)
+              (if found
+                  (setf current val)
+                  (return-from get-in not-found))))
+          (return-from get-in not-found)))
+    current))
+
+(defmethod get-in ((coll <vector>) keys &optional (not-found nil))
+  "Get value at nested path KEYS starting with a vector."
+  (let ((ks (%keys-to-list keys))
+        (current coll))
+    (dolist (k ks)
+      (let ((idx (fol.wrappers:fol-value k)))
+        (cond
+          ((typep current '<vector>)
+           (let ((items (pslot-value current 'fol.collection::items)))
+             (if (and (integerp idx) (>= idx 0) (< idx (fset:size items)))
+                 (setf current (fset:lookup items idx))
+                 (return-from get-in not-found))))
+          ((typep current '<dict>)
+           (multiple-value-bind (val found)
+               (fset:lookup (pslot-value current 'fol.collection::items) idx)
+             (if found
+                 (setf current val)
+                 (return-from get-in not-found))))
+          (t (return-from get-in not-found)))))
+    current))
+
+(defgeneric find (coll key)
+  (:documentation "Returns the map entry for KEY, or NIL if key not present.
+   For dicts, returns a cons pair (KEY . VALUE)."))
+
+(defmethod find ((coll <dict>) key)
+  "Find the map entry for KEY in dict, returns (KEY . VALUE) or NIL."
+  (let ((raw-key (fol.wrappers:fol-value key)))
+    (multiple-value-bind (val found)
+        (fset:lookup (pslot-value coll 'fol.collection::items) raw-key)
+      (when found
+        (cl:cons raw-key val)))))
+
+(defgeneric keys (coll)
+  (:documentation "Returns a sequence of the keys in the associative collection."))
+
+(defmethod keys ((coll <dict>))
+  "Return a list of all keys in the dict."
+  (let ((result nil))
+    (fset:do-map (k v (pslot-value coll 'fol.collection::items))
+      (declare (ignore v))
+      (cl:push k result))
+    (if result (apply #'make-list (nreverse result)) nil)))
+
+(defmethod keys ((coll <array-dict>))
+  "Return keys in insertion order for array-dict."
+  (let ((result nil))
+    (fset:do-seq (k (pslot-value coll 'fol.collection::order))
+      (cl:push k result))
+    (if result (apply #'make-list (nreverse result)) nil)))
+
+(defmethod keys ((coll <ordered-dict>))
+  "Return keys in insertion order for ordered-dict."
+  (let ((result nil))
+    (fset:do-seq (k (pslot-value coll 'fol.collection::order))
+      (cl:push k result))
+    (if result (apply #'make-list (nreverse result)) nil)))
+
+(defmethod keys ((coll <sorted-dict>))
+  "Return keys in sorted order for sorted-dict."
+  (let ((result nil))
+    (sycamore:do-tree-map ((k v) (pslot-value coll 'fol.collection::items))
+      (declare (ignore v))
+      (cl:push k result))
+    (if result (apply #'make-list (nreverse result)) nil)))
+
+(defmethod keys ((coll <priority-dict>))
+  "Return keys in priority order for priority-dict."
+  (let ((result nil)
+        (priorities (pslot-value coll 'fol.collection::priorities)))
+    (fset:do-map (priority item-set priorities)
+      (declare (ignore priority))
+      (fset:do-set (item item-set)
+        (cl:push item result)))
+    (if result (apply #'make-list (nreverse result)) nil)))
+
+(defgeneric vals (coll)
+  (:documentation "Returns a sequence of the values in the associative collection."))
+
+(defmethod vals ((coll <dict>))
+  "Return a list of all values in the dict."
+  (let ((result nil))
+    (fset:do-map (k v (pslot-value coll 'fol.collection::items))
+      (declare (ignore k))
+      (cl:push v result))
+    (if result (apply #'make-list (nreverse result)) nil)))
+
+(defmethod vals ((coll <array-dict>))
+  "Return values in key insertion order for array-dict."
+  (let ((result nil)
+        (items (pslot-value coll 'fol.collection::items)))
+    (fset:do-seq (k (pslot-value coll 'fol.collection::order))
+      (cl:push (fset:lookup items k) result))
+    (if result (apply #'make-list (nreverse result)) nil)))
+
+(defmethod vals ((coll <ordered-dict>))
+  "Return values in key insertion order for ordered-dict."
+  (let ((result nil)
+        (items (pslot-value coll 'fol.collection::items)))
+    (fset:do-seq (k (pslot-value coll 'fol.collection::order))
+      (cl:push (fset:lookup items k) result))
+    (if result (apply #'make-list (nreverse result)) nil)))
+
+(defmethod vals ((coll <sorted-dict>))
+  "Return values in sorted key order for sorted-dict."
+  (let ((result nil))
+    (sycamore:do-tree-map ((k v) (pslot-value coll 'fol.collection::items))
+      (declare (ignore k))
+      (cl:push v result))
+    (if result (apply #'make-list (nreverse result)) nil)))
+
+(defmethod vals ((coll <priority-dict>))
+  "Return values (priorities) in priority order for priority-dict."
+  (let ((result nil)
+        (items (pslot-value coll 'fol.collection::items))
+        (priorities (pslot-value coll 'fol.collection::priorities)))
+    (fset:do-map (priority item-set priorities)
+      (fset:do-set (item item-set)
+        (cl:push (fset:lookup items item) result)))
+    (if result (apply #'make-list (nreverse result)) nil)))
+
+(defun key (map-entry)
+  "Returns the key of a map entry (cons pair)."
+  (if (consp map-entry)
+      (car map-entry)
+      (error "KEY expects a map entry (cons pair), got ~S" map-entry)))
+
+(defun val (map-entry)
+  "Returns the value of a map entry (cons pair)."
+  (if (consp map-entry)
+      (cdr map-entry)
+      (error "VAL expects a map entry (cons pair), got ~S" map-entry)))
+
+
+;;; ============================================================================
+;;; Dictionary Modification Functions
+;;; ============================================================================
+
+(defgeneric dissoc (coll &rest keys)
+  (:documentation "Returns a new dict with the given keys removed."))
+
+(defmethod dissoc ((coll <dict>) &rest keys)
+  "Remove keys from regular dict."
+  (let ((items (pslot-value coll 'fol.collection::items)))
+    (dolist (k keys)
+      (setf items (fset:less items (fol.wrappers:fol-value k))))
+    (make-instance (class-of coll) :items items)))
+
+(defmethod dissoc ((coll <array-dict>) &rest keys)
+  "Remove keys from array-dict, maintaining insertion order."
+  (let ((items (pslot-value coll 'fol.collection::items))
+        (order (pslot-value coll 'fol.collection::order))
+        (max-size (pslot-value coll 'fol.collection::max-size))
+        (keys-to-remove (mapcar #'fol.wrappers:fol-value keys)))
+    (dolist (k keys-to-remove)
+      (setf items (fset:less items k)))
+    (let ((new-order (fset:empty-seq)))
+      (fset:do-seq (k order)
+        (unless (member k keys-to-remove :test #'equal)
+          (setf new-order (fset:with-last new-order k))))
+      (make-instance '<array-dict> :items items :order new-order :max-size max-size))))
+
+(defmethod dissoc ((coll <ordered-dict>) &rest keys)
+  "Remove keys from ordered-dict, maintaining insertion order."
+  (let ((items (pslot-value coll 'fol.collection::items))
+        (order (pslot-value coll 'fol.collection::order))
+        (keys-to-remove (mapcar #'fol.wrappers:fol-value keys)))
+    (dolist (k keys-to-remove)
+      (setf items (fset:less items k)))
+    (let ((new-order (fset:empty-seq)))
+      (fset:do-seq (k order)
+        (unless (member k keys-to-remove :test #'equal)
+          (setf new-order (fset:with-last new-order k))))
+      (make-instance '<ordered-dict> :items items :order new-order))))
+
+(defmethod dissoc ((coll <sorted-dict>) &rest keys)
+  "Remove keys from sorted-dict."
+  (let ((tree (pslot-value coll 'fol.collection::items)))
+    (dolist (k keys)
+      (setf tree (sycamore:tree-map-remove tree (fol.wrappers:fol-value k))))
+    (make-instance (class-of coll) :items tree)))
+
+(defmethod dissoc ((coll <priority-dict>) &rest keys)
+  "Remove keys from priority-dict."
+  (let ((items (pslot-value coll 'fol.collection::items))
+        (priorities (pslot-value coll 'fol.collection::priorities)))
+    (dolist (k keys)
+      (let ((raw-k (fol.wrappers:fol-value k)))
+        (multiple-value-bind (priority found) (fset:lookup items raw-k)
+          (when found
+            (let ((item-set (fset:lookup priorities priority)))
+              (when item-set
+                (setf item-set (fset:less item-set raw-k))
+                (if (fset:empty? item-set)
+                    (setf priorities (fset:less priorities priority))
+                    (setf priorities (fset:with priorities priority item-set)))))
+            (setf items (fset:less items raw-k))))))
+    (make-instance '<priority-dict> :items items :priorities priorities)))
+
+(defgeneric merge (coll &rest colls)
+  (:documentation "Returns a new dict containing all entries from the input dicts.
+   If a key appears in more than one dict, the value from the rightmost dict is used."))
+
+(defmethod merge ((coll <dict>) &rest colls)
+  "Merge dicts, with rightmost values winning."
+  (let ((items (pslot-value coll 'fol.collection::items)))
+    (dolist (other colls)
+      (when (typep other '<dict>)
+        (fset:do-map (k v (pslot-value other 'fol.collection::items))
+          (setf items (fset:with items k v)))))
+    (make-instance (class-of coll) :items items)))
+
+(defun merge-with (f &rest dicts)
+  "Returns a new dict containing all entries from the input dicts.
+   When a key appears in more than one dict, the values are combined using F."
+  (when (null dicts)
+    (return-from merge-with (make-dict)))
+  (let ((result (fset:empty-map)))
+    (dolist (dict dicts)
+      (when (typep dict '<dict>)
+        (fset:do-map (k v (pslot-value dict 'fol.collection::items))
+          (multiple-value-bind (existing found) (fset:lookup result k)
+            (if found
+                (setf result (fset:with result k (funcall f existing v)))
+                (setf result (fset:with result k v)))))))
+    (make-instance '<dict> :items result)))
+
+
+;;; ============================================================================
+;;; Dictionary Transformation Functions
+;;; ============================================================================
+
+(defun select-keys (coll keys-seq)
+  "Returns a new dict containing only the entries whose keys are in KEYS-SEQ."
+  (let ((result (fset:empty-map))
+        (items (pslot-value coll 'fol.collection::items)))
+    (let ((s (seq keys-seq)))
+      (loop while (and s (not (empty? s)))
+            do (let ((k (fol.wrappers:fol-value (first s))))
+                 (multiple-value-bind (v found) (fset:lookup items k)
+                   (when found
+                     (setf result (fset:with result k v))))
+                 (setf s (rest s)))))
+    (make-instance (class-of coll) :items result)))
+
+(defun rename-keys (coll key-map)
+  "Returns a new dict with keys renamed according to KEY-MAP.
+   KEY-MAP is a dict mapping old keys to new keys."
+  (let ((result (fset:empty-map))
+        (items (pslot-value coll 'fol.collection::items))
+        (key-map-items (pslot-value key-map 'fol.collection::items)))
+    (fset:do-map (k v items)
+      (multiple-value-bind (new-k found) (fset:lookup key-map-items k)
+        (setf result (fset:with result (if found new-k k) v))))
+    (make-instance (class-of coll) :items result)))
+
+(defun map-invert (coll)
+  "Returns a new dict with keys and values swapped."
+  (let ((result (fset:empty-map))
+        (items (pslot-value coll 'fol.collection::items)))
+    (fset:do-map (k v items)
+      (setf result (fset:with result v k)))
+    (make-instance (class-of coll) :items result)))
+
+(defun update-keys (coll f)
+  "Returns a new dict with F applied to each key."
+  (let ((result (fset:empty-map))
+        (items (pslot-value coll 'fol.collection::items)))
+    (fset:do-map (k v items)
+      (setf result (fset:with result (funcall f k) v)))
+    (make-instance (class-of coll) :items result)))
+
+(defun update-vals (coll f)
+  "Returns a new dict with F applied to each value."
+  (let ((result (fset:empty-map))
+        (items (pslot-value coll 'fol.collection::items)))
+    (fset:do-map (k v items)
+      (setf result (fset:with result k (funcall f v))))
+    (make-instance (class-of coll) :items result)))
+
+
+;;; ============================================================================
+;;; Dictionary Construction Functions
+;;; ============================================================================
+
+(defun freqs (coll)
+  "Returns a dict mapping each distinct element in COLL to the number of times it appears.
+   Like Clojure's frequencies."
+  (let ((result (fset:empty-map))
+        (s (seq coll)))
+    (loop while (and s (not (empty? s)))
+          do (let ((item (fol.wrappers:fol-value (first s))))
+               (multiple-value-bind (count found) (fset:lookup result item)
+                 (setf result (fset:with result item (if found (1+ count) 1))))
+               (setf s (rest s))))
+    (make-instance '<dict> :items result)))
+
+(defun group-by (f coll)
+  "Returns a dict of the elements of COLL grouped by the result of F applied to each element."
+  (let ((result (fset:empty-map))
+        (s (seq coll)))
+    (loop while (and s (not (empty? s)))
+          do (let* ((item (first s))
+                    (k (fol.wrappers:fol-value (funcall f item))))
+               (multiple-value-bind (group found) (fset:lookup result k)
+                 (setf result (fset:with result k
+                                         (if found
+                                             (conj group item)
+                                             (make-list item)))))
+               (setf s (rest s))))
+    (make-instance '<dict> :items result)))
+
+(defun index (coll f)
+  "Returns a dict of the elements of COLL indexed by the result of F applied to each element.
+   Unlike group-by, each key maps to a single value (the last element with that key)."
+  (let ((result (fset:empty-map))
+        (s (seq coll)))
+    (loop while (and s (not (empty? s)))
+          do (let* ((item (first s))
+                    (k (fol.wrappers:fol-value (funcall f item))))
+               (setf result (fset:with result k (fol.wrappers:fol-value item)))
+               (setf s (rest s))))
+    (make-instance '<dict> :items result)))

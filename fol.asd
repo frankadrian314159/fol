@@ -46,6 +46,7 @@
                   (:file "test-compareop" :depends-on ("tests-package"))
                   (:file "test-persistent" :depends-on ("tests-package"))
                   (:file "test-collection" :depends-on ("tests-package"))
+                  (:file "test-dict" :depends-on ("tests-package"))
                   (:file "test-seqop" :depends-on ("tests-package"))
                   (:file "test-module" :depends-on ("tests-package"))
                   (:file "test-env" :depends-on ("tests-package"))

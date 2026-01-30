@@ -123,6 +123,11 @@
             '<dict>? #'fol.collection:<dict>?
             '<set>? #'fol.collection:<set>?
             '<bag>? #'fol.collection:<bag>?
+            '<array-dict>? #'fol.collection:<array-dict>?
+            '<sorted-dict>? #'fol.collection:<sorted-dict>?
+            '<ordered-dict>? #'fol.collection:<ordered-dict>?
+            '<priority-dict>? #'fol.collection:<priority-dict>?
+            '<int-dict>? #'fol.collection:<int-dict>?
             '<array>? #'fol.collection:<array>?
             '<lazy-seq>? #'fol.collection:<lazy-seq>?
             ;; Number predicates
@@ -330,6 +335,14 @@
             ;; sorted-set-by constructor and predicate
             'sorted-set-by #'fol.collection:sorted-set-by
             '<sorted-set-by>? #'fol.collection:<sorted-set-by>?
+            ;; Dict constructors (Clojure-style)
+            'array-dict #'fol.collection:array-dict
+            'array-dict-with-limit #'fol.collection:array-dict-with-limit
+            'sorted-dict #'fol.collection:sorted-dict
+            'sorted-dict-by #'fol.collection:sorted-dict-by
+            'ordered-dict #'fol.collection:ordered-dict
+            'priority-dict #'fol.collection:priority-dict
+            'int-dict #'fol.collection:int-dict
             ;; Set operations (FOL names union/difference/intersection, CL impl set-union/etc.)
             'union #'fol.seqop:set-union
             'difference #'fol.seqop:set-difference
@@ -340,6 +353,27 @@
             ;; Ordered set subsequence operations
             'subs #'fol.seqop:subs
             'rsubs #'fol.seqop:rsubs
+            ;; Dict query functions
+            'get-in #'fol.seqop:get-in
+            'find #'fol.seqop:find
+            'keys #'fol.seqop:keys
+            'vals #'fol.seqop:vals
+            'key #'fol.seqop:key
+            'val #'fol.seqop:val
+            ;; Dict modification functions
+            'dissoc #'fol.seqop:dissoc
+            'merge #'fol.seqop:merge
+            'merge-with #'fol.seqop:merge-with
+            ;; Dict transformation functions
+            'select-keys #'fol.seqop:select-keys
+            'rename-keys #'fol.seqop:rename-keys
+            'map-invert #'fol.seqop:map-invert
+            'update-keys #'fol.seqop:update-keys
+            'update-vals #'fol.seqop:update-vals
+            ;; Dict construction functions
+            'freqs #'fol.seqop:freqs
+            'group-by #'fol.seqop:group-by
+            'index #'fol.seqop:index
             ;; Higher-order collection operations
             'reduce #'(lambda (f &rest args)
                         "Reduce a collection using function f.

@@ -572,3 +572,88 @@ elements are returned in reverse order. Similar to Clojure's `rsubseq`.
 (rsubs (sorted-set 1 3 5 7 9) 3 8)  ; => (7 5 3) - elements >= 3 and < 8, reversed
 ```
 
+---
+
+## Specialized Dict Types
+
+FOL provides several specialized dictionary implementations optimized for different use cases.
+
+### `<array-dict>` - Small Insertion-Order Dict
+
+A persistent dictionary optimized for small maps (up to 1000 entries) that maintains
+insertion order. Ideal for small configuration maps or data structures where order matters.
+
+```fol
+(array-dict :z 3 :a 1 :m 2)    ; => {|:z 3 :a 1 :m 2|}
+(seq (array-dict :z 3 :a 1))   ; => ([:z 3] [:a 1]) - insertion order preserved
+
+;; Limited to 1000 entries
+(array-dict-with-limit 5 :a 1 :b 2 :c 3)  ; => {|:a 1 :b 2 :c 3|}
+```
+
+---
+
+### `<sorted-dict>` - Sorted Dictionary
+
+A persistent dictionary that maintains keys in sorted order using a SYCAMORE tree-map.
+Provides efficient O(log n) lookup and maintains natural ordering of keys.
+
+```fol
+(sorted-dict :c 3 :a 1 :b 2)   ; => {<:a 1 :b 2 :c 3>}
+(keys (sorted-dict :z 26 :a 1 :m 13))  ; => (:a :m :z) - sorted order
+```
+
+---
+
+### `<ordered-dict>` - Insertion-Order Dictionary
+
+A persistent dictionary that maintains insertion order for any number of entries.
+Like array-dict but without the size limit.
+
+```fol
+(ordered-dict :z 3 :a 1 :m 2)  ; => {#:z 3 :a 1 :m 2#}
+(seq (ordered-dict :z 3 :a 1 :m 2))  ; => ([:z 3] [:a 1] [:m 2])
+```
+
+---
+
+### `<priority-dict>` - Priority Queue Dictionary
+
+A persistent dictionary that maintains entries sorted by their values (priorities).
+Useful as a priority queue where keys map to priorities.
+
+```fol
+(priority-dict :low 10 :high 100 :mid 50)  ; => {^:low 10 :mid 50 :high 100^}
+(keys (priority-dict :low 10 :high 100 :mid 50))  ; => (:low :mid :high)
+```
+
+---
+
+### `<int-dict>` - Integer-Key Dictionary
+
+A sorted dictionary optimized for integer keys. Only accepts integers as keys.
+Maintains keys in numerically sorted order.
+
+```fol
+(int-dict 3 "c" 1 "a" 2 "b")   ; => {1 "a" 2 "b" 3 "c"}
+(int-dict 42 "x" 7 "y")        ; => {7 "y" 42 "x"}
+(int-dict :a 1)                ; ERROR: only integer keys allowed
+```
+
+---
+
+### Dict Constructor Functions
+
+| Function | Creates | Description |
+|----------|---------|-------------|
+| `make-dict` / `dict` | `<dict>` | Standard hash map (unordered) |
+| `array-dict` | `<array-dict>` | Small insertion-order map (≤1000 entries) |
+| `array-dict-with-limit` | `<array-dict>` | Insertion-order map with custom size limit |
+| `sorted-dict` | `<sorted-dict>` | Sorted map (natural key ordering) |
+| `sorted-dict-by` | `<sorted-dict>` | Sorted map with custom comparator |
+| `ordered-dict` | `<ordered-dict>` | Insertion-order map (unlimited size) |
+| `priority-dict` | `<priority-dict>` | Priority queue map (sorted by values) |
+| `int-dict` | `<int-dict>` | Integer-key sorted map |
+
+---
+

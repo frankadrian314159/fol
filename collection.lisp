@@ -78,11 +78,12 @@
                                   (fol.wrappers:fol-value val))))
     (make-instance '<dict> :items map)))
 
-(defgeneric <dict>? (obj) (:documentation "Returns T if OBJ is exactly a FOL <dict> (not subclasses like <set> or <bag>)."))
+(defgeneric <dict>? (obj) (:documentation "Returns T if OBJ is a FOL <dict> or dict subclass (but not <set> or <bag>)."))
 (defmethod <dict>? (obj) nil)
 (defmethod <dict>? ((obj <dict>))
-  ;; Check for exact class match, not subclasses
-  (eq (class-of obj) (find-class '<dict>)))
+  ;; Return true for <dict> and dict subclasses
+  ;; Specific methods for <set> and <bag> return nil
+  t)
 
 (defmethod print-object ((obj <dict>) stream)
   (format stream "{")
@@ -127,6 +128,9 @@
 (defmethod <bag>? (obj) nil)
 (defmethod <bag>? ((obj <bag>)) t)
 
+;; <bag> is not a <dict> for type predicate purposes
+(defmethod <dict>? ((obj <bag>)) nil)
+
 (defmethod print-object ((obj <bag>) stream)
   (format stream "#M{")
   (let ((items (pslot-value obj 'items))
@@ -163,6 +167,9 @@
 (defgeneric <set>? (obj) (:documentation "Returns T if OBJ is a FOL <set>."))
 (defmethod <set>? (obj) nil)
 (defmethod <set>? ((obj <set>)) t)
+
+;; <set> is not a <dict> for type predicate purposes
+(defmethod <dict>? ((obj <set>)) nil)
 
 (defmethod print-object ((obj <set>) stream)
   (format stream "#{")
@@ -409,6 +416,366 @@
           do (unless first (format stream " "))
              (setf first nil)
              (format stream "~D" (+ base i))))
+  (format stream "}"))
+
+
+;;; ============================================================================
+;;; Array Dictionary Class (<array-dict>)
+;;; ============================================================================
+;;; A persistent dictionary maintaining insertion order with a size limit.
+;;; Uses dual structure: map for O(1) lookup, seq for insertion order.
+;;; Limited to 1000 entries.
+
+(defclass <array-dict> (<dict> <ordered-collection>)
+  ((items :initarg :items
+          :initform (fset:empty-map)
+          :documentation "FSet map for O(1) lookup.")
+   (order :initarg :order
+          :initform (fset:empty-seq)
+          :documentation "FSet seq maintaining insertion order.")
+   (max-size :initarg :max-size
+             :initform 1000
+             :documentation "Maximum number of entries allowed."))
+  (:metaclass persistent-class)
+  (:documentation "A persistent dictionary maintaining insertion order, with configurable size limit."))
+
+(defun %make-array-dict-internal (max-size pairs)
+  "Internal helper to create array-dict with specified max-size."
+  (let ((map (fset:empty-map))
+        (seq (fset:empty-seq)))
+    (loop for (key val) on pairs by #'cddr
+          do (let ((raw-key (fol.wrappers:fol-value key))
+                   (raw-val (fol.wrappers:fol-value val)))
+               (multiple-value-bind (old-val found) (fset:lookup map raw-key)
+                 (declare (ignore old-val))
+                 (unless found
+                   (when (>= (fset:size seq) max-size)
+                     (error "ARRAY-DICT size limit exceeded: cannot add more than ~D entries" max-size))
+                   (setf seq (fset:with-last seq raw-key)))
+                 (setf map (fset:with map raw-key raw-val)))))
+    (make-instance '<array-dict> :items map :order seq :max-size max-size)))
+
+(defun make-array-dict (&rest pairs)
+  "Create a new <array-dict> from key-value pairs.
+   Maintains insertion order. Limited to 1000 entries by default.
+   Signals an error if size limit is exceeded.
+
+   For custom max-size, use array-dict-with-limit."
+  (%make-array-dict-internal 1000 pairs))
+
+(defun array-dict (&rest pairs)
+  "Create a new <array-dict> from key-value pairs with default max-size of 1000.
+   Alias for make-array-dict."
+  (apply #'make-array-dict pairs))
+
+(defun array-dict-with-limit (max-size &rest pairs)
+  "Create a new <array-dict> from key-value pairs with custom MAX-SIZE limit.
+
+   Usage: (array-dict-with-limit 500 key1 val1 key2 val2 ...)"
+  (%make-array-dict-internal max-size pairs))
+
+(defgeneric <array-dict>? (obj) (:documentation "Returns T if OBJ is a FOL <array-dict>."))
+(defmethod <array-dict>? (obj) nil)
+(defmethod <array-dict>? ((obj <array-dict>)) t)
+
+(defmethod print-object ((obj <array-dict>) stream)
+  "Print array-dict as {|k1 v1 k2 v2|} in insertion order."
+  (format stream "{|")
+  (let ((first t))
+    (fset:do-seq (key (pslot-value obj 'order))
+      (unless first (format stream " "))
+      (setf first nil)
+      (let ((val (fset:lookup (pslot-value obj 'items) key)))
+        (flet ((safe-print (item)
+                 (cond ((eq item t) (format stream "#t"))
+                       ((eq item nil) (format stream "#f"))
+                       ((keywordp item) (format stream "~S" item))
+                       ((symbolp item)  (format stream "'~S" item))
+                       (t (format stream "~S" item)))))
+          (safe-print key)
+          (format stream " ")
+          (safe-print val)))))
+  (format stream "|}"))
+
+
+;;; ============================================================================
+;;; Helper: Generic Comparator for Sorted Collections
+;;; ============================================================================
+
+(defun generic-compare (a b)
+  "Generic three-way comparison function for SYCAMORE tree-map.
+   Returns -1 if a < b, 0 if a = b, 1 if a > b.
+   Numbers are compared numerically, symbols and keywords by name,
+   strings lexicographically, and other types by their printed representation."
+  (cond
+    ;; Both numbers - use numeric comparison
+    ((and (realp a) (realp b))
+     (cond ((cl:< a b) -1)
+           ((cl:> a b) 1)
+           (t 0)))
+    ;; Both symbols/keywords - compare by name
+    ((and (or (symbolp a) (keywordp a))
+          (or (symbolp b) (keywordp b)))
+     (let ((name-a (symbol-name a))
+           (name-b (symbol-name b)))
+       (cond ((cl:string< name-a name-b) -1)
+             ((cl:string> name-a name-b) 1)
+             (t 0))))
+    ;; Both strings - lexicographic comparison
+    ((and (stringp a) (stringp b))
+     (cond ((cl:string< a b) -1)
+           ((cl:string> a b) 1)
+           (t 0)))
+    ;; Mixed types - compare by type name first, then by printed representation
+    (t
+     (let* ((type-a (type-of a))
+            (type-b (type-of b))
+            (type-name-a (symbol-name type-a))
+            (type-name-b (symbol-name type-b)))
+       (cond ((cl:string< type-name-a type-name-b) -1)
+             ((cl:string> type-name-a type-name-b) 1)
+             (t (let ((str-a (princ-to-string a))
+                      (str-b (princ-to-string b)))
+                  (cond ((cl:string< str-a str-b) -1)
+                        ((cl:string> str-a str-b) 1)
+                        (t 0)))))))))
+
+;;; ============================================================================
+;;; Sorted Dictionary Class (<sorted-dict>)
+;;; ============================================================================
+;;; A persistent dictionary maintaining keys in sorted order.
+;;; Uses SYCAMORE tree-map for O(log n) operations and better performance.
+
+(defclass <sorted-dict> (<dict> <ordered-collection>)
+  ((items :initarg :items
+          :initform (sycamore:make-tree-map #'generic-compare)
+          :documentation "SYCAMORE tree-map for sorted storage."))
+  (:metaclass persistent-class)
+  (:documentation "A persistent dictionary maintaining keys in sorted order."))
+
+(defun make-sorted-dict (&rest pairs)
+  "Create a new <sorted-dict> from key-value pairs.
+   Keys are maintained in sorted order using the default comparator."
+  (let ((tree (sycamore:make-tree-map #'generic-compare)))
+    (loop for (key val) on pairs by #'cddr
+          do (setf tree (sycamore:tree-map-insert tree
+                                                   (fol.wrappers:fol-value key)
+                                                   (fol.wrappers:fol-value val))))
+    (make-instance '<sorted-dict> :items tree)))
+
+(defun sorted-dict (&rest pairs)
+  "Create a new <sorted-dict> from key-value pairs.
+   Alias for make-sorted-dict."
+  (apply #'make-sorted-dict pairs))
+
+(defun sorted-dict-by (comparator &rest pairs)
+  "Create a new <sorted-dict> with a custom COMPARATOR function.
+   COMPARATOR should be a function of two arguments that returns true
+   if the first argument should come before the second."
+  (let ((tree (sycamore:make-tree-map comparator)))
+    (loop for (key val) on pairs by #'cddr
+          do (setf tree (sycamore:tree-map-insert tree
+                                                   (fol.wrappers:fol-value key)
+                                                   (fol.wrappers:fol-value val))))
+    (make-instance '<sorted-dict> :items tree)))
+
+(defgeneric <sorted-dict>? (obj) (:documentation "Returns T if OBJ is a FOL <sorted-dict>."))
+(defmethod <sorted-dict>? (obj) nil)
+(defmethod <sorted-dict>? ((obj <sorted-dict>)) t)
+
+(defmethod print-object ((obj <sorted-dict>) stream)
+  "Print sorted-dict as {<k1 v1 k2 v2>} in sorted key order."
+  (format stream "{<")
+  (let ((first t))
+    (sycamore:do-tree-map ((key val) (pslot-value obj 'items))
+      (unless first (format stream " "))
+      (setf first nil)
+      (flet ((safe-print (item)
+               (cond ((eq item t) (format stream "#t"))
+                     ((eq item nil) (format stream "#f"))
+                     ((keywordp item) (format stream "~S" item))
+                     ((symbolp item)  (format stream "'~S" item))
+                     (t (format stream "~S" item)))))
+        (safe-print key)
+        (format stream " ")
+        (safe-print val))))
+  (format stream ">}"))
+
+
+;;; ============================================================================
+;;; Ordered Dictionary Class (<ordered-dict>)
+;;; ============================================================================
+;;; A persistent dictionary maintaining insertion order without size limit.
+;;; Uses dual structure: map for O(1) lookup, seq for insertion order.
+
+(defclass <ordered-dict> (<dict> <ordered-collection>)
+  ((items :initarg :items
+          :initform (fset:empty-map)
+          :documentation "FSet map for O(1) lookup.")
+   (order :initarg :order
+          :initform (fset:empty-seq)
+          :documentation "FSet seq maintaining insertion order."))
+  (:metaclass persistent-class)
+  (:documentation "A persistent dictionary maintaining insertion order without size limit."))
+
+(defun make-ordered-dict (&rest pairs)
+  "Create a new <ordered-dict> from key-value pairs.
+   Maintains insertion order with no size limit."
+  (let ((map (fset:empty-map))
+        (seq (fset:empty-seq)))
+    (loop for (key val) on pairs by #'cddr
+          do (let ((raw-key (fol.wrappers:fol-value key))
+                   (raw-val (fol.wrappers:fol-value val)))
+               (multiple-value-bind (old-val found) (fset:lookup map raw-key)
+                 (declare (ignore old-val))
+                 (unless found
+                   (setf seq (fset:with-last seq raw-key)))
+                 (setf map (fset:with map raw-key raw-val)))))
+    (make-instance '<ordered-dict> :items map :order seq)))
+
+(defun ordered-dict (&rest pairs)
+  "Create a new <ordered-dict> from key-value pairs.
+   Alias for make-ordered-dict."
+  (apply #'make-ordered-dict pairs))
+
+(defgeneric <ordered-dict>? (obj) (:documentation "Returns T if OBJ is a FOL <ordered-dict>."))
+(defmethod <ordered-dict>? (obj) nil)
+(defmethod <ordered-dict>? ((obj <ordered-dict>)) t)
+
+(defmethod print-object ((obj <ordered-dict>) stream)
+  "Print ordered-dict as {#k1 v1 k2 v2#} in insertion order."
+  (format stream "{#")
+  (let ((first t))
+    (fset:do-seq (key (pslot-value obj 'order))
+      (unless first (format stream " "))
+      (setf first nil)
+      (let ((val (fset:lookup (pslot-value obj 'items) key)))
+        (flet ((safe-print (item)
+                 (cond ((eq item t) (format stream "#t"))
+                       ((eq item nil) (format stream "#f"))
+                       ((keywordp item) (format stream "~S" item))
+                       ((symbolp item)  (format stream "'~S" item))
+                       (t (format stream "~S" item)))))
+          (safe-print key)
+          (format stream " ")
+          (safe-print val)))))
+  (format stream "#}"))
+
+
+;;; ============================================================================
+;;; Priority Dictionary Class (<priority-dict>)
+;;; ============================================================================
+;;; A persistent dictionary maintaining entries sorted by their values (priorities).
+;;; Useful as a priority queue where keys are items and values are priorities.
+
+(defclass <priority-dict> (<dict> <ordered-collection>)
+  ((items :initarg :items
+          :initform (fset:empty-map)
+          :documentation "Map from items (keys) to their priorities (values).")
+   (priorities :initarg :priorities
+               :initform (fset:empty-map)
+               :documentation "Map from priorities to sets of items with that priority."))
+  (:metaclass persistent-class)
+  (:documentation "A persistent dictionary sorted by values (priorities), not keys."))
+
+(defun make-priority-dict (&rest pairs)
+  "Create a new <priority-dict> from key-value pairs.
+   Items are sorted by their values (priorities) in ascending order."
+  (let ((items (fset:empty-map))
+        (priorities (fset:empty-map)))
+    (loop for (key val) on pairs by #'cddr
+          do (let ((raw-key (fol.wrappers:fol-value key))
+                   (raw-val (fol.wrappers:fol-value val)))
+               ;; Remove old priority if key exists
+               (multiple-value-bind (old-priority found) (fset:lookup items raw-key)
+                 (when found
+                   (let ((item-set (fset:lookup priorities old-priority)))
+                     (when item-set
+                       (setf item-set (fset:less item-set raw-key))
+                       (if (fset:empty? item-set)
+                           (setf priorities (fset:less priorities old-priority))
+                           (setf priorities (fset:with priorities old-priority item-set)))))))
+               ;; Add new priority
+               (setf items (fset:with items raw-key raw-val))
+               (let ((item-set (or (fset:lookup priorities raw-val) (fset:empty-set))))
+                 (setf item-set (fset:with item-set raw-key))
+                 (setf priorities (fset:with priorities raw-val item-set)))))
+    (make-instance '<priority-dict> :items items :priorities priorities)))
+
+(defun priority-dict (&rest pairs)
+  "Create a new <priority-dict> from key-value pairs.
+   Alias for make-priority-dict."
+  (apply #'make-priority-dict pairs))
+
+(defgeneric <priority-dict>? (obj) (:documentation "Returns T if OBJ is a FOL <priority-dict>."))
+(defmethod <priority-dict>? (obj) nil)
+(defmethod <priority-dict>? ((obj <priority-dict>)) t)
+
+(defmethod print-object ((obj <priority-dict>) stream)
+  "Print priority-dict as {^k1 v1 k2 v2^} in priority (value) order."
+  (format stream "{^")
+  (let ((first t)
+        (priorities (pslot-value obj 'priorities)))
+    (fset:do-map (priority item-set priorities)
+      (fset:do-set (key item-set)
+        (unless first (format stream " "))
+        (setf first nil)
+        (flet ((safe-print (item)
+                 (cond ((eq item t) (format stream "#t"))
+                       ((eq item nil) (format stream "#f"))
+                       ((keywordp item) (format stream "~S" item))
+                       ((symbolp item)  (format stream "'~S" item))
+                       (t (format stream "~S" item)))))
+          (safe-print key)
+          (format stream " ")
+          (safe-print priority)))))
+  (format stream "^}"))
+
+
+;;; ============================================================================
+;;; Integer Dictionary Class (<int-dict>)
+;;; ============================================================================
+;;; A persistent dictionary optimized for integer keys, maintaining sorted order.
+
+(defclass <int-dict> (<sorted-dict>)
+  ()
+  (:metaclass persistent-class)
+  (:documentation "A persistent dictionary optimized for integer keys, sorted by key value."))
+
+(defun make-int-dict (&rest pairs)
+  "Create a new <int-dict> from key-value pairs.
+   Keys must be integers. Maintains sorted order by key."
+  (let ((tree (sycamore:make-tree-map #'(lambda (a b)
+                                           (cond ((cl:< a b) -1)
+                                                 ((cl:> a b) 1)
+                                                 (t 0))))))
+    (loop for (key val) on pairs by #'cddr
+          do (let ((raw-key (fol.wrappers:fol-value key)))
+               (unless (integerp raw-key)
+                 (error "INT-DICT requires integer keys, got ~S" raw-key))
+               (setf tree (sycamore:tree-map-insert tree
+                                                    raw-key
+                                                    (fol.wrappers:fol-value val)))))
+    (make-instance '<int-dict> :items tree)))
+
+(defun int-dict (&rest pairs)
+  "Create a new <int-dict> from key-value pairs.
+   Alias for make-int-dict."
+  (apply #'make-int-dict pairs))
+
+(defgeneric <int-dict>? (obj) (:documentation "Returns T if OBJ is a FOL <int-dict>."))
+(defmethod <int-dict>? (obj) nil)
+(defmethod <int-dict>? ((obj <int-dict>)) t)
+
+;; <int-dict> inherits print-object from <sorted-dict> but uses standard format
+(defmethod print-object ((obj <int-dict>) stream)
+  "Print int-dict as {k1 v1 k2 v2} in sorted key order."
+  (format stream "{")
+  (let ((first t))
+    (sycamore:do-tree-map ((key val) (pslot-value obj 'items))
+      (unless first (format stream " "))
+      (setf first nil)
+      (format stream "~D ~S" key val)))
   (format stream "}"))
 
 
@@ -974,5 +1341,10 @@
 (defmethod fol.wrappers:fol-type-of ((obj <dense-int-set>)) '<dense-int-set>)
 (defmethod fol.wrappers:fol-type-of ((obj <sorted-set-by>)) '<sorted-set-by>)
 (defmethod fol.wrappers:fol-type-of ((obj <bag>)) '<bag>)
+(defmethod fol.wrappers:fol-type-of ((obj <array-dict>)) '<array-dict>)
+(defmethod fol.wrappers:fol-type-of ((obj <sorted-dict>)) '<sorted-dict>)
+(defmethod fol.wrappers:fol-type-of ((obj <ordered-dict>)) '<ordered-dict>)
+(defmethod fol.wrappers:fol-type-of ((obj <priority-dict>)) '<priority-dict>)
+(defmethod fol.wrappers:fol-type-of ((obj <int-dict>)) '<int-dict>)
 (defmethod fol.wrappers:fol-type-of ((obj <array>)) '<array>)
 (defmethod fol.wrappers:fol-type-of ((obj <lazy-seq>)) '<lazy-seq>)

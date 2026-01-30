@@ -114,13 +114,23 @@
                 :<vector> :<list> :<dict> :<set> :<bag> :<array> :<lazy-seq>
                 :<sorted-set> :<ordered-set> :<int-set> :<dense-int-set>
                 :<sorted-set-by> :<sorted-set-by>? :sorted-set-by
+                ;; Dict subclass types
+                :<array-dict> :<sorted-dict> :<ordered-dict> :<priority-dict> :<int-dict>
                 ;; Type predicates
                 :<collection>? :<ordered-collection>? :<unordered-collection>?
                 :<dict>? :<set>? :<bag>? :<vector>? :<array>? :<list>?
                 :<sorted-set>? :<ordered-set>? :<int-set>? :<dense-int-set>?
+                ;; Dict subclass predicates
+                :<array-dict>? :<sorted-dict>? :<ordered-dict>? :<priority-dict>? :<int-dict>?
                 :<lazy-seq>? :make-lazy-seq :realize-lazy-seq :lazy-seq-realized-p
                 :make-dict :make-set :make-bag :make-vector
                 :make-sorted-set :make-ordered-set :make-int-set :make-dense-int-set
+                ;; Dict subclass constructors
+                :make-array-dict :array-dict :array-dict-with-limit
+                :make-sorted-dict :sorted-dict :sorted-dict-by
+                :make-ordered-dict :ordered-dict
+                :make-priority-dict :priority-dict
+                :make-int-dict :int-dict
                 :iterator :current :next :done?
                 :nth-element :set-nth
                 :list-first :list-rest :list-size
@@ -142,12 +152,20 @@
                 :reduce-kv)
   ;; Import symbols from fol.seqop
   (:import-from :fol.seqop
-                ::add :conj :contains? :size :empty? :seq :disj
+                :add :conj :contains? :size :empty? :seq :disj
                 :set-union :select :subset? :superset?
-                :subs :rsubs)
+                :subs :rsubs
+                ;; Dict query operations
+                :get-in :keys :vals :key :val
+                ;; Dict modification operations
+                :dissoc :merge-with
+                ;; Dict transformation operations
+                :select-keys :rename-keys :map-invert :update-keys :update-vals
+                ;; Dict construction operations
+                :freqs :group-by :index)
   ;; Shadow CL symbols that FOL redefines (sequence operations now in fol.seqop)
   (:shadowing-import-from :fol.seqop :remove :get :first :rest :nth :pop :push :reverse :assoc
-                          :set-difference :set-intersection)
+                          :set-difference :set-intersection :find :merge)
   ;; Shadow CL symbols that FOL redefines (collection-specific, remain in fol.collection)
   (:shadowing-import-from :fol.collection :make-array :make-list :second :third :vector)
   ;; Import symbols from fol.env

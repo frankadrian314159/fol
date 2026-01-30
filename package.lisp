@@ -190,6 +190,11 @@
            <unordered-collection> <unordered-collection>?
            <ordered-collection> <ordered-collection>?
            <dict> <dict>? make-dict
+           <array-dict> <array-dict>? make-array-dict array-dict array-dict-with-limit
+           <sorted-dict> <sorted-dict>? make-sorted-dict sorted-dict sorted-dict-by
+           <ordered-dict> <ordered-dict>? make-ordered-dict ordered-dict
+           <priority-dict> <priority-dict>? make-priority-dict priority-dict
+           <int-dict> <int-dict>? make-int-dict int-dict
            <bag> <bag>? make-bag
            <set> <set>? make-set
            <sorted-set> <sorted-set>? make-sorted-set
@@ -242,8 +247,8 @@
   (:shadowing-import-from fol.collection
                           assoc get rest first reverse remove pop push make-list
                           third second nth vector make-array)
-  ;; Shadow CL set operations to allow our own generic functions
-  (:shadow set-difference set-intersection)
+  ;; Shadow CL functions to allow our own generic functions
+  (:shadow set-difference set-intersection find merge)
   (:export
    ;; Collection accessors
     conj first rest peek pop push nth get
@@ -260,7 +265,15 @@
    ;; Set operations
     set-union set-difference set-intersection
     select subset? superset?
-    subs rsubs))
+    subs rsubs
+   ;; Dict query operations
+    get-in find keys vals key val
+   ;; Dict modification operations
+    dissoc merge merge-with
+   ;; Dict transformation operations
+    select-keys rename-keys map-invert update-keys update-vals
+   ;; Dict construction operations
+    freqs group-by index))
 
 (defpackage fol.module
   (:use cl fol.persistent fol.collection)
