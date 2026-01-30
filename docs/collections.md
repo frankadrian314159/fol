@@ -1,6 +1,6 @@
 # Collection Operations
 
-These functions work on FOL collections (vectors, lists, dicts, sets, bags, arrays)
+These functions work on FOL collections (vectors, deques, lists, dicts, sets, bags, arrays)
 and also on CL lists and strings.
 
 ## first
@@ -571,6 +571,70 @@ elements are returned in reverse order. Similar to Clojure's `rsubseq`.
 ;; On sorted sets (by value range, reversed)
 (rsubs (sorted-set 1 3 5 7 9) 3 8)  ; => (7 5 3) - elements >= 3 and < 8, reversed
 ```
+
+---
+
+## Deque (Double-Ended Queue)
+
+The `<deque>` is a persistent double-ended queue that supports efficient O(log n)
+operations at both the front and back. It combines the benefits of both vectors
+(efficient end operations) and lists (efficient front operations).
+
+### Creating Deques
+
+```fol
+(deque)               ; => #Q[]
+(deque 1 2 3)         ; => #Q[1 2 3]
+```
+
+### Deque Operations
+
+| Function | Description |
+|----------|-------------|
+| `peek-front` | Returns the front element without removing it |
+| `pop-front` | Returns a new deque without the front element |
+| `push-front` | Returns a new deque with an element added at the front |
+| `peek-end` | Returns the end element without removing it |
+| `pop-end` | Returns a new deque without the end element |
+| `push-end` | Returns a new deque with an element added at the end |
+
+### Examples
+
+```fol
+(def dq (deque 1 2 3))
+
+;; Front operations
+(peek-front dq)           ; => 1
+(pop-front dq)            ; => #Q[2 3]
+(push-front 0 dq)         ; => #Q[0 1 2 3]
+
+;; End operations
+(peek-end dq)             ; => 3
+(pop-end dq)              ; => #Q[1 2]
+(push-end 4 dq)           ; => #Q[1 2 3 4]
+
+;; Standard operations work too
+(first dq)                ; => 1 (same as peek-front)
+(rest dq)                 ; => #Q[2 3] (same as pop-front)
+(peek dq)                 ; => 3 (same as peek-end, like vector)
+(pop dq)                  ; => #Q[1 2] (same as pop-end, like vector)
+(push 4 dq)               ; => #Q[1 2 3 4] (same as push-end, like vector)
+
+;; Other collection operations
+(size dq)                 ; => 3
+(empty? dq)               ; => false
+(get dq 1)                ; => 2
+(contains? dq 2)          ; => true
+(seq dq)                  ; => (1 2 3)
+(conj dq 4 5)             ; => #Q[1 2 3 4 5]
+```
+
+### When to Use Deques
+
+- When you need efficient operations at both ends of a sequence
+- Implementing queues (FIFO) or stacks (LIFO)
+- Sliding window algorithms
+- When you want vector-like indexing with efficient front insertion
 
 ---
 
