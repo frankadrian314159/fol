@@ -203,6 +203,7 @@
            <dense-int-set> <dense-int-set>? make-dense-int-set
            <sorted-set-by> <sorted-set-by>? sorted-set-by
            <vector> <vector>? make-vector
+           <deque> <deque>? make-deque
            <list> <list>? make-list
            <lazy-seq> <lazy-seq>? make-lazy-seq
            realize-lazy-seq lazy-seq-realized-p
@@ -246,12 +247,14 @@
   ;; Import symbols already shadowed by fol.collection to avoid creating duplicates
   (:shadowing-import-from fol.collection
                           assoc get rest first reverse remove pop push make-list
-                          third second nth vector make-array)
+                          third second nth vector make-array make-deque <deque>)
   ;; Shadow CL functions to allow our own generic functions
   (:shadow set-difference set-intersection find merge)
   (:export
    ;; Collection accessors
     conj first rest peek pop push nth get
+   ;; Deque operations
+    peek-front pop-front push-front peek-end pop-end push-end
    ;; Collection info
     size empty? seq contains?
    ;; Collection modification

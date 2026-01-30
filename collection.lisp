@@ -817,6 +817,49 @@
 
 
 ;;; ============================================================================
+;;; Deque Class (<deque>)
+;;; ============================================================================
+;;; A persistent double-ended queue (deque) that supports efficient operations
+;;; at both the front and back. Uses FSet sequences internally.
+;;; All operations are O(log n) due to FSet's finger tree implementation.
+
+(defclass <deque> (<ordered-collection>)
+  ((items :initarg :items
+          :initform (fset:empty-seq)
+          :documentation "The underlying FSet sequence."))
+  (:metaclass persistent-class)
+  (:documentation "A persistent double-ended queue implemented using FSet sequences.
+                   Supports O(log n) operations at both ends."))
+
+(defun make-deque (&rest elements)
+  "Create a new <deque> from the given elements.
+   Elements are stored as raw CL primitives.
+   The first element becomes the front of the deque."
+  (make-instance '<deque>
+                 :items (fset:convert 'fset:seq
+                                      (mapcar #'fol.wrappers:fol-value elements))))
+
+(defgeneric <deque>? (obj) (:documentation "Returns T if OBJ is a FOL <deque>."))
+(defmethod <deque>? (obj) nil)
+(defmethod <deque>? ((obj <deque>)) t)
+
+(defmethod print-object ((obj <deque>) stream)
+  "Print deque as #Q[elem1 elem2 ...] with front at left."
+  (format stream "#Q[")
+  (let ((items (pslot-value obj 'items))
+        (first t))
+    (fset:do-seq (item items)
+      (unless first (format stream " "))
+      (setf first nil)
+      (cond ((eq item t) (format stream "#t"))
+            ((eq item nil) (format stream "#f"))
+            ((keywordp item) (format stream "~S" item))
+            ((symbolp item)  (format stream "'~S" item))
+            (t (format stream "~S" item)))))
+  (format stream "]"))
+
+
+;;; ============================================================================
 ;;; List Class (<list>)
 ;;; ============================================================================
 ;;; A persistent singly-linked list following Clojure's list semantics.
@@ -1194,6 +1237,7 @@
   nil)
 
 (defmethod sized? ((c <vector>)) t)
+(defmethod sized? ((c <deque>)) t)
 (defmethod sized? ((c <list>)) t)
 (defmethod sized? ((c <dict>)) t)
 (defmethod sized? ((c <set>)) t)
@@ -1332,6 +1376,7 @@
 ;;; to avoid circular dependency with wrappers.lisp.
 
 (defmethod fol.wrappers:fol-type-of ((obj <vector>)) '<vector>)
+(defmethod fol.wrappers:fol-type-of ((obj <deque>)) '<deque>)
 (defmethod fol.wrappers:fol-type-of ((obj <list>)) '<list>)
 (defmethod fol.wrappers:fol-type-of ((obj <dict>)) '<dict>)
 (defmethod fol.wrappers:fol-type-of ((obj <set>)) '<set>)

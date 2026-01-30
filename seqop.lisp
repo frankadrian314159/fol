@@ -159,6 +159,163 @@
   "Create a new list with just ITEM."
   (make-list item))
 
+;;; --- Deque-specific operations (front and end) ---
+
+(defgeneric peek-front (collection)
+  (:documentation "Returns the element at the front of a deque without modifying it.
+   Returns NIL if the collection is empty."))
+
+(defgeneric pop-front (collection)
+  (:documentation "Returns a new deque without the front element.
+   Returns an empty deque if the collection is empty."))
+
+(defgeneric push-front (item collection)
+  (:documentation "Returns a new deque with ITEM added at the front."))
+
+(defgeneric peek-end (collection)
+  (:documentation "Returns the element at the end of a deque without modifying it.
+   Returns NIL if the collection is empty."))
+
+(defgeneric pop-end (collection)
+  (:documentation "Returns a new deque without the end element.
+   Returns an empty deque if the collection is empty."))
+
+(defgeneric push-end (item collection)
+  (:documentation "Returns a new deque with ITEM added at the end."))
+
+;;; --- Deque front operations ---
+
+(defmethod peek-front ((dq <deque>))
+  "Return the front element of the deque, or NIL if empty."
+  (let ((items (pslot-value dq 'fol.collection::items)))
+    (if (fset:empty? items)
+        nil
+        (fset:@ items 0))))
+
+(defmethod pop-front ((dq <deque>))
+  "Return a new deque without the front element."
+  (let ((items (pslot-value dq 'fol.collection::items)))
+    (if (fset:empty? items)
+        (make-deque)
+        (make-instance '<deque> :items (fset:subseq items 1)))))
+
+(defmethod push-front (item (dq <deque>))
+  "Add ITEM to the front of the deque."
+  (let* ((items (pslot-value dq 'fol.collection::items))
+         (raw-item (fol.wrappers:fol-value item))
+         ;; Build a new sequence with item at front
+         (new-items (fset:with-last (fset:empty-seq) raw-item)))
+    (fset:do-seq (elem items)
+      (setf new-items (fset:with-last new-items elem)))
+    (make-instance '<deque> :items new-items)))
+
+;;; --- Deque end operations ---
+
+(defmethod peek-end ((dq <deque>))
+  "Return the end element of the deque, or NIL if empty."
+  (let ((items (pslot-value dq 'fol.collection::items)))
+    (if (fset:empty? items)
+        nil
+        (fset:@ items (1- (fset:size items))))))
+
+(defmethod pop-end ((dq <deque>))
+  "Return a new deque without the end element."
+  (let ((items (pslot-value dq 'fol.collection::items)))
+    (if (fset:empty? items)
+        (make-deque)
+        (make-instance '<deque> :items (fset:less-last items)))))
+
+(defmethod push-end (item (dq <deque>))
+  "Add ITEM to the end of the deque."
+  (make-instance '<deque>
+                 :items (fset:with-last (pslot-value dq 'fol.collection::items)
+                                        (fol.wrappers:fol-value item))))
+
+;;; --- Standard operations for <deque> ---
+
+(defmethod size ((dq <deque>))
+  "Return the number of elements in the deque."
+  (fset:size (pslot-value dq 'fol.collection::items)))
+
+(defmethod empty? ((dq <deque>))
+  "Return T if the deque is empty."
+  (if (fset:empty? (pslot-value dq 'fol.collection::items)) t nil))
+
+(defmethod contains? ((dq <deque>) item)
+  "Return T if ITEM is in the deque."
+  (let ((raw-item (fol.wrappers:fol-value item))
+        (items (pslot-value dq 'fol.collection::items)))
+    (fset:do-seq (elem items)
+      (when (equal elem raw-item)
+        (return-from contains? t)))
+    nil))
+
+(defmethod seq ((dq <deque>))
+  "Return a seq over the deque's elements from front to back."
+  (let ((items (pslot-value dq 'fol.collection::items)))
+    (if (fset:empty? items)
+        nil
+        (apply #'make-list (fset:convert 'list items)))))
+
+(defmethod first ((dq <deque>))
+  "Return the first (front) element of the deque."
+  (peek-front dq))
+
+(defmethod rest ((dq <deque>))
+  "Return a new deque without the first element."
+  (pop-front dq))
+
+(defmethod get ((dq <deque>) (index integer) &optional default)
+  "Get element at INDEX from deque."
+  (let ((items (pslot-value dq 'fol.collection::items)))
+    (if (or (< index 0) (>= index (fset:size items)))
+        default
+        (fset:@ items index))))
+
+(defmethod get ((dq <deque>) (index fol.classes:<number>) &optional default)
+  "Get element at INDEX from deque. INDEX can be wrapped."
+  (get dq (fol.wrappers:fol-value index) default))
+
+(defmethod conj ((dq <deque>) item &rest more-items)
+  "Add items to the end of the deque (like push-end)."
+  (let ((result dq))
+    (setf result (push-end item result))
+    (dolist (it more-items)
+      (setf result (push-end it result)))
+    result))
+
+(defmethod add ((dq <deque>) item &optional value)
+  "Add ITEM to the end of the deque."
+  (declare (ignore value))
+  (push-end item dq))
+
+(defmethod remove ((dq <deque>) item)
+  "Return a new deque with the first occurrence of ITEM removed."
+  (let ((raw-item (fol.wrappers:fol-value item))
+        (items (pslot-value dq 'fol.collection::items))
+        (found nil)
+        (new-items (fset:empty-seq)))
+    (fset:do-seq (elem items)
+      (if (and (not found) (equal elem raw-item))
+          (setf found t)
+          (setf new-items (fset:with-last new-items elem))))
+    (make-instance '<deque> :items new-items)))
+
+;;; --- Standard peek/pop/push for <deque> (operate on back like vector) ---
+
+(defmethod peek ((dq <deque>) &optional indices)
+  "Return the last (end) element of the deque, or NIL if empty."
+  (declare (ignore indices))
+  (peek-end dq))
+
+(defmethod pop ((dq <deque>))
+  "Return a new deque without the last element."
+  (pop-end dq))
+
+(defmethod push (item (dq <deque>))
+  "Add ITEM to the end of the deque."
+  (push-end item dq))
+
 ;;; --- Generic protocol implementations for <list> ---
 
 (defmethod size ((lst <list>))

@@ -111,19 +111,19 @@
   ;; Import symbols from fol.collection
   (:import-from :fol.collection
                 ;; Type symbols (for type function tests)
-                :<vector> :<list> :<dict> :<set> :<bag> :<array> :<lazy-seq>
+                :<vector> :<deque> :<list> :<dict> :<set> :<bag> :<array> :<lazy-seq>
                 :<sorted-set> :<ordered-set> :<int-set> :<dense-int-set>
                 :<sorted-set-by> :<sorted-set-by>? :sorted-set-by
                 ;; Dict subclass types
                 :<array-dict> :<sorted-dict> :<ordered-dict> :<priority-dict> :<int-dict>
                 ;; Type predicates
                 :<collection>? :<ordered-collection>? :<unordered-collection>?
-                :<dict>? :<set>? :<bag>? :<vector>? :<array>? :<list>?
+                :<dict>? :<set>? :<bag>? :<vector>? :<deque>? :<array>? :<list>?
                 :<sorted-set>? :<ordered-set>? :<int-set>? :<dense-int-set>?
                 ;; Dict subclass predicates
                 :<array-dict>? :<sorted-dict>? :<ordered-dict>? :<priority-dict>? :<int-dict>?
                 :<lazy-seq>? :make-lazy-seq :realize-lazy-seq :lazy-seq-realized-p
-                :make-dict :make-set :make-bag :make-vector
+                :make-dict :make-set :make-bag :make-vector :make-deque
                 :make-sorted-set :make-ordered-set :make-int-set :make-dense-int-set
                 ;; Dict subclass constructors
                 :make-array-dict :array-dict :array-dict-with-limit
@@ -153,6 +153,8 @@
   ;; Import symbols from fol.seqop
   (:import-from :fol.seqop
                 :add :conj :contains? :size :empty? :seq :disj
+                ;; Deque operations
+                :peek-front :pop-front :push-front :peek-end :pop-end :push-end
                 :set-union :select :subset? :superset?
                 :subs :rsubs
                 ;; Dict query operations
@@ -164,7 +166,7 @@
                 ;; Dict construction operations
                 :freqs :group-by :index)
   ;; Shadow CL symbols that FOL redefines (sequence operations now in fol.seqop)
-  (:shadowing-import-from :fol.seqop :remove :get :first :rest :nth :pop :push :reverse :assoc
+  (:shadowing-import-from :fol.seqop :remove :get :first :rest :nth :pop :push :peek :reverse :assoc
                           :set-difference :set-intersection :find :merge)
   ;; Shadow CL symbols that FOL redefines (collection-specific, remain in fol.collection)
   (:shadowing-import-from :fol.collection :make-array :make-list :second :third :vector)

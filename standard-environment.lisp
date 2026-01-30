@@ -119,6 +119,7 @@
             '<ordered-collection>? #'fol.collection:<ordered-collection>?
             '<unordered-collection>? #'fol.collection:<unordered-collection>?
             '<vector>? #'fol.collection:<vector>?
+            '<deque>? #'fol.collection:<deque>?
             '<list>? #'fol.collection:<list>?
             '<dict>? #'fol.collection:<dict>?
             '<set>? #'fol.collection:<set>?
@@ -313,6 +314,14 @@
             'vec #'fol.collection:vec
             'mapv #'fol.collection:mapv
             'filterv #'fol.collection:filterv
+            ;; Deque constructor and operations
+            'deque #'fol.collection:make-deque
+            'peek-front #'fol.seqop:peek-front
+            'pop-front #'fol.seqop:pop-front
+            'push-front #'fol.seqop:push-front
+            'peek-end #'fol.seqop:peek-end
+            'pop-end #'fol.seqop:pop-end
+            'push-end #'fol.seqop:push-end
             'assoc #'fol.seqop:assoc
             'assoc-in #'fol.seqop:assoc-in
             'rseq #'fol.seqop:rseq

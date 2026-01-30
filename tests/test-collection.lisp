@@ -1336,3 +1336,169 @@
     (is (= 3 (get s 3)))
     (is (eq nil (get s 10)))))
 
+;;; ---------------------------------------------------------------------------
+;;; Deque Tests
+;;; ---------------------------------------------------------------------------
+
+(test deque-creation-empty
+  "Test creation of empty deque."
+  (let ((dq (make-deque)))
+    (is-true (<deque>? dq))
+    (is (= 0 (size dq)))
+    (is-true (empty? dq))))
+
+(test deque-creation-with-elements
+  "Test creation of deque with elements."
+  (let ((dq (make-deque 1 2 3)))
+    (is-true (<deque>? dq))
+    (is (= 3 (size dq)))
+    (is (= 1 (peek-front dq)))
+    (is (= 3 (peek-end dq)))))
+
+(test deque-peek-front
+  "Test peek-front returns front element without modification."
+  (let ((dq (make-deque :a :b :c)))
+    (is (eq :a (peek-front dq)))
+    ;; Deque unchanged
+    (is (= 3 (size dq)))
+    ;; Empty deque returns nil
+    (is (eq nil (peek-front (make-deque))))))
+
+(test deque-peek-end
+  "Test peek-end returns end element without modification."
+  (let ((dq (make-deque :a :b :c)))
+    (is (eq :c (peek-end dq)))
+    ;; Deque unchanged
+    (is (= 3 (size dq)))
+    ;; Empty deque returns nil
+    (is (eq nil (peek-end (make-deque))))))
+
+(test deque-push-front
+  "Test push-front adds element at front."
+  (let* ((dq1 (make-deque :b :c))
+         (dq2 (push-front :a dq1)))
+    ;; Original unchanged
+    (is (= 2 (size dq1)))
+    (is (eq :b (peek-front dq1)))
+    ;; New deque has element at front
+    (is (= 3 (size dq2)))
+    (is (eq :a (peek-front dq2)))
+    (is (eq :c (peek-end dq2)))))
+
+(test deque-push-end
+  "Test push-end adds element at end."
+  (let* ((dq1 (make-deque :a :b))
+         (dq2 (push-end :c dq1)))
+    ;; Original unchanged
+    (is (= 2 (size dq1)))
+    (is (eq :b (peek-end dq1)))
+    ;; New deque has element at end
+    (is (= 3 (size dq2)))
+    (is (eq :a (peek-front dq2)))
+    (is (eq :c (peek-end dq2)))))
+
+(test deque-pop-front
+  "Test pop-front removes front element."
+  (let* ((dq1 (make-deque :a :b :c))
+         (dq2 (pop-front dq1)))
+    ;; Original unchanged
+    (is (= 3 (size dq1)))
+    ;; New deque without front
+    (is (= 2 (size dq2)))
+    (is (eq :b (peek-front dq2)))
+    (is (eq :c (peek-end dq2)))))
+
+(test deque-pop-end
+  "Test pop-end removes end element."
+  (let* ((dq1 (make-deque :a :b :c))
+         (dq2 (pop-end dq1)))
+    ;; Original unchanged
+    (is (= 3 (size dq1)))
+    ;; New deque without end
+    (is (= 2 (size dq2)))
+    (is (eq :a (peek-front dq2)))
+    (is (eq :b (peek-end dq2)))))
+
+(test deque-pop-empty
+  "Test pop on empty deque returns empty deque."
+  (let ((dq (make-deque)))
+    (is-true (<deque>? (pop-front dq)))
+    (is-true (empty? (pop-front dq)))
+    (is-true (<deque>? (pop-end dq)))
+    (is-true (empty? (pop-end dq)))))
+
+(test deque-contains
+  "Test contains? on deque."
+  (let ((dq (make-deque 1 2 3)))
+    (is-true (contains? dq 1))
+    (is-true (contains? dq 2))
+    (is-true (contains? dq 3))
+    (is-false (contains? dq 4))))
+
+(test deque-get-by-index
+  "Test get by index on deque."
+  (let ((dq (make-deque :a :b :c)))
+    (is (eq :a (get dq 0)))
+    (is (eq :b (get dq 1)))
+    (is (eq :c (get dq 2)))
+    (is (eq nil (get dq 10)))
+    (is (eq :default (get dq 10 :default)))))
+
+(test deque-seq
+  "Test seq on deque returns list from front to back."
+  (let* ((dq (make-deque 1 2 3))
+         (lst (seq dq)))
+    (is-true (<list>? lst))
+    (is (= 3 (size lst)))
+    (is (= 1 (first lst)))
+    (is (= 2 (first (rest lst))))
+    (is (= 3 (first (rest (rest lst)))))))
+
+(test deque-conj
+  "Test conj adds to end of deque."
+  (let* ((dq1 (make-deque 1 2))
+         (dq2 (conj dq1 3)))
+    (is (= 2 (size dq1)))
+    (is (= 3 (size dq2)))
+    (is (= 3 (peek-end dq2)))))
+
+(test deque-remove
+  "Test remove on deque."
+  (let* ((dq1 (make-deque 1 2 3 2 4))
+         (dq2 (remove dq1 2)))
+    ;; Should remove first occurrence
+    (is (= 4 (size dq2)))
+    (is (= 1 (get dq2 0)))
+    (is (= 3 (get dq2 1)))
+    (is (= 2 (get dq2 2)))
+    (is (= 4 (get dq2 3)))))
+
+(test deque-standard-peek-pop-push
+  "Test standard peek/pop/push operate on end (like vector)."
+  (let* ((dq1 (make-deque 1 2))
+         (dq2 (push 3 dq1)))
+    ;; push adds to end
+    (is (= 3 (peek dq2)))
+    ;; pop removes from end
+    (let ((dq3 (pop dq2)))
+      (is (= 2 (peek dq3))))))
+
+(test deque-first-rest
+  "Test first/rest work like peek-front/pop-front."
+  (let ((dq (make-deque 1 2 3)))
+    (is (= 1 (first dq)))
+    (let ((dq2 (rest dq)))
+      (is (= 2 (first dq2)))
+      (is (= 2 (size dq2))))))
+
+(test deque-ordered-collection
+  "Test deque is an ordered collection."
+  (let ((dq (make-deque 1 2 3)))
+    (is-true (<ordered-collection>? dq))
+    (is-false (<unordered-collection>? dq))))
+
+(test deque-print
+  "Test deque print representation."
+  (let ((dq (make-deque 1 2 3)))
+    (is (string= "#Q[1 2 3]" (princ-to-string dq)))))
+

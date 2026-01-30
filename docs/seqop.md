@@ -200,6 +200,147 @@ Equivalent to conj for these collection types.
 
 ---
 
+## Deque Operations
+
+Deques (double-ended queues) support efficient operations at both the front and back.
+The `<deque>` class provides O(log n) operations at either end.
+
+### peek-front
+
+```
+(peek-front deque)
+```
+
+Returns the element at the front of the deque without removing it.
+Returns nil if the deque is empty.
+
+#### Examples
+
+```fol
+(peek-front (deque 1 2 3))    ; => 1
+(peek-front (deque))          ; => nil
+```
+
+---
+
+### pop-front
+
+```
+(pop-front deque)
+```
+
+Returns a new deque with the front element removed.
+Returns an empty deque if the input is empty.
+
+#### Examples
+
+```fol
+(pop-front (deque 1 2 3))     ; => #Q[2 3]
+(pop-front (deque 1))         ; => #Q[]
+(pop-front (deque))           ; => #Q[]
+```
+
+---
+
+### push-front
+
+```
+(push-front item deque)
+```
+
+Returns a new deque with ITEM added at the front.
+
+#### Examples
+
+```fol
+(push-front 0 (deque 1 2 3))  ; => #Q[0 1 2 3]
+(push-front :a (deque))       ; => #Q[:a]
+```
+
+---
+
+### peek-end
+
+```
+(peek-end deque)
+```
+
+Returns the element at the end of the deque without removing it.
+Returns nil if the deque is empty.
+
+#### Examples
+
+```fol
+(peek-end (deque 1 2 3))      ; => 3
+(peek-end (deque))            ; => nil
+```
+
+---
+
+### pop-end
+
+```
+(pop-end deque)
+```
+
+Returns a new deque with the end element removed.
+Returns an empty deque if the input is empty.
+
+#### Examples
+
+```fol
+(pop-end (deque 1 2 3))       ; => #Q[1 2]
+(pop-end (deque 1))           ; => #Q[]
+(pop-end (deque))             ; => #Q[]
+```
+
+---
+
+### push-end
+
+```
+(push-end item deque)
+```
+
+Returns a new deque with ITEM added at the end.
+
+#### Examples
+
+```fol
+(push-end 4 (deque 1 2 3))    ; => #Q[1 2 3 4]
+(push-end :a (deque))         ; => #Q[:a]
+```
+
+---
+
+### Standard Operations on Deques
+
+Deques also support the standard sequence operations. The `peek`, `pop`, and `push`
+operations work on the back of the deque (like vectors), while `first` and `rest`
+work on the front (like lists).
+
+```fol
+;; peek/pop/push work on the back (like vector)
+(peek (deque 1 2 3))          ; => 3
+(pop (deque 1 2 3))           ; => #Q[1 2]
+(push 4 (deque 1 2 3))        ; => #Q[1 2 3 4]
+
+;; first/rest work on the front (like list)
+(first (deque 1 2 3))         ; => 1
+(rest (deque 1 2 3))          ; => #Q[2 3]
+
+;; conj adds to the end
+(conj (deque 1 2) 3 4)        ; => #Q[1 2 3 4]
+
+;; get by index
+(get (deque 10 20 30) 1)      ; => 20
+
+;; seq returns elements front to back
+(seq (deque 1 2 3))           ; => (1 2 3)
+```
+
+---
+
 ## update
 
 ```
