@@ -1,11 +1,11 @@
 ;;; Delete packages in reverse dependency order to ensure clean reload
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (dolist (pkg '(:fol.repl :fol.eval :fol.env :fol.module :fol.seqop :fol.collection
-                 :fol.number :fol.symbol :fol.string :fol.char :fol.bool
-                 :fol.compareop :fol.arithop :fol.bitop :fol.logop
-                 :fol.wrappers :fol.reader :fol.stream :fol.classes :fol.mop :fol.fol-mop :fol.persistent))
-    (when (find-package pkg)
-      (delete-package pkg))))
+;; (eval-when (:compile-toplevel :load-toplevel :execute)
+;;   (dolist (pkg '(:fol.repl :fol.eval :fol.env :fol.module :fol.seqop :fol.collection
+;;                  :fol.number :fol.symbol :fol.string :fol.char :fol.bool
+;;                  :fol.compareop :fol.arithop :fol.bitop :fol.logop
+;;                  :fol.wrappers :fol.reader :fol.stream :fol.classes :fol.mop :fol.fol-mop :fol.persistent))
+;;     (when (find-package pkg)
+;;       (delete-package pkg))))
 
 (defpackage fol.persistent
   (:use cl)
@@ -196,6 +196,7 @@
            <ordered-set> <ordered-set>? make-ordered-set
            <int-set> <int-set>? make-int-set
            <dense-int-set> <dense-int-set>? make-dense-int-set
+           <sorted-set-by> <sorted-set-by>? sorted-set-by
            <vector> <vector>? make-vector
            <list> <list>? make-list
            <lazy-seq> <lazy-seq>? make-lazy-seq
@@ -235,15 +236,31 @@
            ;; Key-value reduce
            reduce-kv))
 
-(defpackage fol.seqop 
-  (:use cl fol.wrappers fol.classes fol.collection)
-  (:shadow assoc get rest first reverse remove pop push make-list third second nth
-           vector make-array)
+(defpackage fol.seqop
+  (:use cl fol.wrappers fol.classes fol.collection fol.persistent)
+  ;; Import symbols already shadowed by fol.collection to avoid creating duplicates
+  (:shadowing-import-from fol.collection
+                          assoc get rest first reverse remove pop push make-list
+                          third second nth vector make-array)
+  ;; Shadow CL set operations to allow our own generic functions
+  (:shadow set-difference set-intersection)
   (:export
+   ;; Collection accessors
+    conj first rest peek pop push nth get
+   ;; Collection info
+    size empty? seq contains?
+   ;; Collection modification
+    add remove disj
+   ;; Associative operations
+    assoc assoc-in sub
    ;; Sequence operations
-    get seq
-    size empty? contains?
-    add conj remove))
+    reverse index-of last-index-of rseq
+   ;; Update operations
+    update update-in reduce-kv
+   ;; Set operations
+    set-union set-difference set-intersection
+    select subset? superset?
+    subs rsubs))
 
 (defpackage fol.module
   (:use cl fol.persistent fol.collection)

@@ -113,6 +113,7 @@
                 ;; Type symbols (for type function tests)
                 :<vector> :<list> :<dict> :<set> :<bag> :<array> :<lazy-seq>
                 :<sorted-set> :<ordered-set> :<int-set> :<dense-int-set>
+                :<sorted-set-by> :<sorted-set-by>? :sorted-set-by
                 ;; Type predicates
                 :<collection>? :<ordered-collection>? :<unordered-collection>?
                 :<dict>? :<set>? :<bag>? :<vector>? :<array>? :<list>?
@@ -139,13 +140,16 @@
                 :update :update-in
                 ;; Key-value reduce
                 :reduce-kv)
-  ;; Inport symbols from fol.seqop
+  ;; Import symbols from fol.seqop
   (:import-from :fol.seqop
-                ::add :conj :contains? :size :empty? :seq)
-  ;; Shadow CL symbols that FOL redefines
-  (:shadowing-import-from :fol.seqop :remove :get :first :rest :nth :pop :push :reverse :assoc)
-  ;; Shadow CL symbols that FOL redefines
-  (:shadowing-import-from :fol.collection :remove :get :make-array :make-list :first :rest :second :third :nth :pop :push :reverse :vector :assoc)
+                ::add :conj :contains? :size :empty? :seq :disj
+                :set-union :select :subset? :superset?
+                :subs :rsubs)
+  ;; Shadow CL symbols that FOL redefines (sequence operations now in fol.seqop)
+  (:shadowing-import-from :fol.seqop :remove :get :first :rest :nth :pop :push :reverse :assoc
+                          :set-difference :set-intersection)
+  ;; Shadow CL symbols that FOL redefines (collection-specific, remain in fol.collection)
+  (:shadowing-import-from :fol.collection :make-array :make-list :second :third :vector)
   ;; Import symbols from fol.env
   (:import-from :fol.env
                 :<env>? :make-env :lookup :env-previous

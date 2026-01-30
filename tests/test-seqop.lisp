@@ -804,3 +804,329 @@
                             0 v)))
     ;; 1 + 2 = 3 (stopped at idx 2)
     (is (= 3 result))))
+
+;;; ---------------------------------------------------------------------------
+;;; Set Operation Tests: union, difference, intersection
+;;; ---------------------------------------------------------------------------
+
+(test union-basic-sets
+  "Test union of basic hash sets."
+  (let* ((s1 (make-set 1 2 3))
+         (s2 (make-set 3 4 5))
+         (result (set-union s1 s2)))
+    (is-true (<set>? result))
+    (is (= 5 (size result)))
+    (is-true (contains? result 1))
+    (is-true (contains? result 3))
+    (is-true (contains? result 5))))
+
+(test union-multiple-sets
+  "Test union of multiple sets."
+  (let* ((s1 (make-set 1 2))
+         (s2 (make-set 3 4))
+         (s3 (make-set 5 6))
+         (result (set-union s1 s2 s3)))
+    (is (= 6 (size result)))))
+
+(test union-sorted-sets
+  "Test union preserves sorted-set type."
+  (let* ((s1 (make-sorted-set 3 1 5))
+         (s2 (make-set 2 4))
+         (result (set-union s1 s2)))
+    (is-true (<sorted-set>? result))
+    (is (= 5 (size result)))
+    ;; Check order
+    (let ((lst (seq result)))
+      (is (= 1 (first lst))))))
+
+(test union-ordered-sets
+  "Test union preserves ordered-set type and order."
+  (let* ((s1 (make-ordered-set 3 1 5))
+         (s2 (make-set 2 4))
+         (result (set-union s1 s2)))
+    (is-true (<ordered-set>? result))
+    ;; First element should still be 3 (first inserted)
+    (is (= 3 (first (seq result))))))
+
+(test difference-basic-sets
+  "Test difference of basic hash sets."
+  (let* ((s1 (make-set 1 2 3 4))
+         (s2 (make-set 2 4))
+         (result (set-difference s1 s2)))
+    (is-true (<set>? result))
+    (is (= 2 (size result)))
+    (is-true (contains? result 1))
+    (is-true (contains? result 3))
+    (is-false (contains? result 2))))
+
+(test difference-sorted-set
+  "Test difference preserves sorted-set type."
+  (let* ((s1 (make-sorted-set 1 2 3 4 5))
+         (s2 (make-set 2 4))
+         (result (set-difference s1 s2)))
+    (is-true (<sorted-set>? result))
+    (is (= 3 (size result)))))
+
+(test difference-no-overlap
+  "Test difference when sets don't overlap."
+  (let* ((s1 (make-set 1 2))
+         (s2 (make-set 3 4))
+         (result (set-difference s1 s2)))
+    (is (= 2 (size result)))))
+
+(test intersection-basic-sets
+  "Test intersection of basic hash sets."
+  (let* ((s1 (make-set 1 2 3 4))
+         (s2 (make-set 2 3 5))
+         (result (set-intersection s1 s2)))
+    (is-true (<set>? result))
+    (is (= 2 (size result)))
+    (is-true (contains? result 2))
+    (is-true (contains? result 3))
+    (is-false (contains? result 1))))
+
+(test intersection-multiple-sets
+  "Test intersection of multiple sets."
+  (let* ((s1 (make-set 1 2 3 4 5))
+         (s2 (make-set 2 3 4))
+         (s3 (make-set 3 4 5))
+         (result (set-intersection s1 s2 s3)))
+    (is (= 2 (size result)))
+    (is-true (contains? result 3))
+    (is-true (contains? result 4))))
+
+(test intersection-sorted-set
+  "Test intersection preserves sorted-set type."
+  (let* ((s1 (make-sorted-set 1 2 3 4 5))
+         (s2 (make-set 2 4 6))
+         (result (set-intersection s1 s2)))
+    (is-true (<sorted-set>? result))
+    (is (= 2 (size result)))))
+
+(test intersection-empty-result
+  "Test intersection with no common elements."
+  (let* ((s1 (make-set 1 2))
+         (s2 (make-set 3 4))
+         (result (set-intersection s1 s2)))
+    (is (= 0 (size result)))))
+
+;;; ---------------------------------------------------------------------------
+;;; Select Tests
+;;; ---------------------------------------------------------------------------
+
+(test select-basic-set
+  "Test select on basic hash set."
+  (let* ((s (make-set 1 2 3 4 5 6))
+         (result (select #'cl:evenp s)))
+    (is-true (<set>? result))
+    (is (= 3 (size result)))
+    (is-true (contains? result 2))
+    (is-true (contains? result 4))
+    (is-false (contains? result 1))))
+
+(test select-sorted-set
+  "Test select on sorted set preserves type."
+  (let* ((s (make-sorted-set 1 2 3 4 5))
+         (result (select #'cl:oddp s)))
+    (is-true (<sorted-set>? result))
+    (is (= 3 (size result)))))
+
+(test select-ordered-set
+  "Test select on ordered set preserves type and order."
+  (let* ((s (make-ordered-set 5 2 4 1 3))
+         (result (select #'cl:oddp s)))
+    (is-true (<ordered-set>? result))
+    (is (= 3 (size result)))
+    ;; Order should be preserved: 5, 1, 3
+    (is (= 5 (first (seq result))))))
+
+(test select-none-match
+  "Test select when no elements match."
+  (let* ((s (make-set 1 3 5))
+         (result (select #'cl:evenp s)))
+    (is (= 0 (size result)))))
+
+;;; ---------------------------------------------------------------------------
+;;; Subset? and Superset? Tests
+;;; ---------------------------------------------------------------------------
+
+(test subset?-true
+  "Test subset? returns true for proper subset."
+  (let ((s1 (make-set 1 2))
+        (s2 (make-set 1 2 3 4)))
+    (is-true (subset? s1 s2))))
+
+(test subset?-false
+  "Test subset? returns false when not subset."
+  (let ((s1 (make-set 1 2 5))
+        (s2 (make-set 1 2 3 4)))
+    (is-false (subset? s1 s2))))
+
+(test subset?-equal-sets
+  "Test subset? returns true for equal sets."
+  (let ((s1 (make-set 1 2 3))
+        (s2 (make-set 1 2 3)))
+    (is-true (subset? s1 s2))))
+
+(test subset?-empty-set
+  "Test empty set is subset of any set."
+  (let ((s1 (make-set))
+        (s2 (make-set 1 2 3)))
+    (is-true (subset? s1 s2))))
+
+(test superset?-true
+  "Test superset? returns true when contains all elements."
+  (let ((s1 (make-set 1 2 3 4))
+        (s2 (make-set 1 2)))
+    (is-true (superset? s1 s2))))
+
+(test superset?-false
+  "Test superset? returns false when missing elements."
+  (let ((s1 (make-set 1 2 3))
+        (s2 (make-set 1 2 5)))
+    (is-false (superset? s1 s2))))
+
+(test superset?-empty-set
+  "Test any set is superset of empty set."
+  (let ((s1 (make-set 1 2 3))
+        (s2 (make-set)))
+    (is-true (superset? s1 s2))))
+
+;;; ---------------------------------------------------------------------------
+;;; subs and rsubs Tests
+;;; ---------------------------------------------------------------------------
+
+(test subs-vector-with-end
+  "Test subs on vector with start and end."
+  (let* ((v (make-vector 0 1 2 3 4 5))
+         (result (subs v 2 5)))
+    (is-true (<list>? result))
+    (is (= 3 (size result)))
+    (is (= 2 (first result)))
+    (is (= 4 (first (rest (rest result)))))))
+
+(test subs-vector-no-end
+  "Test subs on vector with only start."
+  (let* ((v (make-vector 0 1 2 3 4))
+         (result (subs v 3)))
+    (is (= 2 (size result)))
+    (is (= 3 (first result)))))
+
+(test subs-sorted-set
+  "Test subs on sorted set returns elements in range."
+  (let* ((s (make-sorted-set 1 3 5 7 9))
+         (result (subs s 3 8)))
+    (is-true (<list>? result))
+    ;; Should include 3, 5, 7 (>= 3 and < 8)
+    (is (= 3 (size result)))
+    (is (= 3 (first result)))))
+
+(test rsubs-vector
+  "Test rsubs on vector returns elements in reverse."
+  (let* ((v (make-vector 0 1 2 3 4))
+         (result (rsubs v 1 4)))
+    (is-true (<list>? result))
+    (is (= 3 (size result)))
+    (is (= 3 (first result)))
+    (is (= 1 (first (rest (rest result)))))))
+
+(test rsubs-sorted-set
+  "Test rsubs on sorted set returns elements in reverse order."
+  (let* ((s (make-sorted-set 1 3 5 7 9))
+         (result (rsubs s 3 8)))
+    (is-true (<list>? result))
+    ;; Should include 7, 5, 3 (>= 3 and < 8, reversed)
+    (is (= 3 (size result)))
+    (is (= 7 (first result)))))
+
+;;; ---------------------------------------------------------------------------
+;;; sorted-set-by Tests
+;;; ---------------------------------------------------------------------------
+
+(test sorted-set-by-descending
+  "Test sorted-set-by with descending order."
+  (let ((s (sorted-set-by #'cl:> 3 1 4 1 5 9 2)))
+    (is-true (<sorted-set-by>? s))
+    (is (= 6 (size s)))
+    ;; First element should be 9 (largest)
+    (let ((lst (seq s)))
+      (is (= 9 (first lst))))))
+
+(test sorted-set-by-contains
+  "Test contains? on sorted-set-by."
+  (let ((s (sorted-set-by #'cl:> 1 2 3)))
+    (is-true (contains? s 2))
+    (is-false (contains? s 5))))
+
+(test sorted-set-by-add-remove
+  "Test add and remove on sorted-set-by."
+  (let* ((s (sorted-set-by #'cl:> 3 1 5))
+         (s2 (add s 4))
+         (s3 (remove s2 3)))
+    (is (= 4 (size s2)))
+    (is-true (contains? s2 4))
+    (is (= 3 (size s3)))
+    (is-false (contains? s3 3))))
+
+;;; ---------------------------------------------------------------------------
+;;; disj Tests for New Set Types
+;;; ---------------------------------------------------------------------------
+
+(test disj-sorted-set
+  "Test disj on sorted-set."
+  (let* ((s (make-sorted-set 1 2 3 4 5))
+         (result (disj s 2 4)))
+    (is-true (<sorted-set>? result))
+    (is (= 3 (size result)))
+    (is-false (contains? result 2))
+    (is-false (contains? result 4))))
+
+(test disj-ordered-set
+  "Test disj on ordered-set."
+  (let* ((s (make-ordered-set 5 3 1 4 2))
+         (result (disj s 3 4)))
+    (is-true (<ordered-set>? result))
+    (is (= 3 (size result)))
+    ;; Order should still be 5, 1, 2
+    (is (= 5 (first (seq result))))))
+
+(test disj-int-set
+  "Test disj on int-set."
+  (let* ((s (make-int-set 1 2 3 4 5))
+         (result (disj s 2)))
+    (is-true (<int-set>? result))
+    (is (= 4 (size result)))
+    (is-false (contains? result 2))))
+
+;;; ---------------------------------------------------------------------------
+;;; conj Tests for New Set Types
+;;; ---------------------------------------------------------------------------
+
+(test conj-sorted-set
+  "Test conj on sorted-set."
+  (let* ((s (make-sorted-set 1 3 5))
+         (result (conj s 2 4)))
+    (is-true (<sorted-set>? result))
+    (is (= 5 (size result)))
+    ;; Check sorted order
+    (let ((lst (seq result)))
+      (is (= 1 (first lst)))
+      (is (= 2 (first (rest lst)))))))
+
+(test conj-ordered-set
+  "Test conj on ordered-set preserves insertion order."
+  (let* ((s (make-ordered-set 3 1))
+         (result (conj s 5 2)))
+    (is-true (<ordered-set>? result))
+    (is (= 4 (size result)))
+    ;; Order: 3, 1, 5, 2
+    (let ((lst (seq result)))
+      (is (= 3 (first lst)))
+      (is (= 2 (first (rest (rest (rest lst)))))))))
+
+(test conj-int-set
+  "Test conj on int-set."
+  (let* ((s (make-int-set 1 3))
+         (result (conj s 2)))
+    (is-true (<int-set>? result))
+    (is (= 3 (size result)))))

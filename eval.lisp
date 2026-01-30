@@ -964,7 +964,7 @@
                                       (listp arg))
                                (>= (if (listp arg)
                                        (length arg)
-                                       (fol.collection:size arg))
+                                       (fol.seqop:size arg))
                                    (second sig))))
                  (t t))))
 
@@ -982,8 +982,8 @@
                                       (<list>? arg)    ; FOL list
                                       (listp arg))     ; CL list form
                                (>= (cond ((listp arg) (length arg))
-                                         ((<vector>? arg) (fol.collection:size arg))
-                                         ((<list>? arg) (fol.collection:size arg))
+                                         ((<vector>? arg) (fol.seqop:size arg))
+                                         ((<list>? arg) (fol.seqop:size arg))
                                          (t 0))
                                    (second sig))))
                  (t t))))

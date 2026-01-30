@@ -943,7 +943,7 @@
       (is (eq :a (first s))))
     ;; Empty collection returns nil/empty
     (let ((empty-vec (make-vector)))
-      (is (fol.collection:empty? (fol-eval `(seq ',empty-vec) env))))
+      (is (fol.seqop:empty? (fol-eval `(seq ',empty-vec) env))))
     ;; String to seq (characters)
     (let ((s (fol-eval '(seq "abc") env)))
       (is (char= #\a (first s)))

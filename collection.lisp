@@ -298,6 +298,69 @@
 
 
 ;;; ============================================================================
+;;; Sorted Set By Class (<sorted-set-by>)
+;;; ============================================================================
+;;; A persistent sorted set with a custom comparator function.
+;;; Elements are maintained in order determined by the comparator.
+
+(defclass <sorted-set-by> (<sorted-set>)
+  ((comparator :initarg :comparator
+               :initform #'cl:<
+               :documentation "Comparator function for ordering elements.")
+   (elements :initarg :elements
+             :initform nil
+             :documentation "Sorted list of elements."))
+  (:metaclass persistent-class)
+  (:documentation "A persistent sorted set with a custom comparator."))
+
+(defun sorted-set-by (comparator &rest elements)
+  "Create a new <sorted-set-by> with the given COMPARATOR.
+   COMPARATOR should be a function of two arguments that returns true
+   if the first argument should come before the second.
+   Elements are stored in sorted order according to the comparator."
+  (let ((sorted-elems nil)
+        (seen (make-hash-table :test 'equal)))
+    ;; Add elements one by one, maintaining sort order and removing duplicates
+    (dolist (item elements)
+      (let ((raw (fol.wrappers:fol-value item)))
+        (unless (gethash raw seen)
+          (setf (gethash raw seen) t)
+          ;; Insert in sorted position
+          (if (null sorted-elems)
+              (setf sorted-elems (list raw))
+              (if (funcall comparator raw (car sorted-elems))
+                  (setf sorted-elems (cons raw sorted-elems))
+                  (let ((prev sorted-elems))
+                    (loop while (and (cdr prev)
+                                     (not (funcall comparator raw (cadr prev))))
+                          do (setf prev (cdr prev)))
+                    (setf (cdr prev) (cons raw (cdr prev)))))))))
+    (make-instance '<sorted-set-by>
+                   :comparator comparator
+                   :elements sorted-elems
+                   ;; Use empty fset for compatibility with parent class
+                   :items (fset:empty-set))))
+
+(defgeneric <sorted-set-by>? (obj) (:documentation "Returns T if OBJ is a FOL <sorted-set-by>."))
+(defmethod <sorted-set-by>? (obj) nil)
+(defmethod <sorted-set-by>? ((obj <sorted-set-by>)) t)
+
+(defmethod print-object ((obj <sorted-set-by>) stream)
+  "Print sorted-set-by as #S<cmp>{elem1 elem2 ...}."
+  (format stream "#S<cmp>{")
+  (let ((first t))
+    (dolist (item (pslot-value obj 'elements))
+      (unless first (format stream " "))
+      (setf first nil)
+      (cond ((eq item t) (format stream "#t"))
+            ((eq item nil) (format stream "#f"))
+            ((keywordp item) (format stream "~S" item))
+            ((symbolp item)  (format stream "'~S" item))
+            (t (format stream "~S" item)))))
+  (format stream "}"))
+
+
+;;; ============================================================================
 ;;; Dense Integer Set Class (<dense-int-set>)
 ;;; ============================================================================
 ;;; A persistent set optimized for dense integer ranges using bit vectors.
@@ -909,6 +972,7 @@
 (defmethod fol.wrappers:fol-type-of ((obj <ordered-set>)) '<ordered-set>)
 (defmethod fol.wrappers:fol-type-of ((obj <int-set>)) '<int-set>)
 (defmethod fol.wrappers:fol-type-of ((obj <dense-int-set>)) '<dense-int-set>)
+(defmethod fol.wrappers:fol-type-of ((obj <sorted-set-by>)) '<sorted-set-by>)
 (defmethod fol.wrappers:fol-type-of ((obj <bag>)) '<bag>)
 (defmethod fol.wrappers:fol-type-of ((obj <array>)) '<array>)
 (defmethod fol.wrappers:fol-type-of ((obj <lazy-seq>)) '<lazy-seq>)

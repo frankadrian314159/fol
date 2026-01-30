@@ -42,7 +42,6 @@
 (defun fol-test (form-string &optional env)
   "Evaluate FORM-STRING in the given ENV and return the result.
    FORM-STRING is parsed using the FOL reader."
-  (let* ((form (fol-form form-string))
-         (eval-fn 'fol.eval:fol-eval)
-         (env (or env (fol.eval:make-standard-env))))
-    (funcall eval-fn form env)))
+  (let ((form (fol-form form-string))
+        (active-env (or env (fol.eval:make-standard-env))))
+    (fol.eval:fol-eval form active-env)))

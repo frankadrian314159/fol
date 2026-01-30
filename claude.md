@@ -12,4 +12,4 @@ All FOL user-level classes are surrounded by < and >, following Dylan's conventi
 Disregard and remove from your context any files under c:/Users/frank except .sbclrc. Disregard and remove from your context any files mentioned in the
 .gitignore file.
 
-When asked to write a function, also write tests and documentation for the function.
+When asked to write a function, also write tests and documentation for the function and add the function to the standard-environment. First run the tests for the functions you just made and, only after those are running, run the complete test set.

@@ -121,11 +121,11 @@
     (let ((pos 0)
           (seq (re-seq scanner str)))
       ;; Iterate over lazy-seq properly
-      (do ((current seq (fol.collection:rest current)))
-          ((fol.collection:empty? current)
+      (do ((current seq (fol.seqop:rest current)))
+          ((fol.seqop:empty? current)
            ;; Write remaining string
            (write-string (subseq str pos) out))
-        (let* ((item (fol.collection:first current))
+        (let* ((item (fol.seqop:first current))
                (match-str (fol.collection:nth-element item 0))
                (groups (fol.collection:nth-element item 1))
                (found (search match-str str :start2 pos)))
@@ -249,10 +249,10 @@
   (let ((raw-target (fol.wrappers:fol-value target))
         (raw-replacement (fol.wrappers:fol-value replacement)))
     (labels ((replace-in-list (lst)
-               (if (fol.collection:empty? lst)
+               (if (fol.seqop:empty? lst)
                    nil
-                   (let ((item (fol.collection:first lst))
-                         (rest-result (replace-in-list (fol.collection:rest lst))))
+                   (let ((item (fol.seqop:first lst))
+                         (rest-result (replace-in-list (fol.seqop:rest lst))))
                      (if (equalp item raw-target)
                          (cl:cons raw-replacement rest-result)
                          (cl:cons item rest-result))))))
@@ -464,19 +464,19 @@
         (raw-replacement (fol.wrappers:fol-value replacement))
         (found nil))
     (labels ((replace-in-list (lst)
-               (if (or found (fol.collection:empty? lst))
-                   (if (fol.collection:empty? lst)
+               (if (or found (fol.seqop:empty? lst))
+                   (if (fol.seqop:empty? lst)
                        nil
                        ;; Copy rest unchanged
-                       (let ((item (fol.collection:first lst))
-                             (rest-result (replace-in-list (fol.collection:rest lst))))
+                       (let ((item (fol.seqop:first lst))
+                             (rest-result (replace-in-list (fol.seqop:rest lst))))
                          (cl:cons item rest-result)))
-                   (let ((item (fol.collection:first lst)))
+                   (let ((item (fol.seqop:first lst)))
                      (if (equalp item raw-target)
                          (progn
                            (setf found t)
-                           (cl:cons raw-replacement (replace-in-list (fol.collection:rest lst))))
-                         (cl:cons item (replace-in-list (fol.collection:rest lst))))))))
+                           (cl:cons raw-replacement (replace-in-list (fol.seqop:rest lst))))
+                         (cl:cons item (replace-in-list (fol.seqop:rest lst))))))))
       (let ((result (replace-in-list source)))
         (if result
             (apply #'fol.collection:make-list result)
@@ -567,14 +567,14 @@
           (typecase coll
             (list (dolist (item coll) (process-item item)))
             (fol.collection:<lazy-seq>
-             (dolist (item (fol.collection:seq coll)) (process-item item)))
+             (dolist (item (fol.seqop:seq coll)) (process-item item)))
             (fol.collection:<vector>
-             (dotimes (i (fol.collection:size coll))
+             (dotimes (i (fol.seqop:size coll))
                (process-item (fol.collection:nth-element coll i))))
             (fol.collection:<list>
-             (do ((lst coll (fol.collection:rest lst)))
-                 ((fol.collection:empty? lst))
-               (process-item (fol.collection:first lst))))
+             (do ((lst coll (fol.seqop:rest lst)))
+                 ((fol.seqop:empty? lst))
+               (process-item (fol.seqop:first lst))))
             (t (error "JOIN requires a collection, got ~A" (type-of coll)))))))))
 
 (defun escape (s cmap)
@@ -586,7 +586,7 @@
       (error "ESCAPE requires a <dict> for character map, got ~A" (type-of cmap)))
     (with-output-to-string (out)
       (loop for char across str
-            for replacement = (fol.collection:get cmap char)
+            for replacement = (fol.seqop:get cmap char)
             do (if replacement
                    (write-string (typecase replacement
                                    (string replacement)
@@ -631,98 +631,98 @@
 ;;; ============================================================================
 
 ;;; --- peek for strings ---
-(defmethod fol.collection:peek ((source string) &optional indices)
+(defmethod fol.seqop:peek ((source string) &optional indices)
   "Return the last character from the string, or NIL if empty."
   (declare (ignore indices))
   (if (zerop (length source))
       nil
       (char source (1- (length source)))))
 
-(defmethod fol.collection:peek ((source <string>) &optional indices)
+(defmethod fol.seqop:peek ((source <string>) &optional indices)
   "Return the last character from the wrapped string, or NIL if empty."
   (declare (ignore indices))
-  (fol.collection:peek (fol.wrappers:fol-value source)))
+  (fol.seqop:peek (fol.wrappers:fol-value source)))
 
 ;;; --- pop for strings ---
-(defmethod fol.collection:pop ((source string))
+(defmethod fol.seqop:pop ((source string))
   "Return a copy of the string with the last character removed."
   (if (zerop (length source))
       ""
       (subseq source 0 (1- (length source)))))
 
-(defmethod fol.collection:pop ((source <string>))
+(defmethod fol.seqop:pop ((source <string>))
   "Return a copy of the wrapped string with the last character removed."
-  (fol.collection:pop (fol.wrappers:fol-value source)))
+  (fol.seqop:pop (fol.wrappers:fol-value source)))
 
 ;;; --- push for strings ---
-(defmethod fol.collection:push ((char character) (source string))
+(defmethod fol.seqop:push ((char character) (source string))
   "Return a copy of the string with CHAR appended."
   (concatenate 'string source (string char)))
 
-(defmethod fol.collection:push ((char character) (source <string>))
-  (fol.collection:push char (fol.wrappers:fol-value source)))
+(defmethod fol.seqop:push ((char character) (source <string>))
+  (fol.seqop:push char (fol.wrappers:fol-value source)))
 
-(defmethod fol.collection:push ((char <char>) (source string))
-  (fol.collection:push (fol.wrappers:fol-value char) source))
+(defmethod fol.seqop:push ((char <char>) (source string))
+  (fol.seqop:push (fol.wrappers:fol-value char) source))
 
-(defmethod fol.collection:push ((char <char>) (source <string>))
-  (fol.collection:push (fol.wrappers:fol-value char) (fol.wrappers:fol-value source)))
+(defmethod fol.seqop:push ((char <char>) (source <string>))
+  (fol.seqop:push (fol.wrappers:fol-value char) (fol.wrappers:fol-value source)))
 
-(defmethod fol.collection:push ((str string) (source string))
+(defmethod fol.seqop:push ((str string) (source string))
   "Return a copy of the string with STR appended."
   (concatenate 'string source str))
 
-(defmethod fol.collection:push ((str string) (source <string>))
-  (fol.collection:push str (fol.wrappers:fol-value source)))
+(defmethod fol.seqop:push ((str string) (source <string>))
+  (fol.seqop:push str (fol.wrappers:fol-value source)))
 
-(defmethod fol.collection:push ((str <string>) (source string))
-  (fol.collection:push (fol.wrappers:fol-value str) source))
+(defmethod fol.seqop:push ((str <string>) (source string))
+  (fol.seqop:push (fol.wrappers:fol-value str) source))
 
-(defmethod fol.collection:push ((str <string>) (source <string>))
-  (fol.collection:push (fol.wrappers:fol-value str) (fol.wrappers:fol-value source)))
+(defmethod fol.seqop:push ((str <string>) (source <string>))
+  (fol.seqop:push (fol.wrappers:fol-value str) (fol.wrappers:fol-value source)))
 
 ;;; --- conj for strings ---
-(defmethod fol.collection:conj ((source string) (char character) &rest more-items)
+(defmethod fol.seqop:conj ((source string) (char character) &rest more-items)
   "Return a copy of the string with CHAR appended. Additional items must be characters."
   (when more-items
     (error "CONJ on strings does not accept additional value arguments"))
   (concatenate 'string source (string char)))
 
-(defmethod fol.collection:conj ((source <string>) (char character) &rest more-items)
+(defmethod fol.seqop:conj ((source <string>) (char character) &rest more-items)
   (when more-items
     (error "CONJ on strings does not accept additional value arguments"))
-  (fol.collection:conj (fol.wrappers:fol-value source) char))
+  (fol.seqop:conj (fol.wrappers:fol-value source) char))
 
-(defmethod fol.collection:conj ((source string) (char <char>) &rest more-items)
+(defmethod fol.seqop:conj ((source string) (char <char>) &rest more-items)
   (when more-items
     (error "CONJ on strings does not accept additional value arguments"))
-  (fol.collection:conj source (fol.wrappers:fol-value char)))
+  (fol.seqop:conj source (fol.wrappers:fol-value char)))
 
-(defmethod fol.collection:conj ((source <string>) (char <char>) &rest more-items)
+(defmethod fol.seqop:conj ((source <string>) (char <char>) &rest more-items)
   (when more-items
     (error "CONJ on strings does not accept additional value arguments"))
-  (fol.collection:conj (fol.wrappers:fol-value source) (fol.wrappers:fol-value char)))
+  (fol.seqop:conj (fol.wrappers:fol-value source) (fol.wrappers:fol-value char)))
 
-(defmethod fol.collection:conj ((source string) (str string) &rest more-items)
+(defmethod fol.seqop:conj ((source string) (str string) &rest more-items)
   "Return a copy of the string with STR appended."
   (when more-items
     (error "CONJ on strings does not accept additional value arguments"))
   (concatenate 'string source str))
 
-(defmethod fol.collection:conj ((source <string>) (str string) &rest more-items)
+(defmethod fol.seqop:conj ((source <string>) (str string) &rest more-items)
   (when more-items
     (error "CONJ on strings does not accept additional value arguments"))
-  (fol.collection:conj (fol.wrappers:fol-value source) str))
+  (fol.seqop:conj (fol.wrappers:fol-value source) str))
 
-(defmethod fol.collection:conj ((source string) (str <string>) &rest more-items)
+(defmethod fol.seqop:conj ((source string) (str <string>) &rest more-items)
   (when more-items
     (error "CONJ on strings does not accept additional value arguments"))
-  (fol.collection:conj source (fol.wrappers:fol-value str)))
+  (fol.seqop:conj source (fol.wrappers:fol-value str)))
 
-(defmethod fol.collection:conj ((source <string>) (str <string>) &rest more-items)
+(defmethod fol.seqop:conj ((source <string>) (str <string>) &rest more-items)
   (when more-items
     (error "CONJ on strings does not accept additional value arguments"))
-  (fol.collection:conj (fol.wrappers:fol-value source) (fol.wrappers:fol-value str)))
+  (fol.seqop:conj (fol.wrappers:fol-value source) (fol.wrappers:fol-value str)))
 
 
 ;;; ============================================================================
@@ -834,7 +834,7 @@
 
 (defun get-group-name (register-names idx)
   "Get the name for group at IDX, using \"$N\" (1-based) if not found in register-names."
-  (let ((name (when (cl:< idx (fol.collection:size register-names))
+  (let ((name (when (cl:< idx (fol.seqop:size register-names))
                 (fol.collection:nth-element register-names idx))))
     (or name (format nil "$~D" (cl:1+ idx)))))
 
@@ -844,7 +844,7 @@
   (let ((match-string (subseq target-string match-start match-end))
         (groups-dict (fol.collection:make-dict)))
     ;; Add the full match as $0
-    (setf groups-dict (fol.collection:add groups-dict "$0" match-string))
+    (setf groups-dict (fol.seqop:add groups-dict "$0" match-string))
     ;; Add each named group
     (when reg-starts
       (loop for i from 0 below (length reg-starts)
@@ -853,7 +853,7 @@
             for end = (aref reg-ends i)
             when (and start end)
             do (setf groups-dict
-                     (fol.collection:add groups-dict name (subseq target-string start end)))))
+                     (fol.seqop:add groups-dict name (subseq target-string start end)))))
     (values match-string groups-dict)))
 
 (defun re-find (regex target)

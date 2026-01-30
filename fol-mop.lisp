@@ -161,14 +161,14 @@
    [a b] with symbol a is a type specialization: (a b) -> param a of type b
    [[a b]] with vector [a b] is destructuring: expects a sequence"
   (and (fol.collection:<vector>? param)
-       (let ((first-elem (fol.collection:first param)))
+       (let ((first-elem (fol.seqop:first param)))
          ;; If first element is a vector, it's destructuring
          ;; If first element is a symbol and length is 2, it's type specialization
          (or (fol.collection:<vector>? first-elem)
              ;; Length > 2 means multiple elements to destructure
-             (> (fol.collection:size param) 2)
+             (> (fol.seqop:size param) 2)
              ;; Length = 1 means just binding a name
-             (and (= (fol.collection:size param) 1)
+             (and (= (fol.seqop:size param) 1)
                   (symbolp first-elem))))))
 
 (defun pattern-expects-seq-p (param &key (defgeneric-context t))
@@ -197,7 +197,7 @@
      nil)
     ;; Vector - check if it's destructuring
     ((and (fol.collection:<vector>? param)
-          (> (fol.collection:size param) 0))
+          (> (fol.seqop:size param) 0))
      (let ((elems (vector-to-list param)))
        ;; Any vector is a destructuring pattern
        (length elems)))
@@ -246,7 +246,7 @@
                     (listp ,arg-sym))
                 (>= (if (listp ,arg-sym)
                         (length ,arg-sym)
-                        (fol.collection:size ,arg-sym))
+                        (fol.seqop:size ,arg-sym))
                     ,(second signature))))
     (t t)))
 

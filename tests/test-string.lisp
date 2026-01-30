@@ -633,7 +633,7 @@ line3")
     (is (typep (scanner-register-names scanner) 'fol.collection:<vector>))
     ;; The register names should contain the named groups
     (let ((names (scanner-register-names scanner)))
-      (is (= 2 (fol.collection:size names)))
+      (is (= 2 (fol.seqop:size names)))
       (is (string= "name" (fol.collection:nth-element names 0)))
       (is (string= "age" (fol.collection:nth-element names 1))))))
 
@@ -644,7 +644,7 @@ line3")
     ;; CL-PPCRE returns empty list for unnamed groups
     ;; The $1, $2, etc. names are generated dynamically during matching
     (let ((names (scanner-register-names scanner)))
-      (is (= 0 (fol.collection:size names))))))
+      (is (= 0 (fol.seqop:size names))))))
 
 (test re-scanner-make-function
   "Test creating scanner via make function."
@@ -672,7 +672,7 @@ line3")
   (multiple-value-bind (match groups) (re-find "\\d+" "abc123def")
     (is (string= "123" match))
     (is (typep groups 'fol.collection:<dict>))
-    (is (string= "123" (fol.collection:get groups "$0")))))
+    (is (string= "123" (fol.seqop:get groups "$0")))))
 
 (test re-find-no-match
   "Test re-find when pattern doesn't match."
@@ -684,24 +684,24 @@ line3")
   "Test re-find with capturing groups."
   (multiple-value-bind (match groups) (re-find "(\\w+)@(\\w+)" "email: test@example.com")
     (is (string= "test@example" match))
-    (is (string= "test@example" (fol.collection:get groups "$0")))
-    (is (string= "test" (fol.collection:get groups "$1")))
-    (is (string= "example" (fol.collection:get groups "$2")))))
+    (is (string= "test@example" (fol.seqop:get groups "$0")))
+    (is (string= "test" (fol.seqop:get groups "$1")))
+    (is (string= "example" (fol.seqop:get groups "$2")))))
 
 (test re-find-with-named-groups
   "Test re-find with named capturing groups."
   (multiple-value-bind (match groups) (re-find "(?<user>\\w+)@(?<domain>\\w+)" "test@example.com")
     (is (string= "test@example" match))
-    (is (string= "test@example" (fol.collection:get groups "$0")))
-    (is (string= "test" (fol.collection:get groups "user")))
-    (is (string= "example" (fol.collection:get groups "domain")))))
+    (is (string= "test@example" (fol.seqop:get groups "$0")))
+    (is (string= "test" (fol.seqop:get groups "user")))
+    (is (string= "example" (fol.seqop:get groups "domain")))))
 
 (test re-find-with-re-pattern
   "Test re-find with a <re-pattern> argument."
   (let ((pat (wrap-re-pattern "[a-z]+")))
     (multiple-value-bind (match groups) (re-find pat "123abc456")
       (is (string= "abc" match))
-      (is (string= "abc" (fol.collection:get groups "$0"))))))
+      (is (string= "abc" (fol.seqop:get groups "$0"))))))
 
 (test re-find-with-re-scanner
   "Test re-find with a <re-scanner> argument."
@@ -709,14 +709,14 @@ line3")
          (scanner (make-re-scanner pat :case-insensitive t)))
     (multiple-value-bind (match groups) (re-find scanner "123abc456")
       (is (string= "abc" match))
-      (is (string= "abc" (fol.collection:get groups "$0"))))))
+      (is (string= "abc" (fol.seqop:get groups "$0"))))))
 
 (test re-find-with-wrapped-target
   "Test re-find with a wrapped <string> target."
   (let ((target (wrap-string "hello123world")))
     (multiple-value-bind (match groups) (re-find "\\d+" target)
       (is (string= "123" match))
-      (is (string= "123" (fol.collection:get groups "$0"))))))
+      (is (string= "123" (fol.seqop:get groups "$0"))))))
 
 (test re-find-empty-target
   "Test re-find with empty target string."
@@ -743,29 +743,29 @@ line3")
   (let ((seq (re-seq "\\d+" "a1b2c3d4")))
     (is (typep seq 'fol.collection:<lazy-seq>))
     ;; Check size (realizes entire sequence)
-    (is (= 4 (fol.collection:size seq)))
+    (is (= 4 (fol.seqop:size seq)))
     ;; Check first match
     (let ((first-match (first seq)))
       (is (typep first-match 'fol.collection:<vector>))
       (is (string= "1" (fol.collection:nth-element first-match 0)))
-      (is (string= "1" (fol.collection:get (fol.collection:nth-element first-match 1) "$0"))))))
+      (is (string= "1" (fol.seqop:get (fol.collection:nth-element first-match 1) "$0"))))))
 
 (test re-seq-no-matches
   "Test re-seq with no matches returns empty sequence."
   (let ((seq (re-seq "\\d+" "abcdef")))
     (is (typep seq 'fol.collection:<lazy-seq>))
-    (is (fol.collection:empty? seq))))
+    (is (fol.seqop:empty? seq))))
 
 (test re-seq-with-groups
   "Test re-seq with capturing groups."
   (let ((seq (re-seq "(\\w+)=(\\d+)" "a=1 b=2 c=3")))
-    (is (= 3 (fol.collection:size seq)))
+    (is (= 3 (fol.seqop:size seq)))
     ;; Check first match
     (let* ((first-match (first seq))
            (groups (fol.collection:nth-element first-match 1)))
       (is (string= "a=1" (fol.collection:nth-element first-match 0)))
-      (is (string= "a" (fol.collection:get groups "$1")))
-      (is (string= "1" (fol.collection:get groups "$2"))))))
+      (is (string= "a" (fol.seqop:get groups "$1")))
+      (is (string= "1" (fol.seqop:get groups "$2"))))))
 
 (test re-seq-laziness
   "Test that re-seq is actually lazy."
@@ -776,13 +776,13 @@ line3")
     ;; Accessing first realizes only that part
     (is (string= "a" (fol.collection:nth-element (first seq) 0)))
     ;; Now check full size
-    (is (= 4 (fol.collection:size seq)))))
+    (is (= 4 (fol.seqop:size seq)))))
 
 (test re-seq-with-re-pattern
   "Test re-seq with a <re-pattern> argument."
   (let* ((pat (wrap-re-pattern "[a-z]+"))
          (seq (re-seq pat "1abc2def3ghi")))
-    (is (= 3 (fol.collection:size seq)))
+    (is (= 3 (fol.seqop:size seq)))
     (is (string= "abc" (fol.collection:nth-element (first seq) 0)))
     (let ((second-match (first (rest seq))))
       (is (string= "def" (fol.collection:nth-element second-match 0))))
@@ -794,7 +794,7 @@ line3")
   (let* ((pat (wrap-re-pattern "[A-Z]+"))
          (scanner (make-re-scanner pat :case-insensitive t))
          (seq (re-seq scanner "1abc2DEF3ghi")))
-    (is (= 3 (fol.collection:size seq)))
+    (is (= 3 (fol.seqop:size seq)))
     (is (string= "abc" (fol.collection:nth-element (first seq) 0)))
     (is (string= "DEF" (fol.collection:nth-element (first (rest seq)) 0)))
     (is (string= "ghi" (fol.collection:nth-element (first (rest (rest seq))) 0)))))
@@ -804,13 +804,13 @@ line3")
   ;; Pattern that can match empty string at word boundaries
   (let ((seq (re-seq "\\d*" "a1b")))
     ;; Should find matches: "" at pos 0, "1" at pos 1, "" at pos 2
-    (is (cl:>= (fol.collection:size seq) 1))))
+    (is (cl:>= (fol.seqop:size seq) 1))))
 
 (test re-seq-overlapping-positions
   "Test re-seq finds non-overlapping matches."
   (let ((seq (re-seq "aa" "aaaa")))
     ;; Should find "aa" at positions 0 and 2, not overlapping
-    (is (= 2 (fol.collection:size seq)))
+    (is (= 2 (fol.seqop:size seq)))
     (is (string= "aa" (fol.collection:nth-element (first seq) 0)))
     (is (string= "aa" (fol.collection:nth-element (first (rest seq)) 0)))))
 
@@ -1022,7 +1022,7 @@ line3")
   "Test split with simple pattern."
   (let ((result (split "a,b,c" ",")))
     (is (typep result 'fol.collection:<vector>))
-    (is (= 3 (fol.collection:size result)))
+    (is (= 3 (fol.seqop:size result)))
     (is (string= "a" (fol.collection:nth-element result 0)))
     (is (string= "b" (fol.collection:nth-element result 1)))
     (is (string= "c" (fol.collection:nth-element result 2)))))
@@ -1030,39 +1030,39 @@ line3")
 (test split-regex
   "Test split with regex pattern."
   (let ((result (split "a1b2c3d" "\\d")))
-    (is (= 4 (fol.collection:size result)))
+    (is (= 4 (fol.seqop:size result)))
     (is (string= "a" (fol.collection:nth-element result 0)))
     (is (string= "d" (fol.collection:nth-element result 3)))))
 
 (test split-with-limit
   "Test split with limit argument."
   (let ((result (split "a,b,c,d" "," 2)))
-    (is (= 2 (fol.collection:size result)))
+    (is (= 2 (fol.seqop:size result)))
     (is (string= "a" (fol.collection:nth-element result 0)))
     (is (string= "b,c,d" (fol.collection:nth-element result 1)))))
 
 (test split-no-match
   "Test split when pattern doesn't match."
   (let ((result (split "hello world" ",")))
-    (is (= 1 (fol.collection:size result)))
+    (is (= 1 (fol.seqop:size result)))
     (is (string= "hello world" (fol.collection:nth-element result 0)))))
 
 (test split-empty-string
   "Test split with empty string."
   ;; CL-PPCRE returns empty list for empty string
   (let ((result (split "" ",")))
-    (is (= 0 (fol.collection:size result)))))
+    (is (= 0 (fol.seqop:size result)))))
 
 (test split-wrapped
   "Test split with wrapped string."
   (let ((result (split (wrap-string "a,b,c") ",")))
-    (is (= 3 (fol.collection:size result)))))
+    (is (= 3 (fol.seqop:size result)))))
 
 (test split-re-pattern
   "Test split with <re-pattern>."
   (let* ((pat (wrap-re-pattern "\\s+"))
          (result (split "hello   world  test" pat)))
-    (is (= 3 (fol.collection:size result)))
+    (is (= 3 (fol.seqop:size result)))
     (is (string= "hello" (fol.collection:nth-element result 0)))
     (is (string= "world" (fol.collection:nth-element result 1)))
     (is (string= "test" (fol.collection:nth-element result 2)))))
@@ -1075,7 +1075,7 @@ line3")
   "Test split-lines with LF."
   (let ((result (split-lines (format nil "line1~%line2~%line3"))))
     (is (typep result 'fol.collection:<vector>))
-    (is (= 3 (fol.collection:size result)))
+    (is (= 3 (fol.seqop:size result)))
     (is (string= "line1" (fol.collection:nth-element result 0)))
     (is (string= "line2" (fol.collection:nth-element result 1)))
     (is (string= "line3" (fol.collection:nth-element result 2)))))
@@ -1085,25 +1085,25 @@ line3")
   (let ((result (split-lines (concatenate 'string "line1" (string #\Return) (string #\Newline)
                                           "line2" (string #\Return) (string #\Newline)
                                           "line3"))))
-    (is (= 3 (fol.collection:size result)))
+    (is (= 3 (fol.seqop:size result)))
     (is (string= "line1" (fol.collection:nth-element result 0)))))
 
 (test split-lines-single-line
   "Test split-lines with no newlines."
   (let ((result (split-lines "hello world")))
-    (is (= 1 (fol.collection:size result)))
+    (is (= 1 (fol.seqop:size result)))
     (is (string= "hello world" (fol.collection:nth-element result 0)))))
 
 (test split-lines-empty
   "Test split-lines with empty string."
   ;; CL-PPCRE returns empty list for empty string
   (let ((result (split-lines "")))
-    (is (= 0 (fol.collection:size result)))))
+    (is (= 0 (fol.seqop:size result)))))
 
 (test split-lines-wrapped
   "Test split-lines with wrapped string."
   (let ((result (split-lines (wrap-string (format nil "a~%b~%c")))))
-    (is (= 3 (fol.collection:size result)))))
+    (is (= 3 (fol.seqop:size result)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; reverse Tests (for strings)

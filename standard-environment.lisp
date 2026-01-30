@@ -36,14 +36,15 @@
    (call-with-seed seed (fn [] form0 form1 ... formN))
    This binds *random-state* to a seeded state for the duration of the body,
    returning the value of the last form."
-  (make-macro
-   '(seed)                    ; params: seed value
-   '((syntax-quote            ; body: expand to (call-with-seed seed (fn [] body...))
-      (call-with-seed (unquote seed)
-                      (fn [] (unquote-splicing body)))))
-   nil                        ; env
-   :rest-param 'body          ; rest param captures all body forms
-   :name 'with-seed))
+  (let ((empty-vec (make-instance 'fol.collection:<vector> :items (fset:empty-seq))))
+    (make-macro
+     '(seed)                    ; params: seed value
+     `((syntax-quote            ; body: expand to (call-with-seed seed (fn [] body...))
+        (call-with-seed (unquote seed)
+                        (fn ,empty-vec (unquote-splicing body)))))
+     nil                        ; env
+     :rest-param 'body          ; rest param captures all body forms
+     :name 'with-seed)))
 
 ;;; ============================================================================
 ;;; Standard Environment
@@ -155,21 +156,21 @@
                            (fol.collection:make-list)
                            (let* ((all-but-last (butlast args))
                                   (last-arg (car (last args)))
-                                  (tail-seq (fol.collection:seq last-arg)))
+                                  (tail-seq (fol.seqop:seq last-arg)))
                              ;; Build list from the tail backwards
                              (let ((result (if (null tail-seq)
                                                (fol.collection:make-list)
                                                ;; Convert tail-seq to a <list>
                                                (cl:labels ((seq-to-list (s)
-                                                             (if (cl:or (null s) (fol.collection:empty? s))
+                                                             (if (cl:or (null s) (fol.seqop:empty? s))
                                                                  (fol.collection:make-list)
-                                                                 (fol.collection:conj
-                                                                  (seq-to-list (fol.collection:rest s))
-                                                                  (fol.collection:first s)))))
+                                                                 (fol.seqop:conj
+                                                                  (seq-to-list (fol.seqop:rest s))
+                                                                  (fol.seqop:first s)))))
                                                  (seq-to-list tail-seq)))))
                                ;; Prepend the other args in reverse order
                                (dolist (item (cl:reverse all-but-last))
-                                 (setf result (fol.collection:conj result item)))
+                                 (setf result (fol.seqop:conj result item)))
                                result))))
             ;; cons prepends to FOL collections (Clojure-style)
             ;; Use cl-cons for macro form construction (building CL cons cells)
@@ -177,18 +178,18 @@
                       "Returns a new seq where x is the first element and coll is the rest."
                       (if (null coll)
                           (fol.collection:make-list x)
-                          (fol.collection:conj (fol.collection:seq coll) x)))
+                          (fol.seqop:conj (fol.seqop:seq coll) x)))
             'cl-cons #'cl:cons
-            'peek #'fol.collection:peek
-            'pop #'fol.collection:pop
-            'push #'fol.collection:push
+            'peek #'fol.seqop:peek
+            'pop #'fol.seqop:pop
+            'push #'fol.seqop:push
             ;; CL sequence operations (for compatibility)
             'append #'cl:append
             ;; String operations
             'str #'(lambda (&rest args)
                      (apply #'concatenate 'string
                             (mapcar #'princ-to-string args)))
-            'sub #'fol.collection:sub
+            'sub #'fol.seqop:sub
             'blank? #'fol.string:blank?
             'trim #'fol.string:trim
             'triml #'fol.string:triml
@@ -204,9 +205,9 @@
             'escape #'fol.string:escape
             'split #'fol.string:split
             'split-lines #'fol.string:split-lines
-            'reverse #'fol.collection:reverse
-            'index-of #'fol.collection:index-of
-            'last-index-of #'fol.collection:last-index-of
+            'reverse #'fol.seqop:reverse
+            'index-of #'fol.seqop:index-of
+            'last-index-of #'fol.seqop:last-index-of
             ;; Regex operations
             're-find #'fol.string:re-find
             're-seq #'fol.string:re-seq
@@ -286,20 +287,20 @@
             'bit-shift #'fol.bitop:bit-shift
             'bit-rotate #'fol.bitop:bit-rotate
             ;; FOL collection operations
-            'conj #'fol.collection:conj
-            'first #'fol.collection:first
-            'rest #'fol.collection:rest
+            'conj #'fol.seqop:conj
+            'first #'fol.seqop:first
+            'rest #'fol.seqop:rest
             'second #'fol.collection:second
             'third #'fol.collection:third
-            'nth #'fol.collection:nth
-            'size #'fol.collection:size
-            'empty? #'fol.collection:empty?
-            'get #'fol.collection:get
-            'contains? #'fol.collection:contains?
-            'seq #'fol.collection:seq
-            'add #'fol.collection:add
-            'remove #'fol.collection:remove
-            'disj #'fol.collection:disj
+            'nth #'fol.seqop:nth
+            'size #'fol.seqop:size
+            'empty? #'fol.seqop:empty?
+            'get #'fol.seqop:get
+            'contains? #'fol.seqop:contains?
+            'seq #'fol.seqop:seq
+            'add #'fol.seqop:add
+            'remove #'fol.seqop:remove
+            'disj #'fol.seqop:disj
             'sized? #'fol.collection:sized?
             'bounded-size #'fol.collection:bounded-size
             'into #'fol.collection:into
@@ -307,12 +308,12 @@
             'vec #'fol.collection:vec
             'mapv #'fol.collection:mapv
             'filterv #'fol.collection:filterv
-            'assoc #'fol.collection:assoc
-            'assoc-in #'fol.collection:assoc-in
-            'rseq #'fol.collection:rseq
-            'update #'fol.collection:update
-            'update-in #'fol.collection:update-in
-            'reduce-kv #'fol.collection:reduce-kv
+            'assoc #'fol.seqop:assoc
+            'assoc-in #'fol.seqop:assoc-in
+            'rseq #'fol.seqop:rseq
+            'update #'fol.seqop:update
+            'update-in #'fol.seqop:update-in
+            'reduce-kv #'fol.seqop:reduce-kv
             ;; Set constructors (Clojure-style)
             'set #'fol.collection:make-set
             'hash-set #'fol.collection:make-set
@@ -326,6 +327,19 @@
             '<ordered-set>? #'fol.collection:<ordered-set>?
             '<int-set>? #'fol.collection:<int-set>?
             '<dense-int-set>? #'fol.collection:<dense-int-set>?
+            ;; sorted-set-by constructor and predicate
+            'sorted-set-by #'fol.collection:sorted-set-by
+            '<sorted-set-by>? #'fol.collection:<sorted-set-by>?
+            ;; Set operations (FOL names union/difference/intersection, CL impl set-union/etc.)
+            'union #'fol.seqop:set-union
+            'difference #'fol.seqop:set-difference
+            'intersection #'fol.seqop:set-intersection
+            'select #'fol.seqop:select
+            'subset? #'fol.seqop:subset?
+            'superset? #'fol.seqop:superset?
+            ;; Ordered set subsequence operations
+            'subs #'fol.seqop:subs
+            'rsubs #'fol.seqop:rsubs
             ;; Higher-order collection operations
             'reduce #'(lambda (f &rest args)
                         "Reduce a collection using function f.
@@ -348,26 +362,26 @@
                           ;; (reduce f coll) - no initial value, f is binary (acc, elem) -> acc
                           ((= (cl:length args) 1)
                            (let* ((coll (cl:first args))
-                                  (s (fol.collection:seq coll)))
-                             (if (or (null s) (fol.collection:empty? s))
+                                  (s (fol.seqop:seq coll)))
+                             (if (or (null s) (fol.seqop:empty? s))
                                  (apply-function f nil)  ; call f with no args for empty coll
-                                 (let ((acc (fol.collection:first s))
-                                       (s (fol.collection:rest s)))
-                                   (loop until (or (null s) (fol.collection:empty? s)
+                                 (let ((acc (fol.seqop:first s))
+                                       (s (fol.seqop:rest s)))
+                                   (loop until (or (null s) (fol.seqop:empty? s)
                                                    (fol.collection:<reduced>? acc))
-                                         do (setf acc (apply-function f (cl:list acc (fol.collection:first s))))
-                                            (setf s (fol.collection:rest s)))
+                                         do (setf acc (apply-function f (cl:list acc (fol.seqop:first s))))
+                                            (setf s (fol.seqop:rest s)))
                                    (fol.collection:unreduced acc)))))
                           ;; (reduce f init coll) - with initial value, f is binary (acc, elem) -> acc
                           ((= (cl:length args) 2)
                            (let* ((init (cl:first args))
                                   (coll (cl:second args))
-                                  (s (fol.collection:seq coll))
+                                  (s (fol.seqop:seq coll))
                                   (acc init))
-                             (loop until (or (null s) (fol.collection:empty? s)
+                             (loop until (or (null s) (fol.seqop:empty? s)
                                              (fol.collection:<reduced>? acc))
-                                   do (setf acc (apply-function f (cl:list acc (fol.collection:first s))))
-                                      (setf s (fol.collection:rest s)))
+                                   do (setf acc (apply-function f (cl:list acc (fol.seqop:first s))))
+                                      (setf s (fol.seqop:rest s)))
                              (fol.collection:unreduced acc)))
                           (t (error "reduce requires 1, 2, or 3 arguments"))))
             'map #'(lambda (f &rest args)
@@ -386,11 +400,11 @@
                           (cl:labels ((map-seq (s)
                                         (fol.collection:make-lazy-seq
                                          (lambda ()
-                                           (if (or (null s) (fol.collection:empty? s))
+                                           (if (or (null s) (fol.seqop:empty? s))
                                                nil
-                                               (cl:cons (apply-function f (cl:list (fol.collection:first s)))
-                                                        (map-seq (fol.collection:rest s))))))))
-                            (map-seq (fol.collection:seq coll)))))
+                                               (cl:cons (apply-function f (cl:list (fol.seqop:first s)))
+                                                        (map-seq (fol.seqop:rest s))))))))
+                            (map-seq (fol.seqop:seq coll)))))
                        (t (error "map requires 1 or 2 arguments"))))
             'filter #'(lambda (pred &rest args)
                         "Return elements from coll for which pred returns truthy.
@@ -412,14 +426,14 @@
                                             (lambda ()
                                               (cl:labels ((find-next (current)
                                                             (cond
-                                                              ((or (null current) (fol.collection:empty? current))
+                                                              ((or (null current) (fol.seqop:empty? current))
                                                                nil)
-                                                              ((apply-function pred (cl:list (fol.collection:first current)))
-                                                               (cl:cons (fol.collection:first current)
-                                                                        (filter-seq (fol.collection:rest current))))
-                                                              (t (find-next (fol.collection:rest current))))))
+                                                              ((apply-function pred (cl:list (fol.seqop:first current)))
+                                                               (cl:cons (fol.seqop:first current)
+                                                                        (filter-seq (fol.seqop:rest current))))
+                                                              (t (find-next (fol.seqop:rest current))))))
                                                 (find-next s))))))
-                               (filter-seq (fol.collection:seq coll)))))
+                               (filter-seq (fol.seqop:seq coll)))))
                           (t (error "filter requires 1 or 2 arguments"))))
             'remove #'(lambda (pred &rest args)
                         "Return elements from coll for which pred returns falsy.
@@ -441,14 +455,14 @@
                                             (lambda ()
                                               (cl:labels ((find-next (current)
                                                             (cond
-                                                              ((or (null current) (fol.collection:empty? current))
+                                                              ((or (null current) (fol.seqop:empty? current))
                                                                nil)
-                                                              ((not (apply-function pred (cl:list (fol.collection:first current))))
-                                                               (cl:cons (fol.collection:first current)
-                                                                        (remove-seq (fol.collection:rest current))))
-                                                              (t (find-next (fol.collection:rest current))))))
+                                                              ((not (apply-function pred (cl:list (fol.seqop:first current))))
+                                                               (cl:cons (fol.seqop:first current)
+                                                                        (remove-seq (fol.seqop:rest current))))
+                                                              (t (find-next (fol.seqop:rest current))))))
                                                 (find-next s))))))
-                               (remove-seq (fol.collection:seq coll)))))
+                               (remove-seq (fol.seqop:seq coll)))))
                           (t (error "remove requires 1 or 2 arguments"))))
             'keep #'(lambda (f &rest args)
                       "Apply f to each element, keeping non-nil results.
@@ -471,14 +485,14 @@
                                           (lambda ()
                                             (cl:labels ((find-next (current)
                                                           (cond
-                                                            ((or (null current) (fol.collection:empty? current))
+                                                            ((or (null current) (fol.seqop:empty? current))
                                                              nil)
-                                                            (t (let ((v (apply-function f (cl:list (fol.collection:first current)))))
+                                                            (t (let ((v (apply-function f (cl:list (fol.seqop:first current)))))
                                                                  (if v
-                                                                     (cl:cons v (keep-seq (fol.collection:rest current)))
-                                                                     (find-next (fol.collection:rest current))))))))
+                                                                     (cl:cons v (keep-seq (fol.seqop:rest current)))
+                                                                     (find-next (fol.seqop:rest current))))))))
                                               (find-next s))))))
-                             (keep-seq (fol.collection:seq coll)))))
+                             (keep-seq (fol.seqop:seq coll)))))
                         (t (error "keep requires 1 or 2 arguments"))))
             'mapcat #'(lambda (f &rest args)
                         "Apply f to each element, concatenating the results.
@@ -490,11 +504,11 @@
                            #'(lambda (rf)
                                #'(lambda (result input)
                                    (let* ((coll (apply-function f (cl:list input)))
-                                          (s (fol.collection:seq coll))
+                                          (s (fol.seqop:seq coll))
                                           (acc result))
-                                     (loop until (or (null s) (fol.collection:empty? s))
-                                           do (setf acc (funcall rf acc (fol.collection:first s)))
-                                              (setf s (fol.collection:rest s)))
+                                     (loop until (or (null s) (fol.seqop:empty? s))
+                                           do (setf acc (funcall rf acc (fol.seqop:first s)))
+                                              (setf s (fol.seqop:rest s)))
                                      acc))))
                           ;; (mapcat f coll) - return lazy-seq
                           ((= (cl:length args) 1)
@@ -508,20 +522,20 @@
                                                             (cond
                                                               ;; If inner-s has elements, return the first one
                                                               ((cl:and inner-s
-                                                                       (cl:not (fol.collection:empty? inner-s)))
-                                                               (cl:cons (fol.collection:first inner-s)
-                                                                        (concat-seqs outer-s (fol.collection:rest inner-s))))
+                                                                       (cl:not (fol.seqop:empty? inner-s)))
+                                                               (cl:cons (fol.seqop:first inner-s)
+                                                                        (concat-seqs outer-s (fol.seqop:rest inner-s))))
                                                               ;; Otherwise, get next from outer
-                                                              ((cl:or (null outer-s) (fol.collection:empty? outer-s))
+                                                              ((cl:or (null outer-s) (fol.seqop:empty? outer-s))
                                                                nil)
                                                               (t
-                                                               (let* ((elem (fol.collection:first outer-s))
-                                                                      (new-inner (fol.collection:seq
+                                                               (let* ((elem (fol.seqop:first outer-s))
+                                                                      (new-inner (fol.seqop:seq
                                                                                   (apply-function f (cl:list elem)))))
                                                                  (funcall (fol.collection::lazy-seq-thunk
-                                                                           (concat-seqs (fol.collection:rest outer-s) new-inner))))))))
+                                                                           (concat-seqs (fol.seqop:rest outer-s) new-inner))))))))
                                                 (next-elem))))))
-                               (concat-seqs (fol.collection:seq coll) nil))))
+                               (concat-seqs (fol.seqop:seq coll) nil))))
                           (t (error "mapcat requires 1 or 2 arguments"))))
             'interleave #'(lambda (&rest colls)
                             "Return a lazy-seq of the first item in each coll, then second, etc.
@@ -532,11 +546,11 @@
                                               (fol.collection:make-lazy-seq
                                                (lambda ()
                                                  ;; Check if any seq is exhausted
-                                                 (if (cl:some (lambda (s) (or (null s) (fol.collection:empty? s))) seqs)
+                                                 (if (cl:some (lambda (s) (or (null s) (fol.seqop:empty? s))) seqs)
                                                      nil
                                                      ;; Take first from each, then recurse with rests
-                                                     (let ((firsts (cl:mapcar #'fol.collection:first seqs))
-                                                           (rests (cl:mapcar #'fol.collection:rest seqs)))
+                                                     (let ((firsts (cl:mapcar #'fol.seqop:first seqs))
+                                                           (rests (cl:mapcar #'fol.seqop:rest seqs)))
                                                        (cl:labels ((build-result (items rest-seqs)
                                                                      (if (null items)
                                                                          (funcall (fol.collection::lazy-seq-thunk
@@ -546,7 +560,7 @@
                                                                                    (lambda ()
                                                                                      (build-result (cl:rest items) rest-seqs)))))))
                                                          (build-result firsts rests))))))))
-                                  (interleave-seqs (cl:mapcar #'fol.collection:seq colls)))))
+                                  (interleave-seqs (cl:mapcar #'fol.seqop:seq colls)))))
             'interpose #'(lambda (sep &rest args)
                            "Return elements of coll separated by sep.
                             (interpose sep) - returns a transducer
@@ -571,20 +585,20 @@
                                               (fol.collection:make-lazy-seq
                                                (lambda ()
                                                  (cond
-                                                   ((or (null s) (fol.collection:empty? s))
+                                                   ((or (null s) (fol.seqop:empty? s))
                                                     nil)
                                                    (first-elem
                                                     ;; First element: just return it
-                                                    (cl:cons (fol.collection:first s)
-                                                             (interpose-seq (fol.collection:rest s) nil)))
+                                                    (cl:cons (fol.seqop:first s)
+                                                             (interpose-seq (fol.seqop:rest s) nil)))
                                                    (t
                                                     ;; Not first: emit sep, then element
                                                     (cl:cons sep
                                                              (fol.collection:make-lazy-seq
                                                               (lambda ()
-                                                                (cl:cons (fol.collection:first s)
-                                                                         (interpose-seq (fol.collection:rest s) nil)))))))))))
-                                  (interpose-seq (fol.collection:seq coll) t))))
+                                                                (cl:cons (fol.seqop:first s)
+                                                                         (interpose-seq (fol.seqop:rest s) nil)))))))))))
+                                  (interpose-seq (fol.seqop:seq coll) t))))
                              (t (error "interpose requires 1 or 2 arguments"))))
             ;; Lazy sequence generators
             'range #'(lambda (&rest args)
@@ -702,17 +716,17 @@
                               (t (error "repeatedly takes 1 or 2 arguments"))))
             'cycle #'(lambda (coll)
                        "Returns a lazy (infinite!) sequence of repetitions of the items in coll."
-                       (let ((s (fol.collection:seq coll)))
-                         (if (or (null s) (fol.collection:empty? s))
+                       (let ((s (fol.seqop:seq coll)))
+                         (if (or (null s) (fol.seqop:empty? s))
                              (fol.collection:make-lazy-seq (lambda () nil))
                              (cl:labels ((cycle-seq (current)
                                            (fol.collection:make-lazy-seq
                                             (lambda ()
-                                              (if (or (null current) (fol.collection:empty? current))
+                                              (if (or (null current) (fol.seqop:empty? current))
                                                   ;; Restart from beginning
                                                   (funcall (fol.collection::lazy-seq-thunk (cycle-seq s)))
-                                                  (cl:cons (fol.collection:first current)
-                                                           (cycle-seq (fol.collection:rest current))))))))
+                                                  (cl:cons (fol.seqop:first current)
+                                                           (cycle-seq (fol.seqop:rest current))))))))
                                (cycle-seq s)))))
             'take #'(lambda (n &rest args)
                       "Returns a lazy sequence of the first n items in coll, or all items if there are fewer than n.
@@ -741,12 +755,12 @@
                                           (lambda ()
                                             (if (cl:or (cl:<= remaining 0)
                                                        (null s)
-                                                       (fol.collection:empty? s))
+                                                       (fol.seqop:empty? s))
                                                 nil
-                                                (cl:cons (fol.collection:first s)
+                                                (cl:cons (fol.seqop:first s)
                                                          (take-seq (cl:1- remaining)
-                                                                   (fol.collection:rest s))))))))
-                             (take-seq n (fol.collection:seq coll)))))
+                                                                   (fol.seqop:rest s))))))))
+                             (take-seq n (fol.seqop:seq coll)))))
                         (t (error "take requires 1 or 2 arguments"))))
             'drop #'(lambda (n &rest args)
                       "Returns a lazy sequence of all but the first n items in coll.
@@ -771,18 +785,18 @@
                                          ;; Eagerly drop n items, then return lazy seq of rest
                                          (if (cl:or (cl:<= remaining 0)
                                                     (null s)
-                                                    (fol.collection:empty? s))
+                                                    (fol.seqop:empty? s))
                                              s
-                                             (drop-items (cl:1- remaining) (fol.collection:rest s)))))
-                             (let ((remaining-seq (drop-items n (fol.collection:seq coll))))
+                                             (drop-items (cl:1- remaining) (fol.seqop:rest s)))))
+                             (let ((remaining-seq (drop-items n (fol.seqop:seq coll))))
                                ;; Wrap remaining sequence in a lazy-seq for consistency
                                (cl:labels ((lazy-rest (s)
                                              (fol.collection:make-lazy-seq
                                               (lambda ()
-                                                (if (cl:or (null s) (fol.collection:empty? s))
+                                                (if (cl:or (null s) (fol.seqop:empty? s))
                                                     nil
-                                                    (cl:cons (fol.collection:first s)
-                                                             (lazy-rest (fol.collection:rest s))))))))
+                                                    (cl:cons (fol.seqop:first s)
+                                                             (lazy-rest (fol.seqop:rest s))))))))
                                  (lazy-rest remaining-seq))))))
                         (t (error "drop requires 1 or 2 arguments"))))
             ;; Standard macros

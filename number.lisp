@@ -404,7 +404,7 @@ With a positive integer argument N, returns a random integer in [0, N)."
   "Call THUNK with *random-state* bound to a state seeded from SEED.
 This is the underlying implementation for the with-seed macro."
   (let ((*random-state* (make-seeded-random-state seed)))
-    (funcall thunk)))
+    (fol.eval:apply-function thunk nil)))
 
 
 ;;; Parsing functions

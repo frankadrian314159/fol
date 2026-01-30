@@ -77,7 +77,7 @@
                ((symbolp key)
                 (unless character-class-table-or-nil
                   (error "Cannot use symbol ~A without a character class table" key))
-                (let ((char-class (fol.collection:get character-class-table-or-nil key)))
+                (let ((char-class (fol.seqop:get character-class-table-or-nil key)))
                   (unless char-class
                     (error "Character class ~A not found in character class table" key))
                   (dolist (char char-class)
@@ -156,7 +156,7 @@
   (unless (characterp char)
     (error "Macro character must be a character, got ~A" char))
 
-  (let ((function (fol.collection:get readtable char)))
+  (let ((function (fol.seqop:get readtable char)))
     (values function nil)))
 
 ;;; ============================================================================
@@ -207,15 +207,15 @@
       (setf dispatch-table (fol.collection:make-dict)))
 
     ;; Get or create the sub-table for this dispatch character
-    (let ((sub-table (fol.collection:get dispatch-table disp-char)))
+    (let ((sub-table (fol.seqop:get dispatch-table disp-char)))
       (unless sub-table
         (setf sub-table (fol.collection:make-dict)))
 
       ;; Add the function to the sub-table
-      (setf sub-table (fol.collection:add sub-table sub-char function))
+      (setf sub-table (fol.seqop:add sub-table sub-char function))
 
       ;; Update the dispatch table
-      (setf dispatch-table (fol.collection:add dispatch-table disp-char sub-table))
+      (setf dispatch-table (fol.seqop:add dispatch-table disp-char sub-table))
       (fol.persistent:set-pslot-value readtable 'dispatch-table dispatch-table))))
 
 (defgeneric fol-get-dispatch-macro-character (readtable disp-char sub-char)
@@ -234,9 +234,9 @@
 (defmethod fol-get-dispatch-macro-character ((readtable <readtable>) disp-char sub-char)
   (let ((dispatch-table (readtable-dispatch-table readtable)))
     (when dispatch-table
-      (let ((sub-table (fol.collection:get dispatch-table disp-char)))
+      (let ((sub-table (fol.seqop:get dispatch-table disp-char)))
         (when sub-table
-          (fol.collection:get sub-table sub-char))))))
+          (fol.seqop:get sub-table sub-char))))))
 
 ;;; ============================================================================
 ;;; Character Class Table
@@ -647,7 +647,7 @@
                ((fol.collection:<dict>? x)
                 (let ((new-dict (fol.collection:make-dict)))
                   (fset:do-map (k v (slot-value x 'fol.collection::items))
-                    (setf new-dict (fol.collection:add new-dict
+                    (setf new-dict (fol.seqop:add new-dict
                                                        (replace-in k)
                                                        (replace-in v))))
                   new-dict))
@@ -879,7 +879,7 @@
                  (return-from fol-read eof-value))
 
                ;; Look up the character in the readtable
-               (let ((reader-fn (fol.collection:get readtable chr)))
+               (let ((reader-fn (fol.seqop:get readtable chr)))
                  (cond
                    ;; Found a reader function for this character
                    (reader-fn

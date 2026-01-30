@@ -267,6 +267,127 @@ For dicts, removes the key-value pair with the given key.
 (remove [1 2 3 2] 2)        ; => [1 3 2] (removes first occurrence)
 ```
 
+## disj
+
+```
+(disj set & keys)
+```
+
+Returns a new set with the specified keys removed. Works on all set types.
+
+### Examples
+
+```fol
+(disj #{1 2 3} 2)           ; => #{1 3}
+(disj #{1 2 3} 2 3)         ; => #{1}
+(disj (sorted-set 1 2 3) 2) ; => #S{1 3}
+(disj #{1 2 3} 4)           ; => #{1 2 3} (no change if not present)
+```
+
+---
+
+## Set Operations
+
+FOL provides comprehensive set operations that work across all set types.
+
+### union
+
+```
+(union set1 set2 & more-sets)
+```
+
+Returns a new set containing all elements from all input sets.
+The result type matches the type of the first set.
+
+```fol
+(union #{1 2} #{2 3})                  ; => #{1 2 3}
+(union (sorted-set 1 2) #{3 4})        ; => #S{1 2 3 4}
+(union #{1} #{2} #{3})                 ; => #{1 2 3}
+```
+
+---
+
+### difference
+
+```
+(difference set1 set2)
+```
+
+Returns a new set containing elements in set1 but not in set2.
+
+```fol
+(difference #{1 2 3} #{2})             ; => #{1 3}
+(difference (sorted-set 1 2 3) #{2 3}) ; => #S{1}
+(difference #{1 2} #{3 4})             ; => #{1 2}
+```
+
+---
+
+### intersection
+
+```
+(intersection set1 set2 & more-sets)
+```
+
+Returns a new set containing only elements present in all input sets.
+
+```fol
+(intersection #{1 2 3} #{2 3 4})       ; => #{2 3}
+(intersection #{1 2} #{2 3} #{2 4})    ; => #{2}
+(intersection (sorted-set 1 2 3) #{2}) ; => #S{2}
+```
+
+---
+
+### select
+
+```
+(select pred set)
+```
+
+Returns a new set containing only elements that satisfy the predicate.
+Similar to `filter` but returns a set of the same type.
+
+```fol
+(select odd? #{1 2 3 4 5})             ; => #{1 3 5}
+(select (fn [x] (> x 2)) (sorted-set 1 2 3 4)) ; => #S{3 4}
+```
+
+---
+
+### subset?
+
+```
+(subset? set1 set2)
+```
+
+Returns true if all elements of set1 are also in set2.
+
+```fol
+(subset? #{1 2} #{1 2 3})              ; => true
+(subset? #{1 2 3} #{1 2})              ; => false
+(subset? #{} #{1 2})                   ; => true (empty set is subset of all)
+(subset? #{1 2} #{1 2})                ; => true (set is subset of itself)
+```
+
+---
+
+### superset?
+
+```
+(superset? set1 set2)
+```
+
+Returns true if set1 contains all elements of set2.
+
+```fol
+(superset? #{1 2 3} #{1 2})            ; => true
+(superset? #{1 2} #{1 2 3})            ; => false
+(superset? #{1 2} #{})                 ; => true (all sets are supersets of empty)
+```
+
+---
+
 ## Specialized Set Types
 
 FOL provides several specialized set implementations for different use cases.
@@ -306,13 +427,27 @@ A set optimized for dense integer ranges using bit vectors. Requires specifying 
 (make-dense-int-set 0 10 1 3 5 7 9)  ; => #D{1 3 5 7 9}
 ```
 
+### `<sorted-set-by>` - Custom Comparator Sorted Set
+
+A sorted set that uses a custom comparator function to determine element ordering.
+
+```fol
+;; Sort by descending order
+(sorted-set-by > 3 1 4 1 5 9)        ; => #S<cmp>{9 5 4 3 1}
+
+;; Sort strings by length
+(sorted-set-by (fn [a b] (< (size a) (size b))) "cat" "elephant" "dog")
+                                     ; => #S<cmp>{"cat" "dog" "elephant"}
+```
+
 ### Set Constructor Functions
 
 | Function | Creates | Description |
 |----------|---------|-------------|
 | `set` | `<set>` | Alias for hash set (unordered) |
 | `hash-set` | `<set>` | Hash set (unordered) |
-| `sorted-set` | `<sorted-set>` | Sorted set |
+| `sorted-set` | `<sorted-set>` | Sorted set (natural ordering) |
+| `sorted-set-by` | `<sorted-set-by>` | Sorted set with custom comparator |
 | `ordered-set` | `<ordered-set>` | Insertion-order set |
 | `int-set` | `<int-set>` | Integer-only sorted set |
 | `dense-int-set` | `<dense-int-set>` | Dense integer range set (requires min/max bounds) |
@@ -372,5 +507,68 @@ Keywords can be used as functions to access sets (extending existing dict suppor
 (def colors #{:red :green :blue})
 (:red colors)        ; => :red
 (:yellow colors)     ; => nil
+```
+
+---
+
+## Ordered Collection Operations
+
+These operations work on ordered collections (vectors, lists, sorted-sets, ordered-sets).
+
+### rseq
+
+```
+(rseq coll)
+```
+
+Returns a sequence of the collection's elements in reverse order.
+
+```fol
+(rseq [1 2 3])                  ; => (3 2 1)
+(rseq (sorted-set 1 2 3 4 5))   ; => (5 4 3 2 1)
+(rseq (ordered-set 3 1 4))      ; => (4 1 3)
+(rseq [])                       ; => nil
+```
+
+---
+
+### subs
+
+```
+(subs coll start)
+(subs coll start end)
+```
+
+Returns a subsequence of an ordered collection from start index (inclusive)
+to end index (exclusive). For sorted sets, returns elements in the range
+[start, end) according to the sort order.
+
+```fol
+;; On vectors
+(subs [0 1 2 3 4] 2)            ; => (2 3 4)
+(subs [0 1 2 3 4] 1 3)          ; => (1 2)
+
+;; On sorted sets (by value range)
+(subs (sorted-set 1 3 5 7 9) 3 7)  ; => (3 5) - elements >= 3 and < 7
+```
+
+---
+
+### rsubs
+
+```
+(rsubs coll start)
+(rsubs coll start end)
+```
+
+Returns a reverse subsequence of an ordered collection. Like `subs` but
+elements are returned in reverse order. Similar to Clojure's `rsubseq`.
+
+```fol
+;; On vectors
+(rsubs [0 1 2 3 4] 1 4)         ; => (3 2 1)
+
+;; On sorted sets (by value range, reversed)
+(rsubs (sorted-set 1 3 5 7 9) 3 8)  ; => (7 5 3) - elements >= 3 and < 8, reversed
 ```
 
