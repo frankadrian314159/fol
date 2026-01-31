@@ -630,3 +630,165 @@ Transducers are composable transformations that are independent of the input sou
 - Transducers provide composable, efficient transformations without intermediate collections
 - `reduce` is the fundamental operation that processes collections eagerly
 - `iterate`, `repeat`, `repeatedly`, and `cycle` can produce infinite sequences - use with functions like `take` to limit consumption
+
+---
+
+## sequence
+
+```
+(sequence coll)
+```
+
+Coerces coll to a (possibly empty) sequence. Like `seq`, but returns an empty list `()` instead of `nil` for empty collections. Does not force lazy sequences.
+
+### Examples
+
+```fol
+;; Non-empty collection
+(sequence [1 2 3])            ; => (1 2 3)
+
+;; Empty collection returns empty list, not nil
+(sequence [])                 ; => ()
+
+;; Contrast with seq
+(seq [])                      ; => nil
+(sequence [])                 ; => ()
+
+;; Works with any collection
+(sequence {:a 1 :b 2})        ; => ((:a . 1) (:b . 2))
+```
+
+---
+
+## keep-indexed
+
+```
+(keep-indexed f)
+(keep-indexed f coll)
+```
+
+Returns a lazy sequence of the non-nil results of `(f index item)`. Note that this means false return values will be included.
+
+### Transducer Form (1 argument)
+
+With one argument, returns a **transducer** that applies indexed keep.
+
+### Collection Form (2 arguments)
+
+With two arguments, returns a **lazy sequence** of non-nil `(f index item)` results.
+
+### Examples
+
+```fol
+;; Keep elements at even indices
+(keep-indexed (fn [i v] (when (even? i) v)) [:a :b :c :d :e])
+                                  ; => lazy-seq: :a, :c, :e
+
+;; Get indexed pairs for elements > 1
+(keep-indexed (fn [i v] (when (> v 1) [i v])) [0 1 2 3])
+                                  ; => lazy-seq: [2 2], [3 3]
+
+;; Return index of first matching element
+(first (keep-indexed (fn [i v] (when (= v :target) i)) [:a :b :target :c]))
+                                  ; => 2
+```
+
+---
+
+## map-indexed
+
+```
+(map-indexed f)
+(map-indexed f coll)
+```
+
+Returns a lazy sequence of `(f index item)` for each item in coll. The function f receives two arguments: the zero-based index and the item.
+
+### Transducer Form (1 argument)
+
+With one argument, returns a **transducer** that maps with index.
+
+### Collection Form (2 arguments)
+
+With two arguments, returns a **lazy sequence** of `(f index item)` results.
+
+### Examples
+
+```fol
+;; Pair each element with its index
+(map-indexed (fn [i v] [i v]) [:a :b :c])
+                                  ; => lazy-seq: [0 :a], [1 :b], [2 :c]
+
+;; Add index to each value
+(map-indexed + [10 20 30])        ; => lazy-seq: 10, 21, 32
+
+;; Create indexed entries
+(into {} (map-indexed (fn [i v] [v i]) [:a :b :c]))
+                                  ; => {:a 0 :b 1 :c 2}
+```
+
+---
+
+## iteration
+
+```
+(iteration step :initk key :somef pred :vf value-fn :kf key-fn)
+```
+
+Creates a lazy sequence from a step function. The step function takes a seed value and returns a map with iteration information. This is useful for paginated APIs or stateful iteration.
+
+Options:
+- `:initk key` - key to extract next seed from result (default `:next`)
+- `:somef pred` - predicate to test if there's a value (default `some?`)
+- `:vf fn` - function to extract value from result (default `:value`)
+- `:kf fn` - function to extract next seed (default value of `:initk`)
+
+### Examples
+
+```fol
+;; Simple counter
+(take 5 (iteration (fn [x] {:value x :next (inc x)}) :initk :next :next 0))
+                                  ; => (0 1 2 3 4)
+
+;; Paginated API simulation
+(defn fetch-page [cursor]
+  (if (< cursor 3)
+    {:items [cursor] :next-cursor (inc cursor)}
+    nil))
+
+(iteration fetch-page
+  :initk :next-cursor
+  :somef some?
+  :vf :items
+  :next-cursor 0)
+                                  ; => lazy-seq of pages
+```
+
+---
+
+## tree-seq
+
+```
+(tree-seq branch? children root)
+```
+
+Returns a lazy sequence of the nodes in a tree, via a depth-first walk.
+
+- `branch?` - a function that returns true if a node can have children
+- `children` - a function that returns the children of a node
+- `root` - the root node of the tree
+
+### Examples
+
+```fol
+;; Walk a nested vector structure
+(tree-seq <vector>? seq [[1 2] [3 [4 5]]])
+                                  ; => ([[1 2] [3 [4 5]]] [1 2] 1 2 [3 [4 5]] 3 [4 5] 4 5)
+
+;; Walk a map structure
+(tree-seq <dict>? vals {:a {:b 1 :c 2} :d {:e 3}})
+
+;; Find all leaves (non-branches)
+(filter (complement <vector>?) (tree-seq <vector>? seq [1 [2 [3]]]))
+                                  ; => (1 2 3)
+```

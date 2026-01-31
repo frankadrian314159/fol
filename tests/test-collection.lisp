@@ -778,14 +778,18 @@
       (is-true (<list>? rst))
       (is (= 2 (first rst))))))
 
-(test lazy-seq-realized-on-seq
-  "Test that lazy-seq is realized when seq is called."
+(test lazy-seq-preserves-laziness
+  "Test that seq on lazy-seq preserves laziness (returns lazy-seq without realizing)."
   (let* ((called nil)
          (ls (make-lazy-seq (lambda () (setf called t) (make-list 1 2 3)))))
     (is-false called)
     (let ((s (seq ls)))
-      (is-true called)
-      (is-true (<list>? s)))))
+      ;; seq should NOT realize the lazy-seq - it returns the lazy-seq as-is
+      (is-false called)
+      (is-true (<lazy-seq>? s))
+      ;; Only first/rest should trigger realization
+      (first s)
+      (is-true called))))
 
 (test lazy-seq-cached-result
   "Test that lazy-seq caches the result after realization."

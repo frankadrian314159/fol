@@ -3600,3 +3600,283 @@
     (is (cl:= 7 (fol-eval (fol-form "(variadic 3 4)") env)))
     ;; More args
     (is (cl:= 15 (fol-eval (fol-form "(variadic 1 2 3 4 5)") env)))))
+
+;;; ---------------------------------------------------------------------------
+;;; New Sequence Functions
+;;; ---------------------------------------------------------------------------
+
+(test sequence-function
+  "Test sequence function returns sequence or empty list."
+  (let ((env (make-standard-env)))
+    ;; Non-empty collection returns sequence
+    (is-true (fol.seqop:seq (fol-eval (fol-form "(sequence [1 2 3])") env)))
+    ;; Empty collection returns empty list (not nil)
+    (let ((result (fol-eval (fol-form "(sequence [])") env)))
+      (is-true (fol.collection:<list>? result))
+      (is-true (fol.seqop:empty? result)))))
+
+(test keep-indexed-basic
+  "Test keep-indexed with index and value."
+  (let ((env (make-standard-env)))
+    ;; Return indexed values where index is even
+    (let ((result (fol-eval (fol-form "(into [] (keep-indexed (fn [i v] (when (even? i) v)) [10 20 30 40 50]))") env)))
+      (is (cl:= 3 (fol.seqop:size result)))
+      (is (cl:= 10 (fol.seqop:nth result 0)))
+      (is (cl:= 30 (fol.seqop:nth result 1)))
+      (is (cl:= 50 (fol.seqop:nth result 2))))))
+
+(test map-indexed-basic
+  "Test map-indexed returns (f index item) for each item."
+  (let ((env (make-standard-env)))
+    ;; Map with index
+    (let ((result (fol-eval (fol-form "(into [] (map-indexed (fn [i v] (+ i v)) [10 20 30]))") env)))
+      (is (cl:= 3 (fol.seqop:size result)))
+      (is (cl:= 10 (fol.seqop:nth result 0)))  ; 0 + 10
+      (is (cl:= 21 (fol.seqop:nth result 1)))  ; 1 + 20
+      (is (cl:= 32 (fol.seqop:nth result 2))))))  ; 2 + 30
+
+(test tree-seq-basic
+  "Test tree-seq walks a tree depth-first."
+  (let ((env (make-standard-env)))
+    ;; Simple tree: walk a vector of vectors
+    (let ((result (fol-eval (fol-form "(into [] (take 5 (tree-seq <vector>? seq [[1 2] [3 4]])))") env)))
+      (is (>= (fol.seqop:size result) 1)))))
+
+;;; ---------------------------------------------------------------------------
+;;; Threading Macro Tests
+;;; ---------------------------------------------------------------------------
+
+(test as->-macro
+  "Test as-> threading macro."
+  (let ((env (make-standard-env)))
+    ;; Basic threading with named binding
+    (is (cl:= 4 (fol-eval (fol-form "(as-> 1 x (+ x 1) (* x 2))") env)))))
+
+(test cond->-macro
+  "Test cond-> conditional threading."
+  (let ((env (make-standard-env)))
+    ;; Thread when condition is true (using bare symbols)
+    (is (cl:= 3 (fol-eval (fol-form "(cond-> 1 t inc t inc)") env)))
+    ;; Skip when condition is false
+    (is (cl:= 2 (fol-eval (fol-form "(cond-> 1 t inc nil inc)") env)))))
+
+(test some->-macro
+  "Test some-> nil-safe threading."
+  (let ((env (make-standard-env)))
+    ;; Normal threading
+    (is (cl:= 3 (fol-eval (fol-form "(some-> 1 inc inc)") env)))
+    ;; Short-circuit on nil
+    (is (null (fol-eval (fol-form "(some-> nil inc inc)") env)))))
+
+;;; ---------------------------------------------------------------------------
+;;; Control Flow Macro Tests
+;;; ---------------------------------------------------------------------------
+
+(test when-not-macro
+  "Test when-not macro."
+  (let ((env (make-standard-env)))
+    (is (cl:= 42 (fol-eval (fol-form "(when-not nil 42)") env)))
+    (is (null (fol-eval (fol-form "(when-not t 42)") env)))))
+
+(test when-let-macro
+  "Test when-let macro."
+  (let ((env (make-standard-env)))
+    ;; When truthy, execute body
+    (is (cl:= 2 (fol-eval (fol-form "(when-let [x 1] (+ x 1))") env)))
+    ;; When nil, return nil
+    (is (null (fol-eval (fol-form "(when-let [x nil] (+ x 1))") env)))))
+
+(test when-first-macro
+  "Test when-first macro."
+  (let ((env (make-standard-env)))
+    ;; When collection has elements
+    (is (cl:= 2 (fol-eval (fol-form "(when-first [x [1 2 3]] (inc x))") env)))
+    ;; When collection is empty
+    (is (null (fol-eval (fol-form "(when-first [x []] 42)") env)))))
+
+(test if-not-macro
+  "Test if-not macro."
+  (let ((env (make-standard-env)))
+    (is (eq :yes (fol-eval (fol-form "(if-not nil :yes :no)") env)))
+    (is (eq :no (fol-eval (fol-form "(if-not t :yes :no)") env)))))
+
+(test if-let-macro
+  "Test if-let macro."
+  (let ((env (make-standard-env)))
+    (is (cl:= 2 (fol-eval (fol-form "(if-let [x 1] (+ x 1) 0)") env)))
+    (is (cl:= 0 (fol-eval (fol-form "(if-let [x nil] (+ x 1) 0)") env)))))
+
+(test when-some-macro
+  "Test when-some macro."
+  (let ((env (make-standard-env)))
+    ;; When value is non-nil
+    (is (cl:= 2 (fol-eval (fol-form "(when-some [x 1] (+ x 1))") env)))
+    ;; When value is nil
+    (is (null (fol-eval (fol-form "(when-some [x nil] (+ x 1))") env)))))
+
+(test if-some-macro
+  "Test if-some macro."
+  (let ((env (make-standard-env)))
+    (is (cl:= 2 (fol-eval (fol-form "(if-some [x 1] (+ x 1) 0)") env)))
+    (is (cl:= 0 (fol-eval (fol-form "(if-some [x nil] (+ x 1) 0)") env)))))
+
+(test condp-macro
+  "Test condp macro."
+  (let ((env (make-standard-env)))
+    (is (eq :one (fol-eval (fol-form "(condp = 1 1 :one 2 :two :other)") env)))
+    (is (eq :two (fol-eval (fol-form "(condp = 2 1 :one 2 :two :other)") env)))
+    (is (eq :other (fol-eval (fol-form "(condp = 3 1 :one 2 :two :other)") env)))))
+
+;;; ---------------------------------------------------------------------------
+;;; Loop Macro Tests
+;;; ---------------------------------------------------------------------------
+
+(test dotimes-macro
+  "Test dotimes macro."
+  (let ((env (make-standard-env)))
+    ;; dotimes returns nil but executes body n times
+    (is (null (fol-eval (fol-form "(dotimes [i 3] i)") env)))))
+
+(test doseq-macro
+  "Test doseq macro."
+  (let ((env (make-standard-env)))
+    ;; doseq returns nil
+    (is (null (fol-eval (fol-form "(doseq [x [1 2 3]] x)") env)))))
+
+(test for-macro
+  "Test for comprehension macro."
+  (let ((env (make-standard-env)))
+    (let ((result (fol-eval (fol-form "(into [] (for [x [1 2 3]] (* x x)))") env)))
+      (is (cl:= 3 (fol.seqop:size result)))
+      (is (cl:= 1 (fol.seqop:nth result 0)))
+      (is (cl:= 4 (fol.seqop:nth result 1)))
+      (is (cl:= 9 (fol.seqop:nth result 2))))))
+
+;;; ---------------------------------------------------------------------------
+;;; Lazy and Misc Macro Tests
+;;; ---------------------------------------------------------------------------
+
+(test lazy-cat-macro
+  "Test lazy-cat macro."
+  (let ((env (make-standard-env)))
+    (let ((result (fol-eval (fol-form "(into [] (lazy-cat [1 2] [3 4]))") env)))
+      (is (cl:= 4 (fol.seqop:size result)))
+      (is (cl:= 1 (fol.seqop:nth result 0)))
+      (is (cl:= 4 (fol.seqop:nth result 3))))))
+
+(test delay-and-force
+  "Test delay and force."
+  (let ((env (make-standard-env)))
+    ;; delay creates a deferred computation, force evaluates it
+    (is (cl:= 3 (fol-eval (fol-form "(force (delay (+ 1 2)))") env)))))
+
+(test assert-macro-passes
+  "Test assert macro passes on truthy."
+  (let ((env (make-standard-env)))
+    ;; assert returns nil on success
+    (is (null (fol-eval (fol-form "(assert t)") env)))
+    (is (null (fol-eval (fol-form "(assert (> 5 3))") env)))))
+
+(test comment-macro
+  "Test comment macro returns nil."
+  (let ((env (make-standard-env)))
+    (is (null (fol-eval (fol-form "(comment (this is ignored) (so is this))") env)))))
+
+;;; ---------------------------------------------------------------------------
+;;; Functional Utility Tests
+;;; ---------------------------------------------------------------------------
+
+(test constantly-function
+  "Test constantly returns a function that always returns the same value."
+  (let ((env (make-standard-env)))
+    (is (cl:= 42 (fol-eval (fol-form "((constantly 42) 1 2 3)") env)))))
+
+(test comp-function
+  "Test comp composes functions."
+  (let ((env (make-standard-env)))
+    ;; (comp inc inc) should add 2
+    (is (cl:= 7 (fol-eval (fol-form "((comp inc inc) 5)") env)))))
+
+(test memoize-function
+  "Test memoize caches results."
+  (let ((env (make-standard-env)))
+    ;; Just test that it works
+    (is (cl:= 10 (fol-eval (fol-form "((memoize +) 3 7)") env)))))
+
+(test fnil-function
+  "Test fnil replaces nil arguments with defaults."
+  (let ((env (make-standard-env)))
+    ;; fnil with default for first arg
+    (is (cl:= 10 (fol-eval (fol-form "((fnil + 0) nil 10)") env)))))
+
+(test fn?-predicate
+  "Test fn? predicate."
+  (let ((env (make-standard-env)))
+    (is-true (fol-eval (fol-form "(fn? +)") env))
+    (is-true (fol-eval (fol-form "(fn? (fn [x] x))") env))
+    (is-false (fol-eval (fol-form "(fn? 42)") env))))
+
+(test trampoline-function
+  "Test trampoline for mutual recursion."
+  (let ((env (make-standard-env)))
+    ;; Simple trampoline that doesn't need further calls
+    (is (cl:= 42 (fol-eval (fol-form "(trampoline (fn [] 42))") env)))))
+
+;;; ---------------------------------------------------------------------------
+;;; Utility Function Tests
+;;; ---------------------------------------------------------------------------
+
+(test nil?-predicate
+  "Test nil? predicate."
+  (let ((env (make-standard-env)))
+    (is-true (fol-eval (fol-form "(nil? nil)") env))
+    (is-false (fol-eval (fol-form "(nil? 1)") env))))
+
+(test some?-predicate
+  "Test some? predicate."
+  (let ((env (make-standard-env)))
+    (is-true (fol-eval (fol-form "(some? 1)") env))
+    (is-false (fol-eval (fol-form "(some? nil)") env))))
+
+(test not=-function
+  "Test not= function."
+  (let ((env (make-standard-env)))
+    (is-true (fol-eval (fol-form "(not= 1 2)") env))
+    (is-false (fol-eval (fol-form "(not= 1 1)") env))))
+
+(test compare-function
+  "Test compare function."
+  (let ((env (make-standard-env)))
+    (is (cl:= -1 (fol-eval (fol-form "(compare 1 2)") env)))
+    (is (cl:= 0 (fol-eval (fol-form "(compare 2 2)") env)))
+    (is (cl:= 1 (fol-eval (fol-form "(compare 3 2)") env)))))
+
+(test some-function
+  "Test some function."
+  (let ((env (make-standard-env)))
+    ;; Returns first truthy result of (pred x), not the element itself
+    (is-true (fol-eval (fol-form "(some even? [1 2 3 4])") env))
+    ;; Using a set as predicate returns the element
+    (is (cl:= 2 (fol-eval (fol-form "(some #{2 4} [1 2 3 4])") env)))
+    ;; Returns nil if no match
+    (is (null (fol-eval (fol-form "(some even? [1 3 5])") env)))))
+
+;;; ---------------------------------------------------------------------------
+;;; Relational Function Tests
+;;; ---------------------------------------------------------------------------
+
+(test project-function
+  "Test project returns relation with selected keys."
+  (let ((env (make-standard-env)))
+    (let ((result (fol-eval (fol-form "(first (project #{{:a 1 :b 2 :c 3}} [:a :b]))") env)))
+      (is-true (fol.seqop:contains? result :a))
+      (is-true (fol.seqop:contains? result :b))
+      (is-false (fol.seqop:contains? result :c)))))
+
+(test rename-function
+  "Test rename renames keys in relation."
+  (let ((env (make-standard-env)))
+    (let ((result (fol-eval (fol-form "(first (rename #{{:a 1 :b 2}} {:a :x}))") env)))
+      (is-true (fol.seqop:contains? result :x))
+      (is-false (fol.seqop:contains? result :a))
+      (is-true (fol.seqop:contains? result :b)))))

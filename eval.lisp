@@ -379,6 +379,7 @@
     (setf (gethash "TRY" table) 'eval-try)
     (setf (gethash "DEFN" table) 'eval-defn)
     (setf (gethash "DEFMACRO" table) 'eval-defmacro)
+    (setf (gethash "DEFINLINE" table) 'eval-definline)
     (setf (gethash "SYNTAX-QUOTE" table) 'eval-syntax-quote)
     (setf (gethash "MAKE-DYNAMIC" table) 'eval-make-dynamic)
     (setf (gethash "BINDING" table) 'eval-binding)
@@ -1213,6 +1214,78 @@
                                          :name sym-name)))
               (cl:eval `(cl:defparameter ,sym-name ',macro-obj))
               macro-obj))))))
+
+;;; --- DEFINLINE ---
+
+(defun eval-definline (args env)
+  "Evaluate (definline name [params] body).
+   Defines an inline function that expands at macro-expansion time.
+   Unlike Common Lisp's definline, this supports variadic and destructuring arguments.
+
+   The inline function is implemented as a macro that wraps the body in a bind
+   form with the parameters bound to the (unevaluated) arguments. This allows
+   inlining while preserving proper evaluation order.
+
+   Example:
+     (definline square [x] (* x x))
+     (square 5)  ; expands to (bind [x 5] (* x x))
+
+   With destructuring:
+     (definline add-coords [[x1 y1] [x2 y2]]
+       [(+ x1 x2) (+ y1 y2)])
+
+   With variadic args:
+     (definline sum-all [& nums]
+       (reduce + 0 nums))"
+  (unless (>= (length args) 3)
+    (error 'fol-eval-error :message "definline requires name, params, and body"
+           :form (cons 'definline args)))
+  (let* ((name (first args))
+         (sym-name (extract-symbol name))
+         (params (second args))
+         (body (cddr args))
+         (param-list (if (<vector>? params)
+                         (vector-to-list params)
+                         params)))
+    (multiple-value-bind (regular-params rest-param)
+        (parse-params param-list)
+      ;; Create a macro that expands to (bind [params args] body)
+      ;; The macro receives unevaluated arguments and constructs the bind form
+      (let ((inline-macro (make-macro
+                           regular-params
+                           (list (make-inline-expansion-body params body))
+                           env
+                           :rest-param rest-param
+                           :name sym-name)))
+        ;; Bind the macro to the name
+        (cl:eval `(cl:defparameter ,sym-name ',inline-macro))
+        inline-macro))))
+
+(defun make-inline-expansion-body (params body)
+  "Create the macro body that generates (bind [params args] body).
+   PARAMS is the original parameter vector/list.
+   BODY is the list of body forms.
+   Returns a form that, when evaluated in the macro, produces the bind form."
+  ;; We need to generate code that builds:
+  ;; (bind [p1 arg1 p2 arg2 ...] body...)
+  ;; where p1, p2 are the original param patterns and arg1, arg2 are the macro args
+  (let* ((param-list (if (<vector>? params)
+                         (vector-to-list params)
+                         params))
+         ;; Extract just the parameter names/patterns (not &)
+         (binding-params (cl:remove-if
+                          (lambda (p)
+                            (cl:and (symbolp p)
+                                    (string= (symbol-name p) "&")))
+                          param-list)))
+    ;; Build the syntax-quote form that generates the bind
+    `(syntax-quote
+      (bind ,(apply #'make-vector
+                    (loop for p in binding-params
+                          collect p
+                          collect (list 'unquote p)))
+        ,@(loop for form in body
+                collect (list 'unquote (list 'quote form)))))))
 
 ;;; --- SYNTAX-QUOTE (Quasiquote with unquote, unquote-splicing, auto-gensym) ---
 

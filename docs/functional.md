@@ -257,3 +257,193 @@ This is useful for computing multiple values from the same input in a single pas
 (validate 4)                  ; => (values :positive :even)
 (validate -3)                 ; => (values :not-positive :odd)
 ```
+
+---
+
+## constantly
+
+```
+(constantly x)
+```
+
+Returns a function that takes any number of arguments and always returns x.
+Useful when you need a function that ignores its arguments.
+
+### Examples
+
+```fol
+(def always-42 (constantly 42))
+(always-42)                   ; => 42
+(always-42 1 2 3 :ignored)    ; => 42
+
+;; Useful with map to fill a sequence
+(map (constantly :default) [1 2 3])  ; => (:default :default :default)
+
+;; Or as a default function
+(def get-value-or-default
+  (fn [m k default-fn]
+    (or (get m k) (default-fn))))
+(get-value-or-default {:a 1} :b (constantly 0))  ; => 0
+```
+
+---
+
+## comp
+
+```
+(comp f1 f2 ... fn)
+```
+
+Takes a set of functions and returns a function that is the composition of those functions.
+The returned function applies the rightmost function first, then applies the next function
+(right-to-left) to the result, and so on.
+
+With no arguments, returns identity.
+
+### Examples
+
+```fol
+;; Compose two functions
+(def inc-then-double (comp (fn [x] (* x 2)) inc))
+(inc-then-double 5)           ; => 12 ((* (inc 5) 2) = (* 6 2))
+
+;; Compose three functions
+((comp inc inc inc) 0)        ; => 3
+
+;; Apply multiple transformations to strings
+(def clean-string (comp trim lower-case))
+(clean-string "  HELLO  ")    ; => "hello"
+
+;; No functions returns identity
+((comp) x)                    ; => x
+
+;; Rightmost function can take multiple args
+((comp inc +) 1 2 3)          ; => 7 (inc (+ 1 2 3))
+```
+
+---
+
+## memoize
+
+```
+(memoize f)
+```
+
+Returns a memoized version of a referentially transparent function.
+The memoized function keeps a cache of the mapping from arguments to results.
+When calls with the same arguments are repeated, the cached result is returned
+without calling f again.
+
+Useful for expensive computations with repeated calls.
+
+### Examples
+
+```fol
+;; Memoize a slow function
+(def slow-fib
+  (fn [n]
+    (if (<= n 1)
+        n
+        (+ (slow-fib (- n 1)) (slow-fib (- n 2))))))
+
+(def fast-fib (memoize slow-fib))
+(fast-fib 35)                 ; Much faster on repeated calls
+
+;; Works with multiple arguments
+(def expensive-compute (memoize
+  (fn [x y]
+    (print "computing...")
+    (+ x y))))
+(expensive-compute 1 2)       ; prints "computing...", returns 3
+(expensive-compute 1 2)       ; returns 3 (no print - cached)
+(expensive-compute 2 3)       ; prints "computing...", returns 5
+```
+
+---
+
+## fnil
+
+```
+(fnil f default1 & more-defaults)
+```
+
+Takes a function f and returns a function that calls f, replacing nil arguments
+with the corresponding defaults. The first argument is replaced with default1
+if nil, the second with the second default if nil, etc.
+
+Useful for providing default values to functions.
+
+### Examples
+
+```fol
+;; Replace nil first argument with 0
+(def safe-add (fnil + 0))
+(safe-add nil 10)             ; => 10 (+ 0 10)
+(safe-add 5 10)               ; => 15 (+ 5 10)
+
+;; Multiple defaults
+(def safe-sub (fnil - 0 0))
+(safe-sub nil nil)            ; => 0 (- 0 0)
+(safe-sub 10 nil)             ; => 10 (- 10 0)
+(safe-sub nil 5)              ; => -5 (- 0 5)
+
+;; Useful with update
+(def counts {:a 1})
+(update counts :b (fnil inc 0))  ; => {:a 1 :b 1}
+;; Without fnil: (update counts :b inc) would fail because (inc nil) errors
+```
+
+---
+
+## fn?
+
+```
+(fn? x)
+```
+
+Returns true if x is a function (FOL function, macro, or Common Lisp function).
+
+### Examples
+
+```fol
+(fn? +)                       ; => true
+(fn? (fn [x] x))              ; => true
+(fn? inc)                     ; => true
+(fn? 42)                      ; => false
+(fn? "hello")                 ; => false
+(fn? :keyword)                ; => false
+```
+
+---
+
+## trampoline
+
+```
+(trampoline f & args)
+```
+
+Useful for converting algorithms requiring mutual recursion without stack consumption.
+Calls f with supplied args. If f returns a function, calls that function with no arguments.
+Continues calling returned functions until a non-function value is returned.
+
+This allows deep mutual recursion without stack overflow.
+
+### Examples
+
+```fol
+;; Mutual recursion that would overflow without trampoline
+(defn my-even? [n]
+  (if (= n 0)
+      true
+      (fn [] (my-odd? (dec n)))))
+
+(defn my-odd? [n]
+  (if (= n 0)
+      false
+      (fn [] (my-even? (dec n)))))
+
+(trampoline my-even? 1000000)  ; => true (no stack overflow)
+
+;; Simple use - function that doesn't return a function
+(trampoline + 1 2 3)          ; => 6
+```

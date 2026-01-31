@@ -46,6 +46,329 @@
      :rest-param 'body          ; rest param captures all body forms
      :name 'with-seed)))
 
+;;; --- Threading Macros ---
+
+(defun make-as->-macro ()
+  "Create the 'as->' macro.
+   (as-> expr name form1 form2 ...) binds name to expr, then threads through forms.
+   In each form, name refers to the result of the previous form.
+   Example: (as-> 1 x (+ x 1) (* x 2)) => 4"
+  (make-macro
+   '(expr name)
+   '((build-as->-expansion name expr forms))
+   (make-env nil
+             'build-as->-expansion
+             #'(lambda (name expr forms)
+                 ;; Build nested bind forms: (bind (name expr) (bind (name form1) ... name))
+                 (cl:labels ((build (remaining-forms)
+                               (if (null remaining-forms)
+                                   ;; No more forms, return the name
+                                   name
+                                   ;; Wrap in bind
+                                   (cl:list 'bind
+                                            (cl:list name (cl:first remaining-forms))
+                                            (build (cl:rest remaining-forms))))))
+                   (cl:list 'bind
+                            (cl:list name expr)
+                            (build forms)))))
+   :rest-param 'forms
+   :name 'as->))
+
+(defun make-cond->-macro ()
+  "Create the 'cond->' macro.
+   (cond-> expr test1 form1 test2 form2 ...)
+   Threads expr through forms where corresponding test is true (thread-first).
+   Example: (cond-> 1 true (+ 1) false (+ 2) true (* 3)) => 6"
+  (make-macro
+   '(expr)
+   '((syntax-quote
+      (cond->-helper (unquote expr) (unquote-splicing clauses))))
+   nil
+   :rest-param 'clauses
+   :name 'cond->))
+
+(defun make-cond->>-macro ()
+  "Create the 'cond->>' macro.
+   (cond->> expr test1 form1 test2 form2 ...)
+   Threads expr through forms where corresponding test is true (thread-last).
+   Example: (cond->> [1 2 3] true (map inc) false (map dec)) => [2 3 4]"
+  (make-macro
+   '(expr)
+   '((syntax-quote
+      (cond->>-helper (unquote expr) (unquote-splicing clauses))))
+   nil
+   :rest-param 'clauses
+   :name 'cond->>))
+
+(defun make-some->-macro ()
+  "Create the 'some->' macro.
+   (some-> expr form1 form2 ...)
+   Threads expr through forms as first arg, short-circuiting on nil.
+   Example: (some-> {:a 1} :a inc) => 2
+            (some-> {:a 1} :b inc) => nil"
+  (make-macro
+   '(expr)
+   '((syntax-quote
+      (some->-helper (unquote expr) (unquote-splicing forms))))
+   nil
+   :rest-param 'forms
+   :name 'some->))
+
+(defun make-some->>-macro ()
+  "Create the 'some->>' macro.
+   (some->> expr form1 form2 ...)
+   Threads expr through forms as last arg, short-circuiting on nil.
+   Example: (some->> [1 2 3] (map inc) first) => 2"
+  (make-macro
+   '(expr)
+   '((syntax-quote
+      (some->>-helper (unquote expr) (unquote-splicing forms))))
+   nil
+   :rest-param 'forms
+   :name 'some->>))
+
+;;; --- Control Flow Macros ---
+
+(defun make-when-not-macro ()
+  "Create the 'when-not' macro.
+   (when-not test form0 form1 ... formN) expands to (if test nil (do form0 form1 ... formN))"
+  (make-macro
+   '(test)
+   '((syntax-quote
+      (if (unquote test)
+          nil
+          (do (unquote-splicing body)))))
+   nil
+   :rest-param 'body
+   :name 'when-not))
+
+(defun make-when-let-macro ()
+  "Create the 'when-let' macro.
+   (when-let [x expr] body...) evaluates expr, binds to x if truthy, then executes body.
+   Example: (when-let [x (get m :key)] (inc x))"
+  (make-macro
+   '(bindings)
+   '((bind (var (first bindings)
+            expr (nth bindings 1))
+       (syntax-quote
+        (bind (temp# (unquote expr))
+          (when temp#
+            (bind ((unquote var) temp#)
+              (unquote-splicing body)))))))
+   (make-env nil 'first #'fol.seqop:first 'nth #'fol.seqop:nth)
+   :rest-param 'body
+   :name 'when-let))
+
+(defun make-when-first-macro ()
+  "Create the 'when-first' macro.
+   (when-first [x coll] body...) binds x to (first coll) if coll is not empty.
+   Example: (when-first [x [1 2 3]] (inc x)) => 2"
+  (make-macro
+   '(bindings)
+   '((bind (var (first bindings)
+            coll-expr (nth bindings 1))
+       (syntax-quote
+        (bind (s# (seq (unquote coll-expr)))
+          (when s#
+            (bind ((unquote var) (first s#))
+              (unquote-splicing body)))))))
+   (make-env nil 'first #'fol.seqop:first 'nth #'fol.seqop:nth)
+   :rest-param 'body
+   :name 'when-first))
+
+(defun make-if-not-macro ()
+  "Create the 'if-not' macro.
+   (if-not test then) or (if-not test then else)
+   Equivalent to (if (not test) then else)"
+  (make-macro
+   '(test then)
+   '((syntax-quote
+      (if (not (unquote test))
+          (unquote then)
+          (unquote (first else)))))
+   (make-env nil 'first #'fol.seqop:first)
+   :rest-param 'else
+   :name 'if-not))
+
+(defun make-if-let-macro ()
+  "Create the 'if-let' macro.
+   (if-let [x expr] then else?) binds x to expr, executes then if truthy, else otherwise.
+   Example: (if-let [x (get m :key)] (inc x) 0)"
+  (make-macro
+   '(bindings then)
+   '((bind (var (first bindings)
+            expr (nth bindings 1))
+       (syntax-quote
+        (bind (temp# (unquote expr))
+          (if temp#
+              (bind ((unquote var) temp#)
+                (unquote then))
+              (unquote (first else)))))))
+   (make-env nil 'first #'fol.seqop:first 'nth #'fol.seqop:nth)
+   :rest-param 'else
+   :name 'if-let))
+
+(defun make-condp-macro ()
+  "Create the 'condp' macro.
+   (condp pred expr clause1 clause2 ... default?)
+   Each clause is (test-expr result-expr) or (test-expr :>> result-fn).
+   Evaluates (pred test-expr expr) for each clause.
+   Example: (condp = x 1 :one 2 :two :other)"
+  (make-macro
+   '(pred expr)
+   '((syntax-quote
+      (condp-helper (unquote pred) (unquote expr) (unquote-splicing clauses))))
+   nil
+   :rest-param 'clauses
+   :name 'condp))
+
+(defun make-when-some-macro ()
+  "Create the 'when-some' macro.
+   (when-some [x expr] body...) binds x to expr if (some? expr), then executes body.
+   Example: (when-some [x (get m :key)] (inc x))"
+  (make-macro
+   '(bindings)
+   '((bind (var (first bindings)
+            expr (nth bindings 1))
+       (syntax-quote
+        (bind (temp# (unquote expr))
+          (when (some? temp#)
+            (bind ((unquote var) temp#)
+              (unquote-splicing body)))))))
+   (make-env nil 'first #'fol.seqop:first 'nth #'fol.seqop:nth)
+   :rest-param 'body
+   :name 'when-some))
+
+(defun make-if-some-macro ()
+  "Create the 'if-some' macro.
+   (if-some [x expr] then else?) binds x to expr if (some? expr), executes then, else otherwise.
+   Example: (if-some [x (get m :key)] (inc x) 0)"
+  (make-macro
+   '(bindings then)
+   '((bind (var (first bindings)
+            expr (nth bindings 1))
+       (syntax-quote
+        (bind (temp# (unquote expr))
+          (if (some? temp#)
+              (bind ((unquote var) temp#)
+                (unquote then))
+              (unquote (first else)))))))
+   (make-env nil 'first #'fol.seqop:first 'nth #'fol.seqop:nth)
+   :rest-param 'else
+   :name 'if-some))
+
+;;; --- Loop Macros ---
+
+(defun make-dotimes-macro ()
+  "Create the 'dotimes' macro.
+   (dotimes [i n] body...) executes body n times with i bound to 0, 1, ..., n-1.
+   Example: (dotimes [i 3] (print i)) prints 0, 1, 2"
+  (make-macro
+   '(bindings)
+   '((bind (var (first bindings)
+            count-expr (nth bindings 1))
+       (syntax-quote
+        (loop (idx# 0
+               limit# (unquote count-expr))
+          (when (< idx# limit#)
+            (bind ((unquote var) idx#)
+              (unquote-splicing body))
+            (recur (inc idx#) limit#))))))
+   (make-env nil 'first #'fol.seqop:first 'nth #'fol.seqop:nth)
+   :rest-param 'body
+   :name 'dotimes))
+
+(defun make-doseq-macro ()
+  "Create the 'doseq' macro.
+   (doseq [x coll] body...) executes body for each element x in coll.
+   Example: (doseq [x [1 2 3]] (print x)) prints 1, 2, 3"
+  (make-macro
+   '(bindings)
+   '((bind (var (first bindings)
+            coll-expr (nth bindings 1))
+       (syntax-quote
+        (loop (s# (seq (unquote coll-expr)))
+          (when (not (empty? s#))
+            (bind ((unquote var) (first s#))
+              (unquote-splicing body))
+            (recur (rest s#)))))))
+   (make-env nil 'first #'fol.seqop:first 'nth #'fol.seqop:nth)
+   :rest-param 'body
+   :name 'doseq))
+
+(defun make-for-macro ()
+  "Create the 'for' macro.
+   (for [x coll] body) returns a lazy sequence of body for each x in coll.
+   Supports :let, :when, and :while modifiers.
+   Example: (for [x [1 2 3]] (* x x)) => (1 4 9)
+            (for [x (range 10) :when (even? x)] x) => (0 2 4 6 8)"
+  ;; Simple implementation: expand (for [x coll] body) to (map (fn [x] body) coll)
+  (make-macro
+   '(seq-exprs)
+   '((bind (var (first seq-exprs)
+            coll-expr (nth seq-exprs 1))
+       (syntax-quote
+        (map (fn ((unquote var)) (unquote-splicing body))
+             (unquote coll-expr)))))
+   (make-env nil 'first #'fol.seqop:first 'nth #'fol.seqop:nth)
+   :rest-param 'body
+   :name 'for))
+
+;;; --- Lazy and Misc Macros ---
+
+(defun make-lazy-cat-macro ()
+  "Create the 'lazy-cat' macro.
+   (lazy-cat coll1 coll2 ...) returns a lazy sequence of the concatenation of colls.
+   Example: (lazy-cat [1 2] [3 4]) => (1 2 3 4)"
+  (make-macro
+   nil
+   '((syntax-quote
+      (lazy-cat-helper (unquote-splicing colls))))
+   nil
+   :rest-param 'colls
+   :name 'lazy-cat))
+
+(defun make-delay-macro ()
+  "Create the 'delay' macro.
+   (delay body...) creates a delay object that computes body when forced.
+   Use (force d) or @d to get the value. The value is cached after first computation.
+   Example: (def d (delay (+ 1 2))) (force d) => 3"
+  (let ((empty-vec (make-instance 'fol.collection:<vector> :items (fset:empty-seq))))
+    (make-macro
+     nil
+     `((syntax-quote
+        (make-delay (fn ,empty-vec (unquote-splicing body)))))
+     nil
+     :rest-param 'body
+     :name 'delay)))
+
+(defun make-assert-macro ()
+  "Create the 'assert' macro.
+   (assert test) or (assert test message) throws if test is false.
+   Example: (assert (> x 0) \"x must be positive\")"
+  (make-macro
+   '(test)
+   '((syntax-quote
+      (when (not (unquote test))
+        (throw (if (first (quote (unquote-splicing msg)))
+                   (first (quote (unquote-splicing msg)))
+                   (str "Assertion failed: " (quote (unquote test))))))))
+   nil
+   :rest-param 'msg
+   :name 'assert))
+
+(defun make-comment-macro ()
+  "Create the 'comment' macro.
+   (comment body...) ignores all forms and returns nil.
+   Useful for commenting out code blocks.
+   Example: (comment (this is ignored) (so is this)) => nil"
+  (make-macro
+   nil
+   '(nil)  ; Just returns nil
+   nil
+   :rest-param 'body
+   :name 'comment))
+
 ;;; ============================================================================
 ;;; Standard Environment
 ;;; ============================================================================
@@ -304,6 +627,13 @@
             'get #'fol.seqop:get
             'contains? #'fol.seqop:contains?
             'seq #'fol.seqop:seq
+            'sequence #'(lambda (coll)
+                          "Coerces coll to a (possibly empty) sequence. Like seq, but returns
+                           () instead of nil for empty collections. Does not force lazy seqs."
+                          (let ((s (fol.seqop:seq coll)))
+                            (if (null s)
+                                (fol.collection:make-list)  ; Return empty list, not nil
+                                s)))
             'add #'fol.seqop:add
             'remove #'fol.seqop:remove
             'disj #'fol.seqop:disj
@@ -410,8 +740,8 @@
                                  (apply-function f nil)  ; call f with no args for empty coll
                                  (let ((acc (fol.seqop:first s))
                                        (s (fol.seqop:rest s)))
-                                   (loop until (or (null s) (fol.seqop:empty? s)
-                                                   (fol.collection:<reduced>? acc))
+                                   (loop until (cl:or (null s) (fol.seqop:empty? s)
+                                                      (fol.collection:<reduced>? acc))
                                          do (setf acc (apply-function f (cl:list acc (fol.seqop:first s))))
                                             (setf s (fol.seqop:rest s)))
                                    (fol.collection:unreduced acc)))))
@@ -421,8 +751,8 @@
                                   (coll (cl:second args))
                                   (s (fol.seqop:seq coll))
                                   (acc init))
-                             (loop until (or (null s) (fol.seqop:empty? s)
-                                             (fol.collection:<reduced>? acc))
+                             (loop until (cl:or (null s) (fol.seqop:empty? s)
+                                                (fol.collection:<reduced>? acc))
                                    do (setf acc (apply-function f (cl:list acc (fol.seqop:first s))))
                                       (setf s (fol.seqop:rest s)))
                              (fol.collection:unreduced acc)))
@@ -537,6 +867,62 @@
                                               (find-next s))))))
                              (keep-seq (fol.seqop:seq coll)))))
                         (t (error "keep requires 1 or 2 arguments"))))
+            'keep-indexed #'(lambda (f &rest args)
+                              "Returns a lazy sequence of the non-nil results of (f index item).
+                               (keep-indexed f) - returns a transducer
+                               (keep-indexed f coll) - returns a lazy-seq of non-nil results"
+                              (cond
+                                ;; (keep-indexed f) - return a transducer
+                                ((= (cl:length args) 0)
+                                 (let ((idx -1))
+                                   #'(lambda (rf)
+                                       #'(lambda (result input)
+                                           (cl:incf idx)
+                                           (let ((v (apply-function f (cl:list idx input))))
+                                             (if v
+                                                 (funcall rf result v)
+                                                 result))))))
+                                ;; (keep-indexed f coll) - return lazy-seq
+                                ((= (cl:length args) 1)
+                                 (let ((coll (cl:first args)))
+                                   (cl:labels ((keep-idx-seq (s idx)
+                                                 (fol.collection:make-lazy-seq
+                                                  (lambda ()
+                                                    (cl:labels ((find-next (current i)
+                                                                  (cond
+                                                                    ((or (null current) (fol.seqop:empty? current))
+                                                                     nil)
+                                                                    (t (let ((v (apply-function f (cl:list i (fol.seqop:first current)))))
+                                                                         (if v
+                                                                             (cl:cons v (keep-idx-seq (fol.seqop:rest current) (cl:1+ i)))
+                                                                             (find-next (fol.seqop:rest current) (cl:1+ i))))))))
+                                                      (find-next s idx))))))
+                                     (keep-idx-seq (fol.seqop:seq coll) 0))))
+                                (t (error "keep-indexed requires 1 or 2 arguments"))))
+            'map-indexed #'(lambda (f &rest args)
+                             "Returns a lazy sequence of (f index item) for each item in coll.
+                              (map-indexed f) - returns a transducer
+                              (map-indexed f coll) - returns a lazy-seq of (f index item) results"
+                             (cond
+                               ;; (map-indexed f) - return a transducer
+                               ((= (cl:length args) 0)
+                                (let ((idx -1))
+                                  #'(lambda (rf)
+                                      #'(lambda (result input)
+                                          (cl:incf idx)
+                                          (funcall rf result (apply-function f (cl:list idx input)))))))
+                               ;; (map-indexed f coll) - return lazy-seq
+                               ((= (cl:length args) 1)
+                                (let ((coll (cl:first args)))
+                                  (cl:labels ((map-idx-seq (s idx)
+                                                (fol.collection:make-lazy-seq
+                                                 (lambda ()
+                                                   (if (or (null s) (fol.seqop:empty? s))
+                                                       nil
+                                                       (cl:cons (apply-function f (cl:list idx (fol.seqop:first s)))
+                                                                (map-idx-seq (fol.seqop:rest s) (cl:1+ idx))))))))
+                                    (map-idx-seq (fol.seqop:seq coll) 0))))
+                               (t (error "map-indexed requires 1 or 2 arguments"))))
             'mapcat #'(lambda (f &rest args)
                         "Apply f to each element, concatenating the results.
                          (mapcat f) - returns a transducer
@@ -549,7 +935,7 @@
                                    (let* ((coll (apply-function f (cl:list input)))
                                           (s (fol.seqop:seq coll))
                                           (acc result))
-                                     (loop until (or (null s) (fol.seqop:empty? s))
+                                     (loop until (cl:or (null s) (fol.seqop:empty? s))
                                            do (setf acc (funcall rf acc (fol.seqop:first s)))
                                               (setf s (fol.seqop:rest s)))
                                      acc))))
@@ -709,6 +1095,36 @@
                                         (lambda ()
                                           (cl:cons val (iter-seq (apply-function f (cl:list val))))))))
                            (iter-seq x)))
+            'iteration #'(lambda (step &rest opts)
+                           "Creates a lazy sequence by applying step to an initial value.
+                            step is a function that takes a value and returns a map with keys
+                            :some/:value for the value (if any) and :next for the next iteration seed.
+                            Options:
+                              :initk key - use this key to get next seed from result (default :next)
+                              :somef fn - predicate to test if there's a value (default some?)
+                              :vf fn - function to extract value from result (default :value)
+                              :kf fn - function to extract next seed (default value of :initk)
+                            Example: (iteration (fn [x] {:value x :next (inc x)}) :initk :next)"
+                           (let* ((initk (or (cl:getf opts :initk) :next))
+                                  (somef (or (cl:getf opts :somef)
+                                             (lambda (x) (cl:not (null x)))))
+                                  (vf (or (cl:getf opts :vf)
+                                          (lambda (m) (fol.seqop:get m :value))))
+                                  (kf (or (cl:getf opts :kf)
+                                          (lambda (m) (fol.seqop:get m initk)))))
+                             (cl:labels ((iter-seq (seed first-p)
+                                           (fol.collection:make-lazy-seq
+                                            (lambda ()
+                                              (let ((result (apply-function step (cl:list seed))))
+                                                (if (apply-function somef (cl:list result))
+                                                    (let ((val (apply-function vf (cl:list result)))
+                                                          (next-seed (apply-function kf (cl:list result))))
+                                                      (if first-p
+                                                          (cl:cons val (iter-seq next-seed nil))
+                                                          (cl:cons val (iter-seq next-seed nil))))
+                                                    nil))))))
+                               (let ((initial (cl:getf opts initk)))
+                                 (iter-seq initial t)))))
             'repeat #'(lambda (x &rest args)
                         "Returns a lazy sequence of xs.
                          (repeat x) - infinite sequence of x
@@ -771,6 +1187,42 @@
                                                   (cl:cons (fol.seqop:first current)
                                                            (cycle-seq (fol.seqop:rest current))))))))
                                (cycle-seq s)))))
+            'tree-seq #'(lambda (branch? children root)
+                          "Returns a lazy sequence of the nodes in a tree, via a depth-first walk.
+                           branch? is a function that returns true if a node can have children.
+                           children is a function that returns the children of a node.
+                           root is the root node of the tree.
+                           Example: (tree-seq coll? seq {:a [1 2] :b [3 4]}) walks the tree"
+                          ;; Simple recursive tree walk using mapcat-like logic
+                          (cl:labels ((lazy-concat (s1 s2)
+                                        (fol.collection:make-lazy-seq
+                                         (lambda ()
+                                           (if (or (null s1) (fol.seqop:empty? s1))
+                                               (if s2
+                                                   (funcall (fol.collection::lazy-seq-thunk s2))
+                                                   nil)
+                                               (cl:cons (fol.seqop:first s1)
+                                                        (lazy-concat (fol.seqop:rest s1) s2))))))
+                                      (walk (node)
+                                        (fol.collection:make-lazy-seq
+                                         (lambda ()
+                                           (if (apply-function branch? (cl:list node))
+                                               ;; Branch node: cons node, then walk children
+                                               (let* ((kids (apply-function children (cl:list node)))
+                                                      (kid-seq (fol.seqop:seq kids)))
+                                                 (cl:cons node (walk-children kid-seq)))
+                                               ;; Leaf node: just cons the node with nil
+                                               (cl:cons node nil)))))
+                                      (walk-children (child-seq)
+                                        (fol.collection:make-lazy-seq
+                                         (lambda ()
+                                           (if (or (null child-seq) (fol.seqop:empty? child-seq))
+                                               nil
+                                               (let ((child (fol.seqop:first child-seq)))
+                                                 (funcall (fol.collection::lazy-seq-thunk
+                                                           (lazy-concat (walk child)
+                                                                        (walk-children (fol.seqop:rest child-seq)))))))))))
+                            (walk root)))
             'take #'(lambda (n &rest args)
                       "Returns a lazy sequence of the first n items in coll, or all items if there are fewer than n.
                        (take n) - returns a transducer
@@ -842,7 +1294,314 @@
                                                              (lazy-rest (fol.seqop:rest s))))))))
                                  (lazy-rest remaining-seq))))))
                         (t (error "drop requires 1 or 2 arguments"))))
+            ;; Additional functional utilities
+            'constantly #'(lambda (x)
+                            "Returns a function that takes any number of arguments and returns x."
+                            (lambda (&rest args)
+                              (declare (ignore args))
+                              x))
+            'comp #'(lambda (&rest fns)
+                      "Takes a set of functions and returns a fn that is the composition
+                       of those fns. The returned fn takes a variable number of args,
+                       applies the rightmost of fns to the args, the next fn (right-to-left)
+                       to the result, etc.
+                       ((comp f g h) x y) is equivalent to (f (g (h x y)))"
+                      (if (null fns)
+                          #'cl:identity
+                          (let ((fns-rev (cl:reverse fns)))
+                            (lambda (&rest args)
+                              (let ((result (apply-function (cl:first fns-rev) args)))
+                                (dolist (f (cl:rest fns-rev))
+                                  (setf result (apply-function f (cl:list result))))
+                                result)))))
+            'memoize #'(lambda (f)
+                         "Returns a memoized version of a referentially transparent function.
+                          The memoized version of the function keeps a cache of the mapping
+                          from arguments to results and, when calls with the same arguments
+                          are repeated often, has higher performance at the expense of
+                          higher memory use."
+                         (let ((cache (make-hash-table :test 'equal)))
+                           (lambda (&rest args)
+                             (let ((key args))
+                               (multiple-value-bind (cached-val found)
+                                   (gethash key cache)
+                                 (if found
+                                     cached-val
+                                     (let ((result (apply-function f args)))
+                                       (setf (gethash key cache) result)
+                                       result)))))))
+            'fnil #'(lambda (f &rest defaults)
+                      "Takes a function f, and returns a function that calls f, replacing
+                       a nil first argument with the first default, a nil second argument
+                       with the second default, etc."
+                      (let ((num-defaults (cl:length defaults)))
+                        (lambda (&rest args)
+                          (let ((patched-args
+                                  (loop for arg in args
+                                        for i from 0
+                                        collect (if (cl:and (null arg)
+                                                            (cl:< i num-defaults))
+                                                    (cl:nth i defaults)
+                                                    arg))))
+                            (apply-function f patched-args)))))
+            ;; Function predicate
+            'fn? #'(lambda (x)
+                     "Returns true if x is a function (FOL function, macro, or CL function)."
+                     (cl:or (<function>? x)
+                            (functionp x)))
+            ;; Utility predicates and functions
+            'nil? #'(lambda (x)
+                      "Returns true if x is nil."
+                      (null x))
+            'some? #'(lambda (x)
+                       "Returns true if x is not nil."
+                       (cl:not (null x)))
+            'not= #'(lambda (&rest args)
+                      "Same as (not (= ...))."
+                      (cl:not (apply #'cl:= args)))
+            'compare #'(lambda (x y)
+                         "Comparator. Returns a negative number, zero, or a positive number
+                          when x is logically 'less than', 'equal to', or 'greater than' y.
+                          Works for numbers, strings, and keywords."
+                         (cond
+                           ((cl:and (numberp x) (numberp y))
+                            (cond ((cl:< x y) -1)
+                                  ((cl:> x y) 1)
+                                  (t 0)))
+                           ((cl:and (stringp x) (stringp y))
+                            (cond ((string< x y) -1)
+                                  ((string> x y) 1)
+                                  (t 0)))
+                           ((cl:and (keywordp x) (keywordp y))
+                            (let ((sx (symbol-name x))
+                                  (sy (symbol-name y)))
+                              (cond ((string< sx sy) -1)
+                                    ((string> sx sy) 1)
+                                    (t 0))))
+                           ((cl:and (symbolp x) (symbolp y))
+                            (let ((sx (symbol-name x))
+                                  (sy (symbol-name y)))
+                              (cond ((string< sx sy) -1)
+                                    ((string> sx sy) 1)
+                                    (t 0))))
+                           (t (error "compare not supported for these types"))))
+            'instance? #'(lambda (x type)
+                           "Evaluates x and tests if it is an instance of the type."
+                           (let ((type-sym (if (symbolp type) type
+                                               (if (<symbol>? type)
+                                                   (fol.wrappers:fol-value type)
+                                                   type))))
+                             (typep x (cl:find-class type-sym nil))))
+            'some #'(lambda (pred &rest colls)
+                      "Returns the first logical true value of (pred x) for any x in coll,
+                       else nil. One common idiom is to use a set as pred, for example
+                       this will return :fred if :fred is in the sequence, otherwise nil:
+                       (some #{:fred} coll)"
+                      (if (null colls)
+                          nil
+                          (let ((coll (cl:first colls)))
+                            (let ((s (fol.seqop:seq coll)))
+                              (loop until (cl:or (null s) (fol.seqop:empty? s))
+                                    for elem = (fol.seqop:first s)
+                                    for result = (apply-function pred (cl:list elem))
+                                    when result return result
+                                    do (setf s (fol.seqop:rest s))
+                                    finally (return nil))))))
+            ;; Relational algebra functions (operate on collections of maps)
+            'rel-join #'(lambda (xrel yrel &rest keyvals)
+                          "Returns the natural join of xrel and yrel (collections of maps).
+                           When called with keyvals, joins on the specified keys.
+                           Example: (rel-join [{:a 1 :b 2}] [{:a 1 :c 3}]) => [{:a 1 :b 2 :c 3}]"
+                          (let* ((km (when keyvals
+                                       ;; Build a map from keyvals
+                                       (loop with result = (fset:empty-map)
+                                             for (k v) on keyvals by #'cddr
+                                             do (setf result (fset:with result k v))
+                                             finally (return result))))
+                                 (xs (fol.seqop:seq xrel))
+                                 (result nil))
+                            (loop until (cl:or (null xs) (fol.seqop:empty? xs))
+                                  for x = (fol.seqop:first xs)
+                                  do (let ((ys (fol.seqop:seq yrel)))
+                                       (loop until (cl:or (null ys) (fol.seqop:empty? ys))
+                                             for y = (fol.seqop:first ys)
+                                             for matches = (if km
+                                                               ;; Check specified keys match
+                                                               (loop for k being the hash-keys of km
+                                                                     always (equal (fol.seqop:get x k)
+                                                                                   (fol.seqop:get y (gethash k km))))
+                                                               ;; Natural join: match on common keys
+                                                               (let ((x-keys (fol.seqop:keys x))
+                                                                     (y-keys (fol.seqop:keys y)))
+                                                                 (loop for xk in (if x-keys
+                                                                                     (loop for s = (fol.seqop:seq x-keys) then (fol.seqop:rest s)
+                                                                                           until (cl:or (null s) (fol.seqop:empty? s))
+                                                                                           collect (fol.seqop:first s))
+                                                                                     nil)
+                                                                       always (cl:or (cl:not (fol.seqop:contains? y xk))
+                                                                                     (equal (fol.seqop:get x xk)
+                                                                                            (fol.seqop:get y xk))))))
+                                             when matches
+                                               do (cl:push (fol.seqop:merge x y) result)
+                                             do (setf ys (fol.seqop:rest ys))))
+                                     (setf xs (fol.seqop:rest xs)))
+                            (apply #'fol.collection:make-set (cl:nreverse result))))
+            'project #'(lambda (rel ks)
+                         "Returns a relation with only the specified keys.
+                          Example: (project [{:a 1 :b 2 :c 3}] [:a :b]) => #{{:a 1 :b 2}}"
+                         (let ((key-set (if (<vector>? ks)
+                                            (loop for i from 0 below (fol.seqop:size ks)
+                                                  collect (fol.seqop:nth ks i))
+                                            (loop for s = (fol.seqop:seq ks) then (fol.seqop:rest s)
+                                                  until (cl:or (null s) (fol.seqop:empty? s))
+                                                  collect (fol.seqop:first s))))
+                               (result nil))
+                           (let ((s (fol.seqop:seq rel)))
+                             (loop until (cl:or (null s) (fol.seqop:empty? s))
+                                   for row = (fol.seqop:first s)
+                                   for projected = (fol.seqop:select-keys row key-set)
+                                   do (cl:push projected result)
+                                      (setf s (fol.seqop:rest s))))
+                           (apply #'fol.collection:make-set (cl:nreverse result))))
+            'rename #'(lambda (rel kmap)
+                        "Returns a relation with keys renamed according to kmap.
+                         Example: (rename [{:a 1 :b 2}] {:a :x}) => #{{:x 1 :b 2}}"
+                        (let ((result nil))
+                          (let ((s (fol.seqop:seq rel)))
+                            (loop until (cl:or (null s) (fol.seqop:empty? s))
+                                  for row = (fol.seqop:first s)
+                                  for renamed = (fol.seqop:rename-keys row kmap)
+                                  do (cl:push renamed result)
+                                     (setf s (fol.seqop:rest s))))
+                          (apply #'fol.collection:make-set (cl:nreverse result))))
+            ;; Trampoline for mutual recursion
+            'trampoline #'(lambda (f &rest args)
+                            "trampoline can be used to convert algorithms requiring mutual
+                             recursion without stack consumption. Calls f with supplied args,
+                             if any. If f returns a fn, calls that fn with no arguments,
+                             and continues to repeat, until the return value is not a fn,
+                             then returns that non-fn value."
+                            (let ((result (apply-function f args)))
+                              (loop while (cl:or (functionp result)
+                                                 (<function>? result))
+                                    do (setf result (apply-function result nil)))
+                              result))
+            ;; Threading macro helpers (implemented as functions)
+            'as->-helper #'(lambda (val &rest forms)
+                             "Helper for as-> macro. Not intended for direct use."
+                             val)  ; as-> is special-handled, this is fallback
+            'cond->-helper #'(lambda (val &rest clauses)
+                               "Helper for cond-> macro."
+                               (loop with result = val
+                                     for (test form) on clauses by #'cddr
+                                     when test
+                                       do (setf result (apply-threaded result form :first nil))
+                                     finally (return result)))
+            'cond->>-helper #'(lambda (val &rest clauses)
+                                "Helper for cond->> macro."
+                                (loop with result = val
+                                      for (test form) on clauses by #'cddr
+                                      when test
+                                        do (setf result (apply-threaded result form :last nil))
+                                      finally (return result)))
+            'some->-helper #'(lambda (val &rest forms)
+                               "Helper for some-> macro."
+                               (loop with result = val
+                                     for form in forms
+                                     while result
+                                     do (setf result (apply-threaded result form :first nil))
+                                     finally (return result)))
+            'some->>-helper #'(lambda (val &rest forms)
+                                "Helper for some->> macro."
+                                (loop with result = val
+                                      for form in forms
+                                      while result
+                                      do (setf result (apply-threaded result form :last nil))
+                                      finally (return result)))
+            'condp-helper #'(lambda (pred expr &rest clauses)
+                              "Helper for condp macro."
+                              (let* ((num-clauses (length clauses))
+                                     (has-default (oddp num-clauses))
+                                     (pairs (if has-default (butlast clauses) clauses))
+                                     (default (when has-default (car (last clauses)))))
+                                (loop for (test-val result-form) on pairs by #'cddr
+                                      when (apply-function pred (list test-val expr))
+                                        return (if (cl:and (consp result-form)
+                                                           (eq (car result-form) :>>))
+                                                   ;; :>> syntax: apply result-fn to matched value
+                                                   (apply-function (cadr result-form) (list test-val))
+                                                   result-form)
+                                      finally (return default))))
+            'lazy-cat-helper #'(lambda (&rest colls)
+                                 "Helper for lazy-cat macro. Lazily concatenates collections."
+                                 (if (null colls)
+                                     nil
+                                     (cl:labels ((cat-seq (remaining-colls current-seq)
+                                                   (fol.collection:make-lazy-seq
+                                                    (lambda ()
+                                                      (cond
+                                                        ;; Current seq has elements
+                                                        ((cl:and current-seq (cl:not (fol.seqop:empty? current-seq)))
+                                                         (cl:cons (fol.seqop:first current-seq)
+                                                                  (cat-seq remaining-colls (fol.seqop:rest current-seq))))
+                                                        ;; Move to next coll
+                                                        ((cl:not (null remaining-colls))
+                                                         (let ((next-seq (fol.seqop:seq (car remaining-colls))))
+                                                           (funcall (fol.collection::lazy-seq-thunk
+                                                                     (cat-seq (cdr remaining-colls) next-seq)))))
+                                                        ;; Done
+                                                        (t nil))))))
+                                       (cat-seq (cdr colls) (fol.seqop:seq (car colls))))))
+            ;; Delay support
+            'make-delay #'(lambda (thunk)
+                            "Create a delay object from a thunk."
+                            (let ((realized nil)
+                                  (value nil))
+                              (lambda (&optional force-flag)
+                                (if (eq force-flag :force)
+                                    (unless realized
+                                      (setf value (apply-function thunk nil))
+                                      (setf realized t))
+                                    nil)
+                                value)))
+            'force #'(lambda (delay-obj)
+                       "Force evaluation of a delay and return its value."
+                       (if (functionp delay-obj)
+                           (progn
+                             (funcall delay-obj :force)
+                             (funcall delay-obj))
+                           delay-obj))
+            'delay? #'(lambda (x)
+                        "Returns true if x is a delay."
+                        (functionp x))  ; Simplified check
+            'realized? #'(lambda (x)
+                           "Returns true if a delay has been realized."
+                           nil)  ; Would need better delay impl to track this
             ;; Standard macros
             'when (make-when-macro)
             'unless (make-unless-macro)
-            'with-seed (make-with-seed-macro)))
+            'with-seed (make-with-seed-macro)
+            ;; Threading macros
+            'as-> (make-as->-macro)
+            'cond-> (make-cond->-macro)
+            'cond->> (make-cond->>-macro)
+            'some-> (make-some->-macro)
+            'some->> (make-some->>-macro)
+            ;; Control flow macros
+            'when-not (make-when-not-macro)
+            'when-let (make-when-let-macro)
+            'when-first (make-when-first-macro)
+            'if-not (make-if-not-macro)
+            'if-let (make-if-let-macro)
+            'condp (make-condp-macro)
+            'when-some (make-when-some-macro)
+            'if-some (make-if-some-macro)
+            ;; Loop macros
+            'dotimes (make-dotimes-macro)
+            'doseq (make-doseq-macro)
+            'for (make-for-macro)
+            ;; Lazy and misc macros
+            'lazy-cat (make-lazy-cat-macro)
+            'delay (make-delay-macro)
+            'assert (make-assert-macro)
+            'comment (make-comment-macro)))

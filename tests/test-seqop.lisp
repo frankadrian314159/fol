@@ -633,10 +633,11 @@
 ;;; ---------------------------------------------------------------------------
 
 (test rseq-vector-basic
-  "Test rseq on a vector returns elements in reverse order."
+  "Test rseq on a vector returns elements in reverse order (as lazy-seq)."
   (let ((v (make-vector 1 2 3 4 5)))
     (let ((rs (rseq v)))
-      (is-true (<list>? rs))
+      ;; rseq now returns a lazy-seq
+      (is-true (<lazy-seq>? rs))
       (is (= 5 (first rs)))
       (is (= 4 (first (rest rs))))
       (is (= 1 (first (rest (rest (rest (rest rs))))))))))
@@ -647,10 +648,11 @@
     (is (null (rseq v)))))
 
 (test rseq-list-basic
-  "Test rseq on a list returns elements in reverse order."
+  "Test rseq on a list returns elements in reverse order (as lazy-seq)."
   (let ((lst (make-list 1 2 3)))
     (let ((rs (rseq lst)))
-      (is-true (<list>? rs))
+      ;; rseq now returns a lazy-seq
+      (is-true (<lazy-seq>? rs))
       (is (= 3 (first rs)))
       (is (= 2 (first (rest rs))))
       (is (= 1 (first (rest (rest rs))))))))
@@ -661,8 +663,12 @@
     (is (null (rseq lst)))))
 
 (test rseq-cl-list
-  "Test rseq on CL list."
-  (is (equal '(3 2 1) (rseq '(1 2 3))))
+  "Test rseq on CL list returns elements in reverse order."
+  (let ((rs (rseq '(1 2 3))))
+    (is-true (<lazy-seq>? rs))
+    (is (= 3 (first rs)))
+    (is (= 2 (first (rest rs))))
+    (is (= 1 (first (rest (rest rs))))))
   (is (null (rseq nil))))
 
 ;;; ---------------------------------------------------------------------------
@@ -997,11 +1003,14 @@
 ;;; ---------------------------------------------------------------------------
 
 (test subs-vector-with-end
-  "Test subs on vector with start and end."
+  "Test subs on vector with start and end (returns lazy-seq)."
   (let* ((v (make-vector 0 1 2 3 4 5))
          (result (subs v 2 5)))
-    (is-true (<list>? result))
-    (is (= 3 (size result)))
+    ;; subs now returns a lazy-seq
+    (is-true (<lazy-seq>? result))
+    ;; Convert to vector to test size
+    (let ((as-vec (into (make-vector) result)))
+      (is (= 3 (size as-vec))))
     (is (= 2 (first result)))
     (is (= 4 (first (rest (rest result)))))))
 
@@ -1009,34 +1018,43 @@
   "Test subs on vector with only start."
   (let* ((v (make-vector 0 1 2 3 4))
          (result (subs v 3)))
-    (is (= 2 (size result)))
+    ;; subs now returns a lazy-seq
+    (is-true (<lazy-seq>? result))
+    (let ((as-vec (into (make-vector) result)))
+      (is (= 2 (size as-vec))))
     (is (= 3 (first result)))))
 
 (test subs-sorted-set
-  "Test subs on sorted set returns elements in range."
+  "Test subs on sorted set returns elements in range (as lazy-seq)."
   (let* ((s (make-sorted-set 1 3 5 7 9))
          (result (subs s 3 8)))
-    (is-true (<list>? result))
+    ;; subs now returns a lazy-seq
+    (is-true (<lazy-seq>? result))
     ;; Should include 3, 5, 7 (>= 3 and < 8)
-    (is (= 3 (size result)))
+    (let ((as-vec (into (make-vector) result)))
+      (is (= 3 (size as-vec))))
     (is (= 3 (first result)))))
 
 (test rsubs-vector
-  "Test rsubs on vector returns elements in reverse."
+  "Test rsubs on vector returns elements in reverse (as lazy-seq)."
   (let* ((v (make-vector 0 1 2 3 4))
          (result (rsubs v 1 4)))
-    (is-true (<list>? result))
-    (is (= 3 (size result)))
+    ;; rsubs now returns a lazy-seq
+    (is-true (<lazy-seq>? result))
+    (let ((as-vec (into (make-vector) result)))
+      (is (= 3 (size as-vec))))
     (is (= 3 (first result)))
     (is (= 1 (first (rest (rest result)))))))
 
 (test rsubs-sorted-set
-  "Test rsubs on sorted set returns elements in reverse order."
+  "Test rsubs on sorted set returns elements in reverse order (as lazy-seq)."
   (let* ((s (make-sorted-set 1 3 5 7 9))
          (result (rsubs s 3 8)))
-    (is-true (<list>? result))
+    ;; rsubs now returns a lazy-seq
+    (is-true (<lazy-seq>? result))
     ;; Should include 7, 5, 3 (>= 3 and < 8, reversed)
-    (is (= 3 (size result)))
+    (let ((as-vec (into (make-vector) result)))
+      (is (= 3 (size as-vec))))
     (is (= 7 (first result)))))
 
 ;;; ---------------------------------------------------------------------------

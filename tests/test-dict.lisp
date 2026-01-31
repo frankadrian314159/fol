@@ -12,9 +12,16 @@
 ;;; ---------------------------------------------------------------------------
 
 (defun seq-to-cl-list (fol-seq)
-  "Convert a FOL sequence (list, vector, etc.) to a CL list for test assertions."
+  "Convert a FOL sequence (list, vector, lazy-seq, etc.) to a CL list for test assertions."
   (let ((result nil))
     (cond
+      ((null fol-seq) nil)
+      ((<lazy-seq>? fol-seq)
+       ;; Lazy sequences - iterate using first/rest
+       (let ((current fol-seq))
+         (cl:loop while (cl:and current (cl:not (empty? current))) do
+           (cl:push (first current) result)
+           (setf current (rest current)))))
       ((<list>? fol-seq)
        ;; FOL lists are linked lists with first and rest
        (let ((current fol-seq))
@@ -185,18 +192,20 @@
     (is (eq nil (find d :missing)))))
 
 (test keys-returns-all-keys
-  "Test keys returns all dictionary keys."
+  "Test keys returns all dictionary keys (as lazy-seq)."
   (let ((d (make-dict :a 1 :b 2 :c 3)))
-    (let ((ks (keys d)))
+    ;; keys now returns a lazy-seq, convert to set for testing
+    (let ((ks (into (make-set) (keys d))))
       (is (= 3 (size ks)))
       (is-true (contains? ks :a))
       (is-true (contains? ks :b))
       (is-true (contains? ks :c)))))
 
 (test vals-returns-all-values
-  "Test vals returns all dictionary values."
+  "Test vals returns all dictionary values (as lazy-seq)."
   (let ((d (make-dict :a 1 :b 2 :c 3)))
-    (let ((vs (vals d)))
+    ;; vals now returns a lazy-seq, convert to set for testing
+    (let ((vs (into (make-set) (vals d))))
       (is (= 3 (size vs)))
       (is-true (contains? vs 1))
       (is-true (contains? vs 2))

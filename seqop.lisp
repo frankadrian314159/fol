@@ -84,6 +84,20 @@
   "Return nil for empty list."
   nil)
 
+(defmethod first ((s <set>))
+  "Return an arbitrary element from the set, or NIL if empty."
+  (let ((items (pslot-value s 'fol.collection::items)))
+    (if (fset:empty? items)
+        nil
+        (fset:arb items))))
+
+(defmethod first ((s <ordered-set>))
+  "Return the first element from the ordered set, or NIL if empty."
+  (let ((s-seq (seq s)))
+    (if (cl:or (null s-seq) (empty? s-seq))
+        nil
+        (first s-seq))))
+
 (defmethod conj ((lst cons) item &rest more-items)
   "Prepend items to a CL list, returning a CL list."
   (let ((result (cl:cons (fol.wrappers:fol-value item) lst)))
@@ -414,11 +428,17 @@
 ;;; --- Sequence protocol for <lazy-seq> ---
 
 (defmethod seq ((ls <lazy-seq>))
-  "Realize the lazy sequence and return seq of the result."
-  (let ((realized (realize-lazy-seq ls)))
-    (if realized
-        (seq realized)
-        nil)))
+  "Return the lazy sequence as-is without forcing realization.
+   Lazy sequences implement the seq protocol (first, rest) so they can be used
+   directly as seqs. This preserves laziness."
+  ;; Only check if the lazy-seq would be empty by peeking at realization
+  ;; without fully forcing it
+  (if (fol.collection:lazy-seq-realized-p ls)
+      ;; If already realized, check the cached result
+      (let ((cached (fol.collection::lazy-seq-cached ls)))
+        (if cached ls nil))
+      ;; Not realized yet - return the lazy-seq itself to preserve laziness
+      ls))
 
 (defmethod first ((ls <lazy-seq>))
   "Get first element, realizing if needed."
@@ -1677,45 +1697,67 @@
 ;;; Returns a seq of the items in an ordered collection in reverse order.
 
 (defgeneric rseq (coll)
-  (:documentation "Return a seq of the items in COLL in reverse order.
+  (:documentation "Return a lazy seq of the items in COLL in reverse order.
    Only works on ordered collections (vectors, lists, arrays).
    Returns NIL for empty collections."))
 
 (defmethod rseq ((v <vector>))
-  "Return a seq of vector elements in reverse order."
+  "Return a lazy seq of vector elements in reverse order."
   (if (empty? v)
       nil
       (let* ((items (pslot-value v 'fol.collection::items))
              (len (fset:size items)))
-        (labels ((build-list (idx acc)
-                   (if (cl:>= idx len)
-                       acc
-                       (build-list (cl:1+ idx) (cl:cons (fset:@ items idx) acc)))))
-          (apply #'make-list (build-list 0 nil))))))
+        (cl:labels ((lazy-rseq (idx)
+                      (fol.collection:make-lazy-seq
+                       (lambda ()
+                         (if (cl:< idx 0)
+                             nil
+                             (cl:cons (fset:@ items idx) (lazy-rseq (cl:1- idx))))))))
+          (lazy-rseq (cl:1- len))))))
 
 (defmethod rseq ((lst <list>))
-  "Return a seq of list elements in reverse order."
+  "Return a lazy seq of list elements in reverse order."
   (if (empty? lst)
       nil
-      (reverse lst)))
+      ;; Collect elements then return lazy seq
+      (let ((elems nil))
+        (loop for current = lst then (list-rest current)
+              while (and current (cl:> (list-size current) 0))
+              do (cl:push (list-first current) elems))
+        (cl:labels ((lazy-rseq (remaining)
+                      (fol.collection:make-lazy-seq
+                       (lambda ()
+                         (if remaining
+                             (cl:cons (car remaining) (lazy-rseq (cdr remaining)))
+                             nil)))))
+          (lazy-rseq elems)))))
 
 (defmethod rseq ((arr <array>))
-  "Return a seq of array elements in reverse order (flattened)."
+  "Return a lazy seq of array elements in reverse order (flattened)."
   (if (empty? arr)
       nil
       (let* ((items (pslot-value arr 'fol.collection::items))
              (len (fset:size items)))
-        (labels ((build-list (idx acc)
-                   (if (cl:>= idx len)
-                       acc
-                       (build-list (cl:1+ idx) (cl:cons (fset:@ items idx) acc)))))
-          (apply #'make-list (build-list 0 nil))))))
+        (cl:labels ((lazy-rseq (idx)
+                      (fol.collection:make-lazy-seq
+                       (lambda ()
+                         (if (cl:< idx 0)
+                             nil
+                             (cl:cons (fset:@ items idx) (lazy-rseq (cl:1- idx))))))))
+          (lazy-rseq (cl:1- len))))))
 
 (defmethod rseq ((lst list))
-  "Return a seq of CL list elements in reverse order."
+  "Return a lazy seq of CL list elements in reverse order."
   (if (null lst)
       nil
-      (cl:reverse lst)))
+      (let ((reversed (cl:reverse lst)))
+        (cl:labels ((lazy-rseq (remaining)
+                      (fol.collection:make-lazy-seq
+                       (lambda ()
+                         (if remaining
+                             (cl:cons (car remaining) (lazy-rseq (cdr remaining)))
+                             nil)))))
+          (lazy-rseq reversed)))))
 
 ;;; ============================================================================
 ;;; UPDATE: Update a value by applying a function
@@ -2283,48 +2325,65 @@
 ;;; For sorted sets: (subs s start-val end-val) - elements >= start and < end
 
 (defgeneric subs (coll start &optional end)
-  (:documentation "Return a seq of elements from an ordered collection.
+  (:documentation "Return a lazy seq of elements from an ordered collection.
    For vectors: (subs v start) or (subs v start end) - by index
    For sorted sets: (subs s start-val end-val) - elements >= start-val and < end-val"))
 
 (defmethod subs ((v <vector>) start &optional end)
-  "Return elements from vector from start index to end (exclusive)."
+  "Return a lazy seq of elements from vector from start index to end (exclusive)."
   (let* ((items (pslot-value v 'fol.collection::items))
          (len (fset:size items))
-         (actual-end (or end len))
-         (result nil))
-    (loop for i from start below (min actual-end len)
-          do (cl:push (fset:@ items i) result))
-    (if result
-        (apply #'make-list (nreverse result))
-        nil)))
+         (actual-end (min (or end len) len)))
+    (if (cl:>= start actual-end)
+        nil
+        (cl:labels ((lazy-subs (idx)
+                      (fol.collection:make-lazy-seq
+                       (lambda ()
+                         (if (cl:>= idx actual-end)
+                             nil
+                             (cl:cons (fset:@ items idx) (lazy-subs (cl:1+ idx))))))))
+          (lazy-subs start)))))
 
 (defmethod subs ((s <sorted-set>) start &optional end)
-  "Return elements from sorted-set where element >= start and < end."
-  (let ((result nil)
-        (items (pslot-value s 'fol.collection::items)))
+  "Return a lazy seq of elements from sorted-set where element >= start and < end."
+  (let ((items (pslot-value s 'fol.collection::items))
+        (result nil))
     (fset:do-set (item items)
       (when (>= item start)
         (when (or (null end) (< item end))
           (cl:push item result))))
     (if result
-        (apply #'make-list (nreverse result))
-        nil)))
+        (setf result (nreverse result))
+        (return-from subs nil))
+    (cl:labels ((lazy-subs (remaining)
+                  (fol.collection:make-lazy-seq
+                   (lambda ()
+                     (if remaining
+                         (cl:cons (car remaining) (lazy-subs (cdr remaining)))
+                         nil)))))
+      (lazy-subs result))))
 
 (defmethod subs ((s <int-set>) start &optional end)
-  "Return elements from int-set where element >= start and < end."
-  (let ((result nil)
-        (items (pslot-value s 'fol.collection::items)))
+  "Return a lazy seq of elements from int-set where element >= start and < end."
+  (let ((items (pslot-value s 'fol.collection::items))
+        (result nil))
     (fset:do-set (item items)
       (when (>= item start)
         (when (or (null end) (< item end))
           (cl:push item result))))
     (if result
-        (apply #'make-list (nreverse result))
-        nil)))
+        (setf result (nreverse result))
+        (return-from subs nil))
+    (cl:labels ((lazy-subs (remaining)
+                  (fol.collection:make-lazy-seq
+                   (lambda ()
+                     (if remaining
+                         (cl:cons (car remaining) (lazy-subs (cdr remaining)))
+                         nil)))))
+      (lazy-subs result))))
 
 (defmethod subs ((s <dense-int-set>) start &optional end)
-  "Return elements from dense-int-set where element >= start and < end."
+  "Return a lazy seq of elements from dense-int-set where element >= start and < end."
   (let ((base (pslot-value s 'fol.collection::base))
         (bits (pslot-value s 'fol.collection::bits))
         (result nil))
@@ -2335,52 +2394,74 @@
             (when (or (null end) (< val end))
               (cl:push val result))))))
     (if result
-        (apply #'make-list (nreverse result))
-        nil)))
+        (setf result (nreverse result))
+        (return-from subs nil))
+    (cl:labels ((lazy-subs (remaining)
+                  (fol.collection:make-lazy-seq
+                   (lambda ()
+                     (if remaining
+                         (cl:cons (car remaining) (lazy-subs (cdr remaining)))
+                         nil)))))
+      (lazy-subs result))))
 
 (defgeneric rsubs (coll start &optional end)
-  (:documentation "Return a seq of elements from an ordered collection in reverse order.
+  (:documentation "Return a lazy seq of elements from an ordered collection in reverse order.
    Like subs but results are reversed."))
 
 (defmethod rsubs ((v <vector>) start &optional end)
-  "Return elements from vector in reverse order."
+  "Return a lazy seq of elements from vector in reverse order."
   (let* ((items (pslot-value v 'fol.collection::items))
          (len (fset:size items))
-         (actual-end (or end len))
-         (result nil))
-    ;; Iterate forward and push to get reverse order
-    (loop for i from start below (min actual-end len)
-          do (cl:push (fset:@ items i) result))
-    (if result
-        (apply #'make-list result)  ; result is already reversed from pushing
-        nil)))
+         (actual-end (min (or end len) len)))
+    (if (cl:>= start actual-end)
+        nil
+        (cl:labels ((lazy-rsubs (idx)
+                      (fol.collection:make-lazy-seq
+                       (lambda ()
+                         (if (cl:< idx start)
+                             nil
+                             (cl:cons (fset:@ items idx) (lazy-rsubs (cl:1- idx))))))))
+          (lazy-rsubs (cl:1- actual-end))))))
 
 (defmethod rsubs ((s <sorted-set>) start &optional end)
-  "Return elements from sorted-set in reverse order."
-  (let ((result nil)
-        (items (pslot-value s 'fol.collection::items)))
+  "Return a lazy seq of elements from sorted-set in reverse order."
+  (let ((items (pslot-value s 'fol.collection::items))
+        (result nil))
     (fset:do-set (item items)
       (when (>= item start)
         (when (or (null end) (< item end))
           (cl:push item result))))
-    (if result
-        (apply #'make-list result)  ; Already reversed from push
-        nil)))
+    (if (null result)
+        nil
+        ;; result is already reversed from push
+        (cl:labels ((lazy-rsubs (remaining)
+                      (fol.collection:make-lazy-seq
+                       (lambda ()
+                         (if remaining
+                             (cl:cons (car remaining) (lazy-rsubs (cdr remaining)))
+                             nil)))))
+          (lazy-rsubs result)))))
 
 (defmethod rsubs ((s <int-set>) start &optional end)
-  "Return elements from int-set in reverse order."
-  (let ((result nil)
-        (items (pslot-value s 'fol.collection::items)))
+  "Return a lazy seq of elements from int-set in reverse order."
+  (let ((items (pslot-value s 'fol.collection::items))
+        (result nil))
     (fset:do-set (item items)
       (when (>= item start)
         (when (or (null end) (< item end))
           (cl:push item result))))
-    (if result
-        (apply #'make-list result)
-        nil)))
+    (if (null result)
+        nil
+        (cl:labels ((lazy-rsubs (remaining)
+                      (fol.collection:make-lazy-seq
+                       (lambda ()
+                         (if remaining
+                             (cl:cons (car remaining) (lazy-rsubs (cdr remaining)))
+                             nil)))))
+          (lazy-rsubs result)))))
 
 (defmethod rsubs ((s <dense-int-set>) start &optional end)
-  "Return elements from dense-int-set in reverse order."
+  "Return a lazy seq of elements from dense-int-set in reverse order."
   (let ((base (pslot-value s 'fol.collection::base))
         (bits (pslot-value s 'fol.collection::bits))
         (result nil))
@@ -2391,9 +2472,17 @@
                (when (>= val start)
                  (when (or (null end) (< val end))
                    (cl:push val result)))))
-    (if result
-        (apply #'make-list (nreverse result))
-        nil)))
+    (if (null result)
+        nil
+        (progn
+          (setf result (nreverse result))
+          (cl:labels ((lazy-rsubs (remaining)
+                        (fol.collection:make-lazy-seq
+                         (lambda ()
+                           (if remaining
+                               (cl:cons (car remaining) (lazy-rsubs (cdr remaining)))
+                               nil)))))
+            (lazy-rsubs result))))))
 
 ;;; Add rseq for ordered sets
 (defmethod rseq ((s <sorted-set>))
@@ -2488,92 +2577,187 @@
         (cl:cons raw-key val)))))
 
 (defgeneric keys (coll)
-  (:documentation "Returns a sequence of the keys in the associative collection."))
+  (:documentation "Returns a lazy sequence of the keys in the associative collection."))
 
 (defmethod keys ((coll <dict>))
-  "Return a list of all keys in the dict."
-  (let ((result nil))
-    (fset:do-map (k v (pslot-value coll 'fol.collection::items))
-      (declare (ignore v))
-      (cl:push k result))
-    (if result (apply #'make-list (nreverse result)) nil)))
+  "Return a lazy sequence of all keys in the dict."
+  (let ((items (pslot-value coll 'fol.collection::items)))
+    (if (fset:empty? items)
+        nil
+        ;; Convert to list of keys for lazy iteration
+        (let ((key-list nil))
+          (fset:do-map (k v items)
+            (declare (ignore v))
+            (cl:push k key-list))
+          (setf key-list (nreverse key-list))
+          ;; Return a lazy-seq over the keys
+          (cl:labels ((lazy-keys (remaining)
+                        (fol.collection:make-lazy-seq
+                         (lambda ()
+                           (if remaining
+                               (cl:cons (car remaining) (lazy-keys (cdr remaining)))
+                               nil)))))
+            (lazy-keys key-list))))))
 
 (defmethod keys ((coll <array-dict>))
-  "Return keys in insertion order for array-dict."
-  (let ((result nil))
-    (fset:do-seq (k (pslot-value coll 'fol.collection::order))
-      (cl:push k result))
-    (if result (apply #'make-list (nreverse result)) nil)))
+  "Return a lazy sequence of keys in insertion order for array-dict."
+  (let ((order (pslot-value coll 'fol.collection::order)))
+    (if (fset:empty? order)
+        nil
+        (let ((key-list (fset:convert 'list order)))
+          (cl:labels ((lazy-keys (remaining)
+                        (fol.collection:make-lazy-seq
+                         (lambda ()
+                           (if remaining
+                               (cl:cons (car remaining) (lazy-keys (cdr remaining)))
+                               nil)))))
+            (lazy-keys key-list))))))
 
 (defmethod keys ((coll <ordered-dict>))
-  "Return keys in insertion order for ordered-dict."
-  (let ((result nil))
-    (fset:do-seq (k (pslot-value coll 'fol.collection::order))
-      (cl:push k result))
-    (if result (apply #'make-list (nreverse result)) nil)))
+  "Return a lazy sequence of keys in insertion order for ordered-dict."
+  (let ((order (pslot-value coll 'fol.collection::order)))
+    (if (fset:empty? order)
+        nil
+        (let ((key-list (fset:convert 'list order)))
+          (cl:labels ((lazy-keys (remaining)
+                        (fol.collection:make-lazy-seq
+                         (lambda ()
+                           (if remaining
+                               (cl:cons (car remaining) (lazy-keys (cdr remaining)))
+                               nil)))))
+            (lazy-keys key-list))))))
 
 (defmethod keys ((coll <sorted-dict>))
-  "Return keys in sorted order for sorted-dict."
-  (let ((result nil))
-    (sycamore:do-tree-map ((k v) (pslot-value coll 'fol.collection::items))
-      (declare (ignore v))
-      (cl:push k result))
-    (if result (apply #'make-list (nreverse result)) nil)))
+  "Return a lazy sequence of keys in sorted order for sorted-dict."
+  (let ((items (pslot-value coll 'fol.collection::items)))
+    (if (zerop (sycamore:tree-map-count items))
+        nil
+        (let ((key-list nil))
+          (sycamore:do-tree-map ((k v) items)
+            (declare (ignore v))
+            (cl:push k key-list))
+          (setf key-list (nreverse key-list))
+          (cl:labels ((lazy-keys (remaining)
+                        (fol.collection:make-lazy-seq
+                         (lambda ()
+                           (if remaining
+                               (cl:cons (car remaining) (lazy-keys (cdr remaining)))
+                               nil)))))
+            (lazy-keys key-list))))))
 
 (defmethod keys ((coll <priority-dict>))
-  "Return keys in priority order for priority-dict."
-  (let ((result nil)
-        (priorities (pslot-value coll 'fol.collection::priorities)))
-    (fset:do-map (priority item-set priorities)
-      (declare (ignore priority))
-      (fset:do-set (item item-set)
-        (cl:push item result)))
-    (if result (apply #'make-list (nreverse result)) nil)))
+  "Return a lazy sequence of keys in priority order for priority-dict."
+  (let ((priorities (pslot-value coll 'fol.collection::priorities)))
+    (if (fset:empty? priorities)
+        nil
+        (let ((key-list nil))
+          (fset:do-map (priority item-set priorities)
+            (declare (ignore priority))
+            (fset:do-set (item item-set)
+              (cl:push item key-list)))
+          (setf key-list (nreverse key-list))
+          (cl:labels ((lazy-keys (remaining)
+                        (fol.collection:make-lazy-seq
+                         (lambda ()
+                           (if remaining
+                               (cl:cons (car remaining) (lazy-keys (cdr remaining)))
+                               nil)))))
+            (lazy-keys key-list))))))
 
 (defgeneric vals (coll)
-  (:documentation "Returns a sequence of the values in the associative collection."))
+  (:documentation "Returns a lazy sequence of the values in the associative collection."))
 
 (defmethod vals ((coll <dict>))
-  "Return a list of all values in the dict."
-  (let ((result nil))
-    (fset:do-map (k v (pslot-value coll 'fol.collection::items))
-      (declare (ignore k))
-      (cl:push v result))
-    (if result (apply #'make-list (nreverse result)) nil)))
+  "Return a lazy sequence of all values in the dict."
+  (let ((items (pslot-value coll 'fol.collection::items)))
+    (if (fset:empty? items)
+        nil
+        (let ((val-list nil))
+          (fset:do-map (k v items)
+            (declare (ignore k))
+            (cl:push v val-list))
+          (setf val-list (nreverse val-list))
+          (cl:labels ((lazy-vals (remaining)
+                        (fol.collection:make-lazy-seq
+                         (lambda ()
+                           (if remaining
+                               (cl:cons (car remaining) (lazy-vals (cdr remaining)))
+                               nil)))))
+            (lazy-vals val-list))))))
 
 (defmethod vals ((coll <array-dict>))
-  "Return values in key insertion order for array-dict."
-  (let ((result nil)
+  "Return a lazy sequence of values in key insertion order for array-dict."
+  (let ((order (pslot-value coll 'fol.collection::order))
         (items (pslot-value coll 'fol.collection::items)))
-    (fset:do-seq (k (pslot-value coll 'fol.collection::order))
-      (cl:push (fset:lookup items k) result))
-    (if result (apply #'make-list (nreverse result)) nil)))
+    (if (fset:empty? order)
+        nil
+        (let ((val-list nil))
+          (fset:do-seq (k order)
+            (cl:push (fset:lookup items k) val-list))
+          (setf val-list (nreverse val-list))
+          (cl:labels ((lazy-vals (remaining)
+                        (fol.collection:make-lazy-seq
+                         (lambda ()
+                           (if remaining
+                               (cl:cons (car remaining) (lazy-vals (cdr remaining)))
+                               nil)))))
+            (lazy-vals val-list))))))
 
 (defmethod vals ((coll <ordered-dict>))
-  "Return values in key insertion order for ordered-dict."
-  (let ((result nil)
+  "Return a lazy sequence of values in key insertion order for ordered-dict."
+  (let ((order (pslot-value coll 'fol.collection::order))
         (items (pslot-value coll 'fol.collection::items)))
-    (fset:do-seq (k (pslot-value coll 'fol.collection::order))
-      (cl:push (fset:lookup items k) result))
-    (if result (apply #'make-list (nreverse result)) nil)))
+    (if (fset:empty? order)
+        nil
+        (let ((val-list nil))
+          (fset:do-seq (k order)
+            (cl:push (fset:lookup items k) val-list))
+          (setf val-list (nreverse val-list))
+          (cl:labels ((lazy-vals (remaining)
+                        (fol.collection:make-lazy-seq
+                         (lambda ()
+                           (if remaining
+                               (cl:cons (car remaining) (lazy-vals (cdr remaining)))
+                               nil)))))
+            (lazy-vals val-list))))))
 
 (defmethod vals ((coll <sorted-dict>))
-  "Return values in sorted key order for sorted-dict."
-  (let ((result nil))
-    (sycamore:do-tree-map ((k v) (pslot-value coll 'fol.collection::items))
-      (declare (ignore k))
-      (cl:push v result))
-    (if result (apply #'make-list (nreverse result)) nil)))
+  "Return a lazy sequence of values in sorted key order for sorted-dict."
+  (let ((items (pslot-value coll 'fol.collection::items)))
+    (if (zerop (sycamore:tree-map-count items))
+        nil
+        (let ((val-list nil))
+          (sycamore:do-tree-map ((k v) items)
+            (declare (ignore k))
+            (cl:push v val-list))
+          (setf val-list (nreverse val-list))
+          (cl:labels ((lazy-vals (remaining)
+                        (fol.collection:make-lazy-seq
+                         (lambda ()
+                           (if remaining
+                               (cl:cons (car remaining) (lazy-vals (cdr remaining)))
+                               nil)))))
+            (lazy-vals val-list))))))
 
 (defmethod vals ((coll <priority-dict>))
-  "Return values (priorities) in priority order for priority-dict."
-  (let ((result nil)
-        (items (pslot-value coll 'fol.collection::items))
+  "Return a lazy sequence of values (priorities) in priority order for priority-dict."
+  (let ((items (pslot-value coll 'fol.collection::items))
         (priorities (pslot-value coll 'fol.collection::priorities)))
-    (fset:do-map (priority item-set priorities)
-      (fset:do-set (item item-set)
-        (cl:push (fset:lookup items item) result)))
-    (if result (apply #'make-list (nreverse result)) nil)))
+    (if (fset:empty? priorities)
+        nil
+        (let ((val-list nil))
+          (fset:do-map (priority item-set priorities)
+            (declare (ignore priority))
+            (fset:do-set (item item-set)
+              (cl:push (fset:lookup items item) val-list)))
+          (setf val-list (nreverse val-list))
+          (cl:labels ((lazy-vals (remaining)
+                        (fol.collection:make-lazy-seq
+                         (lambda ()
+                           (if remaining
+                               (cl:cons (car remaining) (lazy-vals (cdr remaining)))
+                               nil)))))
+            (lazy-vals val-list))))))
 
 (defun key (map-entry)
   "Returns the key of a map entry (cons pair)."

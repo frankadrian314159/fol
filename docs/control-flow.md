@@ -802,3 +802,409 @@ Use `->>` when working with:
 - Collections (last arg is usually the collection)
 - Sequence pipelines
 - Functional transformations
+
+---
+
+## as->
+
+```
+(as-> expr name form*)
+```
+
+Binds `name` to `expr`, then threads through forms. In each form, `name` refers to the result of the previous form. Unlike `->` and `->>`, you control exactly where the value goes.
+
+### Examples
+
+```fol
+(as-> 1 x
+  (+ x 1)
+  (* x 2))                ; => 4
+
+;; Mix first and last position
+(as-> {} m
+  (assoc m :a 1)          ; first position
+  (update m :a inc)       ; first position
+  (:a m))                 ; last position
+; => 2
+```
+
+---
+
+## cond->
+
+```
+(cond-> expr test1 form1 test2 form2 ...)
+```
+
+Takes an expression and pairs of test/form. For each pair, if test is truthy, threads the result through form (as first argument). Otherwise skips the form.
+
+### Examples
+
+```fol
+(cond-> 1
+  true (+ 1)
+  false (+ 10)
+  true (* 2))             ; => 4 (1+1=2, skip +10, 2*2=4)
+
+;; Conditional processing
+(cond-> {:name "Alice"}
+  add-age? (assoc :age 30)
+  add-city? (assoc :city "NYC"))
+```
+
+---
+
+## cond->>
+
+```
+(cond->> expr test1 form1 test2 form2 ...)
+```
+
+Like `cond->` but threads as last argument.
+
+### Examples
+
+```fol
+(cond->> [1 2 3]
+  true (map inc)
+  false (filter even?))   ; => (2 3 4)
+```
+
+---
+
+## some->
+
+```
+(some-> expr form*)
+```
+
+Threads expr through forms as first argument, short-circuiting on nil. If any form returns nil, stops and returns nil.
+
+### Examples
+
+```fol
+(some-> {:a {:b 1}}
+  :a
+  :b
+  inc)                    ; => 2
+
+(some-> {:a {:b 1}}
+  :c                      ; nil
+  :d)                     ; => nil (short-circuited)
+```
+
+---
+
+## some->>
+
+```
+(some->> expr form*)
+```
+
+Like `some->` but threads as last argument.
+
+### Examples
+
+```fol
+(some->> [1 2 3]
+  (filter even?)
+  first)                  ; => 2
+
+(some->> []
+  (filter even?)
+  first                   ; nil
+  inc)                    ; => nil
+```
+
+---
+
+## when-not
+
+```
+(when-not test form*)
+```
+
+Evaluates forms when test is falsy. Returns nil when test is truthy.
+
+### Examples
+
+```fol
+(when-not false
+  (print "executed")
+  42)                     ; prints "executed", returns 42
+
+(when-not true 42)        ; => nil
+```
+
+---
+
+## when-let
+
+```
+(when-let [name expr] body*)
+```
+
+Binds name to expr, then executes body if the value is truthy.
+
+### Examples
+
+```fol
+(when-let [x (get m :key)]
+  (inc x))                ; returns (inc x) if :key exists and is truthy
+
+(when-let [x nil]
+  (inc x))                ; => nil
+```
+
+---
+
+## when-first
+
+```
+(when-first [name coll] body*)
+```
+
+Binds name to the first element of coll if coll is not empty, then executes body.
+
+### Examples
+
+```fol
+(when-first [x [1 2 3]]
+  (inc x))                ; => 2
+
+(when-first [x []]
+  (inc x))                ; => nil
+```
+
+---
+
+## if-not
+
+```
+(if-not test then)
+(if-not test then else)
+```
+
+Equivalent to `(if (not test) then else)`.
+
+### Examples
+
+```fol
+(if-not false :yes :no)   ; => :yes
+(if-not true :yes :no)    ; => :no
+```
+
+---
+
+## if-let
+
+```
+(if-let [name expr] then else?)
+```
+
+Binds name to expr, executes then if truthy, else otherwise.
+
+### Examples
+
+```fol
+(if-let [x (get m :key)]
+  (inc x)
+  0)                      ; returns (inc x) or 0
+
+(if-let [x nil]
+  (inc x)
+  :default)               ; => :default
+```
+
+---
+
+## when-some
+
+```
+(when-some [name expr] body*)
+```
+
+Like `when-let` but tests with `some?` instead of truthiness. Executes body when expr is not nil.
+
+### Examples
+
+```fol
+(when-some [x false]      ; false is not nil
+  :found)                 ; => :found
+
+(when-some [x nil]
+  :found)                 ; => nil
+```
+
+---
+
+## if-some
+
+```
+(if-some [name expr] then else?)
+```
+
+Like `if-let` but tests with `some?` instead of truthiness.
+
+### Examples
+
+```fol
+(if-some [x false]
+  :found
+  :not-found)             ; => :found (false is not nil)
+
+(if-some [x nil]
+  :found
+  :not-found)             ; => :not-found
+```
+
+---
+
+## condp
+
+```
+(condp pred expr clause* default?)
+```
+
+Takes a predicate, an expression, and clauses. For each clause `(test-val result)`, evaluates `(pred test-val expr)`. Returns result of first matching clause, or default if none match.
+
+### Examples
+
+```fol
+(condp = x
+  1 :one
+  2 :two
+  :other)                 ; default
+
+(condp < 5
+  3 :greater-than-3
+  10 :greater-than-10)    ; => :greater-than-3 (because (< 3 5) is true)
+```
+
+---
+
+## dotimes
+
+```
+(dotimes [name n] body*)
+```
+
+Executes body n times with name bound to 0, 1, ..., n-1. Returns nil.
+
+### Examples
+
+```fol
+(dotimes [i 3]
+  (print i))              ; prints 0, 1, 2, returns nil
+```
+
+---
+
+## doseq
+
+```
+(doseq [name coll] body*)
+```
+
+Executes body for each element in coll. Returns nil.
+
+### Examples
+
+```fol
+(doseq [x [1 2 3]]
+  (print x))              ; prints 1, 2, 3, returns nil
+```
+
+---
+
+## for
+
+```
+(for [name coll] body)
+```
+
+List comprehension. Returns a lazy sequence of body evaluated for each element.
+
+### Examples
+
+```fol
+(for [x [1 2 3]]
+  (* x x))                ; => (1 4 9)
+
+(for [x (range 5)]
+  (str "item-" x))        ; => ("item-0" "item-1" ...)
+```
+
+---
+
+## lazy-cat
+
+```
+(lazy-cat coll1 coll2 ...)
+```
+
+Lazily concatenates collections without realizing them.
+
+### Examples
+
+```fol
+(lazy-cat [1 2] [3 4] [5 6])  ; => lazy-seq: 1, 2, 3, 4, 5, 6
+
+;; Useful for infinite sequences
+(defn all-ones []
+  (lazy-cat [1] (all-ones)))
+```
+
+---
+
+## delay
+
+```
+(delay body*)
+```
+
+Creates a delay object that computes body when forced. The result is cached.
+
+### Examples
+
+```fol
+(def d (delay (print "computing") 42))
+(force d)                 ; prints "computing", returns 42
+(force d)                 ; returns 42 (no print - cached)
+```
+
+---
+
+## assert
+
+```
+(assert test)
+(assert test message)
+```
+
+Throws an exception if test is falsy.
+
+### Examples
+
+```fol
+(assert (> x 0))          ; throws if x <= 0
+(assert (> x 0) "x must be positive")
+```
+
+---
+
+## comment
+
+```
+(comment body*)
+```
+
+Ignores all forms and returns nil. Useful for commenting out code blocks.
+
+### Examples
+
+```fol
+(comment
+  (this is ignored)
+  (so is this))           ; => nil
+```
