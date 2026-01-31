@@ -1,6 +1,6 @@
 (defsystem "fol"
   :description "Functional Object Lisp."
-  :depends-on ("fset" "closer-mop" "cl-ppcre" "uuid" "sycamore")
+  :depends-on ("fset" "closer-mop" "cl-ppcre" "uuid" "sycamore" "bordeaux-threads" "lparallel")
   :components ((:file "package")
                (:file "persistent" :depends-on ("package"))
                ;; Classes load BEFORE collection to define constants

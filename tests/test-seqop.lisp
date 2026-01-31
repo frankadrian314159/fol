@@ -1148,3 +1148,596 @@
          (result (conj s 2)))
     (is-true (<int-set>? result))
     (is (= 3 (size result)))))
+
+;;; ===========================================================================
+;;; New Clojure Sequence Function Tests
+;;; ===========================================================================
+
+;;; Helper to parse FOL syntax from strings (if not already defined)
+(defun fol-form (string)
+  "Parse STRING using the FOL reader and return the form.
+   This allows tests to use FOL syntax like [1 2 3] and {:a 1} in test cases."
+  (fol-read-from-string string))
+
+;;; ---------------------------------------------------------------------------
+;;; distinct Tests
+;;; ---------------------------------------------------------------------------
+
+(test distinct-basic
+  "Test distinct removes duplicates from sequence."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(into [] (distinct [1 2 1 3 2 4 3 5]))") env)))
+    (is (= 5 (size result)))
+    (is (= 1 (nth result 0)))
+    (is (= 2 (nth result 1)))
+    (is (= 3 (nth result 2)))
+    (is (= 4 (nth result 3)))
+    (is (= 5 (nth result 4)))))
+
+(test distinct-preserves-order
+  "Test distinct preserves first occurrence order."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(into [] (distinct [3 1 4 1 5 9 2 6 5]))") env)))
+    (is (= 3 (first (seq result))))))
+
+(test distinct-empty
+  "Test distinct on empty sequence."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(into [] (distinct []))") env)))
+    (is (= 0 (size result)))))
+
+;;; ---------------------------------------------------------------------------
+;;; take-nth Tests
+;;; ---------------------------------------------------------------------------
+
+(test take-nth-basic
+  "Test take-nth takes every nth element."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(into [] (take-nth 2 [0 1 2 3 4 5 6 7 8 9]))") env)))
+    (is (= 5 (size result)))
+    (is (= 0 (nth result 0)))
+    (is (= 2 (nth result 1)))
+    (is (= 4 (nth result 2)))
+    (is (= 6 (nth result 3)))
+    (is (= 8 (nth result 4)))))
+
+(test take-nth-every-third
+  "Test take-nth with step 3."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(into [] (take-nth 3 (range 12)))") env)))
+    (is (= 4 (size result)))
+    (is (= 0 (nth result 0)))
+    (is (= 3 (nth result 1)))
+    (is (= 6 (nth result 2)))
+    (is (= 9 (nth result 3)))))
+
+;;; ---------------------------------------------------------------------------
+;;; dedupe Tests
+;;; ---------------------------------------------------------------------------
+
+(test dedupe-basic
+  "Test dedupe removes consecutive duplicates."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(into [] (dedupe [1 1 2 2 2 3 3 1 1]))") env)))
+    (is (= 4 (size result)))
+    (is (= 1 (nth result 0)))
+    (is (= 2 (nth result 1)))
+    (is (= 3 (nth result 2)))
+    (is (= 1 (nth result 3)))))
+
+(test dedupe-no-consecutive
+  "Test dedupe with no consecutive duplicates."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(into [] (dedupe [1 2 3 4 5]))") env)))
+    (is (= 5 (size result)))))
+
+;;; ---------------------------------------------------------------------------
+;;; concat Tests
+;;; ---------------------------------------------------------------------------
+
+(test concat-two-seqs
+  "Test concat joins two sequences."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(into [] (concat [1 2] [3 4]))") env)))
+    (is (= 4 (size result)))
+    (is (= 1 (nth result 0)))
+    (is (= 4 (nth result 3)))))
+
+(test concat-multiple-seqs
+  "Test concat joins multiple sequences."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(into [] (concat [1] [2] [3] [4 5]))") env)))
+    (is (= 5 (size result)))))
+
+(test concat-empty-seqs
+  "Test concat with some empty sequences."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(into [] (concat [] [1 2] [] [3]))") env)))
+    (is (= 3 (size result)))))
+
+;;; ---------------------------------------------------------------------------
+;;; nthrest Tests
+;;; ---------------------------------------------------------------------------
+
+(test nthrest-basic
+  "Test nthrest returns nth rest of sequence."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(first (nthrest [1 2 3 4 5] 2))") env)))
+    (is (= 3 result))))
+
+(test nthrest-zero
+  "Test nthrest with n=0 returns original."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(first (nthrest [1 2 3] 0))") env)))
+    (is (= 1 result))))
+
+;;; ---------------------------------------------------------------------------
+;;; next Tests
+;;; ---------------------------------------------------------------------------
+
+(test next-basic
+  "Test next returns seq of items after first."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(first (next [1 2 3]))") env)))
+    (is (= 2 result))))
+
+(test next-single-element
+  "Test next on single element returns nil."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(next [1])") env)))
+    (is (null result))))
+
+(test next-empty
+  "Test next on empty sequence returns nil."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(next [])") env)))
+    (is (null result))))
+
+;;; ---------------------------------------------------------------------------
+;;; fnext Tests
+;;; ---------------------------------------------------------------------------
+
+(test fnext-basic
+  "Test fnext returns (first (next x))."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(fnext [1 2 3])") env)))
+    (is (= 2 result))))
+
+(test fnext-single
+  "Test fnext on single element returns nil."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(fnext [1])") env)))
+    (is (null result))))
+
+;;; ---------------------------------------------------------------------------
+;;; nnext Tests
+;;; ---------------------------------------------------------------------------
+
+(test nnext-basic
+  "Test nnext returns (next (next x))."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(first (nnext [1 2 3 4]))") env)))
+    (is (= 3 result))))
+
+(test nnext-two-elements
+  "Test nnext on two elements returns nil."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(nnext [1 2])") env)))
+    (is (null result))))
+
+;;; ---------------------------------------------------------------------------
+;;; drop-while Tests
+;;; ---------------------------------------------------------------------------
+
+(test drop-while-basic
+  "Test drop-while drops elements while predicate is true."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(into [] (drop-while (fn [x] (< x 5)) [1 2 3 4 5 6 7]))") env)))
+    (is (= 3 (size result)))
+    (is (= 5 (nth result 0)))
+    (is (= 6 (nth result 1)))
+    (is (= 7 (nth result 2)))))
+
+(test drop-while-all-match
+  "Test drop-while when all elements match."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(into [] (drop-while (fn [x] (< x 10)) [1 2 3]))") env)))
+    (is (= 0 (size result)))))
+
+(test drop-while-none-match
+  "Test drop-while when no elements match."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(into [] (drop-while (fn [x] (> x 10)) [1 2 3]))") env)))
+    (is (= 3 (size result)))))
+
+;;; ---------------------------------------------------------------------------
+;;; take-while Tests
+;;; ---------------------------------------------------------------------------
+
+(test take-while-basic
+  "Test take-while takes elements while predicate is true."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(into [] (take-while (fn [x] (< x 5)) [1 2 3 4 5 6 7]))") env)))
+    (is (= 4 (size result)))
+    (is (= 1 (nth result 0)))
+    (is (= 4 (nth result 3)))))
+
+(test take-while-all-match
+  "Test take-while when all elements match."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(into [] (take-while (fn [x] (< x 10)) [1 2 3]))") env)))
+    (is (= 3 (size result)))))
+
+(test take-while-none-match
+  "Test take-while when no elements match."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(into [] (take-while (fn [x] (> x 10)) [1 2 3]))") env)))
+    (is (= 0 (size result)))))
+
+;;; ---------------------------------------------------------------------------
+;;; take-last Tests
+;;; ---------------------------------------------------------------------------
+
+(test take-last-basic
+  "Test take-last returns last n items."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(into [] (take-last 3 [1 2 3 4 5]))") env)))
+    (is (= 3 (size result)))
+    (is (= 3 (nth result 0)))
+    (is (= 5 (nth result 2)))))
+
+(test take-last-more-than-size
+  "Test take-last with n > collection size."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(into [] (take-last 10 [1 2 3]))") env)))
+    (is (= 3 (size result)))))
+
+;;; ---------------------------------------------------------------------------
+;;; drop-last Tests
+;;; ---------------------------------------------------------------------------
+
+(test drop-last-basic
+  "Test drop-last removes last n items."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(into [] (drop-last 2 [1 2 3 4 5]))") env)))
+    (is (= 3 (size result)))
+    (is (= 1 (nth result 0)))
+    (is (= 3 (nth result 2)))))
+
+(test drop-last-default
+  "Test drop-last with default n=1."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(into [] (drop-last [1 2 3 4 5]))") env)))
+    (is (= 4 (size result)))))
+
+;;; ---------------------------------------------------------------------------
+;;; butlast Tests
+;;; ---------------------------------------------------------------------------
+
+(test butlast-basic
+  "Test butlast returns all but last item."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(into [] (butlast [1 2 3 4 5]))") env)))
+    (is (= 4 (size result)))
+    (is (= 4 (nth result 3)))))
+
+(test butlast-single
+  "Test butlast on single element."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(butlast [1])") env)))
+    (is (null result))))
+
+;;; ---------------------------------------------------------------------------
+;;; flatten Tests
+;;; ---------------------------------------------------------------------------
+
+(test flatten-nested-vectors
+  "Test flatten flattens nested vectors."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(into [] (flatten [[1 2] [3 [4 5]]]))") env)))
+    (is (= 5 (size result)))
+    (is (= 1 (nth result 0)))
+    (is (= 5 (nth result 4)))))
+
+(test flatten-shallow
+  "Test flatten on already flat sequence."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(into [] (flatten [1 2 3]))") env)))
+    (is (= 3 (size result)))))
+
+;;; ---------------------------------------------------------------------------
+;;; partition Tests
+;;; ---------------------------------------------------------------------------
+
+(test partition-basic
+  "Test partition divides sequence into groups."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(into [] (partition 3 (range 9)))") env)))
+    (is (= 3 (size result)))
+    (is (= 3 (size (nth result 0))))
+    (is (= 0 (first (seq (nth result 0)))))))
+
+(test partition-with-step
+  "Test partition with custom step."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(into [] (partition 2 1 (range 5)))") env)))
+    (is (= 4 (size result)))))
+
+(test partition-incomplete-dropped
+  "Test partition drops incomplete final group."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(into [] (partition 3 (range 10)))") env)))
+    (is (= 3 (size result)))))
+
+;;; ---------------------------------------------------------------------------
+;;; partition-all Tests
+;;; ---------------------------------------------------------------------------
+
+(test partition-all-basic
+  "Test partition-all includes incomplete final group."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(into [] (partition-all 3 (range 10)))") env)))
+    (is (= 4 (size result)))
+    (is (= 1 (size (nth result 3))))))
+
+;;; ---------------------------------------------------------------------------
+;;; partition-by Tests
+;;; ---------------------------------------------------------------------------
+
+(test partition-by-basic
+  "Test partition-by splits on predicate change."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(into [] (partition-by even? [1 1 2 2 3 3 4]))") env)))
+    (is (= 4 (size result)))))
+
+;;; ---------------------------------------------------------------------------
+;;; split-at Tests
+;;; ---------------------------------------------------------------------------
+
+(test split-at-basic
+  "Test split-at splits sequence at index."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(split-at 3 [1 2 3 4 5])") env)))
+    (is (= 2 (size result)))
+    (is (= 3 (size (seq (nth result 0)))))
+    (is (= 2 (size (seq (nth result 1)))))))
+
+;;; ---------------------------------------------------------------------------
+;;; split-with Tests
+;;; ---------------------------------------------------------------------------
+
+(test split-with-basic
+  "Test split-with splits on predicate."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(split-with (fn [x] (< x 3)) [1 2 3 4 5])") env)))
+    (is (= 2 (size result)))
+    (is (= 2 (size (seq (nth result 0)))))
+    (is (= 3 (size (seq (nth result 1)))))))
+
+;;; ---------------------------------------------------------------------------
+;;; shuffle Tests
+;;; ---------------------------------------------------------------------------
+
+(test shuffle-preserves-elements
+  "Test shuffle preserves all elements."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(shuffle [1 2 3 4 5])") env)))
+    (is (= 5 (size result)))
+    (is-true (contains? result 1))
+    (is-true (contains? result 5))))
+
+;;; ---------------------------------------------------------------------------
+;;; sort Tests
+;;; ---------------------------------------------------------------------------
+
+(test sort-basic
+  "Test sort orders elements."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(into [] (sort [3 1 4 1 5 9 2 6]))") env)))
+    (is (= 1 (nth result 0)))
+    (is (= 1 (nth result 1)))
+    (is (= 9 (nth result 7)))))
+
+(test sort-with-comparator
+  "Test sort with custom comparator."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(into [] (sort (fn [a b] (- b a)) [3 1 4 1 5]))") env)))
+    (is (= 5 (nth result 0)))
+    (is (= 1 (nth result 4)))))
+
+;;; ---------------------------------------------------------------------------
+;;; sort-by Tests
+;;; ---------------------------------------------------------------------------
+
+(test sort-by-basic
+  "Test sort-by with key function."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(into [] (sort-by (fn [x] (- x)) [3 1 4 1 5]))") env)))
+    ;; Sorted by negative, so descending
+    (is (= 5 (nth result 0)))
+    (is (= 1 (nth result 4)))))
+
+;;; ---------------------------------------------------------------------------
+;;; last Tests
+;;; ---------------------------------------------------------------------------
+
+(test last-basic
+  "Test last returns last element."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(last [1 2 3 4 5])") env)))
+    (is (= 5 result))))
+
+(test last-single
+  "Test last on single element."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(last [42])") env)))
+    (is (= 42 result))))
+
+(test last-empty
+  "Test last on empty sequence."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(last [])") env)))
+    (is (null result))))
+
+;;; ---------------------------------------------------------------------------
+;;; ffirst Tests
+;;; ---------------------------------------------------------------------------
+
+(test ffirst-basic
+  "Test ffirst returns (first (first x))."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(ffirst [[1 2] [3 4]])") env)))
+    (is (= 1 result))))
+
+;;; ---------------------------------------------------------------------------
+;;; nthnext Tests
+;;; ---------------------------------------------------------------------------
+
+(test nthnext-basic
+  "Test nthnext returns nth next."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(first (nthnext [1 2 3 4 5] 2))") env)))
+    (is (= 3 result))))
+
+(test nthnext-zero
+  "Test nthnext with n=0."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(first (nthnext [1 2 3] 0))") env)))
+    (is (= 1 result))))
+
+;;; ---------------------------------------------------------------------------
+;;; max-key and min-key Tests
+;;; ---------------------------------------------------------------------------
+
+(test max-key-basic
+  "Test max-key returns element with max key value."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(max-key (fn [x] (* x x)) -5 3 4)") env)))
+    (is (= -5 result))))
+
+(test min-key-basic
+  "Test min-key returns element with min key value."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(min-key (fn [x] (* x x)) -5 3 4)") env)))
+    (is (= 3 result))))
+
+;;; ---------------------------------------------------------------------------
+;;; zipmap Tests
+;;; ---------------------------------------------------------------------------
+
+(test zipmap-basic
+  "Test zipmap creates map from keys and vals."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(zipmap [:a :b :c] [1 2 3])") env)))
+    (is-true (<dict>? result))
+    (is (= 1 (get result :a)))
+    (is (= 2 (get result :b)))
+    (is (= 3 (get result :c)))))
+
+(test zipmap-unequal-lengths
+  "Test zipmap stops at shorter sequence."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(zipmap [:a :b] [1 2 3 4])") env)))
+    (is (= 2 (size result)))))
+
+;;; ---------------------------------------------------------------------------
+;;; reductions Tests
+;;; ---------------------------------------------------------------------------
+
+(test reductions-basic
+  "Test reductions returns intermediate values."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(into [] (reductions + [1 2 3 4 5]))") env)))
+    (is (= 5 (size result)))
+    (is (= 1 (nth result 0)))
+    (is (= 3 (nth result 1)))
+    (is (= 6 (nth result 2)))
+    (is (= 10 (nth result 3)))
+    (is (= 15 (nth result 4)))))
+
+(test reductions-with-init
+  "Test reductions with initial value."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(into [] (reductions + 10 [1 2 3]))") env)))
+    (is (= 4 (size result)))
+    (is (= 10 (nth result 0)))
+    (is (= 11 (nth result 1)))
+    (is (= 13 (nth result 2)))
+    (is (= 16 (nth result 3)))))
+
+;;; ---------------------------------------------------------------------------
+;;; apply Tests
+;;; ---------------------------------------------------------------------------
+
+(test apply-basic
+  "Test apply calls function with seq as args."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(apply + [1 2 3])") env)))
+    (is (= 6 result))))
+
+(test apply-with-leading-args
+  "Test apply with leading arguments."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(apply + 1 2 [3 4])") env)))
+    (is (= 10 result))))
+
+;;; ---------------------------------------------------------------------------
+;;; doall Tests
+;;; ---------------------------------------------------------------------------
+
+(test doall-realizes-lazy-seq
+  "Test doall realizes lazy sequence."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(doall (map inc [1 2 3]))") env)))
+    (is-true (<lazy-seq>? result))
+    (is (= 2 (first result)))))
+
+;;; ---------------------------------------------------------------------------
+;;; dorun Tests
+;;; ---------------------------------------------------------------------------
+
+(test dorun-returns-nil
+  "Test dorun returns nil."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(dorun (map inc [1 2 3]))") env)))
+    (is (null result))))
+
+;;; ---------------------------------------------------------------------------
+;;; realized? Tests
+;;; ---------------------------------------------------------------------------
+
+(test realized?-unrealized
+  "Test realized? on unrealized lazy-seq."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(bind (ls (map inc [1 2 3]))
+                              (realized? ls))") env)))
+    ;; The lazy seq is created but not yet forced
+    (is-false result)))
+
+(test realized?-after-force
+  "Test realized? after forcing lazy-seq."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(bind (ls (map inc [1 2 3]))
+                              (first ls)
+                              (realized? ls))") env)))
+    (is-true result)))
+
+;;; ---------------------------------------------------------------------------
+;;; pmap Tests
+;;; ---------------------------------------------------------------------------
+
+(test pmap-basic
+  "Test pmap maps function in parallel."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(into [] (pmap inc [1 2 3 4 5]))") env)))
+    (is (= 5 (size result)))
+    (is (= 2 (nth result 0)))
+    (is (= 6 (nth result 4)))))
+
+(test pmap-preserves-order
+  "Test pmap preserves element order."
+  (let* ((env (make-standard-env))
+         (result (fol-eval (fol-form "(into [] (pmap (fn [x] (* x x)) [1 2 3]))") env)))
+    (is (= 1 (nth result 0)))
+    (is (= 4 (nth result 1)))
+    (is (= 9 (nth result 2)))))

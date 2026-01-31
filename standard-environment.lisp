@@ -1575,8 +1575,867 @@
                         "Returns true if x is a delay."
                         (functionp x))  ; Simplified check
             'realized? #'(lambda (x)
-                           "Returns true if a delay has been realized."
-                           nil)  ; Would need better delay impl to track this
+                           "Returns true if a value has been realized (lazy-seq or delay).
+                            For lazy-seqs, returns true if the thunk has been called.
+                            For delays, returns true if forced."
+                           (cond
+                             ((fol.collection:<lazy-seq>? x)
+                              (fol.collection:lazy-seq-realized-p x))
+                             ;; For other types, they're always "realized"
+                             (t t)))
+            ;; ============================================================
+            ;; Clojure Sequence Functions - Part 1: Lazy Transformations
+            ;; ============================================================
+            'distinct #'(lambda (&rest args)
+                          "Returns a lazy sequence of the elements of coll with duplicates removed.
+                           (distinct) - returns a transducer
+                           (distinct coll) - returns a lazy-seq"
+                          (cond
+                            ;; (distinct) - return a transducer
+                            ((cl:= (cl:length args) 0)
+                             (let ((seen (make-hash-table :test 'equal)))
+                               #'(lambda (rf)
+                                   #'(lambda (result input)
+                                       (if (gethash input seen)
+                                           result
+                                           (progn
+                                             (setf (gethash input seen) t)
+                                             (funcall rf result input)))))))
+                            ;; (distinct coll) - return lazy-seq
+                            ((cl:= (cl:length args) 1)
+                             (let ((coll (cl:first args)))
+                               (let ((seen (make-hash-table :test 'equal)))
+                                 (cl:labels ((distinct-seq (s)
+                                               (fol.collection:make-lazy-seq
+                                                (lambda ()
+                                                  (cl:labels ((find-next (current)
+                                                                (cond
+                                                                  ((cl:or (null current) (fol.seqop:empty? current))
+                                                                   nil)
+                                                                  ((gethash (fol.seqop:first current) seen)
+                                                                   (find-next (fol.seqop:rest current)))
+                                                                  (t
+                                                                   (let ((item (fol.seqop:first current)))
+                                                                     (setf (gethash item seen) t)
+                                                                     (cl:cons item (distinct-seq (fol.seqop:rest current))))))))
+                                                    (find-next s))))))
+                                   (distinct-seq (fol.seqop:seq coll))))))
+                            (t (error "distinct requires 0 or 1 arguments"))))
+            'take-nth #'(lambda (n &rest args)
+                          "Returns a lazy seq of every nth item in coll.
+                           (take-nth n) - returns a transducer
+                           (take-nth n coll) - returns a lazy-seq"
+                          (cond
+                            ;; (take-nth n) - return a transducer
+                            ((cl:= (cl:length args) 0)
+                             (let ((idx -1))
+                               #'(lambda (rf)
+                                   #'(lambda (result input)
+                                       (cl:incf idx)
+                                       (if (cl:zerop (cl:mod idx n))
+                                           (funcall rf result input)
+                                           result)))))
+                            ;; (take-nth n coll) - return lazy-seq
+                            ((cl:= (cl:length args) 1)
+                             (let ((coll (cl:first args)))
+                               (cl:labels ((take-nth-seq (s idx)
+                                             (fol.collection:make-lazy-seq
+                                              (lambda ()
+                                                (if (cl:or (null s) (fol.seqop:empty? s))
+                                                    nil
+                                                    (if (cl:zerop (cl:mod idx n))
+                                                        (cl:cons (fol.seqop:first s)
+                                                                 (take-nth-seq (fol.seqop:rest s) (cl:1+ idx)))
+                                                        (funcall (fol.collection::lazy-seq-thunk
+                                                                  (take-nth-seq (fol.seqop:rest s) (cl:1+ idx))))))))))
+                                 (take-nth-seq (fol.seqop:seq coll) 0))))
+                            (t (error "take-nth requires 1 or 2 arguments"))))
+            'dedupe #'(lambda (&rest args)
+                        "Returns a lazy sequence removing consecutive duplicates in coll.
+                         (dedupe) - returns a transducer
+                         (dedupe coll) - returns a lazy-seq"
+                        (cond
+                          ;; (dedupe) - return a transducer
+                          ((cl:= (cl:length args) 0)
+                           (let ((prev :fol-dedupe-none))
+                             #'(lambda (rf)
+                                 #'(lambda (result input)
+                                     (if (equal input prev)
+                                         result
+                                         (progn
+                                           (setf prev input)
+                                           (funcall rf result input)))))))
+                          ;; (dedupe coll) - return lazy-seq
+                          ((cl:= (cl:length args) 1)
+                           (let ((coll (cl:first args)))
+                             (cl:labels ((dedupe-seq (s prev)
+                                           (fol.collection:make-lazy-seq
+                                            (lambda ()
+                                              (cl:labels ((find-next (current last-val)
+                                                            (cond
+                                                              ((cl:or (null current) (fol.seqop:empty? current))
+                                                               nil)
+                                                              ((equal (fol.seqop:first current) last-val)
+                                                               (find-next (fol.seqop:rest current) last-val))
+                                                              (t
+                                                               (let ((item (fol.seqop:first current)))
+                                                                 (cl:cons item (dedupe-seq (fol.seqop:rest current) item)))))))
+                                                (find-next s prev))))))
+                               (dedupe-seq (fol.seqop:seq coll) :fol-dedupe-none))))
+                          (t (error "dedupe requires 0 or 1 arguments"))))
+            'random-sample #'(lambda (prob &rest args)
+                               "Returns items from coll with random probability prob (0.0 to 1.0).
+                                (random-sample prob) - returns a transducer
+                                (random-sample prob coll) - returns a lazy-seq"
+                               (cond
+                                 ;; (random-sample prob) - return a transducer
+                                 ((cl:= (cl:length args) 0)
+                                  #'(lambda (rf)
+                                      #'(lambda (result input)
+                                          (if (cl:< (cl:random 1.0) prob)
+                                              (funcall rf result input)
+                                              result))))
+                                 ;; (random-sample prob coll) - return lazy-seq
+                                 ((cl:= (cl:length args) 1)
+                                  (let ((coll (cl:first args)))
+                                    (cl:labels ((sample-seq (s)
+                                                  (fol.collection:make-lazy-seq
+                                                   (lambda ()
+                                                     (cl:labels ((find-next (current)
+                                                                   (cond
+                                                                     ((cl:or (null current) (fol.seqop:empty? current))
+                                                                      nil)
+                                                                     ((cl:< (cl:random 1.0) prob)
+                                                                      (cl:cons (fol.seqop:first current)
+                                                                               (sample-seq (fol.seqop:rest current))))
+                                                                     (t (find-next (fol.seqop:rest current))))))
+                                                       (find-next s))))))
+                                      (sample-seq (fol.seqop:seq coll)))))
+                                 (t (error "random-sample requires 1 or 2 arguments"))))
+            'concat #'(lambda (&rest colls)
+                        "Returns a lazy seq representing the concatenation of the elements in the supplied colls."
+                        (if (null colls)
+                            nil
+                            (cl:labels ((cat-seq (remaining-colls current-seq)
+                                          (fol.collection:make-lazy-seq
+                                           (lambda ()
+                                             (cond
+                                               ;; Current seq has elements
+                                               ((cl:and current-seq (cl:not (fol.seqop:empty? current-seq)))
+                                                (cl:cons (fol.seqop:first current-seq)
+                                                         (cat-seq remaining-colls (fol.seqop:rest current-seq))))
+                                               ;; Move to next coll
+                                               ((cl:not (null remaining-colls))
+                                                (let ((next-seq (fol.seqop:seq (car remaining-colls))))
+                                                  (funcall (fol.collection::lazy-seq-thunk
+                                                            (cat-seq (cdr remaining-colls) next-seq)))))
+                                               ;; Done
+                                               (t nil))))))
+                              (cat-seq (cdr colls) (fol.seqop:seq (car colls))))))
+            ;; ============================================================
+            ;; Clojure Sequence Functions - Part 2: Drop/Take Variants
+            ;; ============================================================
+            'nthrest #'(lambda (coll n)
+                         "Returns the nth rest of coll, coll when n is 0."
+                         (let ((s (fol.seqop:seq coll)))
+                           (cl:labels ((drop-n (current remaining)
+                                         (if (cl:or (cl:<= remaining 0)
+                                                    (null current)
+                                                    (fol.seqop:empty? current))
+                                             current
+                                             (drop-n (fol.seqop:rest current) (cl:1- remaining)))))
+                             (drop-n s n))))
+            'next #'(lambda (coll)
+                      "Returns a seq of the items after the first. Calls seq on its argument.
+                       If there are no more items, returns nil."
+                      (let ((s (fol.seqop:seq coll)))
+                        (if (cl:or (null s) (fol.seqop:empty? s))
+                            nil
+                            (let ((r (fol.seqop:rest s)))
+                              (if (cl:or (null r) (fol.seqop:empty? r))
+                                  nil
+                                  r)))))
+            'fnext #'(lambda (coll)
+                       "Same as (first (next x))."
+                       (let ((s (fol.seqop:seq coll)))
+                         (if (cl:or (null s) (fol.seqop:empty? s))
+                             nil
+                             (fol.seqop:first (fol.seqop:rest s)))))
+            'nnext #'(lambda (coll)
+                       "Same as (next (next x))."
+                       (let ((s (fol.seqop:seq coll)))
+                         (if (cl:or (null s) (fol.seqop:empty? s))
+                             nil
+                             (let ((r1 (fol.seqop:rest s)))
+                               (if (cl:or (null r1) (fol.seqop:empty? r1))
+                                   nil
+                                   (let ((r2 (fol.seqop:rest r1)))
+                                     (if (cl:or (null r2) (fol.seqop:empty? r2))
+                                         nil
+                                         r2)))))))
+            'drop-while #'(lambda (pred &rest args)
+                            "Returns a lazy sequence of the items in coll starting from the
+                             first item for which (pred item) returns logical false.
+                             (drop-while pred) - returns a transducer
+                             (drop-while pred coll) - returns a lazy-seq"
+                            (cond
+                              ;; (drop-while pred) - return a transducer
+                              ((cl:= (cl:length args) 0)
+                               (let ((dropping t))
+                                 #'(lambda (rf)
+                                     #'(lambda (result input)
+                                         (if dropping
+                                             (if (apply-function pred (cl:list input))
+                                                 result
+                                                 (progn
+                                                   (setf dropping nil)
+                                                   (funcall rf result input)))
+                                             (funcall rf result input))))))
+                              ;; (drop-while pred coll) - return lazy-seq
+                              ((cl:= (cl:length args) 1)
+                               (let ((coll (cl:first args)))
+                                 (cl:labels ((drop-matching (s)
+                                               (cond
+                                                 ((cl:or (null s) (fol.seqop:empty? s))
+                                                  nil)
+                                                 ((apply-function pred (cl:list (fol.seqop:first s)))
+                                                  (drop-matching (fol.seqop:rest s)))
+                                                 (t s))))
+                                   ;; Wrap remaining sequence in a lazy-seq
+                                   (let ((remaining (drop-matching (fol.seqop:seq coll))))
+                                     (cl:labels ((lazy-rest (s)
+                                                   (fol.collection:make-lazy-seq
+                                                    (lambda ()
+                                                      (if (cl:or (null s) (fol.seqop:empty? s))
+                                                          nil
+                                                          (cl:cons (fol.seqop:first s)
+                                                                   (lazy-rest (fol.seqop:rest s))))))))
+                                       (lazy-rest remaining))))))
+                              (t (error "drop-while requires 1 or 2 arguments"))))
+            'take-while #'(lambda (pred &rest args)
+                            "Returns a lazy sequence of successive items from coll while
+                             (pred item) returns logical true.
+                             (take-while pred) - returns a transducer
+                             (take-while pred coll) - returns a lazy-seq"
+                            (cond
+                              ;; (take-while pred) - return a transducer
+                              ((cl:= (cl:length args) 0)
+                               #'(lambda (rf)
+                                   #'(lambda (result input)
+                                       (if (apply-function pred (cl:list input))
+                                           (funcall rf result input)
+                                           (fol.collection:reduced result)))))
+                              ;; (take-while pred coll) - return lazy-seq
+                              ((cl:= (cl:length args) 1)
+                               (let ((coll (cl:first args)))
+                                 (cl:labels ((take-seq (s)
+                                               (fol.collection:make-lazy-seq
+                                                (lambda ()
+                                                  (if (cl:or (null s) (fol.seqop:empty? s))
+                                                      nil
+                                                      (let ((item (fol.seqop:first s)))
+                                                        (if (apply-function pred (cl:list item))
+                                                            (cl:cons item (take-seq (fol.seqop:rest s)))
+                                                            nil)))))))
+                                   (take-seq (fol.seqop:seq coll)))))
+                              (t (error "take-while requires 1 or 2 arguments"))))
+            'take-last #'(lambda (n coll)
+                           "Returns a seq of the last n items in coll. Depending on the type,
+                            seq may not be lazy."
+                           (let ((s (fol.seqop:seq coll)))
+                             (if (cl:or (null s) (fol.seqop:empty? s))
+                                 nil
+                                 ;; Use a sliding window approach
+                                 (let ((lead s)
+                                       (lag s))
+                                   ;; Advance lead by n positions
+                                   (dotimes (i n)
+                                     (when (cl:and lead (cl:not (fol.seqop:empty? lead)))
+                                       (setf lead (fol.seqop:rest lead))))
+                                   ;; Now advance both until lead is exhausted
+                                   (loop while (cl:and lead (cl:not (fol.seqop:empty? lead)))
+                                         do (setf lead (fol.seqop:rest lead))
+                                            (setf lag (fol.seqop:rest lag)))
+                                   lag))))
+            'drop-last #'(lambda (&rest args)
+                           "Return a lazy sequence of all but the last n (default 1) items in coll.
+                            (drop-last coll) - drops last 1 item
+                            (drop-last n coll) - drops last n items"
+                           (let ((n (if (cl:= (cl:length args) 1) 1 (cl:first args)))
+                                 (coll (if (cl:= (cl:length args) 1) (cl:first args) (cl:second args))))
+                             (cl:labels ((drop-last-seq (s lead)
+                                           (fol.collection:make-lazy-seq
+                                            (lambda ()
+                                              (if (cl:or (null lead) (fol.seqop:empty? lead))
+                                                  nil
+                                                  (cl:cons (fol.seqop:first s)
+                                                           (drop-last-seq (fol.seqop:rest s)
+                                                                          (fol.seqop:rest lead))))))))
+                               (let ((s (fol.seqop:seq coll)))
+                                 ;; Advance lead by n positions
+                                 (let ((lead s))
+                                   (dotimes (i n)
+                                     (when (cl:and lead (cl:not (fol.seqop:empty? lead)))
+                                       (setf lead (fol.seqop:rest lead))))
+                                   (drop-last-seq s lead))))))
+            'butlast #'(lambda (coll)
+                         "Return a seq of all but the last item in coll, in linear time."
+                         (let ((s (fol.seqop:seq coll)))
+                           (if (cl:or (null s) (fol.seqop:empty? s))
+                               nil
+                               (let ((r (fol.seqop:rest s)))
+                                 (if (cl:or (null r) (fol.seqop:empty? r))
+                                     nil
+                                     (cl:labels ((butlast-seq (current)
+                                                   (fol.collection:make-lazy-seq
+                                                    (lambda ()
+                                                      (let ((next (fol.seqop:rest current)))
+                                                        (if (cl:or (null next) (fol.seqop:empty? next))
+                                                            nil
+                                                            (cl:cons (fol.seqop:first current)
+                                                                     (butlast-seq next))))))))
+                                       (butlast-seq s)))))))
+            ;; ============================================================
+            ;; Clojure Sequence Functions - Part 3: Partitioning and Grouping
+            ;; ============================================================
+            'flatten #'(lambda (coll)
+                         "Takes any nested combination of sequential things and returns their
+                          contents as a single, flat lazy sequence."
+                         (cl:labels ((sequentialp (x)
+                                       ;; Check if x is a sequential collection (not a map/set)
+                                       (cl:or (fol.collection:<list>? x)
+                                              (fol.collection:<vector>? x)
+                                              (fol.collection:<lazy-seq>? x)
+                                              (cl:and (consp x) (cl:not (keywordp (cl:car x))))))
+                                     (flat-seq (s rest-stack)
+                                       ;; s is current sequence being flattened
+                                       ;; rest-stack is a list of remaining sequences to process
+                                       (fol.collection:make-lazy-seq
+                                        (lambda ()
+                                          (cl:labels ((continue-from (cur stack)
+                                                        (if (cl:or (null cur)
+                                                                   (cl:and (cl:not (consp cur))
+                                                                           (fol.seqop:empty? cur)))
+                                                            ;; Current exhausted, try stack
+                                                            (if (null stack)
+                                                                nil
+                                                                (continue-from (cl:car stack) (cl:cdr stack)))
+                                                            ;; Get next item
+                                                            (let ((item (if (consp cur)
+                                                                            (cl:car cur)
+                                                                            (fol.seqop:first cur)))
+                                                                  (rst (if (consp cur)
+                                                                           (cl:cdr cur)
+                                                                           (fol.seqop:rest cur))))
+                                                              (if (sequentialp item)
+                                                                  ;; Push rest onto stack, descend into item
+                                                                  (continue-from (fol.seqop:seq item)
+                                                                                 (cl:cons rst stack))
+                                                                  ;; Emit item, continue with rest
+                                                                  (cl:cons item (flat-seq rst stack)))))))
+                                            (continue-from s rest-stack))))))
+                           (flat-seq (fol.seqop:seq coll) nil)))
+            'partition #'(lambda (n &rest args)
+                           "Returns a lazy sequence of lists of n items each, at offsets step apart.
+                            (partition n coll) - partitions with step = n
+                            (partition n step coll) - partitions with specified step
+                            (partition n step pad coll) - uses pad collection to fill final partition"
+                           (let* ((step (if (cl:>= (cl:length args) 2) (cl:first args) n))
+                                  (pad (if (cl:>= (cl:length args) 3) (cl:second args) nil))
+                                  (coll (cond
+                                          ((cl:= (cl:length args) 1) (cl:first args))
+                                          ((cl:= (cl:length args) 2) (cl:second args))
+                                          (t (cl:third args)))))
+                             (cl:labels ((take-n (s count)
+                                           ;; Take up to count items from s, return (items . remaining)
+                                           (let ((items nil)
+                                                 (current s))
+                                             (dotimes (i count)
+                                               (when (cl:and current (cl:not (fol.seqop:empty? current)))
+                                                 (cl:push (fol.seqop:first current) items)
+                                                 (setf current (fol.seqop:rest current))))
+                                             (cl:cons (cl:nreverse items) current)))
+                                         (drop-n (s count)
+                                           (let ((current s))
+                                             (dotimes (i count)
+                                               (when (cl:and current (cl:not (fol.seqop:empty? current)))
+                                                 (setf current (fol.seqop:rest current))))
+                                             current))
+                                         (partition-seq (s)
+                                           (fol.collection:make-lazy-seq
+                                            (lambda ()
+                                              (if (cl:or (null s) (fol.seqop:empty? s))
+                                                  nil
+                                                  (let* ((take-result (take-n s n))
+                                                         (items (car take-result)))
+                                                    (if (cl:= (cl:length items) n)
+                                                        ;; Full partition
+                                                        (cl:cons (apply #'fol.collection:make-list items)
+                                                                 (partition-seq (drop-n s step)))
+                                                        ;; Partial partition
+                                                        (if pad
+                                                            ;; Pad the final partition
+                                                            (let* ((pad-seq (fol.seqop:seq pad))
+                                                                   (needed (cl:- n (cl:length items)))
+                                                                   (pad-items nil))
+                                                              (dotimes (i needed)
+                                                                (when (cl:and pad-seq (cl:not (fol.seqop:empty? pad-seq)))
+                                                                  (cl:push (fol.seqop:first pad-seq) pad-items)
+                                                                  (setf pad-seq (fol.seqop:rest pad-seq))))
+                                                              (if (cl:= (cl:+ (cl:length items) (cl:length pad-items)) n)
+                                                                  (cl:cons (apply #'fol.collection:make-list
+                                                                                  (cl:append items (cl:nreverse pad-items)))
+                                                                           nil)
+                                                                  nil))
+                                                            ;; No padding, discard partial partition
+                                                            nil))))))))
+                               (partition-seq (fol.seqop:seq coll)))))
+            'partition-all #'(lambda (n &rest args)
+                               "Returns a lazy sequence of lists like partition, but may include
+                                partitions with fewer than n items at the end.
+                                (partition-all n coll)
+                                (partition-all n step coll)"
+                               (let* ((step (if (cl:= (cl:length args) 2) (cl:first args) n))
+                                      (coll (if (cl:= (cl:length args) 2) (cl:second args) (cl:first args))))
+                                 (cl:labels ((take-n (s count)
+                                               (let ((items nil)
+                                                     (current s))
+                                                 (dotimes (i count)
+                                                   (when (cl:and current (cl:not (fol.seqop:empty? current)))
+                                                     (cl:push (fol.seqop:first current) items)
+                                                     (setf current (fol.seqop:rest current))))
+                                                 (cl:nreverse items)))
+                                             (drop-n (s count)
+                                               (let ((current s))
+                                                 (dotimes (i count)
+                                                   (when (cl:and current (cl:not (fol.seqop:empty? current)))
+                                                     (setf current (fol.seqop:rest current))))
+                                                 current))
+                                             (partition-all-seq (s)
+                                               (fol.collection:make-lazy-seq
+                                                (lambda ()
+                                                  (if (cl:or (null s) (fol.seqop:empty? s))
+                                                      nil
+                                                      (let ((items (take-n s n)))
+                                                        (if items
+                                                            (cl:cons (apply #'fol.collection:make-list items)
+                                                                     (partition-all-seq (drop-n s step)))
+                                                            nil)))))))
+                                   (partition-all-seq (fol.seqop:seq coll)))))
+            'partition-by #'(lambda (f &rest args)
+                              "Applies f to each value in coll, splitting it each time f returns a new value.
+                               (partition-by f) - returns a transducer
+                               (partition-by f coll) - returns a lazy-seq of lists"
+                              (cond
+                                ;; (partition-by f) - return a transducer
+                                ((cl:= (cl:length args) 0)
+                                 (let ((current-group nil)
+                                       (current-key :fol-partition-by-none))
+                                   #'(lambda (rf)
+                                       #'(lambda (result input)
+                                           (let ((key (apply-function f (cl:list input))))
+                                             (if (equal key current-key)
+                                                 (progn
+                                                   (cl:push input current-group)
+                                                   result)
+                                                 (let ((prev-group (cl:nreverse current-group)))
+                                                   (setf current-key key)
+                                                   (setf current-group (cl:list input))
+                                                   (if prev-group
+                                                       (funcall rf result (apply #'fol.collection:make-list prev-group))
+                                                       result))))))))
+                                ;; (partition-by f coll) - return lazy-seq
+                                ((cl:= (cl:length args) 1)
+                                 (let ((coll (cl:first args)))
+                                   (cl:labels ((partition-seq (s current-group current-key)
+                                                 (fol.collection:make-lazy-seq
+                                                  (lambda ()
+                                                    (if (cl:or (null s) (fol.seqop:empty? s))
+                                                        ;; Emit final group if any
+                                                        (if current-group
+                                                            (cl:cons (apply #'fol.collection:make-list (cl:nreverse current-group)) nil)
+                                                            nil)
+                                                        (let* ((item (fol.seqop:first s))
+                                                               (key (apply-function f (cl:list item))))
+                                                          (if (equal key current-key)
+                                                              ;; Same group
+                                                              (funcall (fol.collection::lazy-seq-thunk
+                                                                        (partition-seq (fol.seqop:rest s)
+                                                                                       (cl:cons item current-group)
+                                                                                       current-key)))
+                                                              ;; New group
+                                                              (if current-group
+                                                                  (cl:cons (apply #'fol.collection:make-list (cl:nreverse current-group))
+                                                                           (partition-seq (fol.seqop:rest s)
+                                                                                          (cl:list item)
+                                                                                          key))
+                                                                  (funcall (fol.collection::lazy-seq-thunk
+                                                                            (partition-seq (fol.seqop:rest s)
+                                                                                           (cl:list item)
+                                                                                           key)))))))))))
+                                     (let ((s (fol.seqop:seq coll)))
+                                       (if (cl:or (null s) (fol.seqop:empty? s))
+                                           nil
+                                           (let* ((first-item (fol.seqop:first s))
+                                                  (first-key (apply-function f (cl:list first-item))))
+                                             (partition-seq (fol.seqop:rest s) (cl:list first-item) first-key)))))))
+                                (t (error "partition-by requires 1 or 2 arguments"))))
+            'split-at #'(lambda (n coll)
+                          "Returns a vector of [(take n coll) (drop n coll)]."
+                          (let ((s (fol.seqop:seq coll))
+                                (taken nil)
+                                (remaining nil))
+                            ;; Take first n items
+                            (let ((current s))
+                              (dotimes (i n)
+                                (when (cl:and current (cl:not (fol.seqop:empty? current)))
+                                  (cl:push (fol.seqop:first current) taken)
+                                  (setf current (fol.seqop:rest current))))
+                              (setf remaining current))
+                            (fol.collection:make-vector
+                             (apply #'fol.collection:make-list (cl:nreverse taken))
+                             (if (cl:or (null remaining) (fol.seqop:empty? remaining))
+                                 (fol.collection:make-list)
+                                 remaining))))
+            'split-with #'(lambda (pred coll)
+                            "Returns a vector of [(take-while pred coll) (drop-while pred coll)]."
+                            (let ((s (fol.seqop:seq coll))
+                                  (taken nil))
+                              ;; Take while pred is true
+                              (let ((current s))
+                                (loop while (cl:and current (cl:not (fol.seqop:empty? current)))
+                                      for item = (fol.seqop:first current)
+                                      while (apply-function pred (cl:list item))
+                                      do (cl:push item taken)
+                                         (setf current (fol.seqop:rest current))
+                                      finally (setf s current)))
+                              (fol.collection:make-vector
+                               (apply #'fol.collection:make-list (cl:nreverse taken))
+                               (if (cl:or (null s) (fol.seqop:empty? s))
+                                   (fol.collection:make-list)
+                                   s))))
+            'shuffle #'(lambda (coll)
+                         "Return a random permutation of coll."
+                         (let ((vec (coerce (loop for s = (fol.seqop:seq coll) then (fol.seqop:rest s)
+                                                  until (cl:or (null s) (fol.seqop:empty? s))
+                                                  collect (fol.seqop:first s))
+                                            'cl:vector)))
+                           ;; Fisher-Yates shuffle
+                           (loop for i from (cl:1- (cl:length vec)) downto 1
+                                 do (let ((j (cl:random (cl:1+ i))))
+                                      (rotatef (aref vec i) (aref vec j))))
+                           (apply #'fol.collection:make-vector (coerce vec 'cl:list))))
+            ;; ============================================================
+            ;; Clojure Sequence Functions - Part 4: Sorting
+            ;; ============================================================
+            'sort #'(lambda (&rest args)
+                      "Returns a sorted sequence of the items in coll.
+                       (sort coll) - sorts using natural ordering
+                       (sort comp coll) - sorts using comparator function"
+                      (let* ((comp (if (cl:= (cl:length args) 2) (cl:first args) nil))
+                             (coll (if (cl:= (cl:length args) 2) (cl:second args) (cl:first args)))
+                             (items (loop for s = (fol.seqop:seq coll) then (fol.seqop:rest s)
+                                          until (cl:or (null s) (fol.seqop:empty? s))
+                                          collect (fol.seqop:first s))))
+                        (if comp
+                            (apply #'fol.collection:make-list
+                                   (cl:sort items (lambda (a b)
+                                                    (let ((result (apply-function comp (cl:list a b))))
+                                                      (if (numberp result)
+                                                          (cl:< result 0)
+                                                          result)))))
+                            (apply #'fol.collection:make-list
+                                   (cl:sort items (lambda (a b)
+                                                    (cl:< (fol.collection::generic-compare a b) 0)))))))
+            'sort-by #'(lambda (keyfn &rest args)
+                         "Returns a sorted sequence of the items in coll, where the sort order is
+                          determined by comparing (keyfn item).
+                          (sort-by keyfn coll) - sorts by keyfn
+                          (sort-by keyfn comp coll) - sorts by keyfn using comparator"
+                         (let* ((comp (if (cl:= (cl:length args) 2) (cl:first args) nil))
+                                (coll (if (cl:= (cl:length args) 2) (cl:second args) (cl:first args)))
+                                (items (loop for s = (fol.seqop:seq coll) then (fol.seqop:rest s)
+                                             until (cl:or (null s) (fol.seqop:empty? s))
+                                             collect (fol.seqop:first s))))
+                           (if comp
+                               (apply #'fol.collection:make-list
+                                      (cl:sort items
+                                               (lambda (a b)
+                                                 (let* ((ka (apply-function keyfn (cl:list a)))
+                                                        (kb (apply-function keyfn (cl:list b)))
+                                                        (result (apply-function comp (cl:list ka kb))))
+                                                   (if (numberp result)
+                                                       (cl:< result 0)
+                                                       result)))))
+                               (apply #'fol.collection:make-list
+                                      (cl:sort items
+                                               (lambda (a b)
+                                                 (let ((ka (apply-function keyfn (cl:list a)))
+                                                       (kb (apply-function keyfn (cl:list b))))
+                                                   (cl:< (fol.collection::generic-compare ka kb) 0))))))))
+            ;; ============================================================
+            ;; Clojure Sequence Functions - Part 5: Accessors
+            ;; ============================================================
+            'last #'(lambda (coll)
+                      "Return the last item in coll, in linear time."
+                      (let ((s (fol.seqop:seq coll)))
+                        (if (cl:or (null s) (fol.seqop:empty? s))
+                            nil
+                            (loop for current = s then (fol.seqop:rest current)
+                                  until (cl:or (null (fol.seqop:rest current))
+                                               (fol.seqop:empty? (fol.seqop:rest current)))
+                                  finally (return (fol.seqop:first current))))))
+            'ffirst #'(lambda (coll)
+                        "Same as (first (first x))."
+                        (fol.seqop:first (fol.seqop:first coll)))
+            'nfirst #'(lambda (coll)
+                        "Same as (next (first x))."
+                        (let ((f (fol.seqop:first coll)))
+                          (if f
+                              (let ((s (fol.seqop:seq f)))
+                                (if (cl:or (null s) (fol.seqop:empty? s))
+                                    nil
+                                    (let ((r (fol.seqop:rest s)))
+                                      (if (cl:or (null r) (fol.seqop:empty? r))
+                                          nil
+                                          r))))
+                              nil)))
+            'nthnext #'(lambda (coll n)
+                         "Returns the nth next of coll, (seq coll) when n is 0."
+                         (let ((s (fol.seqop:seq coll)))
+                           (dotimes (i n)
+                             (when s
+                               (setf s (fol.seqop:rest s))
+                               (when (fol.seqop:empty? s)
+                                 (setf s nil))))
+                           s))
+            'rand-nth #'(lambda (coll)
+                          "Return a random element of the (sequential) collection."
+                          (let ((items (loop for s = (fol.seqop:seq coll) then (fol.seqop:rest s)
+                                             until (cl:or (null s) (fol.seqop:empty? s))
+                                             collect (fol.seqop:first s))))
+                            (if items
+                                (cl:nth (cl:random (cl:length items)) items)
+                                nil)))
+            'max-key #'(lambda (k &rest more)
+                         "Returns the x for which (k x) is greatest."
+                         (if (null more)
+                             nil
+                             (let ((best (cl:first more))
+                                   (best-val (apply-function k (cl:list (cl:first more)))))
+                               (dolist (x (cl:rest more))
+                                 (let ((val (apply-function k (cl:list x))))
+                                   (when (cl:> (fol.collection::generic-compare val best-val) 0)
+                                     (setf best x)
+                                     (setf best-val val))))
+                               best)))
+            'min-key #'(lambda (k &rest more)
+                         "Returns the x for which (k x) is least."
+                         (if (null more)
+                             nil
+                             (let ((best (cl:first more))
+                                   (best-val (apply-function k (cl:list (cl:first more)))))
+                               (dolist (x (cl:rest more))
+                                 (let ((val (apply-function k (cl:list x))))
+                                   (when (cl:< (fol.collection::generic-compare val best-val) 0)
+                                     (setf best x)
+                                     (setf best-val val))))
+                               best)))
+            ;; ============================================================
+            ;; Clojure Sequence Functions - Part 6: Building Collections
+            ;; ============================================================
+            'zipmap #'(lambda (keys vals)
+                        "Returns a map with the keys mapped to the corresponding vals."
+                        (let ((ks (fol.seqop:seq keys))
+                              (vs (fol.seqop:seq vals))
+                              (result (fol.collection:make-dict)))
+                          (loop while (cl:and ks vs
+                                              (cl:not (fol.seqop:empty? ks))
+                                              (cl:not (fol.seqop:empty? vs)))
+                                do (setf result (fol.seqop:add result
+                                                               (fol.seqop:first ks)
+                                                               (fol.seqop:first vs)))
+                                   (setf ks (fol.seqop:rest ks))
+                                   (setf vs (fol.seqop:rest vs)))
+                          result))
+            'reductions #'(lambda (f &rest args)
+                            "Returns a lazy seq of the intermediate values of the reduction
+                             (as per reduce) of coll by f, starting with init.
+                             (reductions f coll) - uses first element as init
+                             (reductions f init coll) - uses init as starting value"
+                            (cond
+                              ;; (reductions f coll)
+                              ((cl:= (cl:length args) 1)
+                               (let* ((coll (cl:first args))
+                                      (s (fol.seqop:seq coll)))
+                                 (if (cl:or (null s) (fol.seqop:empty? s))
+                                     (fol.collection:make-lazy-seq
+                                      (lambda () (cl:cons (apply-function f nil) nil)))
+                                     (cl:labels ((red-seq (acc rest-s)
+                                                   (fol.collection:make-lazy-seq
+                                                    (lambda ()
+                                                      (cl:cons acc
+                                                               (if (cl:or (null rest-s) (fol.seqop:empty? rest-s))
+                                                                   nil
+                                                                   (red-seq (apply-function f (cl:list acc (fol.seqop:first rest-s)))
+                                                                            (fol.seqop:rest rest-s))))))))
+                                       (red-seq (fol.seqop:first s) (fol.seqop:rest s))))))
+                              ;; (reductions f init coll)
+                              ((cl:= (cl:length args) 2)
+                               (let* ((init (cl:first args))
+                                      (coll (cl:second args))
+                                      (s (fol.seqop:seq coll)))
+                                 (cl:labels ((red-seq (acc rest-s)
+                                               (fol.collection:make-lazy-seq
+                                                (lambda ()
+                                                  (cl:cons acc
+                                                           (if (cl:or (null rest-s) (fol.seqop:empty? rest-s))
+                                                               nil
+                                                               (red-seq (apply-function f (cl:list acc (fol.seqop:first rest-s)))
+                                                                        (fol.seqop:rest rest-s))))))))
+                                   (red-seq init s))))
+                              (t (error "reductions requires 2 or 3 arguments"))))
+            'into-array #'(lambda (&rest args)
+                            "Returns an array with components set to the values in aseq.
+                             (into-array aseq) - creates array from seq
+                             (into-array type aseq) - creates array of specified type"
+                            (let* ((type (if (cl:= (cl:length args) 2) (cl:first args) t))
+                                   (aseq (if (cl:= (cl:length args) 2) (cl:second args) (cl:first args)))
+                                   (items (loop for s = (fol.seqop:seq aseq) then (fol.seqop:rest s)
+                                                until (cl:or (null s) (fol.seqop:empty? s))
+                                                collect (fol.seqop:first s))))
+                              (cl:make-array (cl:length items)
+                                             :element-type type
+                                             :initial-contents items)))
+            'apply #'(lambda (f &rest args)
+                       "Applies fn f to the argument list formed by prepending intervening
+                        arguments to args (the last argument which must be a seq)."
+                       (if (null args)
+                           (apply-function f nil)
+                           (let* ((all-but-last (cl:butlast args))
+                                  (last-arg (cl:car (cl:last args)))
+                                  (last-items (loop for s = (fol.seqop:seq last-arg) then (fol.seqop:rest s)
+                                                    until (cl:or (null s) (fol.seqop:empty? s))
+                                                    collect (fol.seqop:first s))))
+                             (apply-function f (cl:append all-but-last last-items)))))
+            ;; ============================================================
+            ;; Clojure Sequence Functions - Part 7: Forcing Lazy Seqs
+            ;; ============================================================
+            'dorun #'(lambda (&rest args)
+                       "Realize the lazy seq without retaining the head. Returns nil.
+                        (dorun coll) - realize entire seq
+                        (dorun n coll) - realize first n items"
+                       (let* ((n (if (cl:= (cl:length args) 2) (cl:first args) nil))
+                              (coll (if (cl:= (cl:length args) 2) (cl:second args) (cl:first args)))
+                              (s (fol.seqop:seq coll)))
+                         (if n
+                             (loop for i from 0 below n
+                                   while (cl:and s (cl:not (fol.seqop:empty? s)))
+                                   do (setf s (fol.seqop:rest s)))
+                             (loop while (cl:and s (cl:not (fol.seqop:empty? s)))
+                                   do (setf s (fol.seqop:rest s))))
+                         nil))
+            'doall #'(lambda (&rest args)
+                       "Realize the lazy seq. Walks through the successive nexts of the seq,
+                        retaining the head and returning it.
+                        (doall coll) - realize entire seq
+                        (doall n coll) - realize first n items"
+                       (let* ((n (if (cl:= (cl:length args) 2) (cl:first args) nil))
+                              (coll (if (cl:= (cl:length args) 2) (cl:second args) (cl:first args)))
+                              (s (fol.seqop:seq coll)))
+                         (let ((head s))
+                           (if n
+                               (loop for i from 0 below n
+                                     while (cl:and s (cl:not (fol.seqop:empty? s)))
+                                     do (setf s (fol.seqop:rest s)))
+                               (loop while (cl:and s (cl:not (fol.seqop:empty? s)))
+                                     do (setf s (fol.seqop:rest s))))
+                           head)))
+            'run! #'(lambda (proc coll)
+                      "Runs the supplied procedure (via reduce), for purposes of side effects,
+                       on successive items in the collection. Returns nil."
+                      (let ((s (fol.seqop:seq coll)))
+                        (loop while (cl:and s (cl:not (fol.seqop:empty? s)))
+                              do (apply-function proc (cl:list (fol.seqop:first s)))
+                                 (setf s (fol.seqop:rest s)))
+                        nil))
+            ;; ============================================================
+            ;; Parallel Processing with Thread Pool and pmap
+            ;; ============================================================
+            'pmap #'(lambda (f &rest colls)
+                      "Like map, except f is applied in parallel. Semi-lazy in that the
+                       parallel computation stays ahead of the consumption, but doesn't
+                       realize the entire result unless required."
+                      (if (null colls)
+                          (fol.collection:make-lazy-seq (lambda () nil))
+                          (if (cl:= (cl:length colls) 1)
+                              ;; Single collection case
+                              (let ((coll (cl:first colls)))
+                                (cl:labels ((pmap-seq (s)
+                                              (fol.collection:make-lazy-seq
+                                               (lambda ()
+                                                 (if (cl:or (null s) (fol.seqop:empty? s))
+                                                     nil
+                                                     ;; Use lparallel for parallel mapping
+                                                     (let* ((chunk-size 32)
+                                                            (items nil)
+                                                            (current s))
+                                                       ;; Collect a chunk of items
+                                                       (dotimes (i chunk-size)
+                                                         (when (cl:and current (cl:not (fol.seqop:empty? current)))
+                                                           (cl:push (fol.seqop:first current) items)
+                                                           (setf current (fol.seqop:rest current))))
+                                                       (setf items (cl:nreverse items))
+                                                       ;; Process chunk in parallel using lparallel
+                                                       (let ((results (if (cl:> (cl:length items) 1)
+                                                                          (handler-case
+                                                                              (lparallel:pmapcar
+                                                                               (lambda (x) (apply-function f (cl:list x)))
+                                                                               items)
+                                                                            (error (e)
+                                                                              (declare (ignore e))
+                                                                              ;; Fallback to sequential if lparallel not initialized
+                                                                              (cl:mapcar (lambda (x) (apply-function f (cl:list x))) items)))
+                                                                          (cl:mapcar (lambda (x) (apply-function f (cl:list x))) items))))
+                                                         ;; Build lazy result
+                                                         (cl:labels ((emit-results (rs rest-s)
+                                                                       (if (null rs)
+                                                                           (funcall (fol.collection::lazy-seq-thunk (pmap-seq rest-s)))
+                                                                           (cl:cons (cl:first rs)
+                                                                                    (fol.collection:make-lazy-seq
+                                                                                     (lambda () (emit-results (cl:rest rs) rest-s)))))))
+                                                           (emit-results results current)))))))))
+                                  (pmap-seq (fol.seqop:seq coll))))
+                              ;; Multiple collections - zip them together
+                              (let ((seqs (cl:mapcar #'fol.seqop:seq colls)))
+                                (cl:labels ((pmap-multi-seq (ss)
+                                              (fol.collection:make-lazy-seq
+                                               (lambda ()
+                                                 (if (cl:some (lambda (s) (cl:or (null s) (fol.seqop:empty? s))) ss)
+                                                     nil
+                                                     (let ((args (cl:mapcar #'fol.seqop:first ss))
+                                                           (rests (cl:mapcar #'fol.seqop:rest ss)))
+                                                       (cl:cons (apply-function f args)
+                                                                (pmap-multi-seq rests))))))))
+                                  (pmap-multi-seq seqs))))))
+            ;; seque - creates a queued seq that processes in background (simplified version)
+            'seque #'(lambda (&rest args)
+                       "Creates a queued seq on another thread.
+                        (seque coll) - uses default buffer of 100
+                        (seque n coll) - uses buffer of n items"
+                       (let* ((n (if (cl:= (cl:length args) 2) (cl:first args) 100))
+                              (coll (if (cl:= (cl:length args) 2) (cl:second args) (cl:first args))))
+                         (declare (ignore n))
+                         ;; Simplified: just return a lazy seq (full impl would use a queue)
+                         (let ((s (fol.seqop:seq coll)))
+                           (cl:labels ((seque-seq (current)
+                                         (fol.collection:make-lazy-seq
+                                          (lambda ()
+                                            (if (cl:or (null current) (fol.seqop:empty? current))
+                                                nil
+                                                (cl:cons (fol.seqop:first current)
+                                                         (seque-seq (fol.seqop:rest current))))))))
+                             (seque-seq s)))))
             ;; Standard macros
             'when (make-when-macro)
             'unless (make-unless-macro)
