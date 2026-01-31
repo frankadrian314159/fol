@@ -249,7 +249,7 @@
                           assoc get rest first reverse remove pop push make-list
                           third second nth vector make-array make-deque <deque>)
   ;; Shadow CL functions to allow our own generic functions
-  (:shadow set-difference set-intersection find merge)
+  (:shadow set-difference set-intersection find merge reduce)
   (:export
    ;; Collection accessors
     conj first rest peek pop push nth get
@@ -264,7 +264,7 @@
    ;; Sequence operations
     reverse index-of last-index-of rseq
    ;; Update operations
-    update update-in reduce-kv
+    update update-in reduce reduce-kv
    ;; Set operations
     set-union set-difference set-intersection
     select subset? superset?
@@ -276,7 +276,19 @@
    ;; Dict transformation operations
     select-keys rename-keys map-invert update-keys update-vals
    ;; Dict construction operations
-    freqs group-by index))
+    freqs group-by index
+   ;; Zipper functions
+    <zipper> <zipper>?
+    zipper seq-zip vector-zip
+    node branch? children make-node
+    path lefts rights
+    up down left right
+    leftmost rightmost
+    zip-replace edit
+    insert-child append-child
+    insert-left insert-right
+    zip-remove
+    zip-next prev root end?))
 
 (defpackage fol.module
   (:use cl fol.persistent fol.collection)

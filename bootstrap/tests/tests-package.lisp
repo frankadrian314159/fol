@@ -164,7 +164,19 @@
                 ;; Dict transformation operations
                 :select-keys :rename-keys :map-invert :update-keys :update-vals
                 ;; Dict construction operations
-                :freqs :group-by :index)
+                :freqs :group-by :index
+                ;; Zipper operations
+                :<zipper> :<zipper>?
+                :zipper :seq-zip :vector-zip
+                :node :branch? :children :make-node
+                :path :lefts :rights
+                :up :down :left :right
+                :leftmost :rightmost
+                :zip-replace :edit
+                :insert-child :append-child
+                :insert-left :insert-right
+                :zip-remove
+                :zip-next :prev :root :end?)
   ;; Shadow CL symbols that FOL redefines (sequence operations now in fol.seqop)
   (:shadowing-import-from :fol.seqop :remove :get :first :rest :nth :pop :push :peek :reverse :assoc
                           :set-difference :set-intersection :find :merge)

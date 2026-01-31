@@ -712,10 +712,67 @@
     (list 'reader-conditional conditional-form)))
 
 (defun read-symbolic-value-dispatch (stream char arg)
-  "Read a Clojure symbolic value starting with ##"
+  "Read a Clojure symbolic value starting with ##
+   Supported symbolic values:
+   - ##Inf  - positive infinity (double-float)
+   - ##-Inf - negative infinity (double-float)
+   - ##NaN  - Not a Number (double-float)"
   (declare (ignore char arg))
-  (let ((symbol (fol-read stream t nil *clojure-readtable*)))
-    (list 'symbolic-value symbol)))
+  ;; Check for ##-Inf (negative infinity) first
+  (let ((first-char (peek-char nil stream t nil t)))
+    (if (char= first-char #\-)
+        ;; Consume the minus sign and read the symbol
+        (progn
+          (read-char stream)
+          (let ((symbol (fol-read stream t nil *clojure-readtable*)))
+            (cond
+              ((and (symbolp symbol) (string-equal (symbol-name symbol) "INF"))
+               ;; Return negative infinity
+               (fol-negative-infinity))
+              (t (error "Unknown symbolic value ##-~A" symbol)))))
+        ;; Not negative, read normally
+        (let ((symbol (fol-read stream t nil *clojure-readtable*)))
+          (cond
+            ;; ##Inf - positive infinity
+            ((and (symbolp symbol) (string-equal (symbol-name symbol) "INF"))
+             (fol-positive-infinity))
+            ;; ##NaN - Not a Number
+            ((and (symbolp symbol) (string-equal (symbol-name symbol) "NAN"))
+             (fol-nan))
+            (t (error "Unknown symbolic value ##~A. Supported: ##Inf, ##-Inf, ##NaN" symbol)))))))
+
+(defun fol-positive-infinity ()
+  "Return positive infinity as a double-float."
+  #+sbcl sb-ext:double-float-positive-infinity
+  #+ccl (ccl::infinity-double)
+  #+ecl ext:double-float-positive-infinity
+  #+allegro excl:*infinity-double*
+  #+clisp ext:double-float-positive-infinity
+  #+lispworks system:*plus-infinity-double*
+  #-(or sbcl ccl ecl allegro clisp lispworks)
+  most-positive-double-float)
+
+(defun fol-negative-infinity ()
+  "Return negative infinity as a double-float."
+  #+sbcl sb-ext:double-float-negative-infinity
+  #+ccl (- (ccl::infinity-double))
+  #+ecl ext:double-float-negative-infinity
+  #+allegro (- excl:*infinity-double*)
+  #+clisp ext:double-float-negative-infinity
+  #+lispworks system:*minus-infinity-double*
+  #-(or sbcl ccl ecl allegro clisp lispworks)
+  most-negative-double-float)
+
+(defun fol-nan ()
+  "Return NaN (Not a Number) as a double-float."
+  #+sbcl (sb-kernel:make-double-float -524288 0)
+  #+ccl (ccl::nan-double)
+  #+ecl ext:double-float-nan
+  #+allegro excl:*nan-double*
+  #+clisp ext:double-float-not-a-number
+  #+lispworks system:*double-float-nan*
+  #-(or sbcl ccl ecl allegro clisp lispworks)
+  0.0d0)
 
 (defun read-multiset-dispatch (stream char arg)
   "Read a multiset (bag) starting with #M{"

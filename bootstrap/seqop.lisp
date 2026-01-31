@@ -1216,7 +1216,7 @@
   "Returns a new collection with KEYS removed.
    For sets: removes all specified keys.
    Accepts multiple keys: (disj #{1 2 3} 2 3) => #{1}"
-  (reduce #'disj-one keys :initial-value collection))
+  (cl:reduce #'disj-one keys :initial-value collection))
 
 ;; Base method for <set>
 (defmethod disj-one ((s <set>) key)
@@ -1826,6 +1826,29 @@
               (nested (get v idx))
               (nested-or-empty (if nested nested (make-dict))))
          (assoc v idx (apply #'update-in nested-or-empty rest-keys f args)))))))
+
+;;; ============================================================================
+;;; REDUCE: Reduce over a collection
+;;; ============================================================================
+;;; Reduces a collection using a binary function.
+
+(defgeneric reduce (f init coll)
+  (:documentation "Reduce COLL using binary function F with initial value INIT.
+   F is a function of 2 arguments: accumulator and element.
+   INIT is the initial accumulator value.
+   Supports early termination with reduced."))
+
+(defmethod reduce (f init coll)
+  "Default reduce implementation using seq/first/rest."
+  (let ((s (seq coll))
+        (acc init))
+    (loop until (cl:or (null s) (empty? s)
+                       (<reduced>? acc))
+          do (setf acc (funcall f acc (first s)))
+             (setf s (rest s)))
+    (if (<reduced>? acc)
+        (unreduced acc)
+        acc)))
 
 ;;; ============================================================================
 ;;; REDUCE-KV: Reduce over key-value pairs
@@ -2961,3 +2984,428 @@
                (setf result (fset:with result k (fol.wrappers:fol-value item)))
                (setf s (rest s))))
     (make-instance '<dict> :items result)))
+
+;;; ============================================================================
+;;; Zipper - Functional Tree Navigation and Editing
+;;; ============================================================================
+;;; A zipper is a technique for navigating and editing immutable tree structures.
+;;; It maintains a "focus" on a node and tracks the path back to the root,
+;;; enabling efficient local updates in a purely functional way.
+;;;
+;;; The zipper implementation here follows Clojure's clojure.zip API.
+
+(defclass <zipper> ()
+  ((node :initarg :node
+         :accessor zipper-node
+         :documentation "The current node in focus.")
+   (branch-fn :initarg :branch-fn
+              :accessor zipper-branch-fn
+              :documentation "A function that returns true if a node can have children.")
+   (children-fn :initarg :children-fn
+                :accessor zipper-children-fn
+                :documentation "A function that returns the children of a branch node.")
+   (make-node-fn :initarg :make-node-fn
+                 :accessor zipper-make-node-fn
+                 :documentation "A function that creates a node from an existing node and new children.")
+   (path :initarg :path
+         :initform nil
+         :accessor zipper-path
+         :documentation "A list of path segments from root to current location.")
+   (lefts :initarg :lefts
+          :initform nil
+          :accessor zipper-lefts
+          :documentation "Siblings to the left of current node.")
+   (rights :initarg :rights
+           :initform nil
+           :accessor zipper-rights
+           :documentation "Siblings to the right of current node.")
+   (parent-nodes :initarg :parent-nodes
+                 :initform nil
+                 :accessor zipper-parent-nodes
+                 :documentation "Stack of parent nodes for navigation.")
+   (changed :initarg :changed
+            :initform nil
+            :accessor zipper-changed
+            :documentation "True if the structure has been modified."))
+  (:documentation "A zipper for functional navigation and editing of tree structures."))
+
+(defgeneric <zipper>? (obj)
+  (:documentation "Returns T if OBJ is a zipper."))
+
+(defmethod <zipper>? (obj)
+  nil)
+
+(defmethod <zipper>? ((obj <zipper>))
+  t)
+
+(defmethod print-object ((z <zipper>) stream)
+  (print-unreadable-object (z stream :type t)
+    (format stream "~S" (zipper-node z))))
+
+(defun zipper (branch-fn children-fn make-node-fn root)
+  "Creates a new zipper structure.
+
+   branch-fn is a fn that, given a node, returns true if it can have children.
+   children-fn is a fn that, given a branch node, returns a seq of its children.
+   make-node-fn is a fn that, given an existing node and a seq of children,
+     returns a new branch node with the supplied children.
+   root is the root node of the tree.
+
+   Example:
+     (zipper <vector>? seq (fn [node children] (apply vector children)) [1 [2 3] 4])"
+  (make-instance '<zipper>
+                 :node root
+                 :branch-fn branch-fn
+                 :children-fn children-fn
+                 :make-node-fn make-node-fn))
+
+(defun seq-zip (root)
+  "Returns a zipper for nested sequences (lists/seqs).
+   Branches are seqs, children are elements of the seq."
+  (zipper (lambda (node)
+            ;; Check FOL types first since they are CLOS objects (atoms in CL terms)
+            (or (<list>? node)
+                (<lazy-seq>? node)
+                (and (not (atom node))
+                     (or (listp node)
+                         (consp node)))))
+          (lambda (node)
+            (seq node))
+          (lambda (node children)
+            (declare (ignore node))
+            (apply #'make-list (if (listp children)
+                                   children
+                                   (let ((items nil)
+                                         (s (seq children)))
+                                     (loop while (and s (not (empty? s)))
+                                           do (cl:push (first s) items)
+                                              (setf s (rest s)))
+                                     (nreverse items)))))
+          root))
+
+(defun vector-zip (root)
+  "Returns a zipper for nested vectors.
+   Branches are vectors, children are elements of the vector."
+  (zipper (lambda (node)
+            (<vector>? node))
+          (lambda (node)
+            (seq node))
+          (lambda (node children)
+            (declare (ignore node))
+            (apply #'make-vector (if (listp children)
+                                     children
+                                     (let ((items nil)
+                                           (s (seq children)))
+                                       (loop while (and s (not (empty? s)))
+                                             do (cl:push (first s) items)
+                                                (setf s (rest s)))
+                                       (nreverse items)))))
+          root))
+
+(defun node (loc)
+  "Returns the node at loc."
+  (zipper-node loc))
+
+(defun branch? (loc)
+  "Returns true if the node at loc is a branch."
+  (funcall (zipper-branch-fn loc) (zipper-node loc)))
+
+(defun children (loc)
+  "Returns a seq of the children of the node at loc, which must be a branch."
+  (if (branch? loc)
+      (funcall (zipper-children-fn loc) (zipper-node loc))
+      (error "Called children on a leaf node")))
+
+(defun make-node (loc node children)
+  "Returns a new branch node, given an existing node and new children."
+  (funcall (zipper-make-node-fn loc) node children))
+
+(defun path (loc)
+  "Returns a seq of nodes leading to this loc."
+  (zipper-path loc))
+
+(defun lefts (loc)
+  "Returns a seq of the left siblings of this loc."
+  (zipper-lefts loc))
+
+(defun rights (loc)
+  "Returns a seq of the right siblings of this loc."
+  (zipper-rights loc))
+
+(defun down (loc)
+  "Returns the loc of the leftmost child of the node at this loc,
+   or nil if no children."
+  (when (branch? loc)
+    (let ((ch (funcall (zipper-children-fn loc) (zipper-node loc))))
+      (when (and ch (not (empty? ch)))
+        (let ((c (if (listp ch) ch
+                     (let ((items nil)
+                           (s (seq ch)))
+                       (loop while (and s (not (empty? s)))
+                             do (cl:push (first s) items)
+                                (setf s (rest s)))
+                       (nreverse items)))))
+          (make-instance '<zipper>
+                         :node (car c)
+                         :branch-fn (zipper-branch-fn loc)
+                         :children-fn (zipper-children-fn loc)
+                         :make-node-fn (zipper-make-node-fn loc)
+                         :path (cons (zipper-node loc) (zipper-path loc))
+                         :lefts nil
+                         :rights (cdr c)
+                         :parent-nodes (cons loc (zipper-parent-nodes loc))
+                         :changed (zipper-changed loc)))))))
+
+(defun up (loc)
+  "Returns the loc of the parent of the node at this loc, or nil if at the top."
+  (let ((parent-nodes (zipper-parent-nodes loc)))
+    (when parent-nodes
+      (let* ((parent-loc (car parent-nodes))
+             (new-node (if (zipper-changed loc)
+                           (make-node parent-loc
+                                      (zipper-node parent-loc)
+                                      (append (cl:reverse (zipper-lefts loc))
+                                              (cl:list (zipper-node loc))
+                                              (zipper-rights loc)))
+                           (zipper-node parent-loc))))
+        (make-instance '<zipper>
+                       :node new-node
+                       :branch-fn (zipper-branch-fn loc)
+                       :children-fn (zipper-children-fn loc)
+                       :make-node-fn (zipper-make-node-fn loc)
+                       :path (zipper-path parent-loc)
+                       :lefts (zipper-lefts parent-loc)
+                       :rights (zipper-rights parent-loc)
+                       :parent-nodes (zipper-parent-nodes parent-loc)
+                       :changed (or (zipper-changed loc) (zipper-changed parent-loc)))))))
+
+(defun root (loc)
+  "Returns the root node of the tree, reflecting any changes."
+  (if (zipper-parent-nodes loc)
+      (root (up loc))
+      (zipper-node loc)))
+
+(defun left (loc)
+  "Returns the loc of the left sibling of the node at this loc, or nil."
+  (let ((l (zipper-lefts loc)))
+    (when l
+      (make-instance '<zipper>
+                     :node (car l)
+                     :branch-fn (zipper-branch-fn loc)
+                     :children-fn (zipper-children-fn loc)
+                     :make-node-fn (zipper-make-node-fn loc)
+                     :path (zipper-path loc)
+                     :lefts (cdr l)
+                     :rights (cons (zipper-node loc) (zipper-rights loc))
+                     :parent-nodes (zipper-parent-nodes loc)
+                     :changed (zipper-changed loc)))))
+
+(defun right (loc)
+  "Returns the loc of the right sibling of the node at this loc, or nil."
+  (let ((r (zipper-rights loc)))
+    (when r
+      (make-instance '<zipper>
+                     :node (car r)
+                     :branch-fn (zipper-branch-fn loc)
+                     :children-fn (zipper-children-fn loc)
+                     :make-node-fn (zipper-make-node-fn loc)
+                     :path (zipper-path loc)
+                     :lefts (cons (zipper-node loc) (zipper-lefts loc))
+                     :rights (cdr r)
+                     :parent-nodes (zipper-parent-nodes loc)
+                     :changed (zipper-changed loc)))))
+
+(defun leftmost (loc)
+  "Returns the loc of the leftmost sibling of the node at this loc,
+   or self if already there."
+  (if (null (zipper-lefts loc))
+      loc
+      (make-instance '<zipper>
+                     :node (car (cl:last (zipper-lefts loc)))
+                     :branch-fn (zipper-branch-fn loc)
+                     :children-fn (zipper-children-fn loc)
+                     :make-node-fn (zipper-make-node-fn loc)
+                     :path (zipper-path loc)
+                     :lefts nil
+                     :rights (cl:append (cdr (cl:reverse (zipper-lefts loc)))
+                                        (cl:list (zipper-node loc))
+                                        (zipper-rights loc))
+                     :parent-nodes (zipper-parent-nodes loc)
+                     :changed (zipper-changed loc))))
+
+(defun rightmost (loc)
+  "Returns the loc of the rightmost sibling of the node at this loc,
+   or self if already there."
+  (if (null (zipper-rights loc))
+      loc
+      (make-instance '<zipper>
+                     :node (car (cl:last (zipper-rights loc)))
+                     :branch-fn (zipper-branch-fn loc)
+                     :children-fn (zipper-children-fn loc)
+                     :make-node-fn (zipper-make-node-fn loc)
+                     :path (zipper-path loc)
+                     :lefts (cl:append (cl:reverse (butlast (zipper-rights loc)))
+                                       (cl:list (zipper-node loc))
+                                       (zipper-lefts loc))
+                     :rights nil
+                     :parent-nodes (zipper-parent-nodes loc)
+                     :changed (zipper-changed loc))))
+
+(defun zip-replace (loc new-node)
+  "Replaces the node at this loc, without moving."
+  (make-instance '<zipper>
+                 :node new-node
+                 :branch-fn (zipper-branch-fn loc)
+                 :children-fn (zipper-children-fn loc)
+                 :make-node-fn (zipper-make-node-fn loc)
+                 :path (zipper-path loc)
+                 :lefts (zipper-lefts loc)
+                 :rights (zipper-rights loc)
+                 :parent-nodes (zipper-parent-nodes loc)
+                 :changed t))
+
+(defun edit (loc f &rest args)
+  "Replaces the node at this loc with the value of (f node args)."
+  (zip-replace loc (cl:apply f (zipper-node loc) args)))
+
+(defun insert-child (loc item)
+  "Inserts item as the leftmost child of the node at this loc,
+   without moving."
+  (zip-replace loc
+               (make-node loc
+                          (zipper-node loc)
+                          (cons item (if (branch? loc)
+                                         (let ((c (children loc)))
+                                           (if (listp c) c
+                                               (let ((items nil)
+                                                     (s (seq c)))
+                                                 (loop while (and s (not (empty? s)))
+                                                       do (cl:push (first s) items)
+                                                          (setf s (rest s)))
+                                                 (nreverse items))))
+                                         nil)))))
+
+(defun append-child (loc item)
+  "Inserts item as the rightmost child of the node at this loc,
+   without moving."
+  (zip-replace loc
+               (make-node loc
+                          (zipper-node loc)
+                          (cl:append (if (branch? loc)
+                                         (let ((c (children loc)))
+                                           (if (listp c) c
+                                               (let ((items nil)
+                                                     (s (seq c)))
+                                                 (loop while (and s (not (empty? s)))
+                                                       do (cl:push (first s) items)
+                                                          (setf s (rest s)))
+                                                 (nreverse items))))
+                                         nil)
+                                     (cl:list item)))))
+
+(defun insert-left (loc item)
+  "Inserts item as the left sibling of the node at this loc,
+   without moving."
+  (if (null (zipper-parent-nodes loc))
+      (error "Insert left at top")
+      (make-instance '<zipper>
+                     :node (zipper-node loc)
+                     :branch-fn (zipper-branch-fn loc)
+                     :children-fn (zipper-children-fn loc)
+                     :make-node-fn (zipper-make-node-fn loc)
+                     :path (zipper-path loc)
+                     :lefts (cons item (zipper-lefts loc))
+                     :rights (zipper-rights loc)
+                     :parent-nodes (zipper-parent-nodes loc)
+                     :changed t)))
+
+(defun insert-right (loc item)
+  "Inserts item as the right sibling of the node at this loc,
+   without moving."
+  (if (null (zipper-parent-nodes loc))
+      (error "Insert right at top")
+      (make-instance '<zipper>
+                     :node (zipper-node loc)
+                     :branch-fn (zipper-branch-fn loc)
+                     :children-fn (zipper-children-fn loc)
+                     :make-node-fn (zipper-make-node-fn loc)
+                     :path (zipper-path loc)
+                     :lefts (zipper-lefts loc)
+                     :rights (cons item (zipper-rights loc))
+                     :parent-nodes (zipper-parent-nodes loc)
+                     :changed t)))
+
+(defun zip-remove (loc)
+  "Removes the node at loc, returning the loc that would have preceded it in a depth-first walk."
+  (if (null (zipper-parent-nodes loc))
+      (error "Remove at top")
+      (if (zipper-lefts loc)
+          ;; Move to left sibling and go to rightmost descendant
+          (let ((new-loc (make-instance '<zipper>
+                                        :node (car (zipper-lefts loc))
+                                        :branch-fn (zipper-branch-fn loc)
+                                        :children-fn (zipper-children-fn loc)
+                                        :make-node-fn (zipper-make-node-fn loc)
+                                        :path (zipper-path loc)
+                                        :lefts (cdr (zipper-lefts loc))
+                                        :rights (zipper-rights loc)
+                                        :parent-nodes (zipper-parent-nodes loc)
+                                        :changed t)))
+            (labels ((rightmost-descendant (l)
+                       (if (and (branch? l)
+                                (let ((c (children l)))
+                                  (and c (not (empty? c)))))
+                           (rightmost-descendant (rightmost (down l)))
+                           l)))
+              (rightmost-descendant new-loc)))
+          ;; No left sibling, go to parent
+          (let ((parent-loc (car (zipper-parent-nodes loc))))
+            (make-instance '<zipper>
+                           :node (make-node parent-loc
+                                            (zipper-node parent-loc)
+                                            (zipper-rights loc))
+                           :branch-fn (zipper-branch-fn loc)
+                           :children-fn (zipper-children-fn loc)
+                           :make-node-fn (zipper-make-node-fn loc)
+                           :path (zipper-path parent-loc)
+                           :lefts (zipper-lefts parent-loc)
+                           :rights (zipper-rights parent-loc)
+                           :parent-nodes (zipper-parent-nodes parent-loc)
+                           :changed t)))))
+
+(defun end? (loc)
+  "Returns true if loc represents the end of a depth-first walk."
+  (eq (zipper-node loc) :zip-end))
+
+(defun zip-next (loc)
+  "Moves to the next loc in the hierarchy, depth-first.
+   When reaching the end, returns a distinguished loc detectable via end?."
+  (if (end? loc)
+      loc
+      (cl:or (cl:and (branch? loc) (down loc))
+             (right loc)
+             (loop for p = (up loc) then (up p)
+                   while p
+                   do (when (right p)
+                        (return (right p)))
+                   finally (return (make-instance '<zipper>
+                                                  :node :zip-end
+                                                  :branch-fn (zipper-branch-fn loc)
+                                                  :children-fn (zipper-children-fn loc)
+                                                  :make-node-fn (zipper-make-node-fn loc)))))))
+
+(defun prev (loc)
+  "Moves to the previous loc in the hierarchy, depth-first.
+   Returns nil if at the root."
+  (if (zipper-lefts loc)
+      ;; Go to left sibling and descend to rightmost leaf
+      (let ((left-sib (left loc)))
+        (labels ((rightmost-descendant (l)
+                   (if (and (branch? l)
+                            (let ((c (children l)))
+                              (and c (not (empty? c)))))
+                       (rightmost-descendant (rightmost (down l)))
+                       l)))
+          (rightmost-descendant left-sib)))
+      ;; No left sibling, go to parent
+      (up loc)))

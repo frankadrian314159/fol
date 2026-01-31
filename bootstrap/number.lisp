@@ -222,12 +222,15 @@
   (:documentation "Returns T if NUM is a floating-point NaN (Not a Number), NIL otherwise."))
 
 (defmethod NaN? ((num float))
-  ;; NaN is the only value that is not equal to itself
-  (/= num num))
+  ;; Use SBCL's built-in float-nan-p to avoid triggering floating-point exceptions
+  #+sbcl (sb-ext:float-nan-p num)
+  ;; Fallback for other implementations: NaN is the only value not equal to itself
+  #-sbcl (/= num num))
 
 (defmethod NaN? ((num <float>))
   (let ((val (fol-value num)))
-    (/= val val)))
+    #+sbcl (sb-ext:float-nan-p val)
+    #-sbcl (/= val val)))
 
 (defmethod NaN? ((num number))
   ;; Non-float numbers are never NaN

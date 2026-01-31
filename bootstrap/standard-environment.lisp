@@ -627,13 +627,38 @@
             'get #'fol.seqop:get
             'contains? #'fol.seqop:contains?
             'seq #'fol.seqop:seq
-            'sequence #'(lambda (coll)
+            'sequence #'(lambda (coll-or-xform &optional coll)
                           "Coerces coll to a (possibly empty) sequence. Like seq, but returns
-                           () instead of nil for empty collections. Does not force lazy seqs."
-                          (let ((s (fol.seqop:seq coll)))
-                            (if (null s)
-                                (fol.collection:make-list)  ; Return empty list, not nil
-                                s)))
+                           () instead of nil for empty collections. Does not force lazy seqs.
+                           When called with two args (xform coll), applies transducer xform."
+                          (if coll
+                              ;; 2-arg version: (sequence xform coll)
+                              (let* ((xform coll-or-xform)
+                                     (result nil)
+                                     ;; Wrap rf to handle all three arities
+                                     (rf #'(lambda (&rest args)
+                                             (cl:case (cl:length args)
+                                               (0 nil)  ; init
+                                               (1 (cl:first args))  ; completion
+                                               (2 (cl:push (cl:second args) (cl:first args))
+                                                  (cl:first args)))))
+                                     (xf (funcall xform rf))
+                                     (s (fol.seqop:seq coll))
+                                     (acc nil))
+                                (loop while (cl:and s (cl:not (fol.seqop:empty? s))
+                                                    (cl:not (fol.collection:<reduced>? acc)))
+                                      do (setf acc (funcall xf acc (fol.seqop:first s)))
+                                         (setf s (fol.seqop:rest s)))
+                                (setf result (fol.collection:unreduced acc))
+                                ;; Call completion arity
+                                (setf result (funcall xf result))
+                                ;; Convert to lazy seq
+                                (apply #'fol.collection:make-list (cl:nreverse result)))
+                              ;; 1-arg version: (sequence coll)
+                              (let ((s (fol.seqop:seq coll-or-xform)))
+                                (if (null s)
+                                    (fol.collection:make-list)  ; Return empty list, not nil
+                                    s))))
             'add #'fol.seqop:add
             'remove #'fol.seqop:remove
             'disj #'fol.seqop:disj
@@ -765,8 +790,12 @@
                        ;; (map f) - return a transducer
                        ((= (cl:length args) 0)
                         #'(lambda (rf)
-                            #'(lambda (result input)
-                                (funcall rf result (apply-function f (cl:list input))))))
+                            #'(lambda (&rest xf-args)
+                                (cl:case (cl:length xf-args)
+                                  (0 (funcall rf))  ; init
+                                  (1 (funcall rf (cl:first xf-args)))  ; completion
+                                  (2 (funcall rf (cl:first xf-args)  ; step
+                                              (apply-function f (cl:list (cl:second xf-args)))))))))
                        ;; (map f coll) - return lazy-seq
                        ((= (cl:length args) 1)
                         (let ((coll (cl:first args)))
@@ -787,10 +816,13 @@
                           ;; (filter pred) - return a transducer
                           ((= (cl:length args) 0)
                            #'(lambda (rf)
-                               #'(lambda (result input)
-                                   (if (apply-function pred (cl:list input))
-                                       (funcall rf result input)
-                                       result))))
+                               #'(lambda (&rest xf-args)
+                                   (cl:case (cl:length xf-args)
+                                     (0 (funcall rf))  ; init
+                                     (1 (funcall rf (cl:first xf-args)))  ; completion
+                                     (2 (if (apply-function pred (cl:list (cl:second xf-args)))
+                                            (funcall rf (cl:first xf-args) (cl:second xf-args))
+                                            (cl:first xf-args)))))))
                           ;; (filter pred coll) - return lazy-seq
                           ((= (cl:length args) 1)
                            (let ((coll (cl:first args)))
@@ -1993,35 +2025,63 @@
             'partition-all #'(lambda (n &rest args)
                                "Returns a lazy sequence of lists like partition, but may include
                                 partitions with fewer than n items at the end.
+                                (partition-all n) - returns a transducer
                                 (partition-all n coll)
                                 (partition-all n step coll)"
-                               (let* ((step (if (cl:= (cl:length args) 2) (cl:first args) n))
-                                      (coll (if (cl:= (cl:length args) 2) (cl:second args) (cl:first args))))
-                                 (cl:labels ((take-n (s count)
-                                               (let ((items nil)
-                                                     (current s))
-                                                 (dotimes (i count)
-                                                   (when (cl:and current (cl:not (fol.seqop:empty? current)))
-                                                     (cl:push (fol.seqop:first current) items)
-                                                     (setf current (fol.seqop:rest current))))
-                                                 (cl:nreverse items)))
-                                             (drop-n (s count)
-                                               (let ((current s))
-                                                 (dotimes (i count)
-                                                   (when (cl:and current (cl:not (fol.seqop:empty? current)))
-                                                     (setf current (fol.seqop:rest current))))
-                                                 current))
-                                             (partition-all-seq (s)
-                                               (fol.collection:make-lazy-seq
-                                                (lambda ()
-                                                  (if (cl:or (null s) (fol.seqop:empty? s))
-                                                      nil
-                                                      (let ((items (take-n s n)))
-                                                        (if items
-                                                            (cl:cons (apply #'fol.collection:make-list items)
-                                                                     (partition-all-seq (drop-n s step)))
-                                                            nil)))))))
-                                   (partition-all-seq (fol.seqop:seq coll)))))
+                               (cond
+                                 ;; (partition-all n) - return a transducer
+                                 ((cl:= (cl:length args) 0)
+                                  (let ((current-partition nil))
+                                    #'(lambda (rf)
+                                        #'(lambda (&rest xf-args)
+                                            (cl:case (cl:length xf-args)
+                                              (0 (funcall rf))
+                                              (1 ;; Completion: emit any remaining partition
+                                               (let ((result (cl:first xf-args)))
+                                                 (if current-partition
+                                                     (let ((final (apply #'fol.collection:make-list
+                                                                         (cl:nreverse current-partition))))
+                                                       (setf current-partition nil)
+                                                       (funcall rf (funcall rf result final)))
+                                                     (funcall rf result))))
+                                              (2 (let ((result (cl:first xf-args))
+                                                       (input (cl:second xf-args)))
+                                                   (cl:push input current-partition)
+                                                   (if (cl:>= (cl:length current-partition) n)
+                                                       (let ((partition (apply #'fol.collection:make-list
+                                                                               (cl:nreverse current-partition))))
+                                                         (setf current-partition nil)
+                                                         (funcall rf result partition))
+                                                       result))))))))
+                                 ;; (partition-all n coll) or (partition-all n step coll)
+                                 (t
+                                  (let* ((step (if (cl:= (cl:length args) 2) (cl:first args) n))
+                                         (coll (if (cl:= (cl:length args) 2) (cl:second args) (cl:first args))))
+                                    (cl:labels ((take-n (s count)
+                                                  (let ((items nil)
+                                                        (current s))
+                                                    (dotimes (i count)
+                                                      (when (cl:and current (cl:not (fol.seqop:empty? current)))
+                                                        (cl:push (fol.seqop:first current) items)
+                                                        (setf current (fol.seqop:rest current))))
+                                                    (cl:nreverse items)))
+                                                (drop-n (s count)
+                                                  (let ((current s))
+                                                    (dotimes (i count)
+                                                      (when (cl:and current (cl:not (fol.seqop:empty? current)))
+                                                        (setf current (fol.seqop:rest current))))
+                                                    current))
+                                                (partition-all-seq (s)
+                                                  (fol.collection:make-lazy-seq
+                                                   (lambda ()
+                                                     (if (cl:or (null s) (fol.seqop:empty? s))
+                                                         nil
+                                                         (let ((items (take-n s n)))
+                                                           (if items
+                                                               (cl:cons (apply #'fol.collection:make-list items)
+                                                                        (partition-all-seq (drop-n s step)))
+                                                               nil)))))))
+                                      (partition-all-seq (fol.seqop:seq coll)))))))
             'partition-by #'(lambda (f &rest args)
                               "Applies f to each value in coll, splitting it each time f returns a new value.
                                (partition-by f) - returns a transducer
@@ -2125,6 +2185,38 @@
                                  do (let ((j (cl:random (cl:1+ i))))
                                       (rotatef (aref vec i) (aref vec j))))
                            (apply #'fol.collection:make-vector (coerce vec 'cl:list))))
+            'seq-replace #'(lambda (smap &rest args)
+                             "Given a map of replacement pairs and a collection, returns a
+                              sequence with any keys that are in smap replaced with the
+                              corresponding values.
+                              (seq-replace smap) - returns a transducer
+                              (seq-replace smap coll) - returns a lazy-seq"
+                             (cond
+                               ;; (seq-replace smap) - return a transducer
+                               ((cl:= (cl:length args) 0)
+                                #'(lambda (rf)
+                                    #'(lambda (result input)
+                                        (let ((replacement (fol.seqop:get smap input :fol-not-found)))
+                                          (funcall rf result
+                                                   (if (eq replacement :fol-not-found)
+                                                       input
+                                                       replacement))))))
+                               ;; (seq-replace smap coll) - return lazy-seq
+                               ((cl:= (cl:length args) 1)
+                                (let ((coll (cl:first args)))
+                                  (cl:labels ((replace-seq (s)
+                                                (fol.collection:make-lazy-seq
+                                                 (lambda ()
+                                                   (if (cl:or (null s) (fol.seqop:empty? s))
+                                                       nil
+                                                       (let* ((item (fol.seqop:first s))
+                                                              (replacement (fol.seqop:get smap item :fol-not-found)))
+                                                         (cl:cons (if (eq replacement :fol-not-found)
+                                                                      item
+                                                                      replacement)
+                                                                  (replace-seq (fol.seqop:rest s)))))))))
+                                    (replace-seq (fol.seqop:seq coll)))))
+                               (t (error "seq-replace requires 1 or 2 arguments"))))
             ;; ============================================================
             ;; Clojure Sequence Functions - Part 4: Sorting
             ;; ============================================================
@@ -2436,6 +2528,228 @@
                                                 (cl:cons (fol.seqop:first current)
                                                          (seque-seq (fol.seqop:rest current))))))))
                              (seque-seq s)))))
+            ;; ============================================================
+            ;; Clojure Utility Predicates
+            ;; ============================================================
+            'zero? #'fol.number:zero?
+            'qualified-keyword? #'(lambda (x)
+                                    "Returns true if x is a keyword with a namespace."
+                                    (cl:and (keywordp x)
+                                            ;; Keywords in CL are in the KEYWORD package, so we check
+                                            ;; if the name contains a / (Clojure-style namespace separator)
+                                            (cl:let ((name (cl:symbol-name x)))
+                                              (cl:and (cl:> (cl:length name) 0)
+                                                      (cl:find #\/ name)))))
+            'qualified-symbol? #'(lambda (x)
+                                   "Returns true if x is a symbol with a namespace."
+                                   (cond
+                                     ;; FOL <symbol> wrapper - check if module is set and different from default
+                                     ((typep x 'fol.classes:<symbol>)
+                                      (cl:let ((mod (fol.symbol:symbol-package-str x)))
+                                        (cl:and mod
+                                                (cl:not (string= mod fol.symbol:+default-module+)))))
+                                     ;; Raw CL symbol (non-keyword)
+                                     ((cl:and (cl:symbolp x) (cl:not (keywordp x)))
+                                      ;; For raw CL symbols, check if it has a non-standard package
+                                      (cl:and (cl:symbol-package x)
+                                              (cl:not (eq (cl:symbol-package x)
+                                                          (cl:find-package :cl-user)))))
+                                     ;; Keywords or anything else
+                                     (t nil)))
+            'simple-keyword? #'(lambda (x)
+                                 "Returns true if x is a keyword without a namespace."
+                                 (cl:and (keywordp x)
+                                         (cl:not (cl:find #\/ (cl:symbol-name x)))))
+            'simple-symbol? #'(lambda (x)
+                                "Returns true if x is a symbol without a namespace qualifier."
+                                (cond
+                                  ;; FOL <symbol> wrapper - simple if no module or default module
+                                  ((typep x 'fol.classes:<symbol>)
+                                   (cl:let ((mod (fol.symbol:symbol-package-str x)))
+                                     (cl:or (null mod)
+                                            (string= mod fol.symbol:+default-module+))))
+                                  ;; Raw CL symbol (non-keyword) - always simple since read without qualifier
+                                  ((cl:and (cl:symbolp x) (cl:not (keywordp x)))
+                                   t)
+                                  ;; Keywords or anything else
+                                  (t nil)))
+            'inst? #'(lambda (x)
+                       "Returns true if x is an inst (timestamp/date).
+                        In FOL, this is represented as an integer timestamp or local-time object."
+                       ;; For now, just check if it's a number (Unix timestamp)
+                       (cl:integerp x))
+            'uuid? #'(lambda (x)
+                       "Returns true if x is a UUID."
+                       (typep x 'fol.classes:<uuid>))
+            'associative? #'(lambda (x)
+                              "Returns true if x implements the Associative interface (assoc, get by key)."
+                              (cl:or (fol.collection:<dict>? x)
+                                     (fol.collection:<vector>? x)
+                                     (fol.collection:<array>? x)))
+            'indexed? #'(lambda (x)
+                          "Returns true if x implements the Indexed interface (nth, count)."
+                          (cl:or (fol.collection:<vector>? x)
+                                 (fol.collection:<deque>? x)
+                                 (fol.collection:<array>? x)
+                                 (cl:stringp x)
+                                 (cl:vectorp x)))
+            'seqable? #'(lambda (x)
+                          "Returns true if (seq x) is possible."
+                          (cl:or (null x)
+                                 (cl:listp x)
+                                 (fol.collection:<collection>? x)
+                                 (cl:stringp x)
+                                 (cl:vectorp x)))
+            'any? #'(lambda (x)
+                      "Returns true for any value. Useful as a predicate placeholder."
+                      (declare (ignore x))
+                      t)
+            ;; ============================================================
+            ;; Clojure Zipper Functions
+            ;; ============================================================
+            'zipper? #'fol.seqop:<zipper>?
+            'zipper #'fol.seqop:zipper
+            'seq-zip #'fol.seqop:seq-zip
+            'vector-zip #'fol.seqop:vector-zip
+            'node #'fol.seqop:node
+            'branch? #'fol.seqop:branch?
+            'children #'fol.seqop:children
+            'make-node #'fol.seqop:make-node
+            'path #'fol.seqop:path
+            'lefts #'fol.seqop:lefts
+            'rights #'fol.seqop:rights
+            'up #'fol.seqop:up
+            'down #'fol.seqop:down
+            'left #'fol.seqop:left
+            'right #'fol.seqop:right
+            'leftmost #'fol.seqop:leftmost
+            'rightmost #'fol.seqop:rightmost
+            'replace #'fol.seqop:zip-replace
+            'edit #'fol.seqop:edit
+            'insert-child #'fol.seqop:insert-child
+            'append-child #'fol.seqop:append-child
+            'insert-left #'fol.seqop:insert-left
+            'insert-right #'fol.seqop:insert-right
+            'zip-remove #'fol.seqop:zip-remove
+            'zip-next #'fol.seqop:zip-next
+            'prev #'fol.seqop:prev
+            'root #'fol.seqop:root
+            'end? #'fol.seqop:end?
+            ;; ============================================================
+            ;; Clojure Transducer Infrastructure
+            ;; ============================================================
+            'completing #'(lambda (f &optional cf)
+                            "Takes a reducing function f of 2 args and returns a fn suitable for
+                             transduce by adding an arity-1 signature that calls cf (default - identity)
+                             on the result argument."
+                            (let ((complete-fn (cl:or cf #'cl:identity)))
+                              #'(lambda (&rest args)
+                                  (cl:case (cl:length args)
+                                    (1 (apply-function complete-fn (cl:list (cl:first args))))
+                                    (2 (apply-function f (cl:list (cl:first args) (cl:second args))))
+                                    (otherwise (error "completing: wrong number of arguments"))))))
+            'ensure-reduced #'(lambda (x)
+                                "If x is already reduced?, returns it, else returns (reduced x)."
+                                (if (fol.collection:<reduced>? x)
+                                    x
+                                    (fol.collection:reduced x)))
+            'transduce #'(lambda (xform f &rest args)
+                           "reduce with a transformation of f (xf). If init is not supplied,
+                            (f) will be called to produce it. f should be a reducing function
+                            that accepts either an accumulator and an input, or just an accumulator
+                            for completion. Returns the result of applying (the transformed) xf
+                            to init and the first item in coll, then applying xf to that result
+                            and the second item, etc."
+                           (let* ((has-init (cl:= (cl:length args) 2))
+                                  (init (if has-init (cl:first args) (apply-function f nil)))
+                                  (coll (if has-init (cl:second args) (cl:first args)))
+                                  ;; Wrap f with completing to ensure proper arity handling
+                                  (cf #'(lambda (&rest cf-args)
+                                          (cl:case (cl:length cf-args)
+                                            (0 (apply-function f nil))
+                                            (1 (cl:first cf-args))  ; completion just returns result
+                                            (2 (apply-function f cf-args)))))
+                                  (xf (funcall xform cf))
+                                  (s (fol.seqop:seq coll))
+                                  (acc init))
+                             (loop while (cl:and s (cl:not (fol.seqop:empty? s))
+                                                 (cl:not (fol.collection:<reduced>? acc)))
+                                   do (setf acc (funcall xf acc (fol.seqop:first s)))
+                                      (setf s (fol.seqop:rest s)))
+                             ;; Call completion arity
+                             (funcall xf (fol.collection:unreduced acc))))
+            'eduction #'(lambda (xform &rest colls)
+                          "Returns a reducible/iterable application of the transducers
+                           to the items in colls. Transducers are applied in order as if
+                           combined with comp."
+                          ;; Returns a lazy sequence that applies the transducer
+                          (let ((coll (if (cl:= (cl:length colls) 1)
+                                          (cl:first colls)
+                                          (error "eduction: only single collection supported"))))
+                            ;; Create a lazy seq that processes through xform
+                            (cl:labels ((eduction-seq (s acc-fn)
+                                          (fol.collection:make-lazy-seq
+                                           (lambda ()
+                                             (if (cl:or (null s) (fol.seqop:empty? s))
+                                                 nil
+                                                 (let ((results nil))
+                                                   ;; Collect results using a capturing reducing function
+                                                   (let ((rf #'(lambda (acc item)
+                                                                 (cl:push item results)
+                                                                 acc)))
+                                                     (funcall acc-fn nil (fol.seqop:first s)))
+                                                   (if results
+                                                       (cl:labels ((build-seq (items rest-s)
+                                                                     (if (null items)
+                                                                         (funcall (fol.collection::lazy-seq-thunk
+                                                                                   (eduction-seq rest-s acc-fn)))
+                                                                         (cl:cons (cl:first items)
+                                                                                  (fol.collection:make-lazy-seq
+                                                                                   (lambda () (build-seq (cl:rest items) rest-s)))))))
+                                                         (build-seq (cl:nreverse results) (fol.seqop:rest s)))
+                                                       (funcall (fol.collection::lazy-seq-thunk
+                                                                 (eduction-seq (fol.seqop:rest s) acc-fn))))))))))
+                              (eduction-seq (fol.seqop:seq coll)
+                                            (funcall xform
+                                                     #'(lambda (acc item)
+                                                         (cl:declare (ignore acc))
+                                                         item))))))
+            ;; ============================================================
+            ;; Clojure Transducers
+            ;; ============================================================
+            ;; Note: Many of these functions (map, filter, etc.) already exist
+            ;; but we update them to return transducers when called with arity 1
+            ;; ============================================================
+            'cat #'(lambda (rf)
+                     "A transducer which concatenates the contents of each input, which must be a
+                      collection, into the reduction."
+                     #'(lambda (&rest args)
+                         (cl:case (cl:length args)
+                           (0 (funcall rf))  ; init
+                           (1 (funcall rf (cl:first args)))  ; completion
+                           (2 (fol.seqop:reduce rf (cl:first args) (cl:second args))))))
+            'halt-when #'(lambda (pred &optional retf)
+                           "Returns a transducer that ends transduction when pred returns true for an input.
+                            When retf is supplied it must be a fn of 2 arguments - it will be passed
+                            the (completed) result so far and the input that triggered the predicate."
+                           (let ((ret-fn (cl:or retf (lambda (result input) (declare (ignore input)) result))))
+                             #'(lambda (rf)
+                                 #'(lambda (&rest args)
+                                     (cl:case (cl:length args)
+                                       (0 (funcall rf))
+                                       (1 (funcall rf (cl:first args)))
+                                       (2 (let ((result (cl:first args))
+                                                (input (cl:second args)))
+                                            (if (apply-function pred (cl:list input))
+                                                (fol.collection:reduced
+                                                 (funcall ret-fn (funcall rf result) input))
+                                                (funcall rf result input)))))))))
+            ;; Intern function
+            'intern #'(lambda (ns name)
+                        "Finds or creates a var named by the symbol name in a namespace ns.
+                         In FOL, this creates a symbol in the given module."
+                        (fol.symbol:fol-intern (cl:if (cl:stringp name) name (cl:symbol-name name))
+                                               (cl:if (cl:stringp ns) ns (cl:symbol-name ns))))
             ;; Standard macros
             'when (make-when-macro)
             'unless (make-unless-macro)

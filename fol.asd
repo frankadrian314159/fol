@@ -1,59 +1,36 @@
+;;; FOL - Functional Object Lisp
+;;;
+;;; This is the main system definition that loads the FOL implementation.
+;;; By default, it loads the bootstrap implementation written in Common Lisp.
+;;;
+;;; The bootstrap implementation is located in the bootstrap/ subdirectory.
+;;; To load FOL, first register this directory with ASDF, then load the system:
+;;;
+;;;   (push #p"/path/to/fol/" asdf:*central-registry*)
+;;;   (asdf:load-system :fol)
+;;;
+;;; To run tests:
+;;;
+;;;   (asdf:test-system :fol)
+
+;; First, we need to ensure the bootstrap directory is in the source registry
+;; so ASDF can find the bootstrap.asd file.
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (let* ((this-file (or *compile-file-pathname* *load-pathname*))
+         (bootstrap-dir (when this-file
+                          (merge-pathnames "bootstrap/"
+                                           (make-pathname :directory (pathname-directory this-file))))))
+    (when (and bootstrap-dir (probe-file (merge-pathnames "bootstrap.asd" bootstrap-dir)))
+      (pushnew bootstrap-dir asdf:*central-registry* :test #'equal))))
+
 (defsystem "fol"
-  :description "Functional Object Lisp."
-  :depends-on ("fset" "closer-mop" "cl-ppcre" "uuid" "sycamore" "bordeaux-threads" "lparallel")
-  :components ((:file "package")
-               (:file "persistent" :depends-on ("package"))
-               ;; Classes load BEFORE collection to define constants
-               (:file "classes" :depends-on ("package" "persistent"))
-               (:file "wrappers" :depends-on ("package" "classes"))
-               (:file "collection" :depends-on ("persistent" "wrappers"))
-               (:file "env" :depends-on ("collection" "wrappers"))
-               (:file "module" :depends-on ("persistent" "collection" "wrappers" "env"))
-               (:file "logop"   :depends-on ("package" "classes" "wrappers"))
-               (:file "bitop"   :depends-on ("package" "classes" "wrappers"))
-               (:file "arithop" :depends-on ("package" "classes" "wrappers"))
-               (:file "compareop" :depends-on ("package" "classes" "wrappers" "persistent"))
-               (:file "bool"   :depends-on ("package" "wrappers"))
-               (:file "char"   :depends-on ("package" "wrappers"))
-               (:file "string"   :depends-on ("package" "wrappers" "collection"))
-               (:file "seqop"  :depends-on ("package" "wrappers" "collection" "string"))
-               (:file "symbol"   :depends-on ("package" "wrappers"))
-               (:file "number" :depends-on ("package" "wrappers"))
-               (:file "stream" :depends-on ("package" "classes"))
-               (:file "reader" :depends-on ("package" "classes" "collection"))
-               (:file "mop" :depends-on ("package" "persistent"))
-               (:file "fol-mop" :depends-on ("package" "collection"))
-               (:file "eval" :depends-on ("package" "wrappers" "classes" "collection" "env"
-                                          "logop" "arithop" "compareop" "fol-mop"))
-               (:file "standard-environment" :depends-on ("eval"))
-               (:file "repl" :depends-on ("eval" "reader")))
+  :description "Functional Object Lisp - A persistent object-oriented programming language."
+  :version "0.1.0"
+  :author "Frank Adrian"
+  :license "MIT"
+  :depends-on ("bootstrap")
   :in-order-to ((test-op (test-op "fol/tests"))))
 
 (defsystem "fol/tests"
-  :depends-on ("fol" "fiveam")
-  :components ((:module "tests"
-                 :components
-                 ((:file "tests-package")
-                  (:file "test-bool"   :depends-on ("tests-package"))
-                  (:file "test-char"   :depends-on ("tests-package"))
-                  (:file "test-string"   :depends-on ("tests-package"))
-                  (:file "test-symbol"   :depends-on ("tests-package"))
-                  (:file "test-number" :depends-on ("tests-package"))
-                  (:file "test-reader" :depends-on ("tests-package"))
-                  (:file "test-wrappers" :depends-on ("tests-package"))
-                  (:file "test-logop" :depends-on ("tests-package"))
-                  (:file "test-arithop" :depends-on ("tests-package"))
-                  (:file "test-compareop" :depends-on ("tests-package"))
-                  (:file "test-persistent" :depends-on ("tests-package"))
-                  (:file "test-collection" :depends-on ("tests-package"))
-                  (:file "test-dict" :depends-on ("tests-package"))
-                  (:file "test-seqop" :depends-on ("tests-package"))
-                  (:file "test-module" :depends-on ("tests-package"))
-                  (:file "test-env" :depends-on ("tests-package"))
-                  (:file "test-mop" :depends-on ("tests-package"))
-                  (:file "test-mop-constructors" :depends-on ("tests-package"))
-                  (:file "test-fol-mop" :depends-on ("tests-package"))
-                  (:file "test-stream" :depends-on ("tests-package"))
-                  (:file "test-eval" :depends-on ("tests-package"))
-                  )))
+  :depends-on ("fol" "bootstrap/tests")
   :perform (test-op (o s) (symbol-call :fol.tests :run-fol-tests)))
