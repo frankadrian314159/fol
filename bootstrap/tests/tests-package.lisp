@@ -243,7 +243,8 @@
                 :<dynamic-var> :<dynamic-var>? :make-dynamic-var
                 :dynamic-var-name :dynamic-var-value :dynamic-var-root-value
                 :dynamic-var-push :dynamic-var-pop
-                :make-standard-env
+                :make-standard-module
+                :make-zip-module
                 :<function> :<function>?
                 :<macro> :<macro>? :macro-name :macro-params :macro-body
                 :macro-env :macro-rest-param

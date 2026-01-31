@@ -373,10 +373,10 @@
 ;;; Standard Environment
 ;;; ============================================================================
 
-(defun make-standard-env ()
-  "Create an environment with standard FOL bindings for arithmetic,
-   comparison, and logical operations."
-  (make-env nil
+(defun make-standard-module ()
+  "Create a module with standard FOL bindings for arithmetic,
+   comparison, and logical operations. All symbols are exported."
+  (let ((module (fol.module:make-module "fol.core"
             ;; Arithmetic
             '+ #'+
             '- #'-
@@ -2605,37 +2605,6 @@
                       (declare (ignore x))
                       t)
             ;; ============================================================
-            ;; Clojure Zipper Functions
-            ;; ============================================================
-            'zipper? #'fol.seqop:<zipper>?
-            'zipper #'fol.seqop:zipper
-            'seq-zip #'fol.seqop:seq-zip
-            'vector-zip #'fol.seqop:vector-zip
-            'node #'fol.seqop:node
-            'branch? #'fol.seqop:branch?
-            'children #'fol.seqop:children
-            'make-node #'fol.seqop:make-node
-            'path #'fol.seqop:path
-            'lefts #'fol.seqop:lefts
-            'rights #'fol.seqop:rights
-            'up #'fol.seqop:up
-            'down #'fol.seqop:down
-            'left #'fol.seqop:left
-            'right #'fol.seqop:right
-            'leftmost #'fol.seqop:leftmost
-            'rightmost #'fol.seqop:rightmost
-            'replace #'fol.seqop:zip-replace
-            'edit #'fol.seqop:edit
-            'insert-child #'fol.seqop:insert-child
-            'append-child #'fol.seqop:append-child
-            'insert-left #'fol.seqop:insert-left
-            'insert-right #'fol.seqop:insert-right
-            'zip-remove #'fol.seqop:zip-remove
-            'zip-next #'fol.seqop:zip-next
-            'prev #'fol.seqop:prev
-            'root #'fol.seqop:root
-            'end? #'fol.seqop:end?
-            ;; ============================================================
             ;; Clojure Transducer Infrastructure
             ;; ============================================================
             'completing #'(lambda (f &optional cf)
@@ -2777,4 +2746,54 @@
             'lazy-cat (make-lazy-cat-macro)
             'delay (make-delay-macro)
             'assert (make-assert-macro)
-            'comment (make-comment-macro)))
+            'comment (make-comment-macro))))
+    ;; Export all symbols from the module
+    (let ((items (fol.persistent:pslot-value module 'fol.collection::items)))
+      (fset:do-map (key val items)
+        (declare (ignore val))
+        (fol.module:module-export module key)))
+    module))
+
+(defun make-zip-module ()
+  "Create a module with FOL zipper functions for navigating and editing tree structures.
+   All symbols are exported."
+  (let ((module (fol.module:make-module "zip"
+            ;; Zipper creation
+            'zipper? #'fol.seqop:<zipper>?
+            'zipper #'fol.seqop:zipper
+            'seq-zip #'fol.seqop:seq-zip
+            'vector-zip #'fol.seqop:vector-zip
+            ;; Accessors
+            'node #'fol.seqop:node
+            'branch? #'fol.seqop:branch?
+            'children #'fol.seqop:children
+            'make-node #'fol.seqop:make-node
+            'path #'fol.seqop:path
+            'lefts #'fol.seqop:lefts
+            'rights #'fol.seqop:rights
+            ;; Navigation
+            'up #'fol.seqop:up
+            'down #'fol.seqop:down
+            'left #'fol.seqop:left
+            'right #'fol.seqop:right
+            'leftmost #'fol.seqop:leftmost
+            'rightmost #'fol.seqop:rightmost
+            ;; Editing
+            'replace #'fol.seqop:zip-replace
+            'edit #'fol.seqop:edit
+            'insert-child #'fol.seqop:insert-child
+            'append-child #'fol.seqop:append-child
+            'insert-left #'fol.seqop:insert-left
+            'insert-right #'fol.seqop:insert-right
+            'zip-remove #'fol.seqop:zip-remove
+            ;; Traversal
+            'zip-next #'fol.seqop:zip-next
+            'prev #'fol.seqop:prev
+            'root #'fol.seqop:root
+            'end? #'fol.seqop:end?)))
+    ;; Export all symbols from the module
+    (let ((items (fol.persistent:pslot-value module 'fol.collection::items)))
+      (fset:do-map (key val items)
+        (declare (ignore val))
+        (fol.module:module-export module key)))
+    module))

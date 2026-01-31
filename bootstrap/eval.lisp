@@ -394,11 +394,38 @@
     (setf (gethash "DEFGENERIC" table) 'eval-defgeneric*)
     (setf (gethash "DEFCLASS" table) 'eval-defclass*)
     (setf (gethash "DEFMETHOD" table) 'eval-defmethod*)
+    ;; Module operations
+    (setf (gethash "USE-MODULE" table) 'eval-use-module)
+    (setf (gethash "MODULE" table) 'eval-module)
     ;; Unquote forms are errors outside syntax-quote
     (setf (gethash "UNQUOTE" table) 'eval-unquote-error)
     (setf (gethash "UNQUOTE-SPLICING" table) 'eval-unquote-splicing-error)
     table)
   "Hash table mapping special form names (uppercase strings) to handler symbols.")
+
+(defun eval-use-module (args env)
+  "Import all exported symbols from a module into the current environment.
+   (use-module module-name)"
+  (let* ((name-form (cl:first args))
+         (name (fol-eval name-form env)))
+    (fol.module:use-module name env)
+    nil))
+
+(defun eval-module (args env)
+  "Create a new module and add it to the environment chain.
+   (module) - creates an anonymous module (not registered)
+   (module name) - creates a named module and registers it
+   Returns the new module with the current environment as its parent."
+  (let* ((name-form (cl:first args))
+         (name (when name-form (fol-eval name-form env)))
+         (module (make-instance 'fol.module:<module>
+                                :name name
+                                :items (fset:empty-map)
+                                :previous env)))
+    ;; Register named modules
+    (when name
+      (fol.module:register-module name module))
+    module))
 
 (defun eval-unquote-error (args env)
   "Signal error for unquote outside syntax-quote."

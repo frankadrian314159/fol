@@ -12,7 +12,7 @@
 
 (defun repl (&optional (readtable fol.reader::*clojure-readtable*)
                        (stream *standard-input*)
-                       (env (fol.eval:make-standard-env))
+                       (env (fol.eval:make-standard-module))
                        (eval-fn 'fol.eval:fol-eval)
                        (print-fn #'cl:print))
   "Read-Eval-Print Loop for FOL."
@@ -43,5 +43,5 @@
   "Evaluate FORM-STRING in the given ENV and return the result.
    FORM-STRING is parsed using the FOL reader."
   (let ((form (fol-form form-string))
-        (active-env (or env (fol.eval:make-standard-env))))
+        (active-env (or env (fol.eval:make-standard-module))))
     (fol.eval:fol-eval form active-env)))

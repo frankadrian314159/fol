@@ -310,7 +310,7 @@
   (:export <module> <module>? make-module
            module-name module-exports module-export module-import
            find-module register-module +module-registry+
-           ensure-standard-modules))
+           ensure-standard-modules use-module))
 
 (defpackage fol.env
   (:use cl fol.persistent fol.collection)
@@ -329,7 +329,7 @@
                           reverse
                           vector
                           assoc)
-  (:export <env> <env>? make-env lookup env-previous unbound-variable fol-unbound-variable fol-unbound-variable-name fol-unbound-variable-message))
+  (:export <env> <env>? make-env lookup env-previous unbound-variable fol-unbound-variable fol-unbound-variable-name fol-unbound-variable-message normalize-env-key))
 
 (defpackage fol.logop
   (:use cl fol.wrappers fol.classes)
@@ -521,8 +521,9 @@
    <dynamic-var> <dynamic-var>? make-dynamic-var
    dynamic-var-name dynamic-var-value dynamic-var-root-value
    dynamic-var-push dynamic-var-pop
-   ;; Standard environment
-   make-standard-env
+   ;; Standard modules
+   make-standard-module
+   make-zip-module
    ;; Function class and predicate
    <function> <function>?
    ;; Macro class, predicate, and accessors
@@ -552,7 +553,7 @@
   (:use cl)
   (:shadow * ** *** + ++ +++ / // ///)
   (:import-from fol.reader fol-read-from-string *clojure-readtable*)
-  (:import-from fol.eval make-standard-env)
+  (:import-from fol.eval make-standard-module make-zip-module)
   (:export repl
            * ** ***
            + ++ +++

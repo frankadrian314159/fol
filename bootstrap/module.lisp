@@ -21,10 +21,15 @@
    (exports :initarg :exports
             :initform (fset:empty-set)
             :accessor module-exports
-            :documentation "Set of exported symbols."))
+            :documentation "Set of exported symbols.")
+   (imports :initarg :imports
+            :initform (fset:empty-map)
+            :accessor module-imports
+            :documentation "Dict of imported symbols from other modules."))
   (:metaclass fol.persistent:persistent-class)
   (:documentation "A module represents a namespace mapping symbols to values.
-                   It inherits from <env> to serve as an evaluation context."))
+                   It inherits from <env> to serve as an evaluation context.
+                   Lookup checks imports first, then local bindings, then the env chain."))
 
 (defun make-module (name &rest pairs)
   "Create a new <module> optionally populated with initial bindings.
@@ -33,7 +38,7 @@
   (let ((map (fset:empty-map)))
     (loop for (key val) on pairs by #'cddr
           do (setf map (fset:with map
-                                  (fol.wrappers:fol-value key)
+                                  (fol.env:normalize-env-key key)
                                   (fol.wrappers:fol-value val))))
     (let ((m (make-instance '<module>
                             :name name
@@ -72,6 +77,63 @@
 ;;; Printer
 (defmethod print-object ((obj <module>) stream)
   (format stream "#<MODULE ~A>" (module-name obj)))
+
+;;; Module-specific lookup: imports -> local items -> env chain
+(defmethod fol.env:lookup ((mod <module>) variable-name)
+  "Look up a variable in a module. Search order:
+   1. Module's imports dict
+   2. Module's local items (own bindings)
+   3. Environment chain (previous)"
+  (let ((key (fol.env:normalize-env-key variable-name))
+        (imports (fol.persistent:pslot-value mod 'imports))
+        (items (fol.persistent:pslot-value mod 'fol.collection::items)))
+    ;; Check imports first
+    (multiple-value-bind (value found) (fset:lookup imports key)
+      (when (and found (not (eq value fol.symbol:+symbol-unbound-sentinel+)))
+        (return-from fol.env:lookup value)))
+    ;; Check local items
+    (multiple-value-bind (value found) (fset:lookup items key)
+      (cond
+        ((and found (not (eq value fol.symbol:+symbol-unbound-sentinel+)))
+         value)
+        (t
+         ;; Check environment chain
+         (let ((previous (fol.env:env-previous mod)))
+           (if previous
+               (fol.env:lookup previous variable-name)
+               (error 'fol.env:fol-unbound-variable
+                      :name variable-name
+                      :message (format nil "Unbound variable: ~S" variable-name)))))))))
+
+(defun find-module-in-chain (env)
+  "Trace up the environment chain to find the first <module>.
+   Returns the module or nil if none found."
+  (loop for e = env then (fol.env:env-previous e)
+        while e
+        when (<module>? e) return e))
+
+(defun use-module (name target-env)
+  "Import all exported symbols and their values from module NAME into the
+   nearest enclosing module in the environment chain. Symbols are added to
+   the module's imports dict, not the current environment's bindings.
+   NAME can be a string or symbol naming the module."
+  (let ((source-module (find-module name)))
+    (unless source-module
+      (error "Module ~A not found" name))
+    (let ((target-module (find-module-in-chain target-env)))
+      (unless target-module
+        (error "No module found in environment chain"))
+      (let ((exports (fol.persistent:pslot-value source-module 'exports))
+            (src-items (fol.persistent:pslot-value source-module 'fol.collection::items))
+            (current-imports (fol.persistent:pslot-value target-module 'imports)))
+        ;; Add exported bindings to the target module's imports dict
+        (fset:do-set (sym exports)
+          (let* ((key (fol.env:normalize-env-key sym))
+                 (val (fset:lookup src-items key)))
+            (when val
+              (setf current-imports (fset:with current-imports key val)))))
+        (fol.persistent:set-pslot-value target-module 'imports current-imports)))
+    target-env))
 
 ;;; ============================================================================
 ;;; Standard Modules

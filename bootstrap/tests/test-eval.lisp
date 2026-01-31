@@ -171,24 +171,24 @@
 
 (test eval-bind-multiple-bindings
   "Test bind with multiple bindings."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (cl:= 30 (fol-eval '(bind (x 10 y 20) (+ x y)) env)))))
 
 (test eval-bind-with-vector-bindings
   "Test bind with vector-style bindings."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Create a vector binding form
     (let ((vec-bindings (make-vector 'x 10 'y 20)))
       (is (cl:= 30 (fol-eval `(bind ,vec-bindings (+ x y)) env))))))
 
 (test eval-bind-body-sequence
   "Test that bind body is a sequence."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (cl:= 20 (fol-eval '(bind (x 10) x (+ x x)) env)))))
 
 (test eval-bind-sequential
   "Test that bind binds sequentially (each binding visible to next)."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; y should see x=10
     (is (cl:= 20 (fol-eval '(bind (x 10 y x) (+ x y)) env)))))
 
@@ -201,7 +201,7 @@
 
 (test eval-bind-accumulating
   "Test bind with accumulating bindings."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (cl:= 6 (fol-eval '(bind (a 1 b (+ a 1) c (+ a b)) (+ a b c)) env)))))
 
 ;;; ---------------------------------------------------------------------------
@@ -210,17 +210,17 @@
 
 (test eval-bind-destructure-vector-simple
   "Test sequential destructuring with vector pattern."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (cl:= 3 (fol-eval (fol-form "(bind [[a b] [1 2]] (+ a b))") env)))))
 
 (test eval-bind-destructure-vector-nested
   "Test nested sequential destructuring."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (cl:= 6 (fol-eval (fol-form "(bind [[a [b c]] [1 [2 3]]] (+ a b c))") env)))))
 
 (test eval-bind-destructure-vector-rest
   "Test sequential destructuring with rest binding."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; rest should be a list containing (3 4 5)
     (is (cl:= 3 (fol-eval (fol-form "(bind [[a b & rest] [1 2 3 4 5]] (size rest))") env)))
     (is (cl:= 1 (fol-eval (fol-form "(bind [[a b & rest] [1 2 3 4 5]] a)") env)))
@@ -228,29 +228,29 @@
 
 (test eval-bind-destructure-vector-as
   "Test sequential destructuring with :as whole binding."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (cl:= 5 (fol-eval (fol-form "(bind [[a b :as all] [1 2 3 4 5]] (size all))") env)))
     (is (cl:= 1 (fol-eval (fol-form "(bind [[a b :as all] [1 2 3 4 5]] a)") env)))))
 
 (test eval-bind-destructure-map-keys
   "Test associative destructuring with :keys."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (cl:= 3 (fol-eval (fol-form "(bind [{:keys [a b]} {:a 1 :b 2}] (+ a b))") env)))))
 
 (test eval-bind-destructure-map-explicit
   "Test associative destructuring with explicit key mapping."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (cl:= 3 (fol-eval (fol-form "(bind [{x :a y :b} {:a 1 :b 2}] (+ x y))") env)))))
 
 (test eval-bind-destructure-map-as
   "Test associative destructuring with :as whole binding."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (cl:= 2 (fol-eval (fol-form "(bind [{:keys [a] :as m} {:a 1 :b 2}] (size m))") env)))
     (is (cl:= 1 (fol-eval (fol-form "(bind [{:keys [a] :as m} {:a 1 :b 2}] a)") env)))))
 
 (test eval-bind-destructure-map-or-defaults
   "Test associative destructuring with :or defaults."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Missing key uses default from :or
     (is (cl:= 20 (fol-eval (fol-form "(bind [{:keys [a b] :or {:a 10 :b 20}} {:a 1}] b)") env)))
     ;; Present key overrides default
@@ -262,43 +262,43 @@
 
 (test eval-bind-destructure-map-or-with-explicit
   "Test :or defaults with explicit key mapping."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Explicit mapping {x :a} with default
     (is (cl:= 99 (fol-eval (fol-form "(bind [{x :a :or {:x 99}} {}] x)") env)))
     (is (cl:= 5 (fol-eval (fol-form "(bind [{x :a :or {:x 99}} {:a 5}] x)") env)))))
 
 (test eval-bind-destructure-with-list
   "Test destructuring with FOL list values."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (cl:= 3 (fol-eval (fol-form "(bind [[a b] (list 1 2)] (+ a b))") env)))))
 
 (test eval-bind-destructure-mixed
   "Test multiple bindings with some destructured."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (cl:= 10 (fol-eval (fol-form "(bind [x 1 [a b] [2 3] y 4] (+ x a b y))") env)))))
 
 (test eval-bind-destructure-multiple-values
   "Test destructuring with CL multiple values."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; floor returns quotient and remainder as multiple values
     ;; floor(17, 3) = 5 remainder 2, so q=5, r=2, sum=7
     (is (cl:= 7 (fol-eval (fol-form "(bind [[q r] (floor 17 3)] (+ q r))") env)))))
 
 (test eval-bind-destructure-multiple-values-truncate
   "Test that extra multiple values are ignored."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Only bind first two values, ignore the rest
     (is (cl:= 5 (fol-eval (fol-form "(bind [[a b] (floor 17 3)] a)") env)))))
 
 (test eval-bind-destructure-multiple-values-with-rest
   "Test destructuring multiple values with rest binding."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Capture all values with rest
     (is (cl:= 2 (fol-eval (fol-form "(bind [[q & rest] (floor 17 3)] (first rest))") env)))))
 
 (test eval-bind-underscore-discard
   "Test that _ discards values without binding."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Discard middle element
     (is (cl:= 4 (fol-eval (fol-form "(bind [[a _ c] [1 2 3]] (+ a c))") env)))
     ;; Discard first element
@@ -310,7 +310,7 @@
 
 (test eval-bind-underscore-with-rest
   "Test _ with rest binding."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Discard first, capture rest
     (is (cl:= 3 (fol-eval (fol-form "(bind [[_ & rest] [1 2 3 4]] (size rest))") env)))
     ;; Capture first, discard rest
@@ -318,13 +318,13 @@
 
 (test eval-bind-underscore-nested
   "Test _ in nested destructuring."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Discard in nested pattern
     (is (cl:= 4 (fol-eval (fol-form "(bind [[a [_ c]] [1 [2 3]]] (+ a c))") env)))))
 
 (test eval-bind-underscore-simple
   "Test _ as simple binding (discards entire value)."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Use _ to discard, then use other binding
     (is (cl:= 10 (fol-eval (fol-form "(bind [_ 5 x 10] x)") env)))))
 
@@ -334,7 +334,7 @@
 
 (test eval-bind-typed-simple
   "Test simple typed binding (x <integer>)."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Integer conforms to <integer>
     (is (cl:= 42 (fol-eval (fol-form "(bind [(x <integer>) 42] x)") env)))
     ;; String conforms to <string>
@@ -342,7 +342,7 @@
 
 (test eval-bind-typed-subtype
   "Test typed binding with subtype relationships."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Fixnum is a subtype of <integer>
     (is (cl:= 42 (fol-eval (fol-form "(bind [(x <integer>) 42] x)") env)))
     ;; Fixnum is a subtype of <number>
@@ -352,7 +352,7 @@
 
 (test eval-bind-typed-type-error
   "Test that typed binding signals error on type mismatch."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; String doesn't conform to <integer>
     (signals fol-type-error
       (fol-eval (fol-form "(bind [(x <integer>) \"hello\"] x)") env))
@@ -362,20 +362,20 @@
 
 (test eval-bind-typed-in-sequential
   "Test typed binding inside sequential destructuring."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Type annotations inside vector pattern
     (is (cl:= 3 (fol-eval (fol-form "(bind [[(a <integer>) (b <integer>)] (list 1 2)] (+ a b))") env)))))
 
 (test eval-bind-typed-in-sequential-error
   "Test type error inside sequential destructuring."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Second element is string, not integer
     (signals fol-type-error
       (fol-eval (fol-form "(bind [[(a <integer>) (b <integer>)] (list 1 \"two\")] (+ a b))") env))))
 
 (test eval-bind-typed-mixed
   "Test mixing typed and untyped bindings."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Mix typed and untyped
     (is (cl:= 6 (fol-eval (fol-form "(bind [x 1 (y <integer>) 2 z 3] (+ x y z))") env)))))
 
@@ -391,13 +391,13 @@
 
 (test eval-fn-application
   "Test applying fn-created functions."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (cl:= 42 (fol-eval '((fn (x) x) 42) env)))
     (is (cl:= 30 (fol-eval '((fn (x y) (+ x y)) 10 20) env)))))
 
 (test eval-lambda-synonym
   "Test that λ works as a synonym for fn."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; λ should create functions just like fn
     (is-true (<function>? (fol-eval '(λ (x) x) env)))
     (is (cl:= 42 (fol-eval '((λ (x) x) 42) env)))
@@ -408,19 +408,19 @@
 
 (test eval-fn-closure
   "Test that fn captures its environment."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((env2 (make-env env 'y 10)))
       (is (cl:= 15 (fol-eval '((fn (x) (+ x y)) 5) env2))))))
 
 (test eval-fn-nested
   "Test nested fn applications."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Curried add: (fn (x) (fn (y) (+ x y)))
     (is (cl:= 30 (fol-eval '(((fn (x) (fn (y) (+ x y))) 10) 20) env)))))
 
 (test eval-fn-with-name
   "Test named fn for recursion."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Named fn can call itself
     (is (cl:= 120 (fol-eval '((fn fact (n)
                                (if (<= n 1)
@@ -437,7 +437,7 @@
 
 (test eval-fn-arity-error
   "Test that fn checks arity."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (signals fol-arity-error
       (fol-eval '((fn (x y) (+ x y)) 1) env))))
 
@@ -452,7 +452,7 @@
 
 (test eval-apply-arithmetic
   "Test arithmetic operations."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (cl:= 10 (fol-eval '(+ 1 2 3 4) env)))
     (is (cl:= 2 (fol-eval '(- 10 5 3) env)))
     (is (cl:= 24 (fol-eval '(* 2 3 4) env)))
@@ -460,7 +460,7 @@
 
 (test eval-apply-comparison
   "Test comparison operations."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (eq t (fol-eval '(< 1 2 3) env)))
     (is (eq nil (fol-eval '(< 1 3 2) env)))
     (is (eq t (fol-eval '(= 1 1 1) env)))
@@ -468,7 +468,7 @@
 
 (test eval-apply-logical
   "Test logical operations."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (eq t (fol-eval '(and t t t) env)))
     (is (eq nil (fol-eval '(and t nil t) env)))
     (is (eq t (fol-eval '(or nil nil t) env)))
@@ -476,7 +476,7 @@
 
 (test eval-min-max
   "Test min and max functions."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; min - basic usage
     (is (cl:= 1 (fol-eval '(min 1 2 3) env)))
     (is (cl:= -5 (fol-eval '(min 3 -5 2) env)))
@@ -500,7 +500,7 @@
 
 (test eval-type-predicates-bool
   "Test boolean type predicate."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (eq t (fol-eval '(<bool>? t) env)))
     (is (eq t (fol-eval '(<bool>? nil) env)))
     (is (eq nil (fol-eval '(<bool>? 42) env)))
@@ -510,7 +510,7 @@
 
 (test eval-type-predicates-char
   "Test character type predicate."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (eq t (fol-eval '(<char>? #\a) env)))
     (is (eq t (fol-eval '(<char>? #\Space) env)))
     (is (eq t (fol-eval '(<char>? #\Newline) env)))
@@ -520,7 +520,7 @@
 
 (test eval-type-predicates-string
   "Test string type predicate."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (eq t (fol-eval '(<string>? "hello") env)))
     (is (eq t (fol-eval '(<string>? "") env)))
     (is (eq t (fol-eval '(<string>? "with spaces") env)))
@@ -531,7 +531,7 @@
 
 (test eval-type-predicates-symbol
   "Test symbol type predicate."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (eq t (fol-eval '(<symbol>? 'foo) env)))
     (is (eq t (fol-eval '(<symbol>? 'bar-baz) env)))
     ;; Keywords are also symbols
@@ -542,7 +542,7 @@
 
 (test eval-type-predicates-keyword
   "Test keyword type predicate."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (eq t (fol-eval '(<keyword>? :foo) env)))
     (is (eq t (fol-eval '(<keyword>? :bar-baz) env)))
     (is (eq nil (fol-eval '(<keyword>? 'foo) env)))
@@ -551,7 +551,7 @@
 
 (test eval-type-predicates-number
   "Test number type predicate."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; All numeric types should return true
     (is (eq t (fol-eval '(<number>? 42) env)))
     (is (eq t (fol-eval '(<number>? -17) env)))
@@ -565,7 +565,7 @@
 
 (test eval-type-predicates-integer
   "Test integer type predicates."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; <integer>?
     (is (eq t (fol-eval '(<integer>? 42) env)))
     (is (eq t (fol-eval '(<integer>? -17) env)))
@@ -582,7 +582,7 @@
 
 (test eval-type-predicates-float
   "Test float type predicates."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; <float>?
     (is (eq t (fol-eval '(<float>? 3.14) env)))
     (is (eq t (fol-eval '(<float>? 1.0) env)))
@@ -599,7 +599,7 @@
 
 (test eval-type-predicates-rational
   "Test rational type predicates."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; <ratio>?
     (is (eq t (fol-eval '(<ratio>? 1/2) env)))
     (is (eq t (fol-eval '(<ratio>? 3/4) env)))
@@ -614,7 +614,7 @@
 
 (test eval-type-predicates-complex
   "Test complex type predicate."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (eq t (fol-eval '(<complex>? #C(1 2)) env)))
     (is (eq t (fol-eval '(<complex>? #C(3.0 4.0)) env)))
     (is (eq nil (fol-eval '(<complex>? 42) env)))
@@ -623,7 +623,7 @@
 
 (test eval-type-predicates-collection
   "Test collection type predicates."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Create test collections
     (let ((vec (make-vector 1 2 3))
           (lst (make-list 1 2 3))
@@ -641,7 +641,7 @@
 
 (test eval-type-predicates-ordered-collection
   "Test ordered collection type predicates."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((vec (make-vector 1 2 3))
           (lst (make-list 1 2 3))
           (dict (make-dict :a 1)))
@@ -660,7 +660,7 @@
 
 (test eval-type-predicates-unordered-collection
   "Test unordered collection type predicates."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((dict (make-dict :a 1 :b 2))
           (st (make-set 1 2 3))
           (bg (make-bag 1 2 2 3))
@@ -685,7 +685,7 @@
 
 (test eval-type-predicates-array
   "Test array type predicate."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((arr (make-array '(2 3) :initial-element 0))
           (vec (make-vector 1 2 3)))
       (is (eq t (fol-eval `(<array>? ',arr) env)))
@@ -694,7 +694,7 @@
 
 (test eval-type-predicates-lazy-seq
   "Test lazy-seq type predicate."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((ls (fol-eval '(lazy-seq (list 1 2 3)) env))
           (vec (make-vector 1 2 3)))
       (is (eq t (fol-eval `(<lazy-seq>? ',ls) env)))
@@ -707,7 +707,7 @@
 
 (test eval-number-predicates-positive-negative
   "Test positive? and negative? predicates."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; positive?
     (is (eq t (fol-eval '(positive? 42) env)))
     (is (eq t (fol-eval '(positive? 0.001) env)))
@@ -725,7 +725,7 @@
 
 (test eval-number-predicates-zero
   "Test zero? predicate."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (eq t (fol-eval '(zero? 0) env)))
     (is (eq t (fol-eval '(zero? 0.0) env)))
     (is (eq t (fol-eval '(zero? 0/1) env)))
@@ -735,7 +735,7 @@
 
 (test eval-number-predicates-even-odd
   "Test even? and odd? predicates."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; even?
     (is (eq t (fol-eval '(even? 0) env)))
     (is (eq t (fol-eval '(even? 2) env)))
@@ -757,7 +757,7 @@
 
 (test eval-str-concatenation
   "Test str function for string concatenation."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Basic string concatenation
     (is (string= "hello" (fol-eval '(str "hello") env)))
     (is (string= "helloworld" (fol-eval '(str "hello" "world") env)))
@@ -784,7 +784,7 @@
 
 (test eval-identity-function
   "Test identity function returns its argument unchanged."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (cl:= 42 (fol-eval '(identity 42) env)))
     (is (string= "hello" (fol-eval '(identity "hello") env)))
     (is (eq :foo (fol-eval '(identity :foo) env)))
@@ -796,7 +796,7 @@
 
 (test eval-complement-function
   "Test complement returns a function that negates the predicate."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Complement of even? is odd-like
     (is (eq nil (fol-eval '((complement even?) 2) env)))
     (is (eq t (fol-eval '((complement even?) 3) env)))
@@ -810,7 +810,7 @@
 
 (test eval-make-constructor
   "Test make generic constructor with quoted class symbols."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Make vector - use quoted class name since <vector> isn't bound as variable
     (let ((result (fol-eval '(make '<vector> 1 2 3) env)))
       (is (<vector>? result))
@@ -839,7 +839,7 @@
 
 (test eval-second-third-functions
   "Test second and third accessor functions."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; On FOL lists
     (let ((lst (make-list :a :b :c :d)))
       (is (eq :b (fol-eval `(second ',lst) env)))
@@ -853,7 +853,7 @@
 
 (test eval-nth-function
   "Test nth accessor function (nth collection index)."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; On vectors (0-indexed) - note: (nth collection index)
     (let ((vec (make-vector :a :b :c :d :e)))
       (is (eq :a (fol-eval `(nth ',vec 0) env)))
@@ -873,7 +873,7 @@
 
 (test eval-size-function
   "Test size function returns collection size."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Vectors
     (let ((vec (make-vector 1 2 3 4 5)))
       (is (cl:= 5 (fol-eval `(size ',vec) env))))
@@ -896,7 +896,7 @@
 
 (test eval-get-function
   "Test get function for collection access."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Dict access by key
     (let ((dict (make-dict :name "Alice" :age 30)))
       (is (string= "Alice" (fol-eval `(get ',dict :name) env)))
@@ -914,7 +914,7 @@
 
 (test eval-contains-function
   "Test contains? function for membership testing."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Set membership
     (let ((st (make-set :a :b :c)))
       (is (eq t (fol-eval `(contains? ',st :a) env)))
@@ -931,7 +931,7 @@
 
 (test eval-seq-function
   "Test seq function converts collections to sequences."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Vector to seq
     (let* ((vec (make-vector 1 2 3))
            (s (fol-eval `(seq ',vec) env)))
@@ -951,7 +951,7 @@
 
 (test eval-add-function
   "Test add function adds elements to collections."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Add to set
     (let* ((st (make-set 1 2))
            (result (fol-eval `(add ',st 3) env)))
@@ -970,7 +970,7 @@
 
 (test eval-type-function
   "Test type function returns the FOL type of values."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Numeric types
     (is (eq '<fixnum> (fol-eval '(type 42) env)))
     (is (eq '<ratio> (fol-eval '(type 1/2) env)))
@@ -1000,7 +1000,7 @@
 
 (test eval-type-function-user-defined-class
   "Test type function returns class name for user-defined classes."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Define a class using FOL's defclass with proper initargs
     (fol-eval `(defclass <test-person> ,(make-vector)
                  ,(make-vector (make-vector 'name :initarg :name)
@@ -1058,21 +1058,21 @@
 
 (test eval-set-constructor
   "Test set constructor function."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval '(set 1 2 3 2 1) env)))
       (is-true (<set>? result))
       (is (cl:= 3 (size result))))))
 
 (test eval-hash-set-constructor
   "Test hash-set constructor function."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval '(hash-set :a :b :c) env)))
       (is-true (<set>? result))
       (is (cl:= 3 (size result))))))
 
 (test eval-sorted-set-constructor
   "Test sorted-set constructor function."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval '(sorted-set 3 1 4 1 5 9 2) env)))
       (is-true (<sorted-set>? result))
       (is (cl:= 6 (size result)))
@@ -1081,7 +1081,7 @@
 
 (test eval-ordered-set-constructor
   "Test ordered-set constructor function."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval '(ordered-set 3 1 4 5 9) env)))
       (is-true (<ordered-set>? result))
       (is (cl:= 5 (size result)))
@@ -1090,7 +1090,7 @@
 
 (test eval-int-set-constructor
   "Test int-set constructor function."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval '(int-set 5 3 8 1) env)))
       (is-true (<int-set>? result))
       (is (cl:= 4 (size result)))
@@ -1099,7 +1099,7 @@
 
 (test eval-dense-int-set-constructor
   "Test dense-int-set constructor function."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval '(dense-int-set 0 10 1 3 5 7 9) env)))
       (is-true (<dense-int-set>? result))
       (is (cl:= 5 (size result)))
@@ -1117,7 +1117,7 @@
 
 (test eval-loop-with-recur
   "Test loop with recur for iteration."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Sum from 1 to 5: loop with accumulator
     (is (cl:= 15 (fol-eval '(loop (n 5 acc 0)
                             (if (<= n 0)
@@ -1127,7 +1127,7 @@
 
 (test eval-loop-factorial
   "Test loop/recur for factorial."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (cl:= 120 (fol-eval '(loop (n 5 result 1)
                              (if (<= n 1)
                                  result
@@ -1178,7 +1178,7 @@
 
 (test eval-defn-creates-function
   "Test that defn creates and returns a function."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval '(defn add (x y) (+ x y)) env)))
       (is-true (<function>? result)))))
 
@@ -1200,7 +1200,7 @@
 
 (test eval-nested-bind
   "Test nested bind expressions."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (cl:= 60 (fol-eval '(bind (x 10)
                              (bind (y 20)
                                (bind (z 30)
@@ -1209,7 +1209,7 @@
 
 (test eval-fibonacci
   "Test evaluating fibonacci using recursion."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Using named fn for recursion
     (is (cl:= 55 (fol-eval '((fn fib (n)
                               (if (<= n 1)
@@ -1220,7 +1220,7 @@
 
 (test eval-higher-order
   "Test higher-order function usage."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; twice: applies a function twice
     (is (cl:= 40 (fol-eval '(bind (twice (fn (f x) (f (f x)))
                                   inc (fn (n) (+ n 10)))
@@ -1229,7 +1229,7 @@
 
 (test eval-compose
   "Test function composition."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; compose: (compose f g) = (fn (x) (f (g x)))
     (is (cl:= 22 (fol-eval '(bind (compose (fn (f g) (fn (x) (f (g x))))
                                   double (fn (x) (* x 2))
@@ -1253,7 +1253,7 @@
 
 (test eval-deeply-nested
   "Test deeply nested expressions."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (cl:= 10 (fol-eval '(+ (+ (+ (+ 1 2) 3) 4) 0) env)))))
 
 ;;; ---------------------------------------------------------------------------
@@ -1262,22 +1262,22 @@
 
 (test cond-basic
   "Test basic cond with matching first clause."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (eq :first (fol-eval '(cond t :first nil :second) env)))))
 
 (test cond-second-clause
   "Test cond matches second clause when first is false."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (eq :second (fol-eval '(cond nil :first t :second) env)))))
 
 (test cond-no-match
   "Test cond returns nil when no clause matches."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (eq nil (fol-eval '(cond nil :first nil :second) env)))))
 
 (test cond-with-expressions
   "Test cond with computed tests and forms."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Test matching based on computed value
     ;; Use fol-form to parse through FOL reader which handles [...] syntax
     (is (eq :positive (fol-eval (fol-form "(bind [x 5]
@@ -1301,7 +1301,7 @@
 
 (test cond-default-with-t
   "Test cond with t as default case."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (eq :default (fol-eval '(cond
                                   nil :first
                                   nil :second
@@ -1310,7 +1310,7 @@
 
 (test cond-evaluates-form
   "Test cond evaluates the form, not just returns it."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (cl:= 15 (fol-eval '(cond t (+ 5 10)) env)))))
 
 ;;; ---------------------------------------------------------------------------
@@ -1319,7 +1319,7 @@
 
 (test case-basic-match
   "Test case matches a single value."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (eq :one (fol-eval '(case 1
                               1 :one
                               2 :two
@@ -1328,7 +1328,7 @@
 
 (test case-vector-match
   "Test case matches from a vector of values."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Use backquote and make-vector since CL reader doesn't understand [...] syntax
     (is (eq :small (fol-eval `(case 2
                                 ,(make-vector 0 1 2) :small
@@ -1338,7 +1338,7 @@
 
 (test case-default-form
   "Test case with default form when no match."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (eq :unknown (fol-eval '(case 99
                                   1 :one
                                   2 :two
@@ -1347,7 +1347,7 @@
 
 (test case-evaluates-target
   "Test case evaluates the target expression."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (eq :three (fol-eval '(case (+ 1 2)
                                 1 :one
                                 2 :two
@@ -1356,7 +1356,7 @@
 
 (test case-evaluates-form
   "Test case evaluates the matching form."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (cl:= 100 (fol-eval '(case :x
                                :a 10
                                :x (* 10 10)
@@ -1365,7 +1365,7 @@
 
 (test case-string-keys
   "Test case with string keys."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (eq :art (fol-eval '(case "liberal arts"
                               "engineering" :eng
                               "business" :bus
@@ -1374,7 +1374,7 @@
 
 (test case-no-match-error
   "Test case signals error when no match and no default."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (signals fol-eval-error
       (fol-eval '(case 99
                    1 :one
@@ -1383,7 +1383,7 @@
 
 (test case-game-of-life-pattern
   "Test case like Game of Life neighbor counting."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Simulating the Game of Life rule
     ;; Use backquote and make-vector since CL reader doesn't understand [...] syntax
     (let ((low-vec (make-vector 0 1))
@@ -1419,7 +1419,7 @@
 
 (test disjoin-basic
   "Test disjoin returns a function that is the OR of predicates."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Disjoin of positive? and zero? should match 0 and positive numbers
     (let ((non-negative? (fol-eval '(disjoin positive? zero?) env)))
       (is-true (funcall non-negative? 5))
@@ -1428,7 +1428,7 @@
 
 (test disjoin-short-circuit
   "Test disjoin returns first truthy value and short-circuits."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; First truthy value is returned
     ;; Use fol-form to parse FOL syntax with [...] vectors
     (let ((f (fol-eval (fol-form "(disjoin (fn [x] nil) (fn [x] :second) (fn [x] :third))") env)))
@@ -1436,20 +1436,20 @@
 
 (test disjoin-all-false
   "Test disjoin returns nil when all predicates return false."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((never (fol-eval (fol-form "(disjoin (fn [x] nil) (fn [x] nil))") env)))
       (is (eq nil (funcall never 42))))))
 
 (test disjoin-single-predicate
   "Test disjoin with a single predicate."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((wrapped (fol-eval '(disjoin positive?) env)))
       (is-true (funcall wrapped 5))
       (is (eq nil (funcall wrapped -5))))))
 
 (test disjoin-multiple-args
   "Test disjoin returned function accepts multiple arguments."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((any-positive (fol-eval (fol-form "(disjoin (fn [a b] (positive? a))
                                                       (fn [a b] (positive? b)))") env)))
       (is-true (funcall any-positive 1 -1))
@@ -1458,7 +1458,7 @@
 
 (test conjoin-basic
   "Test conjoin returns a function that is the AND of predicates."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Conjoin of positive? and even? should match positive even numbers
     (let ((positive-even? (fol-eval '(conjoin positive? even?) env)))
       (is-true (funcall positive-even? 4))
@@ -1467,26 +1467,26 @@
 
 (test conjoin-short-circuit
   "Test conjoin returns nil on first false and short-circuits."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((f (fol-eval (fol-form "(conjoin (fn [x] nil) (fn [x] :never-reached))") env)))
       (is (eq nil (funcall f 1))))))
 
 (test conjoin-returns-last-value
   "Test conjoin returns the last predicate's value when all truthy."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((f (fol-eval (fol-form "(conjoin (fn [x] :first) (fn [x] :second) (fn [x] :last))") env)))
       (is (eq :last (funcall f 1))))))
 
 (test conjoin-single-predicate
   "Test conjoin with a single predicate."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((wrapped (fol-eval '(conjoin positive?) env)))
       (is-true (funcall wrapped 5))
       (is (eq nil (funcall wrapped -5))))))
 
 (test conjoin-multiple-args
   "Test conjoin returned function accepts multiple arguments."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((both-positive (fol-eval (fol-form "(conjoin (fn [a b] (positive? a))
                                                        (fn [a b] (positive? b)))") env)))
       (is-true (funcall both-positive 1 1))
@@ -1495,13 +1495,13 @@
 
 (test conjoin-empty
   "Test conjoin with no predicates returns a function that returns true."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((always (fol-eval '(conjoin) env)))
       (is-true (funcall always 42)))))
 
 (test disjoin-empty
   "Test disjoin with no predicates returns a function that returns nil."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((never (fol-eval '(disjoin) env)))
       (is (eq nil (funcall never 42))))))
 
@@ -1511,7 +1511,7 @@
 
 (test partial-basic
   "Test partial binds arguments left to right."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; (partial + 10) returns a function that adds 10 to its argument
     (let ((add10 (fol-eval '(partial + 10) env)))
       (is (cl:= 15 (funcall add10 5)))
@@ -1519,7 +1519,7 @@
 
 (test partial-multiple-bound-args
   "Test partial with multiple bound arguments."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; (partial + 1 2 3) returns a function that adds 1+2+3 to remaining args
     (let ((add6 (fol-eval '(partial + 1 2 3) env)))
       (is (cl:= 10 (funcall add6 4)))
@@ -1527,20 +1527,20 @@
 
 (test partial-with-fol-function
   "Test partial works with FOL functions."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((f (fol-eval (fol-form "(partial (fn [a b c] (+ a (* b c))) 10)") env)))
       ;; f is (fn [b c] (+ 10 (* b c)))
       (is (cl:= 16 (funcall f 2 3)))))) ; 10 + 2*3 = 16
 
 (test partial-no-bound-args
   "Test partial with no bound arguments acts like identity on function."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((same-plus (fol-eval '(partial +) env)))
       (is (cl:= 6 (funcall same-plus 1 2 3))))))
 
 (test rpartial-basic
   "Test rpartial binds arguments right to left."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; (rpartial - 3) returns a function that subtracts 3 from the end
     ;; (f 10) => (- 10 3) = 7
     (let ((sub3 (fol-eval '(rpartial - 3) env)))
@@ -1548,21 +1548,21 @@
 
 (test rpartial-multiple-bound-args
   "Test rpartial with multiple bound arguments."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; (rpartial - 2 3) returns fn where calling (f 10) => (- 10 2 3) = 5
     (let ((sub5 (fol-eval '(rpartial - 2 3) env)))
       (is (cl:= 5 (funcall sub5 10))))))
 
 (test rpartial-with-fol-function
   "Test rpartial works with FOL functions."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((f (fol-eval (fol-form "(rpartial (fn [a b c] (+ a (* b c))) 3)") env)))
       ;; f is (fn [a b] (+ a (* b 3)))
       (is (cl:= 16 (funcall f 10 2)))))) ; 10 + 2*3 = 16
 
 (test rpartial-vs-partial
   "Test that rpartial and partial produce different results for non-commutative ops."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; partial puts 10 first: (- 10 x)
     ;; rpartial puts 10 last: (- x 10)
     (let ((partial-sub (fol-eval '(partial - 10) env))
@@ -1572,7 +1572,7 @@
 
 (test juxt-basic
   "Test juxt applies multiple functions and returns multiple values."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((stats (fol-eval '(juxt + - *) env)))
       ;; (stats 3 4) => (values (+ 3 4) (- 3 4) (* 3 4)) = (values 7 -1 12)
       (multiple-value-bind (v1 v2 v3) (funcall stats 3 4)
@@ -1582,13 +1582,13 @@
 
 (test juxt-single-function
   "Test juxt with single function returns single value."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((wrapped (fol-eval '(juxt +) env)))
       (is (cl:= 6 (funcall wrapped 1 2 3))))))
 
 (test juxt-with-fol-functions
   "Test juxt works with FOL functions."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((pair (fol-eval (fol-form "(juxt (fn [x] (* x 2)) (fn [x] (+ x 1)))") env)))
       (multiple-value-bind (v1 v2) (funcall pair 5)
         (is (cl:= 10 v1))  ; (* 5 2)
@@ -1596,14 +1596,14 @@
 
 (test juxt-empty
   "Test juxt with no functions returns no values."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((empty-juxt (fol-eval '(juxt) env)))
       ;; (values-list nil) returns 0 values
       (is (cl:= 0 (cl:length (multiple-value-list (funcall empty-juxt 1 2 3))))))))
 
 (test juxt-practical-example
   "Test juxt with a practical use case."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Get both min and max in one pass
     (let ((min-max (fol-eval '(juxt min max) env)))
       (multiple-value-bind (min-val max-val) (funcall min-max 3 1 4 1 5 9 2 6)
@@ -1616,37 +1616,37 @@
 
 (test reduce-with-init-vector
   "Test reduce with initial value on a vector."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; (reduce + 0 [1 2 3 4]) => 10
     (is (cl:= 10 (fol-eval (fol-form "(reduce + 0 [1 2 3 4])") env)))))
 
 (test reduce-with-init-list
   "Test reduce with initial value on a FOL list."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Use conj to build a list, then reduce
     (is (cl:= 6 (fol-eval (fol-form "(reduce + 0 (list 1 2 3))") env)))))
 
 (test reduce-without-init
   "Test reduce without initial value uses first element."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; (reduce + [1 2 3 4]) => 10
     (is (cl:= 10 (fol-eval (fol-form "(reduce + [1 2 3 4])") env)))))
 
 (test reduce-single-element
   "Test reduce on single-element collection."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Single element, no reduction needed
     (is (cl:= 42 (fol-eval (fol-form "(reduce + [42])") env)))))
 
 (test reduce-with-fol-function
   "Test reduce with a FOL function."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Use a FOL fn to multiply and add
     (is (cl:= 10 (fol-eval (fol-form "(reduce (fn [acc x] (+ acc x)) 0 [1 2 3 4])") env)))))
 
 (test reduce-building-collection
   "Test reduce to build a new collection."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Reverse a list by conj-ing onto empty vector
     (let ((result (fol-eval (fol-form "(reduce (fn [acc x] (conj acc x)) [] [1 2 3])") env)))
       (is (<vector>? result))
@@ -1657,30 +1657,30 @@
 
 (test reduce-on-dict
   "Test reduce on a dict processes key-value pairs."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Sum all values from a dict (pairs come as (key . value))
     (is (cl:= 6 (fol-eval (fol-form "(reduce (fn [acc pair] (+ acc (rest pair))) 0 {:a 1 :b 2 :c 3})") env)))))
 
 (test reduce-on-set
   "Test reduce on a set."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Sum elements of a set
     (is (cl:= 6 (fol-eval (fol-form "(reduce + 0 #{1 2 3})") env)))))
 
 (test reduce-on-string
   "Test reduce on a string processes characters."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Count characters
     (is (cl:= 5 (fol-eval (fol-form "(reduce (fn [acc _] (+ acc 1)) 0 \"hello\")") env)))))
 
 (test reduce-empty-with-init
   "Test reduce on empty collection returns init."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (cl:= 42 (fol-eval (fol-form "(reduce + 42 [])") env)))))
 
 (test map-basic
   "Test map applies function to each element."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval (fol-form "(map (fn [x] (* x 2)) [1 2 3])") env)))
       (is (<lazy-seq>? result))
       (is (cl:= 3 (size result)))
@@ -1690,7 +1690,7 @@
 
 (test map-with-builtin
   "Test map with a built-in function."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Map abs over negative numbers
     (let ((result (fol-eval (fol-form "(map abs [-1 -2 -3])") env)))
       (is (cl:= 1 (first result)))
@@ -1699,14 +1699,14 @@
 
 (test map-empty
   "Test map on empty collection returns empty lazy-seq."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval (fol-form "(map identity [])") env)))
       (is (<lazy-seq>? result))
       (is (empty? result)))))
 
 (test map-on-list
   "Test map on a FOL list."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval (fol-form "(map (fn [x] (+ x 1)) (list 1 2 3))") env)))
       (is (cl:= 2 (first result)))
       (is (cl:= 3 (first (rest result))))
@@ -1714,7 +1714,7 @@
 
 (test map-on-string
   "Test map on a string."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Map over characters, returning a lazy-seq
     (let ((result (fol-eval (fol-form "(map identity \"abc\")") env)))
       (is (<lazy-seq>? result))
@@ -1723,7 +1723,7 @@
 
 (test filter-basic
   "Test filter keeps elements matching predicate."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval (fol-form "(filter odd? [1 2 3 4 5])") env)))
       (is (<lazy-seq>? result))
       (is (cl:= 3 (size result)))
@@ -1733,27 +1733,27 @@
 
 (test filter-none-match
   "Test filter when no elements match."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval (fol-form "(filter negative? [1 2 3])") env)))
       (is (<lazy-seq>? result))
       (is (empty? result)))))
 
 (test filter-all-match
   "Test filter when all elements match."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval (fol-form "(filter positive? [1 2 3])") env)))
       (is (cl:= 3 (size result))))))
 
 (test filter-empty
   "Test filter on empty collection."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval (fol-form "(filter identity [])") env)))
       (is (<lazy-seq>? result))
       (is (empty? result)))))
 
 (test filter-with-fol-function
   "Test filter with a FOL predicate function."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Filter numbers greater than 2
     (let ((result (fol-eval (fol-form "(filter (fn [x] (> x 2)) [1 2 3 4 5])") env)))
       (is (cl:= 3 (size result)))
@@ -1763,14 +1763,14 @@
 
 (test filter-on-dict
   "Test filter on dict filters key-value pairs."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Filter pairs where value is positive
     (let ((result (fol-eval (fol-form "(filter (fn [pair] (positive? (rest pair))) {:a 1 :b -2 :c 3})") env)))
       (is (cl:= 2 (size result))))))
 
 (test map-filter-composition
   "Test composing map and filter."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Double the odd numbers
     (let ((result (fol-eval (fol-form "(map (fn [x] (* x 2)) (filter odd? [1 2 3 4 5]))") env)))
       (is (cl:= 3 (size result)))
@@ -1784,7 +1784,7 @@
 
 (test remove-basic
   "Test remove returns elements where predicate is false."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Remove odd numbers (keep evens)
     (let ((result (fol-eval (fol-form "(remove odd? [1 2 3 4 5 6])") env)))
       (is-true (<lazy-seq>? result))
@@ -1794,7 +1794,7 @@
 
 (test remove-none-match
   "Test remove when predicate matches nothing."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval (fol-form "(remove negative? [1 2 3])") env)))
       (is (cl:= 1 (first result)))
       (is (cl:= 2 (first (rest result))))
@@ -1802,13 +1802,13 @@
 
 (test remove-all-match
   "Test remove when predicate matches everything."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval (fol-form "(remove positive? [1 2 3])") env)))
       (is (empty? result)))))
 
 (test remove-with-fol-function
   "Test remove with user-defined function."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (fol-eval (fol-form "(defn small? [x] (< x 3))") env)
     (let ((result (fol-eval (fol-form "(remove small? [1 2 3 4 5])") env)))
       (is (cl:= 3 (first result)))
@@ -1821,7 +1821,7 @@
 
 (test keep-basic
   "Test keep returns non-nil results of applying f."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Keep function that returns nil for evens, value for odds
     (fol-eval (fol-form "(defn odd-or-nil [x] (if (odd? x) x nil))") env)
     (let ((result (fol-eval (fol-form "(keep odd-or-nil [1 2 3 4 5])") env)))
@@ -1832,14 +1832,14 @@
 
 (test keep-all-nil
   "Test keep when f returns nil for all elements."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (fol-eval (fol-form "(defn always-nil [x] nil)") env)
     (let ((result (fol-eval (fol-form "(keep always-nil [1 2 3])") env)))
       (is (empty? result)))))
 
 (test keep-transform-and-filter
   "Test keep transforms and filters in one pass."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Return doubled value for positive, nil for others
     (fol-eval (fol-form "(defn double-if-positive [x] (if (positive? x) (* x 2) nil))") env)
     (let ((result (fol-eval (fol-form "(keep double-if-positive [-1 0 1 2 3])") env)))
@@ -1853,7 +1853,7 @@
 
 (test mapcat-basic
   "Test mapcat applies f and concatenates results."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Duplicate each element
     (fol-eval (fol-form "(defn duplicate [x] (list x x))") env)
     (let ((result (fol-eval (fol-form "(mapcat duplicate [1 2 3])") env)))
@@ -1864,7 +1864,7 @@
 
 (test mapcat-expand-range
   "Test mapcat expands ranges."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; For each n, produce [0..n-1]
     (fol-eval (fol-form "(defn expand [n] (range n))") env)
     (let ((result (fol-eval (fol-form "(mapcat expand [1 2 3])") env)))
@@ -1876,7 +1876,7 @@
 
 (test mapcat-empty-results
   "Test mapcat with some empty results."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Return list only for odds, empty for evens
     (fol-eval (fol-form "(defn odd-list [x] (if (odd? x) (list x) (list)))") env)
     (let ((result (fol-eval (fol-form "(mapcat odd-list [1 2 3 4 5])") env)))
@@ -1890,7 +1890,7 @@
 
 (test interleave-two-seqs
   "Test interleave alternates between two sequences."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval (fol-form "(interleave [1 2 3] [:a :b :c])") env)))
       (is-true (<lazy-seq>? result))
       (is (cl:= 1 (first result)))
@@ -1900,7 +1900,7 @@
 
 (test interleave-three-seqs
   "Test interleave with three sequences."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval (fol-form "(interleave [1 2] [:a :b] [100 200])") env)))
       ;; 1, :a, 100, 2, :b, 200
       (is (cl:= 1 (first result)))
@@ -1910,7 +1910,7 @@
 
 (test interleave-unequal-length
   "Test interleave stops at shortest sequence."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval (fol-form "(interleave [1 2 3 4 5] [:a :b])") env)))
       ;; Should stop when [:a :b] is exhausted: 1, :a, 2, :b
       (is (cl:= 1 (first result)))
@@ -1920,7 +1920,7 @@
 
 (test interleave-empty
   "Test interleave with empty sequence."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval (fol-form "(interleave [] [1 2 3])") env)))
       (is (empty? result)))))
 
@@ -1930,7 +1930,7 @@
 
 (test interpose-basic
   "Test interpose inserts separator between elements."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval (fol-form "(interpose :sep [1 2 3])") env)))
       (is-true (<lazy-seq>? result))
       (is (cl:= 1 (first result)))
@@ -1941,7 +1941,7 @@
 
 (test interpose-single-element
   "Test interpose with single element (no separator needed)."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval (fol-form "(interpose :sep [42])") env)))
       (is (cl:= 42 (first result)))
       ;; Rest should be empty
@@ -1949,13 +1949,13 @@
 
 (test interpose-empty
   "Test interpose with empty sequence."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval (fol-form "(interpose :sep [])") env)))
       (is (empty? result)))))
 
 (test interpose-string-join
   "Test using interpose to join with reduce."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Join strings with separator
     (let ((result (fol-eval (fol-form "(reduce str \"\" (interpose \"-\" [\"a\" \"b\" \"c\"]))") env)))
       (is (string= "a-b-c" result)))))
@@ -1966,7 +1966,7 @@
 
 (test range-single-arg
   "Test (range end) returns lazy sequence 0 to end-1."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; (range 5) => 0, 1, 2, 3, 4
     (let ((result (fol-eval (fol-form "(range 5)") env)))
       (is-true (<lazy-seq>? result))
@@ -1978,7 +1978,7 @@
 
 (test range-two-args
   "Test (range start end) returns lazy sequence start to end-1."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; (range 2 5) => 2, 3, 4
     (let ((result (fol-eval (fol-form "(range 2 5)") env)))
       (is-true (<lazy-seq>? result))
@@ -1988,7 +1988,7 @@
 
 (test range-three-args-positive-step
   "Test (range start end step) with positive step."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; (range 0 10 2) => 0, 2, 4, 6, 8
     (let ((result (fol-eval (fol-form "(range 0 10 2)") env)))
       (is-true (<lazy-seq>? result))
@@ -2000,7 +2000,7 @@
 
 (test range-three-args-negative-step
   "Test (range start end step) with negative step."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; (range 5 0 -1) => 5, 4, 3, 2, 1
     (let ((result (fol-eval (fol-form "(range 5 0 -1)") env)))
       (is-true (<lazy-seq>? result))
@@ -2012,7 +2012,7 @@
 
 (test range-empty-cases
   "Test range returns empty sequence for invalid ranges."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; (range 0) => empty
     (let ((result (fol-eval (fol-form "(range 0)") env)))
       (is-true (<lazy-seq>? result))
@@ -2032,7 +2032,7 @@
 
 (test range-infinite
   "Test (range) returns infinite lazy sequence."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; (range) => 0, 1, 2, 3, ...
     (let ((result (fol-eval (fol-form "(range)") env)))
       (is-true (<lazy-seq>? result))
@@ -2044,14 +2044,14 @@
 
 (test range-with-reduce
   "Test using reduce with range."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Sum 0 to 9
     (let ((result (fol-eval (fol-form "(reduce + 0 (range 10))") env)))
       (is (cl:= 45 result)))))  ; 0+1+2+3+4+5+6+7+8+9 = 45
 
 (test range-with-map
   "Test using map with range."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Square each number from 0 to 4
     (let ((result (fol-eval (fol-form "(map (fn [x] (* x x)) (range 5))") env)))
       (is (cl:= 5 (size result)))
@@ -2061,7 +2061,7 @@
 
 (test range-with-filter
   "Test using filter with range."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Filter even numbers from 0 to 9
     (let ((result (fol-eval (fol-form "(filter even? (range 10))") env)))
       (is (cl:= 5 (size result)))  ; 0, 2, 4, 6, 8
@@ -2075,7 +2075,7 @@
 
 (test reduced-basic
   "Test reduced wraps a value for early termination."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; reduced returns a reduced wrapper
     (let ((result (fol-eval (fol-form "(reduced 42)") env)))
       (is-true (<reduced>? result))
@@ -2083,7 +2083,7 @@
 
 (test reduced-predicate
   "Test reduced? predicate."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; reduced? returns true for reduced values
     (is-true (fol-eval (fol-form "(reduced? (reduced 42))") env))
     ;; reduced? returns false for regular values
@@ -2093,7 +2093,7 @@
 
 (test unreduced-basic
   "Test unreduced unwraps reduced values."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; unreduced unwraps reduced values
     (is (cl:= 42 (fol-eval (fol-form "(unreduced (reduced 42))") env)))
     ;; unreduced returns non-reduced values unchanged
@@ -2102,7 +2102,7 @@
 
 (test reduce-with-reduced-early-termination
   "Test that reduce stops when it encounters a reduced value."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Sum until we exceed 10, then stop early
     (fol-eval (fol-form "(defn sum-until-10 [acc x]
                           (bind [new-sum (+ acc x)]
@@ -2115,7 +2115,7 @@
 
 (test reduce-with-reduced-finds-first
   "Test using reduced to find first matching element."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Find first even number greater than 5
     (fol-eval (fol-form "(defn find-first-even-gt-5 [acc x]
                           (if (and (even? x) (> x 5))
@@ -2130,7 +2130,7 @@
 
 (test iterate-basic
   "Test iterate creates lazy sequence of repeated function application."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; (iterate inc 0) => 0, 1, 2, 3, ...
     (let ((result (fol-eval (fol-form "(iterate inc 0)") env)))
       (is-true (<lazy-seq>? result))
@@ -2141,7 +2141,7 @@
 
 (test iterate-with-custom-function
   "Test iterate with user-defined function."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Double each time: 1, 2, 4, 8, ...
     (fol-eval (fol-form "(defn double [x] (* x 2))") env)
     (let ((result (fol-eval (fol-form "(iterate double 1)") env)))
@@ -2152,7 +2152,7 @@
 
 (test iterate-with-dec
   "Test iterate with decrement (countdown)."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Countdown: 10, 9, 8, 7, ...
     (let ((result (fol-eval (fol-form "(iterate dec 10)") env)))
       (is (cl:= 10 (first result)))
@@ -2165,7 +2165,7 @@
 
 (test repeat-infinite
   "Test (repeat x) returns infinite sequence of x."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; (repeat 42) => 42, 42, 42, ...
     (let ((result (fol-eval (fol-form "(repeat 42)") env)))
       (is-true (<lazy-seq>? result))
@@ -2176,7 +2176,7 @@
 
 (test repeat-finite
   "Test (repeat n x) returns n copies of x."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; (repeat 3 :a) => :a, :a, :a
     (let ((result (fol-eval (fol-form "(repeat 3 :a)") env)))
       (is-true (<lazy-seq>? result))
@@ -2188,14 +2188,14 @@
 
 (test repeat-zero
   "Test (repeat 0 x) returns empty sequence."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval (fol-form "(repeat 0 :x)") env)))
       (is-true (<lazy-seq>? result))
       (is-true (empty? result)))))
 
 (test repeat-with-reduce
   "Test using repeat with reduce."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Sum five 10s
     (let ((result (fol-eval (fol-form "(reduce + 0 (repeat 5 10))") env)))
       (is (cl:= 50 result)))))
@@ -2206,7 +2206,7 @@
 
 (test repeatedly-infinite
   "Test (repeatedly f) calls f repeatedly."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Use a function that returns a constant (since we can't easily test side effects)
     (fol-eval (fol-form "(defn always-7 [] 7)") env)
     (let ((result (fol-eval (fol-form "(repeatedly always-7)") env)))
@@ -2217,7 +2217,7 @@
 
 (test repeatedly-finite
   "Test (repeatedly n f) calls f n times."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (fol-eval (fol-form "(defn always-42 [] 42)") env)
     (let ((result (fol-eval (fol-form "(repeatedly 3 always-42)") env)))
       (is-true (<lazy-seq>? result))
@@ -2229,7 +2229,7 @@
 
 (test repeatedly-zero
   "Test (repeatedly 0 f) returns empty sequence."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (fol-eval (fol-form "(defn never-called [] (throw \"Should not be called\"))") env)
     (let ((result (fol-eval (fol-form "(repeatedly 0 never-called)") env)))
       (is-true (<lazy-seq>? result))
@@ -2241,7 +2241,7 @@
 
 (test take-basic
   "Test take returns first n elements as lazy sequence."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval (fol-form "(take 3 [1 2 3 4 5])") env)))
       (is-true (<lazy-seq>? result))
       (is (cl:= 1 (first result)))
@@ -2251,7 +2251,7 @@
 
 (test take-more-than-available
   "Test take with n larger than collection size returns all elements."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval (fol-form "(take 10 [1 2 3])") env)))
       (is-true (<lazy-seq>? result))
       (is (cl:= 1 (first result)))
@@ -2261,28 +2261,28 @@
 
 (test take-zero
   "Test take with zero returns empty sequence."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval (fol-form "(take 0 [1 2 3])") env)))
       (is-true (<lazy-seq>? result))
       (is-true (empty? result)))))
 
 (test take-negative
   "Test take with negative n returns empty sequence."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval (fol-form "(take -5 [1 2 3])") env)))
       (is-true (<lazy-seq>? result))
       (is-true (empty? result)))))
 
 (test take-from-empty
   "Test take from empty collection returns empty sequence."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval (fol-form "(take 5 [])") env)))
       (is-true (<lazy-seq>? result))
       (is-true (empty? result)))))
 
 (test take-from-infinite
   "Test take from infinite sequence (range)."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval (fol-form "(take 5 (range))") env)))
       (is-true (<lazy-seq>? result))
       (is (cl:= 0 (first result)))
@@ -2294,7 +2294,7 @@
 
 (test drop-basic
   "Test drop removes first n elements."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval (fol-form "(drop 2 [1 2 3 4 5])") env)))
       (is-true (<lazy-seq>? result))
       (is (cl:= 3 (first result)))
@@ -2304,14 +2304,14 @@
 
 (test drop-more-than-available
   "Test drop with n larger than collection size returns empty sequence."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval (fol-form "(drop 10 [1 2 3])") env)))
       (is-true (<lazy-seq>? result))
       (is-true (empty? result)))))
 
 (test drop-zero
   "Test drop with zero returns all elements."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval (fol-form "(drop 0 [1 2 3])") env)))
       (is-true (<lazy-seq>? result))
       (is (cl:= 1 (first result)))
@@ -2321,7 +2321,7 @@
 
 (test drop-negative
   "Test drop with negative n returns all elements."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval (fol-form "(drop -5 [1 2 3])") env)))
       (is-true (<lazy-seq>? result))
       (is (cl:= 1 (first result)))
@@ -2331,14 +2331,14 @@
 
 (test drop-from-empty
   "Test drop from empty collection returns empty sequence."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval (fol-form "(drop 5 [])") env)))
       (is-true (<lazy-seq>? result))
       (is-true (empty? result)))))
 
 (test drop-from-infinite
   "Test drop from infinite sequence (range)."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; drop 5, then take 3 from infinite range
     (let ((result (fol-eval (fol-form "(take 3 (drop 5 (range)))") env)))
       (is-true (<lazy-seq>? result))
@@ -2349,7 +2349,7 @@
 
 (test take-drop-composition
   "Test composing take and drop."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Take 3 after dropping 2 from [1 2 3 4 5 6]
     (let ((result (fol-eval (fol-form "(take 3 (drop 2 [1 2 3 4 5 6]))") env)))
       (is-true (<lazy-seq>? result))
@@ -2360,7 +2360,7 @@
 
 (test take-transducer
   "Test take as a transducer with reduce."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Use take transducer to take first 3 elements during reduce
     (let ((result (fol-eval (fol-form "(reduce ((take 3) conj) [] [1 2 3 4 5])") env)))
       (is-true (<vector>? result))
@@ -2371,7 +2371,7 @@
 
 (test take-transducer-fewer-elements
   "Test take transducer when collection has fewer than n elements."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval (fol-form "(reduce ((take 10) conj) [] [1 2 3])") env)))
       (is-true (<vector>? result))
       (is (cl:= 3 (size result)))
@@ -2381,7 +2381,7 @@
 
 (test drop-transducer
   "Test drop as a transducer with reduce."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Use drop transducer to skip first 2 elements during reduce
     (let ((result (fol-eval (fol-form "(reduce ((drop 2) conj) [] [1 2 3 4 5])") env)))
       (is-true (<vector>? result))
@@ -2392,7 +2392,7 @@
 
 (test drop-transducer-more-than-available
   "Test drop transducer when n is larger than collection size."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval (fol-form "(reduce ((drop 10) conj) [] [1 2 3])") env)))
       (is-true (<vector>? result))
       (is (cl:= 0 (size result))))))
@@ -2403,7 +2403,7 @@
 
 (test cycle-basic
   "Test cycle repeats elements of collection infinitely."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; (cycle [1 2 3]) => 1, 2, 3, 1, 2, 3, 1, ...
     (let ((result (fol-eval (fol-form "(cycle [1 2 3])") env)))
       (is-true (<lazy-seq>? result))
@@ -2420,7 +2420,7 @@
 
 (test cycle-single-element
   "Test cycle with single element collection."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval (fol-form "(cycle [:only])") env)))
       (is-true (<lazy-seq>? result))
       (is (eq :only (first result)))
@@ -2429,14 +2429,14 @@
 
 (test cycle-empty
   "Test cycle with empty collection returns empty seq."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval (fol-form "(cycle [])") env)))
       (is-true (<lazy-seq>? result))
       (is-true (empty? result)))))
 
 (test cycle-multi
   "Test using cycle with map to create repeating patterns."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Create a repeating pattern of 1,2,3 over 10 elements
     (let ((result (fol-eval (fol-form "(take 10 (cycle [1 2 3]))") env)))
       (is-true (<lazy-seq>? result))
@@ -2470,7 +2470,7 @@
 
 (test macro-receives-unevaluated-args
   "Test that macros receive unevaluated arguments."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Define a macro that returns its argument as a quoted form
     (let* ((macro (fol-eval '(defmacro quote-it (x) (cl-list 'quote x)) env))
            (env2 (make-env env 'quote-it macro)))
@@ -2479,7 +2479,7 @@
 
 (test macro-expansion-is-evaluated
   "Test that the result of macro expansion is evaluated."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Define a macro that builds an addition expression
     (let* ((macro (fol-eval '(defmacro add-expr (a b) (cl-list '+ a b)) env))
            (env2 (make-env env 'add-expr macro)))
@@ -2488,7 +2488,7 @@
 
 (test macro-when-builtin
   "Test the built-in 'when' macro from standard environment."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Test when condition is true - evaluates all forms, returns last
     (is (cl:= 42 (fol-eval '(when t 1 2 42) env)))
     ;; Test when condition is false - returns nil
@@ -2503,7 +2503,7 @@
 
 (test macro-unless-builtin
   "Test the built-in 'unless' macro from standard environment."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Test unless condition is false - evaluates all forms, returns last
     (is (cl:= 42 (fol-eval '(unless nil 1 2 42) env)))
     ;; Test unless condition is true - returns nil
@@ -2518,7 +2518,7 @@
 
 (test macro-when-user-defined
   "Test implementing a 'when' macro (user-defined, for backwards compatibility)."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; (when test body...) => (if test (do body...))
     (let* ((macro (fol-eval '(defmacro my-when (test & body)
                                (cl-list 'if test (cl-cons 'do body)))
@@ -2531,7 +2531,7 @@
 
 (test macro-unless-user-defined
   "Test implementing an 'unless' macro (user-defined, for backwards compatibility)."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; (my-unless test body...) => (if test nil (do body...))
     (let* ((macro (fol-eval '(defmacro my-unless (test & body)
                                (cl-list 'if test nil (cl-cons 'do body)))
@@ -2544,7 +2544,7 @@
 
 (test macro-with-rest-params
   "Test macros with rest parameters."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; A macro that wraps all args in a list call
     (let* ((macro (fol-eval '(defmacro make-list (& items)
                                (cl-cons 'cl-list items))
@@ -2554,7 +2554,7 @@
 
 (test macro-nested-expansion
   "Test nested macro calls."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Define two macros
     (let* ((double-macro (fol-eval '(defmacro double (x) (cl-list '* 2 x)) env))
            (env2 (make-env env 'double double-macro))
@@ -2565,7 +2565,7 @@
 
 (test macro-accesses-closure-env
   "Test that macros can access their closure environment."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Define a macro that uses a value from its definition environment
     (let* ((env2 (make-env env 'multiplier 10))
            (macro (fol-eval '(defmacro scale (x) (cl-list '* multiplier x)) env2))
@@ -2575,7 +2575,7 @@
 
 (test macro-and-short-circuit
   "Test implementing a short-circuit 'and' macro."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; (my-and a b) => (if a b nil)
     (let* ((macro (fol-eval '(defmacro my-and (a b)
                                (cl-list 'if a b nil))
@@ -2588,7 +2588,7 @@
 
 (test macro-or-short-circuit
   "Test implementing a short-circuit 'or' macro."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; (my-or a b) => (if a a b)
     ;; Note: This evaluates a twice, but demonstrates macro expansion
     (let* ((macro (fol-eval '(defmacro my-or (a b)
@@ -2602,7 +2602,7 @@
 
 (test macroexpand-1-basic
   "Test macroexpand-1 function."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let* ((macro (fol-eval '(defmacro double (x) (cl-list '* 2 x)) env))
            (env2 (make-env env 'double macro)))
       ;; macroexpand-1 should expand once
@@ -2613,7 +2613,7 @@
 
 (test macroexpand-1-non-macro
   "Test macroexpand-1 with non-macro form."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Non-macro form should return unchanged
     (multiple-value-bind (expanded expandedp)
         (macroexpand-1 '(+ 1 2) env)
@@ -2622,7 +2622,7 @@
 
 (test macroexpand-full
   "Test macroexpand function for full expansion."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Define a macro that expands to another macro call
     (let* ((inner-macro (fol-eval '(defmacro inner (x) (cl-list '+ x 1)) env))
            (env2 (make-env env 'inner inner-macro))
@@ -2634,7 +2634,7 @@
 
 (test macro-cond-implementation
   "Test implementing a simple 'cond' macro."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Simple cond: (my-cond (test1 result1) (test2 result2))
     ;; => (if test1 result1 (if test2 result2 nil))
     ;; Note: Use (= nil clauses) instead of (nil? clauses) to avoid
@@ -2658,7 +2658,7 @@
 
 (test macro-let-implementation
   "Test implementing a simple 'let' macro using bind."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; (my-let ((x 1) (y 2)) body) => (bind (x 1 y 2) body)
     ;; Flatten the bindings list
     (let* ((macro (fol-eval
@@ -2728,7 +2728,7 @@
 
 (test syntax-quote-unquote-expression
   "Test unquote with expressions."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Can evaluate expressions within unquote
     (is (equal '(result 6) (fol-eval '(syntax-quote (result (unquote (+ 1 2 3)))) env)))))
 
@@ -2801,7 +2801,7 @@
 
 (test syntax-quote-macro-use
   "Test using syntax-quote in a macro definition."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Define a 'when' macro using syntax-quote
     (let* ((macro (fol-eval
                    '(defmacro my-when (test & body)
@@ -2816,7 +2816,7 @@
 
 (test syntax-quote-macro-with-gensym
   "Test macro using auto-gensym to avoid variable capture."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Define a macro that binds a temp variable - uses gensym to avoid capture
     (let* ((macro (fol-eval
                    '(defmacro my-let1 (var val & body)
@@ -2933,7 +2933,7 @@
 
 (test binding-multiple-vars
   "Test binding multiple dynamic variables at once."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let* ((dvar-x (fol-eval '(make-dynamic *x* 1) env))
            (dvar-y (fol-eval '(make-dynamic *y* 2) env))
            (env2 (make-env env '*x* dvar-x '*y* dvar-y)))
@@ -2967,7 +2967,7 @@
 
 (test binding-evaluates-values
   "Test that binding evaluates the new values."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let* ((dvar (fol-eval '(make-dynamic *x* 0) env))
            (env2 (make-env env '*x* dvar)))
       ;; The value expression should be evaluated
@@ -2977,7 +2977,7 @@
 
 (test binding-body-sequence
   "Test that binding body is evaluated as a sequence."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let* ((dvar (fol-eval '(make-dynamic *x* 0) env))
            (env2 (make-env env '*x* dvar)))
       ;; Multiple body forms, returns last
@@ -2989,7 +2989,7 @@
 
 (test dynamic-var-in-function
   "Test that dynamic variables work correctly across function calls."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Create dynamic var
     (let* ((dvar (fol-eval '(make-dynamic *multiplier* 1) env))
            (env2 (make-env env '*multiplier* dvar)))
@@ -3011,7 +3011,7 @@
 
 (test lazy-seq-basic
   "Test basic lazy-seq creation and realization."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Create a lazy-seq that returns a list
     (let ((ls (fol-eval '(lazy-seq (list 1 2 3)) env)))
       (is-true (<lazy-seq>? ls))
@@ -3021,7 +3021,7 @@
 
 (test lazy-seq-delays-evaluation
   "Test that lazy-seq delays body evaluation."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; This would cause infinite recursion if evaluated immediately
     ;; But lazy-seq delays it, so we can create it safely
     (let ((ls (fol-eval '(lazy-seq (conj (lazy-seq nil) 1)) env)))
@@ -3030,7 +3030,7 @@
 
 (test lazy-seq-captures-environment
   "Test that lazy-seq captures its environment."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Bind x in environment
     (let ((env2 (make-env env 'x 42)))
       ;; lazy-seq body references x
@@ -3040,7 +3040,7 @@
 
 (test lazy-seq-with-conj
   "Test lazy-seq with conj for building sequences."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Build a lazy sequence: (1 2 3)
     (let ((ls (fol-eval '(lazy-seq
                            (conj
@@ -3057,7 +3057,7 @@
 
 (test lazy-seq-recursive-function
   "Test lazy-seq with recursive function for infinite sequence."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Define a function that generates integers lazily
     (fol-eval '(defn integers (n)
                  (lazy-seq (conj (integers (+ n 1)) n)))
@@ -3084,54 +3084,54 @@
 
 (test fn-destructure-vector-param
   "Test function with vector destructuring in parameter."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Function that destructures its first argument
     (is (cl:= 3 (fol-eval (fol-form "((fn [[a b]] (+ a b)) [1 2])") env)))))
 
 (test fn-destructure-nested-vector
   "Test function with nested vector destructuring."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (cl:= 6 (fol-eval (fol-form "((fn [[a [b c]]] (+ a b c)) [1 [2 3]])") env)))))
 
 (test fn-destructure-with-rest
   "Test function with rest binding in destructuring pattern."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Get the size of rest
     (is (cl:= 3 (fol-eval (fol-form "((fn [[a & rest]] (size rest)) [1 2 3 4])") env)))
     (is (cl:= 1 (fol-eval (fol-form "((fn [[a & rest]] a) [1 2 3 4])") env)))))
 
 (test fn-destructure-with-as
   "Test function with :as binding in destructuring pattern."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; :as binds the whole collection
     (is (cl:= 4 (fol-eval (fol-form "((fn [[a b :as all]] (size all)) [1 2 3 4])") env)))
     (is (cl:= 1 (fol-eval (fol-form "((fn [[a b :as all]] a) [1 2 3 4])") env)))))
 
 (test fn-destructure-map-keys
   "Test function with map :keys destructuring."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (cl:= 3 (fol-eval (fol-form "((fn [{:keys [a b]}] (+ a b)) {:a 1 :b 2})") env)))))
 
 (test fn-destructure-map-explicit
   "Test function with explicit key mapping in map destructuring."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (cl:= 3 (fol-eval (fol-form "((fn [{x :a y :b}] (+ x y)) {:a 1 :b 2})") env)))))
 
 (test fn-destructure-mixed-params
   "Test function with mix of simple and destructured params."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; x is simple, [a b] is destructured
     (is (cl:= 6 (fol-eval (fol-form "((fn [x [a b]] (+ x a b)) 1 [2 3])") env)))))
 
 (test fn-destructure-rest-with-destructuring
   "Test function with destructuring pattern as rest parameter."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; First param is simple, rest is destructured as a list
     (is (cl:= 2 (fol-eval (fol-form "((fn [x & rest] (first rest)) 1 2 3)") env)))))
 
 (test defn-destructure-params
   "Test defn with destructuring parameters."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Define function with destructuring
     (fol-eval (fol-form "(defn sum-pair [[a b]] (+ a b))") env)
     (is (cl:= 5 (fol-eval (fol-form "(sum-pair [2 3])") env)))))
@@ -3142,7 +3142,7 @@
 
 (test macro-destructure-vector-param
   "Test macro with vector destructuring in parameter."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Macro that destructures its parameter
     (let* ((macro (fol-eval (fol-form "(defmacro with-pair [[a b] & body]
                                (cl-list 'bind (cl-list 'x a 'y b) (cl-cons 'do body)))")
@@ -3153,7 +3153,7 @@
 
 (test macro-destructure-extracts-form-parts
   "Test macro that destructures to extract parts of forms."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; A macro that extracts the first two elements and returns them as a list
     (let* ((macro (fol-eval (fol-form "(defmacro get-first-two [[a b & rest]]
                                (cl-list 'cl-list b a))")
@@ -3164,7 +3164,7 @@
 
 (test macro-destructure-nested
   "Test macro with nested destructuring in parameter."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Macro that destructures nested structure
     ;; Pattern [[[a]]] extracts [[a]] as param, which extracts [a], then a
     ;; So with ((1)) as arg: [[a]] matches ((1)), [a] matches (1), a matches 1
@@ -3177,7 +3177,7 @@
 
 (test macro-destructure-with-rest
   "Test macro destructuring with rest binding."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Macro that captures some args in destructuring and rest
     (let* ((macro (fol-eval (fol-form "(defmacro take-two-and-rest [[a b & more]]
                                (cl-list 'cl-list a b (cl-list 'quote more)))")
@@ -3196,7 +3196,7 @@
 
 (test macro-destructure-map-keys
   "Test macro with map destructuring using :keys."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Note: This tests destructuring of the *unevaluated* form
     ;; So we pass a literal dict form as the macro argument
     (let* ((macro (fol-eval (fol-form "(defmacro extract-keys [{:keys [a b]}]
@@ -3209,7 +3209,7 @@
 
 (test macro-destructure-practical-let-macro
   "Test practical use: let macro with destructuring bindings."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; A let macro that supports one destructured binding pair
     ;; (my-let [pattern value] body) => (bind [pattern value] body)
     (let* ((macro (fol-eval (fol-form "(defmacro my-let [[pattern value] & body]
@@ -3227,7 +3227,7 @@
 
 (test defmacro-multi-pattern-creates-multi-macro
   "Test that multi-pattern defmacro creates a <multi-macro> object."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((multi-macro (fol-eval (fol-form "(defmacro my-macro
                                               ([x] x)
                                               ([x y] (cl-list x y)))")
@@ -3236,7 +3236,7 @@
 
 (test defmacro-multi-pattern-by-arity
   "Test multi-pattern defmacro dispatches by arity."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Define a macro with different arities
     (fol-eval (fol-form "(defmacro my-case
                            ([val] val)
@@ -3250,7 +3250,7 @@
 
 (test defmacro-multi-pattern-with-rest
   "Test multi-pattern defmacro with rest parameters."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Define macro with rest params in one clause
     ;; Use list instead of list* since list* isn't in standard env
     (fol-eval (fol-form "(defmacro list-items
@@ -3272,7 +3272,7 @@
 
 (test defmacro-multi-pattern-with-destructuring
   "Test multi-pattern defmacro with destructuring patterns."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Define macro that dispatches based on destructuring pattern
     (fol-eval (fol-form "(defmacro extract
                            ([x] x)
@@ -3285,7 +3285,7 @@
 
 (test defmacro-multi-pattern-specificity
   "Test that more specific patterns are tried first."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Define macro where same arity has different patterns
     ;; [x] matches anything, [[a b]] matches 2-element sequences
     ;; The [[a b]] pattern should be tried first
@@ -3300,7 +3300,7 @@
 
 (test defmacro-multi-pattern-expansion
   "Test that multi-pattern macro expansion works correctly."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Define a 'when' equivalent with multiple patterns
     (fol-eval (fol-form "(defmacro my-when
                            ([test] nil)
@@ -3318,7 +3318,7 @@
 
 (test defmacro-multi-pattern-arity-error
   "Test that multi-pattern macro reports arity errors correctly."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Define macro that only accepts 1 or 2 args
     (fol-eval (fol-form "(defmacro one-or-two
                            ([x] x)
@@ -3333,7 +3333,7 @@
 
 (test defmacro-multi-pattern-macroexpand
   "Test macroexpand-1 and macroexpand with multi-pattern macros."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Define multi-pattern macro
     (fol-eval (fol-form "(defmacro expand-test
                            ([x] (cl-list 'quote x))
@@ -3352,7 +3352,7 @@
 
 (test defmacro-multi-pattern-nested-destructure
   "Test multi-pattern defmacro with nested destructuring."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Define macro with nested destructure in one pattern
     ;; Pattern [[[a] b]] expects one arg that is a 2-element sequence
     ;; where the first element is a 1-element sequence
@@ -3372,7 +3372,7 @@
 
 (test eval-fn-literal-single-arg
   "Test evaluating #() with single arg (%)."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; #(+ % 1) called with 10 should return 11
     (is (cl:= 11 (fol-eval (fol-form "(#(+ % 1) 10)") env)))
     ;; #(* % %) squares the argument
@@ -3380,7 +3380,7 @@
 
 (test eval-fn-literal-two-args
   "Test evaluating #() with two args (%1 %2)."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; #(+ %1 %2) called with 3 and 4 should return 7
     (is (cl:= 7 (fol-eval (fol-form "(#(+ %1 %2) 3 4)") env)))
     ;; #(- %1 %2) called with 10 and 3 should return 7
@@ -3388,7 +3388,7 @@
 
 (test eval-fn-literal-numbered-args
   "Test evaluating #() with higher numbered args."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; #(+ %1 %2 %3) called with 1, 2, 3 should return 6
     (is (cl:= 6 (fol-eval (fol-form "(#(+ %1 %2 %3) 1 2 3)") env)))
     ;; Using only %3 should still expect 3 args
@@ -3396,7 +3396,7 @@
 
 (test eval-fn-literal-rest-args
   "Test evaluating #() with rest args (%&)."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; #(first %&) called with multiple args returns the first
     (is (cl:= 1 (fol-eval (fol-form "(#(first %&) 1 2 3)") env)))
     ;; #(size %&) counts the rest args
@@ -3404,7 +3404,7 @@
 
 (test eval-fn-literal-mixed-args
   "Test evaluating #() with positional and rest args."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; #(+ %1 (first %&)) mixes positional and rest
     (is (cl:= 3 (fol-eval (fol-form "(#(+ %1 (first %&)) 1 2 3 4)") env)))
     ;; %2 and %& together
@@ -3412,7 +3412,7 @@
 
 (test eval-fn-literal-nested-forms
   "Test evaluating #() with nested forms."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Nested arithmetic
     (is (cl:= 14 (fol-eval (fol-form "(#(+ (* %1 2) (* %2 3)) 1 4)") env)))
     ;; Conditionals inside
@@ -3425,7 +3425,7 @@
 
 (test eval-thread-first-basic
   "Test basic thread-first (->)."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; (-> 5 (+ 3)) => (+ 5 3) => 8
     (is (cl:= 8 (fol-eval (fol-form "(-> 5 (+ 3))") env)))
     ;; (-> 10 (- 3)) => (- 10 3) => 7
@@ -3433,7 +3433,7 @@
 
 (test eval-thread-first-chained
   "Test chained thread-first (->)."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; (-> 5 (+ 3) (* 2)) => (* (+ 5 3) 2) => (* 8 2) => 16
     (is (cl:= 16 (fol-eval (fol-form "(-> 5 (+ 3) (* 2))") env)))
     ;; (-> 10 (- 3) (+ 5) (* 2)) => (* (+ (- 10 3) 5) 2) => (* 12 2) => 24
@@ -3441,13 +3441,13 @@
 
 (test eval-thread-first-no-forms
   "Test thread-first with no threading forms."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; (-> 42) => 42
     (is (cl:= 42 (fol-eval (fol-form "(-> 42)") env)))))
 
 (test eval-thread-first-with-collections
   "Test thread-first with collection operations."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Create a list and get its first element
     ;; (-> (make '<list> 1 2 3) first) => (first (make '<list> 1 2 3)) => 1
     (is (cl:= 1 (fol-eval (fol-form "(-> (make '<list> 1 2 3) first)") env)))
@@ -3456,7 +3456,7 @@
 
 (test eval-thread-last-basic
   "Test basic thread-last (->>)."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; (->> 5 (+ 3)) => (+ 3 5) => 8
     (is (cl:= 8 (fol-eval (fol-form "(->> 5 (+ 3))") env)))
     ;; (->> 3 (- 10)) => (- 10 3) => 7
@@ -3464,7 +3464,7 @@
 
 (test eval-thread-last-chained
   "Test chained thread-last (->>)."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; (->> 5 (+ 3) (* 2)) => (* 2 (+ 3 5)) => (* 2 8) => 16
     (is (cl:= 16 (fol-eval (fol-form "(->> 5 (+ 3) (* 2))") env)))
     ;; (->> 1 (+ 2) (+ 3) (+ 4)) => (+ 4 (+ 3 (+ 2 1))) => 10
@@ -3472,13 +3472,13 @@
 
 (test eval-thread-last-no-forms
   "Test thread-last with no threading forms."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; (->> 42) => 42
     (is (cl:= 42 (fol-eval (fol-form "(->> 42)") env)))))
 
 (test eval-thread-first-vs-last-difference
   "Test the difference between -> and ->>."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; With subtraction, position matters:
     ;; (-> 10 (- 3)) => (- 10 3) => 7 (10 is first arg)
     (is (cl:= 7 (fol-eval (fol-form "(-> 10 (- 3))") env)))
@@ -3487,7 +3487,7 @@
 
 (test eval-thread-with-multiple-args
   "Test threading with functions taking multiple args."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; (-> 10 (+ 1 2 3)) => (+ 10 1 2 3) => 16
     (is (cl:= 16 (fol-eval (fol-form "(-> 10 (+ 1 2 3))") env)))
     ;; (->> 10 (+ 1 2 3)) => (+ 1 2 3 10) => 16
@@ -3495,7 +3495,7 @@
 
 (test eval-thread-with-bare-symbols
   "Test threading with bare function symbols."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Define a simple function
     (fol-eval (fol-form "(def double (fn [x] (* x 2)))") env)
     ;; (-> 5 double) => (double 5) => 10
@@ -3505,14 +3505,14 @@
 
 (test eval-thread-nested
   "Test nested threading expressions."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Inner -> evaluates first, result is threaded
     ;; (-> (-> 5 (+ 3)) (* 2)) => (-> 8 (* 2)) => (* 8 2) => 16
     (is (cl:= 16 (fol-eval (fol-form "(-> (-> 5 (+ 3)) (* 2))") env)))))
 
 (test eval-thread-with-conditionals
   "Test threading with conditional expressions."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Thread result of if into arithmetic
     ;; (-> (if t 10 20) (+ 5)) => (+ 10 5) => 15
     (is (cl:= 15 (fol-eval (fol-form "(-> (if t 10 20) (+ 5))") env)))))
@@ -3523,7 +3523,7 @@
 
 (test defn-multi-pattern-basic
   "Test multi-pattern defn with different arities."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Define function with multiple arities
     (fol-eval (fol-form "(defn inc-all
                           ([x] (+ x 1))
@@ -3535,7 +3535,7 @@
 
 (test defn-multi-pattern-numeric
   "Test multi-pattern defn with numeric operations."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Define function with multiple arities
     (fol-eval (fol-form "(defn add-all
                           ([x] x)
@@ -3548,7 +3548,7 @@
 
 (test defn-multi-pattern-with-destructuring
   "Test multi-pattern defn with destructuring patterns."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Define function that handles atoms vs pairs differently
     (fol-eval (fol-form "(defn process
                           ([x] x)
@@ -3560,7 +3560,7 @@
 
 (test defn-multi-pattern-specificity
   "Test that more specific patterns match before general ones."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Define function: [[a b]] should match before [x] for pairs
     (fol-eval (fol-form "(defn classify
                           ([x] :single)
@@ -3575,7 +3575,7 @@
 
 (test defn-multi-pattern-arity-error
   "Test that invalid arities signal an error."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Define function with only 1 and 2 arg patterns
     (fol-eval (fol-form "(defn limited
                           ([x] x)
@@ -3589,7 +3589,7 @@
 
 (test defn-multi-pattern-with-rest
   "Test multi-pattern defn with rest parameters."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Define function with rest parameter in one clause
     (fol-eval (fol-form "(defn variadic
                           ([x] x)
@@ -3607,7 +3607,7 @@
 
 (test sequence-function
   "Test sequence function returns sequence or empty list."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Non-empty collection returns sequence
     (is-true (fol.seqop:seq (fol-eval (fol-form "(sequence [1 2 3])") env)))
     ;; Empty collection returns empty list (not nil)
@@ -3617,7 +3617,7 @@
 
 (test keep-indexed-basic
   "Test keep-indexed with index and value."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Return indexed values where index is even
     (let ((result (fol-eval (fol-form "(into [] (keep-indexed (fn [i v] (when (even? i) v)) [10 20 30 40 50]))") env)))
       (is (cl:= 3 (fol.seqop:size result)))
@@ -3627,7 +3627,7 @@
 
 (test map-indexed-basic
   "Test map-indexed returns (f index item) for each item."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Map with index
     (let ((result (fol-eval (fol-form "(into [] (map-indexed (fn [i v] (+ i v)) [10 20 30]))") env)))
       (is (cl:= 3 (fol.seqop:size result)))
@@ -3637,7 +3637,7 @@
 
 (test tree-seq-basic
   "Test tree-seq walks a tree depth-first."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Simple tree: walk a vector of vectors
     (let ((result (fol-eval (fol-form "(into [] (take 5 (tree-seq <vector>? seq [[1 2] [3 4]])))") env)))
       (is (>= (fol.seqop:size result) 1)))))
@@ -3648,13 +3648,13 @@
 
 (test as->-macro
   "Test as-> threading macro."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Basic threading with named binding
     (is (cl:= 4 (fol-eval (fol-form "(as-> 1 x (+ x 1) (* x 2))") env)))))
 
 (test cond->-macro
   "Test cond-> conditional threading."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Thread when condition is true (using bare symbols)
     (is (cl:= 3 (fol-eval (fol-form "(cond-> 1 t inc t inc)") env)))
     ;; Skip when condition is false
@@ -3662,7 +3662,7 @@
 
 (test some->-macro
   "Test some-> nil-safe threading."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Normal threading
     (is (cl:= 3 (fol-eval (fol-form "(some-> 1 inc inc)") env)))
     ;; Short-circuit on nil
@@ -3674,13 +3674,13 @@
 
 (test when-not-macro
   "Test when-not macro."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (cl:= 42 (fol-eval (fol-form "(when-not nil 42)") env)))
     (is (null (fol-eval (fol-form "(when-not t 42)") env)))))
 
 (test when-let-macro
   "Test when-let macro."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; When truthy, execute body
     (is (cl:= 2 (fol-eval (fol-form "(when-let [x 1] (+ x 1))") env)))
     ;; When nil, return nil
@@ -3688,7 +3688,7 @@
 
 (test when-first-macro
   "Test when-first macro."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; When collection has elements
     (is (cl:= 2 (fol-eval (fol-form "(when-first [x [1 2 3]] (inc x))") env)))
     ;; When collection is empty
@@ -3696,19 +3696,19 @@
 
 (test if-not-macro
   "Test if-not macro."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (eq :yes (fol-eval (fol-form "(if-not nil :yes :no)") env)))
     (is (eq :no (fol-eval (fol-form "(if-not t :yes :no)") env)))))
 
 (test if-let-macro
   "Test if-let macro."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (cl:= 2 (fol-eval (fol-form "(if-let [x 1] (+ x 1) 0)") env)))
     (is (cl:= 0 (fol-eval (fol-form "(if-let [x nil] (+ x 1) 0)") env)))))
 
 (test when-some-macro
   "Test when-some macro."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; When value is non-nil
     (is (cl:= 2 (fol-eval (fol-form "(when-some [x 1] (+ x 1))") env)))
     ;; When value is nil
@@ -3716,13 +3716,13 @@
 
 (test if-some-macro
   "Test if-some macro."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (cl:= 2 (fol-eval (fol-form "(if-some [x 1] (+ x 1) 0)") env)))
     (is (cl:= 0 (fol-eval (fol-form "(if-some [x nil] (+ x 1) 0)") env)))))
 
 (test condp-macro
   "Test condp macro."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (eq :one (fol-eval (fol-form "(condp = 1 1 :one 2 :two :other)") env)))
     (is (eq :two (fol-eval (fol-form "(condp = 2 1 :one 2 :two :other)") env)))
     (is (eq :other (fol-eval (fol-form "(condp = 3 1 :one 2 :two :other)") env)))))
@@ -3733,19 +3733,19 @@
 
 (test dotimes-macro
   "Test dotimes macro."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; dotimes returns nil but executes body n times
     (is (null (fol-eval (fol-form "(dotimes [i 3] i)") env)))))
 
 (test doseq-macro
   "Test doseq macro."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; doseq returns nil
     (is (null (fol-eval (fol-form "(doseq [x [1 2 3]] x)") env)))))
 
 (test for-macro
   "Test for comprehension macro."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval (fol-form "(into [] (for [x [1 2 3]] (* x x)))") env)))
       (is (cl:= 3 (fol.seqop:size result)))
       (is (cl:= 1 (fol.seqop:nth result 0)))
@@ -3758,7 +3758,7 @@
 
 (test lazy-cat-macro
   "Test lazy-cat macro."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval (fol-form "(into [] (lazy-cat [1 2] [3 4]))") env)))
       (is (cl:= 4 (fol.seqop:size result)))
       (is (cl:= 1 (fol.seqop:nth result 0)))
@@ -3766,20 +3766,20 @@
 
 (test delay-and-force
   "Test delay and force."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; delay creates a deferred computation, force evaluates it
     (is (cl:= 3 (fol-eval (fol-form "(force (delay (+ 1 2)))") env)))))
 
 (test assert-macro-passes
   "Test assert macro passes on truthy."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; assert returns nil on success
     (is (null (fol-eval (fol-form "(assert t)") env)))
     (is (null (fol-eval (fol-form "(assert (> 5 3))") env)))))
 
 (test comment-macro
   "Test comment macro returns nil."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (null (fol-eval (fol-form "(comment (this is ignored) (so is this))") env)))))
 
 ;;; ---------------------------------------------------------------------------
@@ -3788,37 +3788,37 @@
 
 (test constantly-function
   "Test constantly returns a function that always returns the same value."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (cl:= 42 (fol-eval (fol-form "((constantly 42) 1 2 3)") env)))))
 
 (test comp-function
   "Test comp composes functions."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; (comp inc inc) should add 2
     (is (cl:= 7 (fol-eval (fol-form "((comp inc inc) 5)") env)))))
 
 (test memoize-function
   "Test memoize caches results."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Just test that it works
     (is (cl:= 10 (fol-eval (fol-form "((memoize +) 3 7)") env)))))
 
 (test fnil-function
   "Test fnil replaces nil arguments with defaults."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; fnil with default for first arg
     (is (cl:= 10 (fol-eval (fol-form "((fnil + 0) nil 10)") env)))))
 
 (test fn?-predicate
   "Test fn? predicate."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is-true (fol-eval (fol-form "(fn? +)") env))
     (is-true (fol-eval (fol-form "(fn? (fn [x] x))") env))
     (is-false (fol-eval (fol-form "(fn? 42)") env))))
 
 (test trampoline-function
   "Test trampoline for mutual recursion."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Simple trampoline that doesn't need further calls
     (is (cl:= 42 (fol-eval (fol-form "(trampoline (fn [] 42))") env)))))
 
@@ -3828,32 +3828,32 @@
 
 (test nil?-predicate
   "Test nil? predicate."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is-true (fol-eval (fol-form "(nil? nil)") env))
     (is-false (fol-eval (fol-form "(nil? 1)") env))))
 
 (test some?-predicate
   "Test some? predicate."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is-true (fol-eval (fol-form "(some? 1)") env))
     (is-false (fol-eval (fol-form "(some? nil)") env))))
 
 (test not=-function
   "Test not= function."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is-true (fol-eval (fol-form "(not= 1 2)") env))
     (is-false (fol-eval (fol-form "(not= 1 1)") env))))
 
 (test compare-function
   "Test compare function."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (is (cl:= -1 (fol-eval (fol-form "(compare 1 2)") env)))
     (is (cl:= 0 (fol-eval (fol-form "(compare 2 2)") env)))
     (is (cl:= 1 (fol-eval (fol-form "(compare 3 2)") env)))))
 
 (test some-function
   "Test some function."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Returns first truthy result of (pred x), not the element itself
     (is-true (fol-eval (fol-form "(some even? [1 2 3 4])") env))
     ;; Using a set as predicate returns the element
@@ -3867,7 +3867,7 @@
 
 (test project-function
   "Test project returns relation with selected keys."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval (fol-form "(first (project #{{:a 1 :b 2 :c 3}} [:a :b]))") env)))
       (is-true (fol.seqop:contains? result :a))
       (is-true (fol.seqop:contains? result :b))
@@ -3875,7 +3875,7 @@
 
 (test rename-function
   "Test rename renames keys in relation."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval (fol-form "(first (rename #{{:a 1 :b 2}} {:a :x}))") env)))
       (is-true (fol.seqop:contains? result :x))
       (is-false (fol.seqop:contains? result :a))

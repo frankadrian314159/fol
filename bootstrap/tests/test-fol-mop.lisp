@@ -171,7 +171,7 @@
 
 (test multi-pattern-via-fol-eval
   "Test that multi-pattern generics work through FOL eval."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Define multi-pattern generic
     (fol-eval `(defgeneric test-eval-multi (,(make-vector 'x) ,(make-vector 'x 'y))) env)
     ;; Add methods
@@ -337,7 +337,7 @@
 
 (test fol-eval-defgeneric
   "Test that defgeneric works through FOL eval."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Use make-vector since CL reader doesn't understand [] syntax
     (fol-eval `(defgeneric eval-test-generic ,(make-vector 'x 'y)) env)
     (is (fboundp 'eval-test-generic))
@@ -346,14 +346,14 @@
 
 (test fol-eval-defclass
   "Test that defclass works through FOL eval."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Use make-vector since CL reader doesn't understand [] syntax
     (fol-eval `(defclass <eval-test-class> ,(make-vector) ,(make-vector 'a 'b 'c)) env)
     (is (find-class '<eval-test-class> nil))))
 
 (test fol-eval-defmethod
   "Test that defmethod works through FOL eval."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Create generic first
     (fol-eval `(defgeneric eval-test-method ,(make-vector 'obj)) env)
     ;; Add method with specialized parameter - type specialization uses list syntax
@@ -416,7 +416,7 @@
 
 (test make-via-fol-eval
   "Test that make works through FOL eval."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Empty collection (quote the class name)
     (let ((vec (fol-eval '(make (quote fol.collection:<vector>)) env)))
       (is (<vector>? vec))

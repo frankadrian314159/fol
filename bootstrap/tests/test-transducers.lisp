@@ -18,7 +18,7 @@
 
 (test simple-keyword?-test
   "Test simple-keyword? predicate using FOL eval."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Simple keywords should return true
     (is-true (fol-eval (fol-read-from-string "(simple-keyword? :foo)") env))
     (is-true (fol-eval (fol-read-from-string "(simple-keyword? :bar)") env))
@@ -29,7 +29,7 @@
 
 (test simple-symbol?-test
   "Test simple-symbol? predicate using FOL eval."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Simple symbols in CL-USER should return true
     (is-true (fol-eval (fol-read-from-string "(simple-symbol? (quote foo))") env))
     ;; Keywords should return false
@@ -40,7 +40,7 @@
 
 (test associative?-test
   "Test associative? predicate using FOL eval."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Dicts are associative
     (is-true (fol-eval (fol-read-from-string "(associative? {})") env))
     (is-true (fol-eval (fol-read-from-string "(associative? {:a 1 :b 2})") env))
@@ -54,7 +54,7 @@
 
 (test indexed?-test
   "Test indexed? predicate using FOL eval."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Vectors are indexed
     (is-true (fol-eval (fol-read-from-string "(indexed? [])") env))
     (is-true (fol-eval (fol-read-from-string "(indexed? [1 2 3])") env))
@@ -65,7 +65,7 @@
 
 (test seqable?-test
   "Test seqable? predicate using FOL eval."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Collections are seqable
     (is-true (fol-eval (fol-read-from-string "(seqable? [])") env))
     (is-true (fol-eval (fol-read-from-string "(seqable? [1 2 3])") env))
@@ -79,7 +79,7 @@
 
 (test any?-test
   "Test any? predicate using FOL eval."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; any? returns true for everything
     (is-true (fol-eval (fol-read-from-string "(any? nil)") env))
     (is-true (fol-eval (fol-read-from-string "(any? 42)") env))
@@ -115,19 +115,19 @@
 
 (test transduce-with-map
   "Test transduce with map transducer."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; (transduce (map inc) + 0 [1 2 3]) should be 9 (2+3+4)
     (is (= 9 (fol-eval (fol-read-from-string "(transduce (map inc) + 0 [1 2 3])") env)))))
 
 (test transduce-with-filter
   "Test transduce with filter transducer."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; (transduce (filter even?) + 0 [1 2 3 4 5 6]) should be 12 (2+4+6)
     (is (= 12 (fol-eval (fol-read-from-string "(transduce (filter even?) + 0 [1 2 3 4 5 6])") env)))))
 
 (test transduce-composed
   "Test transduce with composed transducers."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; (transduce (comp (filter even?) (map inc)) + 0 [1 2 3 4])
     ;; filters to [2 4], maps to [3 5], sums to 8
     (is (= 8 (fol-eval (fol-read-from-string "(transduce (comp (filter even?) (map inc)) + 0 [1 2 3 4])") env)))))
@@ -138,7 +138,7 @@
 
 (test completing-basic
   "Test completing function."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; completing wraps a 2-arg function to add a 1-arg completion arity
     (is (= 6 (fol-eval (fol-read-from-string
                         "(bind [cf (completing +)]
@@ -147,7 +147,7 @@
 
 (test completing-with-custom-finalizer
   "Test completing with custom completion function."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; completing with a finalizer that doubles the result
     ;; The 2-arg calls accumulate: (+ (+ (+ 0 1) 2) 3) = 6
     ;; The final 1-arg call triggers completion: (* 6 2) = 12
@@ -162,14 +162,14 @@
 
 (test ensure-reduced-non-reduced
   "Test ensure-reduced on non-reduced value."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval (fol-read-from-string "(ensure-reduced 42)") env)))
       (is-true (<reduced>? result))
       (is (= 42 (reduced-value result))))))
 
 (test ensure-reduced-already-reduced
   "Test ensure-reduced on already reduced value."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     (let ((result (fol-eval (fol-read-from-string "(ensure-reduced (reduced 42))") env)))
       (is-true (<reduced>? result))
       (is (= 42 (reduced-value result))))))
@@ -180,7 +180,7 @@
 
 (test cat-transducer
   "Test cat transducer that concatenates collections."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; (transduce cat conj [] [[1 2] [3 4] [5]]) should be [1 2 3 4 5]
     (let ((result (fol-eval (fol-read-from-string "(transduce cat conj [] [[1 2] [3 4] [5]])") env)))
       (is-true (<vector>? result))
@@ -194,7 +194,7 @@
 
 (test halt-when-transducer
   "Test halt-when transducer that stops early."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; (transduce (halt-when (fn [x] (> x 3))) conj [] [1 2 3 4 5])
     ;; should stop when x > 3, so result is [1 2 3]
     (let ((result (fol-eval (fol-read-from-string
@@ -210,7 +210,7 @@
 
 (test sequence-with-map
   "Test sequence function with map transducer."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; (sequence (map inc) [1 2 3]) should return (2 3 4)
     (let ((result (fol-eval (fol-read-from-string "(sequence (map inc) [1 2 3])") env)))
       (is-true (cl:or (<list>? result) (cl:listp result)))
@@ -218,7 +218,7 @@
 
 (test sequence-with-filter
   "Test sequence function with filter transducer."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; (sequence (filter even?) [1 2 3 4 5 6]) should return (2 4 6)
     (let ((result (fol-eval (fol-read-from-string "(sequence (filter even?) [1 2 3 4 5 6])") env)))
       (is-true (cl:or (<list>? result) (cl:listp result)))
@@ -230,7 +230,7 @@
 
 (test intern-basic
   "Test intern function."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; intern creates/finds a symbol in a namespace
     (let ((result (fol-eval (fol-read-from-string "(intern \"user\" \"my-symbol\")") env)))
       ;; intern returns a FOL <symbol> wrapper, not a CL symbol
@@ -262,7 +262,7 @@
 
 (test symbolic-values-in-expression
   "Test using symbolic values in expressions."
-  (let ((env (make-standard-env)))
+  (let ((env (make-standard-module)))
     ;; Test that ##Inf can be used in expressions
     (let ((result (fol-eval (fol-read-from-string "(> ##Inf 1000000)") env)))
       (is-true result))
