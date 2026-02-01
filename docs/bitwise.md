@@ -2,7 +2,7 @@
 
 All bitwise functions operate on integers only.
 
-## bitnot
+## bitnot                                                               *[function]*
 
 ```
 (bitnot x)
@@ -22,7 +22,7 @@ Returns the bitwise NOT (one's complement) of integer x.
 
 ---
 
-## bitand
+## bitand                                                               *[function]*
 
 ```
 (bitand & args)
@@ -42,7 +42,7 @@ Returns the bitwise AND of all arguments. With no arguments, returns -1 (all bit
 
 ---
 
-## bitor
+## bitor                                                                *[function]*
 
 ```
 (bitor & args)
@@ -62,7 +62,7 @@ Returns the bitwise OR of all arguments. With no arguments, returns 0.
 
 ---
 
-## bitxor
+## bitxor                                                               *[function]*
 
 ```
 (bitxor & args)
@@ -82,7 +82,7 @@ Returns the bitwise XOR of all arguments. With no arguments, returns 0.
 
 ---
 
-## bit-nand
+## bit-nand                                                             *[function]*
 
 ```
 (bit-nand & args)
@@ -99,7 +99,7 @@ Returns the bitwise NAND (NOT AND) of all arguments.
 
 ---
 
-## bit-nor
+## bit-nor                                                              *[function]*
 
 ```
 (bit-nor & args)
@@ -116,7 +116,7 @@ Returns the bitwise NOR (NOT OR) of all arguments.
 
 ---
 
-## bit-andc1
+## bit-andc1                                                            *[function]*
 
 ```
 (bit-andc1 x y)
@@ -133,7 +133,7 @@ Returns bitwise AND of (NOT x) with y. Useful for clearing bits.
 
 ---
 
-## bit-andc2
+## bit-andc2                                                            *[function]*
 
 ```
 (bit-andc2 x y)
@@ -150,7 +150,7 @@ Returns bitwise AND of x with (NOT y). Useful for clearing bits.
 
 ---
 
-## bit-orc1
+## bit-orc1                                                             *[function]*
 
 ```
 (bit-orc1 x y)
@@ -167,7 +167,7 @@ Returns bitwise OR of (NOT x) with y.
 
 ---
 
-## bit-orc2
+## bit-orc2                                                             *[function]*
 
 ```
 (bit-orc2 x y)
@@ -184,7 +184,7 @@ Returns bitwise OR of x with (NOT y).
 
 ---
 
-## bit-test
+## bit-test                                                             *[function]*
 
 ```
 (bit-test integer position)
@@ -203,7 +203,7 @@ Returns true if the bit at position in integer is set (1). Position 0 is the lea
 
 ---
 
-## bit-set
+## bit-set                                                              *[function]*
 
 ```
 (bit-set integer position)
@@ -222,7 +222,7 @@ Returns integer with the bit at position set to 1.
 
 ---
 
-## bit-clear
+## bit-clear                                                            *[function]*
 
 ```
 (bit-clear integer position)
@@ -241,7 +241,7 @@ Returns integer with the bit at position set to 0.
 
 ---
 
-## bit-count
+## bit-count                                                            *[function]*
 
 ```
 (bit-count integer)
@@ -264,7 +264,7 @@ For negative integers, this is the number of zero bits.
 
 ---
 
-## bit-shift
+## bit-shift                                                            *[function]*
 
 ```
 (bit-shift integer count)
@@ -299,7 +299,7 @@ This is equivalent to multiplying or dividing by powers of 2:
 
 ---
 
-## bit-rotate
+## bit-rotate                                                           *[function]*
 
 ```
 (bit-rotate integer count width)

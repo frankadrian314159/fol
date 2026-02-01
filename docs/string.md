@@ -2,7 +2,7 @@
 
 Functions for manipulating strings in FOL.
 
-## substr
+## substr                                                               *[function]*
 
 ```
 (substr s start)
@@ -30,7 +30,7 @@ This is equivalent to Clojure's `subs` function.
 
 ---
 
-## blank?
+## blank?                                                               *[function]*
 
 ```
 (blank? s)
@@ -53,7 +53,7 @@ This is equivalent to Clojure's `clojure.string/blank?`.
 
 ---
 
-## trim
+## trim                                                                 *[function]*
 
 ```
 (trim s)
@@ -74,7 +74,7 @@ This is equivalent to Clojure's `clojure.string/trim`.
 
 ---
 
-## triml
+## triml                                                                *[function]*
 
 ```
 (triml s)
@@ -94,7 +94,7 @@ This is equivalent to Clojure's `clojure.string/triml`.
 
 ---
 
-## trimr
+## trimr                                                                *[function]*
 
 ```
 (trimr s)
@@ -114,7 +114,7 @@ This is equivalent to Clojure's `clojure.string/trimr`.
 
 ---
 
-## trim-newline
+## trim-newline                                                         *[function]*
 
 ```
 (trim-newline s)
@@ -136,7 +136,7 @@ This is equivalent to Clojure's `clojure.string/trim-newline`.
 
 ---
 
-## capitalize
+## capitalize                                                           *[function]*
 
 ```
 (capitalize s)
@@ -158,7 +158,7 @@ This is equivalent to Clojure's `clojure.string/capitalize`.
 
 ---
 
-## starts-with?
+## starts-with?                                                         *[function]*
 
 ```
 (starts-with? s substr)
@@ -182,7 +182,7 @@ This is equivalent to Clojure's `clojure.string/starts-with?`.
 
 ---
 
-## ends-with?
+## ends-with?                                                           *[function]*
 
 ```
 (ends-with? s substr)
@@ -206,7 +206,7 @@ This is equivalent to Clojure's `clojure.string/ends-with?`.
 
 ---
 
-## includes?
+## includes?                                                            *[function]*
 
 ```
 (includes? s substr)
@@ -230,7 +230,7 @@ This is equivalent to Clojure's `clojure.string/includes?`.
 
 ---
 
-## replace
+## replace                                                              *[function]*
 
 ```
 (replace s match replacement)
@@ -260,7 +260,7 @@ This is equivalent to Clojure's `clojure.string/replace`.
 
 ---
 
-## replace-first
+## replace-first                                                        *[function]*
 
 ```
 (replace-first s match replacement)
@@ -282,7 +282,7 @@ This is equivalent to Clojure's `clojure.string/replace-first`.
 
 ---
 
-## join
+## join                                                                 *[function]*
 
 ```
 (join separator coll)
@@ -308,7 +308,7 @@ This is equivalent to Clojure's `clojure.string/join`.
 
 ---
 
-## escape
+## escape                                                               *[function]*
 
 ```
 (escape s cmap)
@@ -333,7 +333,7 @@ This is equivalent to Clojure's `clojure.string/escape`.
 
 ---
 
-## split
+## split                                                                *[function]*
 
 ```
 (split s re)
@@ -359,7 +359,7 @@ This is equivalent to Clojure's `clojure.string/split`.
 
 ---
 
-## split-lines
+## split-lines                                                          *[function]*
 
 ```
 (split-lines s)
@@ -381,7 +381,7 @@ This is equivalent to Clojure's `clojure.string/split-lines`.
 
 ---
 
-## reverse
+## reverse                                                              *[function]*
 
 ```
 (reverse coll)
@@ -415,7 +415,7 @@ This is equivalent to Clojure's `clojure.string/reverse` for strings, and `cloju
 
 ---
 
-## index-of
+## index-of                                                             *[function]*
 
 ```
 (index-of coll value)
@@ -461,7 +461,7 @@ This is equivalent to Clojure's `clojure.string/index-of` for strings.
 
 ---
 
-## last-index-of
+## last-index-of                                                        *[function]*
 
 ```
 (last-index-of coll value)

@@ -2,7 +2,7 @@
 
 Collection type predicates return true if the argument is a FOL collection of the specified type, false otherwise.
 
-## <collection>?
+## <collection>?                                                        *[function]*
 
 ```
 (<collection>? x)
@@ -22,7 +22,7 @@ Returns true if x is any FOL collection (vector, list, dict, set, bag, array, or
 
 ---
 
-## <ordered-collection>?
+## <ordered-collection>?                                                *[function]*
 
 ```
 (<ordered-collection>? x)
@@ -40,7 +40,7 @@ Returns true if x is an ordered collection (vector, list, array, or lazy-seq).
 
 ---
 
-## <unordered-collection>?
+## <unordered-collection>?                                              *[function]*
 
 ```
 (<unordered-collection>? x)
@@ -58,7 +58,7 @@ Returns true if x is an unordered collection (dict, set, or bag).
 
 ---
 
-## <vector>?
+## <vector>?                                                            *[function]*
 
 ```
 (<vector>? x)
@@ -77,7 +77,7 @@ Returns true if x is a FOL vector.
 
 ---
 
-## <list>?
+## <list>?                                                              *[function]*
 
 ```
 (<list>? x)
@@ -95,7 +95,7 @@ Returns true if x is a FOL list (persistent linked list).
 
 ---
 
-## <dict>?
+## <dict>?                                                              *[function]*
 
 ```
 (<dict>? x)
@@ -113,7 +113,7 @@ Returns true if x is a FOL dict (persistent hash map).
 
 ---
 
-## <set>?
+## <set>?                                                               *[function]*
 
 ```
 (<set>? x)
@@ -131,7 +131,7 @@ Returns true if x is a FOL set (persistent hash set with unique elements).
 
 ---
 
-## <bag>?
+## <bag>?                                                               *[function]*
 
 ```
 (<bag>? x)
@@ -148,7 +148,7 @@ Returns true if x is a FOL bag (multiset that allows duplicate elements).
 
 ---
 
-## <array>?
+## <array>?                                                             *[function]*
 
 ```
 (<array>? x)
@@ -165,7 +165,7 @@ Returns true if x is a FOL array (multi-dimensional array).
 
 ---
 
-## <lazy-seq>?
+## <lazy-seq>?                                                          *[function]*
 
 ```
 (<lazy-seq>? x)

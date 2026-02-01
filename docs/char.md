@@ -2,7 +2,7 @@
 
 Functions for working with characters.
 
-## char-name-string
+## char-name-string                                                     *[function]*
 
 ```
 (char-name-string c)
@@ -31,7 +31,7 @@ Special characters (space, tab, newline, etc.) have names; regular printable cha
 
 ---
 
-## char-upcase
+## char-upcase                                                          *[function]*
 
 ```
 (char-upcase c)
@@ -54,7 +54,7 @@ Returns the uppercase version of the character.
 
 ---
 
-## char-downcase
+## char-downcase                                                        *[function]*
 
 ```
 (char-downcase c)
@@ -77,7 +77,7 @@ Returns the lowercase version of the character.
 
 ---
 
-## alpha-char?
+## alpha-char?                                                          *[function]*
 
 ```
 (alpha-char? c)
@@ -100,7 +100,7 @@ Returns T if the character is an alphabetic character.
 
 ---
 
-## digit-char?
+## digit-char?                                                          *[function]*
 
 ```
 (digit-char? c)
@@ -122,7 +122,7 @@ Returns T if the character is a digit (0-9).
 
 ---
 
-## alphanumeric?
+## alphanumeric?                                                        *[function]*
 
 ```
 (alphanumeric? c)
@@ -145,7 +145,7 @@ Returns T if the character is alphanumeric (letter or digit).
 
 ---
 
-## upper-case?
+## upper-case?                                                          *[function]*
 
 ```
 (upper-case? c)
@@ -167,7 +167,7 @@ Returns T if the character is uppercase.
 
 ---
 
-## lower-case?
+## lower-case?                                                          *[function]*
 
 ```
 (lower-case? c)
@@ -189,7 +189,7 @@ Returns T if the character is lowercase.
 
 ---
 
-## whitespace?
+## whitespace?                                                          *[function]*
 
 ```
 (whitespace? c)

@@ -1,6 +1,6 @@
 # Comparison Functions
 
-## =
+## =                                                                    *[function]*
 
 ```
 (= x)
@@ -23,7 +23,7 @@ Returns true if all arguments are numerically equal. With one argument, always r
 
 ---
 
-## /=
+## /=                                                                   *[function]*
 
 ```
 (/= x)
@@ -44,7 +44,7 @@ Returns true if no two arguments are equal. With one argument, always returns tr
 
 ---
 
-## <
+## <                                                                    *[function]*
 
 ```
 (< x)
@@ -65,7 +65,7 @@ Returns true if arguments are in strictly increasing order.
 
 ---
 
-## >
+## >                                                                    *[function]*
 
 ```
 (> x)
@@ -86,7 +86,7 @@ Returns true if arguments are in strictly decreasing order.
 
 ---
 
-## <=
+## <=                                                                   *[function]*
 
 ```
 (<= x)
@@ -107,7 +107,7 @@ Returns true if arguments are in monotonically non-decreasing order.
 
 ---
 
-## >=
+## >=                                                                   *[function]*
 
 ```
 (>= x)
@@ -128,7 +128,7 @@ Returns true if arguments are in monotonically non-increasing order.
 
 ---
 
-## min
+## min                                                                  *[function]*
 
 ```
 (min x)
@@ -149,7 +149,7 @@ Returns the minimum of its arguments.
 
 ---
 
-## max
+## max                                                                  *[function]*
 
 ```
 (max x)

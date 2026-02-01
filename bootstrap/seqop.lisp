@@ -2367,6 +2367,13 @@
                              (cl:cons (fset:@ items idx) (lazy-subs (cl:1+ idx))))))))
           (lazy-subs start)))))
 
+(defmethod subs ((s string) start &optional end)
+  "Return a substring of S from START to END (exclusive).
+   If END is not provided, returns from START to the end of the string."
+  (if end
+      (cl:subseq s start end)
+      (cl:subseq s start)))
+
 (defmethod subs ((s <sorted-set>) start &optional end)
   "Return a lazy seq of elements from sorted-set where element >= start and < end."
   (let ((items (pslot-value s 'fol.collection::items))

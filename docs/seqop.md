@@ -3,7 +3,7 @@
 These functions operate on FOL sequences (vectors, lists, strings) and provide
 associative updates, subsequence extraction, reversal, and index searching.
 
-## assoc
+## assoc                                                                *[function]*
 
 ```
 (assoc coll key val)
@@ -23,7 +23,7 @@ For vectors, sets the element at index KEY to VAL (KEY must be a non-negative in
 
 ---
 
-## assoc-in
+## assoc-in                                                             *[function]*
 
 ```
 (assoc-in coll keys val)
@@ -44,7 +44,7 @@ path doesn't exist.
 
 ---
 
-## sub
+## sub                                                                  *[function]*
 
 ```
 (sub coll start)
@@ -68,7 +68,7 @@ Returns an object of the same type as the input.
 
 ---
 
-## reverse
+## reverse                                                              *[function]*
 
 ```
 (reverse coll)
@@ -87,7 +87,7 @@ Works on strings, vectors, lists, and CL sequences.
 
 ---
 
-## index-of
+## index-of                                                             *[function]*
 
 ```
 (index-of coll value)
@@ -113,7 +113,7 @@ For lists and vectors, VALUE is compared using EQL.
 
 ---
 
-## last-index-of
+## last-index-of                                                        *[function]*
 
 ```
 (last-index-of coll value)
@@ -138,7 +138,7 @@ For lists and vectors, VALUE is compared using EQL.
 
 ---
 
-## peek
+## peek                                                                 *[function]*
 
 ```
 (peek coll)
@@ -159,7 +159,7 @@ Returns nil if the collection is empty.
 
 ---
 
-## pop
+## pop                                                                  *[function]*
 
 ```
 (pop coll)
@@ -180,7 +180,7 @@ Signals an error if the collection is empty.
 
 ---
 
-## push
+## push                                                                 *[function]*
 
 ```
 (push coll item)
@@ -205,7 +205,7 @@ Equivalent to conj for these collection types.
 Deques (double-ended queues) support efficient operations at both the front and back.
 The `<deque>` class provides O(log n) operations at either end.
 
-### peek-front
+### peek-front                                                          *[function]*
 
 ```
 (peek-front deque)
@@ -223,7 +223,7 @@ Returns nil if the deque is empty.
 
 ---
 
-### pop-front
+### pop-front                                                           *[function]*
 
 ```
 (pop-front deque)
@@ -242,7 +242,7 @@ Returns an empty deque if the input is empty.
 
 ---
 
-### push-front
+### push-front                                                          *[function]*
 
 ```
 (push-front item deque)
@@ -259,7 +259,7 @@ Returns a new deque with ITEM added at the front.
 
 ---
 
-### peek-end
+### peek-end                                                            *[function]*
 
 ```
 (peek-end deque)
@@ -277,7 +277,7 @@ Returns nil if the deque is empty.
 
 ---
 
-### pop-end
+### pop-end                                                             *[function]*
 
 ```
 (pop-end deque)
@@ -296,7 +296,7 @@ Returns an empty deque if the input is empty.
 
 ---
 
-### push-end
+### push-end                                                            *[function]*
 
 ```
 (push-end item deque)
@@ -341,7 +341,7 @@ work on the front (like lists).
 
 ---
 
-## update
+## update                                                               *[function]*
 
 ```
 (update coll key f & args)
@@ -362,7 +362,7 @@ Equivalent to `(assoc coll key (f (get coll key) args...))`.
 
 ---
 
-## update-in
+## update-in                                                            *[function]*
 
 ```
 (update-in coll keys f & args)
@@ -382,7 +382,7 @@ KEYS is a sequence of keys identifying the path to the value.
 
 ---
 
-## reduce-kv
+## reduce-kv                                                            *[function]*
 
 ```
 (reduce-kv f init coll)
@@ -413,7 +413,7 @@ For dicts, the key is the map key.
 
 ---
 
-## rseq
+## rseq                                                                 *[function]*
 
 ```
 (rseq coll)
@@ -434,7 +434,7 @@ Returns nil if the collection is empty.
 
 ---
 
-## subs
+## subs                                                                 *[function]*
 
 ```
 (subs coll start)
@@ -458,7 +458,7 @@ to END (exclusive). For sorted sets, returns elements in the range
 
 ---
 
-## rsubs
+## rsubs                                                                *[function]*
 
 ```
 (rsubs coll start)
@@ -484,7 +484,7 @@ elements are returned in reverse order. Similar to Clojure's `rsubseq`.
 
 These functions provide comprehensive dictionary manipulation capabilities following Clojure semantics.
 
-### get-in
+### get-in                                                              *[function]*
 
 ```
 (get-in coll keys)
@@ -506,7 +506,7 @@ if not found.
 
 ---
 
-### find
+### find                                                                *[function]*
 
 ```
 (find coll key)
@@ -525,7 +525,7 @@ Useful for distinguishing between a missing key and a key mapped to nil.
 
 ---
 
-### keys
+### keys                                                                *[function]*
 
 ```
 (keys dict)
@@ -546,7 +546,7 @@ in sorted order. For priority-dict, returns keys in priority (value) order.
 
 ---
 
-### vals
+### vals                                                                *[function]*
 
 ```
 (vals dict)
@@ -565,7 +565,7 @@ the order of keys for the dict type.
 
 ---
 
-### key
+### key                                                                 *[function]*
 
 ```
 (key entry)
@@ -583,7 +583,7 @@ from `find` or when iterating over a dict.
 
 ---
 
-### val
+### val                                                                 *[function]*
 
 ```
 (val entry)
@@ -601,7 +601,7 @@ from `find` or when iterating over a dict.
 
 ---
 
-### dissoc
+### dissoc                                                              *[function]*
 
 ```
 (dissoc dict & keys)
@@ -620,7 +620,7 @@ maintains the insertion order of remaining keys.
 
 ---
 
-### merge
+### merge                                                               *[function]*
 
 ```
 (merge & dicts)
@@ -639,7 +639,7 @@ later dictionaries' values win. The result type matches the first dict's type.
 
 ---
 
-### merge-with
+### merge-with                                                          *[function]*
 
 ```
 (merge-with f & dicts)
@@ -659,7 +659,7 @@ merged value.
 
 ---
 
-### select-keys
+### select-keys                                                         *[function]*
 
 ```
 (select-keys dict keyseq)
@@ -677,7 +677,7 @@ Keys in KEYSEQ that don't exist in dict are ignored.
 
 ---
 
-### rename-keys
+### rename-keys                                                         *[function]*
 
 ```
 (rename-keys dict keymap)
@@ -695,7 +695,7 @@ dictionary mapping old keys to new keys. Keys not in keymap are unchanged.
 
 ---
 
-### map-invert
+### map-invert                                                          *[function]*
 
 ```
 (map-invert dict)
@@ -713,7 +713,7 @@ the same value, only one key-value pair will be in the result (unspecified which
 
 ---
 
-### update-keys
+### update-keys                                                         *[function]*
 
 ```
 (update-keys dict f)
@@ -730,7 +730,7 @@ Returns a new dictionary with function F applied to all keys. The values remain 
 
 ---
 
-### update-vals
+### update-vals                                                         *[function]*
 
 ```
 (update-vals dict f)
@@ -747,7 +747,7 @@ Returns a new dictionary with function F applied to all values. The keys remain 
 
 ---
 
-### freqs
+### freqs                                                               *[function]*
 
 ```
 (freqs coll)
@@ -766,7 +766,7 @@ it occurs. Like Clojure's `frequencies`.
 
 ---
 
-### group-by
+### group-by                                                            *[function]*
 
 ```
 (group-by f coll)
@@ -786,7 +786,7 @@ vector of all elements that produced that result.
 
 ---
 
-### index
+### index                                                               *[function]*
 
 ```
 (index coll f)

@@ -2,7 +2,7 @@
 
 Higher-order functions for processing sequences and collections. All sequence functions work with any collection that supports `seq`: vectors, lists, dicts, sets, bags, strings, and lazy-seqs.
 
-## reduce
+## reduce                                                               *[function]*
 
 ```
 (reduce f)
@@ -69,7 +69,7 @@ The function `f` is called as `(f accumulator element)` for each element in `col
 
 ---
 
-## map
+## map                                                                  *[function]*
 
 ```
 (map f)
@@ -116,7 +116,7 @@ With two arguments, returns a **lazy sequence** of `(f elem)` for each element i
 
 ---
 
-## filter
+## filter                                                               *[function]*
 
 ```
 (filter pred)
@@ -164,7 +164,7 @@ With two arguments, returns a **lazy sequence** of elements where `(pred elem)` 
 
 ---
 
-## remove
+## remove                                                               *[function]*
 
 ```
 (remove pred)
@@ -204,7 +204,7 @@ With two arguments, returns a **lazy sequence** of elements where `(pred elem)` 
 
 ---
 
-## keep
+## keep                                                                 *[function]*
 
 ```
 (keep f)
@@ -239,7 +239,7 @@ With two arguments, returns a **lazy sequence** of non-nil `(f elem)` results.
 
 ---
 
-## mapcat
+## mapcat                                                               *[function]*
 
 ```
 (mapcat f)
@@ -277,7 +277,7 @@ With two arguments, returns a **lazy sequence** of concatenated results.
 
 ---
 
-## interleave
+## interleave                                                           *[function]*
 
 ```
 (interleave coll1 coll2 ...)
@@ -308,7 +308,7 @@ Stops when any collection is exhausted.
 
 ---
 
-## interpose
+## interpose                                                            *[function]*
 
 ```
 (interpose sep)
@@ -347,7 +347,7 @@ With two arguments, returns a **lazy sequence** with `sep` between each element.
 
 ---
 
-## range
+## range                                                                *[function]*
 
 ```
 (range)
@@ -400,7 +400,7 @@ Returns an empty sequence when the range is invalid (e.g., start >= end with pos
 
 ---
 
-## iterate
+## iterate                                                              *[function]*
 
 ```
 (iterate f x)
@@ -428,7 +428,7 @@ Returns a lazy sequence of `x`, `(f x)`, `(f (f x))`, etc. The function `f` must
 
 ---
 
-## repeat
+## repeat                                                               *[function]*
 
 ```
 (repeat x)
@@ -461,7 +461,7 @@ Returns a lazy sequence of `x`s.
 
 ---
 
-## repeatedly
+## repeatedly                                                           *[function]*
 
 ```
 (repeatedly f)
@@ -493,7 +493,7 @@ Returns a lazy sequence of calls to `f`. Unlike `repeat`, the function is called
 
 ---
 
-## cycle
+## cycle                                                                *[function]*
 
 ```
 (cycle coll)
@@ -523,7 +523,7 @@ Returns a lazy (infinite!) sequence of repetitions of the items in `coll`.
 
 ---
 
-## reduced / reduced?
+## reduced / reduced?                                                   *[function]*
 
 ```
 (reduced value)
@@ -633,7 +633,7 @@ Transducers are composable transformations that are independent of the input sou
 
 ---
 
-## sequence
+## sequence                                                             *[function]*
 
 ```
 (sequence coll)
@@ -660,7 +660,7 @@ Coerces coll to a (possibly empty) sequence. Like `seq`, but returns an empty li
 
 ---
 
-## keep-indexed
+## keep-indexed                                                         *[function]*
 
 ```
 (keep-indexed f)
@@ -695,7 +695,7 @@ With two arguments, returns a **lazy sequence** of non-nil `(f index item)` resu
 
 ---
 
-## map-indexed
+## map-indexed                                                          *[function]*
 
 ```
 (map-indexed f)
@@ -729,7 +729,7 @@ With two arguments, returns a **lazy sequence** of `(f index item)` results.
 
 ---
 
-## iteration
+## iteration                                                            *[function]*
 
 ```
 (iteration step :initk key :somef pred :vf value-fn :kf key-fn)
@@ -766,7 +766,7 @@ Options:
 
 ---
 
-## tree-seq
+## tree-seq                                                             *[function]*
 
 ```
 (tree-seq branch? children root)

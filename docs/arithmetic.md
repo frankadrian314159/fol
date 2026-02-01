@@ -1,6 +1,6 @@
 # Arithmetic Functions
 
-## +
+## +                                                                  *[function]*
 
 ```
 (+ x)
@@ -22,7 +22,7 @@ Returns the sum of nums. (+) returns 0.
 
 ---
 
-## -
+## -                                                                  *[function]*
 
 ```
 (- x)
@@ -44,7 +44,7 @@ Otherwise, subtracts y and all subsequent values from x and returns the result.
 
 ---
 
-## *
+## *                                                                  *[function]*
 
 ```
 (* x)
@@ -66,7 +66,7 @@ Returns the product of nums. (*) returns 1.
 
 ---
 
-## /
+## /                                                                  *[function]*
 
 ```
 (/ x)
@@ -90,7 +90,7 @@ Division of integers yields a ratio (exact fraction).
 
 ---
 
-## abs
+## abs                                                                *[function]*
 
 ```
 (abs x)
@@ -108,7 +108,7 @@ Returns the absolute value of x.
 
 ---
 
-## sin
+## sin                                                                *[function]*
 
 ```
 (sin x)
@@ -125,7 +125,7 @@ Returns the sine of x (x is in radians).
 
 ---
 
-## cos
+## cos                                                                *[function]*
 
 ```
 (cos x)
@@ -142,7 +142,7 @@ Returns the cosine of x (x is in radians).
 
 ---
 
-## tan
+## tan                                                                *[function]*
 
 ```
 (tan x)
@@ -159,7 +159,7 @@ Returns the tangent of x (x is in radians).
 
 ---
 
-## sqrt
+## sqrt                                                               *[function]*
 
 ```
 (sqrt x)
@@ -177,7 +177,7 @@ Returns the square root of x.
 
 ---
 
-## expt
+## expt                                                               *[function]*
 
 ```
 (expt base power)
@@ -196,7 +196,7 @@ Returns base raised to the power.
 
 ---
 
-## exp
+## exp                                                                *[function]*
 
 ```
 (exp x)
@@ -214,7 +214,7 @@ Returns e (Euler's number) raised to the power x.
 
 ---
 
-## ln
+## ln                                                                 *[function]*
 
 ```
 (ln x)
@@ -233,7 +233,7 @@ Returns the natural logarithm of x.
 
 ---
 
-## mod
+## mod                                                                *[function]*
 
 ```
 (mod num div)
@@ -251,7 +251,7 @@ Returns the modulus of num and div. The result has the same sign as the divisor.
 
 ---
 
-## rem
+## rem                                                                *[function]*
 
 ```
 (rem num div)
@@ -269,7 +269,7 @@ Returns the remainder of dividing num by div. The result has the same sign as th
 
 ---
 
-## floor
+## floor                                                              *[function]*
 
 ```
 (floor x)
@@ -293,7 +293,7 @@ With two arguments, returns the floor of x/divisor.
 
 ---
 
-## ceiling
+## ceiling                                                            *[function]*
 
 ```
 (ceiling x)
@@ -317,7 +317,7 @@ With two arguments, returns the ceiling of x/divisor.
 
 ---
 
-## truncate
+## truncate                                                           *[function]*
 
 ```
 (truncate x)
@@ -341,7 +341,7 @@ With two arguments, returns the truncated quotient.
 
 ---
 
-## round
+## round                                                              *[function]*
 
 ```
 (round x)
@@ -366,7 +366,7 @@ Rounds to even when exactly halfway between two integers (banker's rounding).
 
 ---
 
-## inc
+## inc                                                                *[function]*
 
 ```
 (inc x)
@@ -385,7 +385,7 @@ Returns x + 1. Equivalent to `(+ x 1)`.
 
 ---
 
-## dec
+## dec                                                                *[function]*
 
 ```
 (dec x)
@@ -406,7 +406,7 @@ Returns x - 1. Equivalent to `(- x 1)`.
 
 # Type Conversion Functions
 
-## \<complex\>
+## \<complex\>                                                        *[function]*
 
 ```
 (<complex> x)
@@ -426,7 +426,7 @@ Converts a real number to a complex number with imaginary part 0. If the number 
 
 ---
 
-## \<single-float\>
+## \<single-float\>                                                   *[function]*
 
 ```
 (<single-float> x)
@@ -445,7 +445,7 @@ Converts a real number to a single-precision floating point number. If the numbe
 
 ---
 
-## \<double-float\>
+## \<double-float\>                                                   *[function]*
 
 ```
 (<double-float> x)
@@ -464,7 +464,7 @@ Converts a real number to a double-precision floating point number. If the numbe
 
 ---
 
-## rationalize
+## rationalize                                                        *[function]*
 
 ```
 (rationalize x)
@@ -496,7 +496,7 @@ With two arguments, returns the simplest rational number within `tolerance` of `
 
 # Integer Predicates
 
-## nat-int?
+## nat-int?                                                           *[function]*
 
 ```
 (nat-int? x)
@@ -520,7 +520,7 @@ This predicate returns `nil` for all non-integer types including floats, ratios,
 
 ---
 
-## pos-int?
+## pos-int?                                                           *[function]*
 
 ```
 (pos-int? x)
@@ -545,7 +545,7 @@ This predicate returns `nil` for all non-integer types including floats, ratios,
 
 # Float Special Value Predicates
 
-## NaN?
+## NaN?                                                               *[function]*
 
 ```
 (NaN? x)
@@ -569,7 +569,7 @@ Non-float numbers (integers, ratios, complex) always return `nil`.
 
 ---
 
-## infinite?
+## infinite?                                                          *[function]*
 
 ```
 (infinite? x)
@@ -596,7 +596,7 @@ Non-float numbers (integers, ratios, complex) always return `nil`.
 
 # Random Number Generation
 
-## rand
+## rand                                                                *[function]*
 
 ```
 (rand)
@@ -620,7 +620,7 @@ With a positive integer argument `n`, returns a random integer in the half-open 
 
 ---
 
-## with-seed
+## with-seed                                                              *[macro]*
 
 ```
 (with-seed seed form*)

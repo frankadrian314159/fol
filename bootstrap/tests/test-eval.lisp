@@ -1571,44 +1571,45 @@
       (is (cl:= -5 (funcall rpartial-sub 5)))))) ; (- 5 10) = -5
 
 (test juxt-basic
-  "Test juxt applies multiple functions and returns multiple values."
+  "Test juxt applies multiple functions and returns a vector of results."
   (let ((env (make-standard-module)))
     (let ((stats (fol-eval '(juxt + - *) env)))
-      ;; (stats 3 4) => (values (+ 3 4) (- 3 4) (* 3 4)) = (values 7 -1 12)
-      (multiple-value-bind (v1 v2 v3) (funcall stats 3 4)
-        (is (cl:= 7 v1))
-        (is (cl:= -1 v2))
-        (is (cl:= 12 v3))))))
+      ;; (stats 3 4) => [(+ 3 4) (- 3 4) (* 3 4)] = [7 -1 12]
+      (let ((result (funcall stats 3 4)))
+        (is (cl:= 7 (nth-element result 0)))
+        (is (cl:= -1 (nth-element result 1)))
+        (is (cl:= 12 (nth-element result 2)))))))
 
 (test juxt-single-function
-  "Test juxt with single function returns single value."
+  "Test juxt with single function returns a vector with single element."
   (let ((env (make-standard-module)))
     (let ((wrapped (fol-eval '(juxt +) env)))
-      (is (cl:= 6 (funcall wrapped 1 2 3))))))
+      (let ((result (funcall wrapped 1 2 3)))
+        (is (cl:= 6 (nth-element result 0)))))))
 
 (test juxt-with-fol-functions
   "Test juxt works with FOL functions."
   (let ((env (make-standard-module)))
     (let ((pair (fol-eval (fol-form "(juxt (fn [x] (* x 2)) (fn [x] (+ x 1)))") env)))
-      (multiple-value-bind (v1 v2) (funcall pair 5)
-        (is (cl:= 10 v1))  ; (* 5 2)
-        (is (cl:= 6 v2))))))  ; (+ 5 1)
+      (let ((result (funcall pair 5)))
+        (is (cl:= 10 (nth-element result 0)))  ; (* 5 2)
+        (is (cl:= 6 (nth-element result 1)))))))  ; (+ 5 1)
 
 (test juxt-empty
-  "Test juxt with no functions returns no values."
+  "Test juxt with no functions returns an empty vector."
   (let ((env (make-standard-module)))
     (let ((empty-juxt (fol-eval '(juxt) env)))
-      ;; (values-list nil) returns 0 values
-      (is (cl:= 0 (cl:length (multiple-value-list (funcall empty-juxt 1 2 3))))))))
+      ;; Empty juxt returns an empty vector
+      (is (cl:= 0 (size (funcall empty-juxt 1 2 3)))))))
 
 (test juxt-practical-example
   "Test juxt with a practical use case."
   (let ((env (make-standard-module)))
     ;; Get both min and max in one pass
     (let ((min-max (fol-eval '(juxt min max) env)))
-      (multiple-value-bind (min-val max-val) (funcall min-max 3 1 4 1 5 9 2 6)
-        (is (cl:= 1 min-val))   ; min
-        (is (cl:= 9 max-val))))))  ; max
+      (let ((result (funcall min-max 3 1 4 1 5 9 2 6)))
+        (is (cl:= 1 (nth-element result 0)))   ; min
+        (is (cl:= 9 (nth-element result 1)))))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Higher-order Collection Operations (reduce, map, filter)

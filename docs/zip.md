@@ -6,7 +6,7 @@ FOL's zipper implementation follows the Clojure `clojure.zip` API.
 
 ## Creating Zippers
 
-### `(zipper branch-fn children-fn make-node-fn root)`
+### `(zipper branch-fn children-fn make-node-fn root)`             *[function]*
 
 Creates a new zipper structure.
 
@@ -24,7 +24,7 @@ Creates a new zipper structure.
         [1 [2 3] 4])
 ```
 
-### `(seq-zip root)`
+### `(seq-zip root)`                                               *[function]*
 
 Returns a zipper for nested sequences (lists/seqs). Branches are seqs, children are elements of the seq.
 
@@ -33,7 +33,7 @@ Returns a zipper for nested sequences (lists/seqs). Branches are seqs, children 
 (seq-zip '(1 (2 3) 4))
 ```
 
-### `(vector-zip root)`
+### `(vector-zip root)`                                            *[function]*
 
 Returns a zipper for nested vectors. Branches are vectors, children are elements of the vector.
 
@@ -44,37 +44,37 @@ Returns a zipper for nested vectors. Branches are vectors, children are elements
 
 ## Accessors
 
-### `(node loc)`
+### `(node loc)`                                                   *[function]*
 
 Returns the node at the current location.
 
-### `(branch? loc)`
+### `(branch? loc)`                                                *[function]*
 
 Returns true if the node at the current location is a branch (can have children).
 
-### `(children loc)`
+### `(children loc)`                                               *[function]*
 
 Returns a seq of the children of the node at loc. The node must be a branch.
 
-### `(make-node loc node children)`
+### `(make-node loc node children)`                                *[function]*
 
 Returns a new branch node, given an existing node and new children. Used internally for editing operations.
 
-### `(path loc)`
+### `(path loc)`                                                   *[function]*
 
 Returns a seq of nodes leading from the root to this location.
 
-### `(lefts loc)`
+### `(lefts loc)`                                                  *[function]*
 
 Returns a seq of the left siblings of the node at this location.
 
-### `(rights loc)`
+### `(rights loc)`                                                 *[function]*
 
 Returns a seq of the right siblings of the node at this location.
 
 ## Navigation
 
-### `(down loc)`
+### `(down loc)`                                                   *[function]*
 
 Returns the location of the leftmost child of the node at this location, or nil if no children.
 
@@ -86,15 +86,15 @@ Returns the location of the leftmost child of the node at this location, or nil 
 ; => 1
 ```
 
-### `(up loc)`
+### `(up loc)`                                                     *[function]*
 
 Returns the location of the parent of the node at this location, or nil if at the top.
 
-### `(left loc)`
+### `(left loc)`                                                   *[function]*
 
 Returns the location of the left sibling of the node at this location, or nil.
 
-### `(right loc)`
+### `(right loc)`                                                  *[function]*
 
 Returns the location of the right sibling of the node at this location, or nil.
 
@@ -107,15 +107,15 @@ Returns the location of the right sibling of the node at this location, or nil.
 ; => [2 3]
 ```
 
-### `(leftmost loc)`
+### `(leftmost loc)`                                               *[function]*
 
 Returns the location of the leftmost sibling of the node at this location, or self if already there.
 
-### `(rightmost loc)`
+### `(rightmost loc)`                                              *[function]*
 
 Returns the location of the rightmost sibling of the node at this location, or self if already there.
 
-### `(root loc)`
+### `(root loc)`                                                   *[function]*
 
 Returns the root node of the tree, reflecting any changes made through the zipper.
 
@@ -132,7 +132,7 @@ Returns the root node of the tree, reflecting any changes made through the zippe
 
 ## Traversal
 
-### `(next loc)`
+### `(next loc)`                                                   *[function]*
 
 Moves to the next location in the hierarchy using depth-first traversal. When reaching the end, returns a distinguished location detectable via `end?`.
 
@@ -147,11 +147,11 @@ Moves to the next location in the hierarchy using depth-first traversal. When re
 ; Prints: [1 [2 3] 4] 1 [2 3] 2 3 4
 ```
 
-### `(prev loc)`
+### `(prev loc)`                                                   *[function]*
 
 Moves to the previous location in the hierarchy using depth-first traversal. Returns nil if at the root.
 
-### `(end? loc)`
+### `(end? loc)`                                                   *[function]*
 
 Returns true if loc represents the end of a depth-first walk.
 
@@ -159,7 +159,7 @@ Returns true if loc represents the end of a depth-first walk.
 
 All editing functions return a new zipper with the modification applied. The original zipper is unchanged (immutable).
 
-### `(replace loc node)`
+### `(replace loc node)`                                           *[function]*
 
 Replaces the node at this location with a new node, without moving.
 
@@ -172,7 +172,7 @@ Replaces the node at this location with a new node, without moving.
 ; => [:a 2 3]
 ```
 
-### `(edit loc f & args)`
+### `(edit loc f & args)`                                          *[function]*
 
 Replaces the node at this location with the value of `(f node args)`.
 
@@ -185,7 +185,7 @@ Replaces the node at this location with the value of `(f node args)`.
 ; => [2 2 3]
 ```
 
-### `(insert-child loc item)`
+### `(insert-child loc item)`                                      *[function]*
 
 Inserts item as the leftmost child of the node at this location, without moving.
 
@@ -199,7 +199,7 @@ Inserts item as the leftmost child of the node at this location, without moving.
 ; => [1 [:a 2 3] 4]
 ```
 
-### `(append-child loc item)`
+### `(append-child loc item)`                                      *[function]*
 
 Inserts item as the rightmost child of the node at this location, without moving.
 
@@ -213,7 +213,7 @@ Inserts item as the rightmost child of the node at this location, without moving
 ; => [1 [2 3 :z] 4]
 ```
 
-### `(insert-left loc item)`
+### `(insert-left loc item)`                                       *[function]*
 
 Inserts item as the left sibling of the node at this location, without moving.
 
@@ -227,7 +227,7 @@ Inserts item as the left sibling of the node at this location, without moving.
 ; => [1 :a 2 3]
 ```
 
-### `(insert-right loc item)`
+### `(insert-right loc item)`                                      *[function]*
 
 Inserts item as the right sibling of the node at this location, without moving.
 
@@ -240,7 +240,7 @@ Inserts item as the right sibling of the node at this location, without moving.
 ; => [1 :a 2 3]
 ```
 
-### `(zip-remove loc)`
+### `(zip-remove loc)`                                             *[function]*
 
 Removes the node at loc, returning the location that would have preceded it in a depth-first walk.
 

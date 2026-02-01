@@ -2,7 +2,7 @@
 
 Type predicates return true if the argument is of the specified type, false otherwise.
 
-## <bool>?
+## <bool>?                                                              *[function]*
 
 ```
 (<bool>? x)
@@ -22,7 +22,7 @@ Returns true if x is a boolean (true or false).
 
 ---
 
-## <char>?
+## <char>?                                                              *[function]*
 
 ```
 (<char>? x)
@@ -41,7 +41,7 @@ Returns true if x is a character.
 
 ---
 
-## <number>?
+## <number>?                                                            *[function]*
 
 ```
 (<number>? x)
@@ -60,7 +60,7 @@ Returns true if x is any kind of number (integer, float, ratio, complex).
 
 ---
 
-## <integer>?
+## <integer>?                                                           *[function]*
 
 ```
 (<integer>? x)
@@ -79,7 +79,7 @@ Returns true if x is an integer (fixnum or bignum).
 
 ---
 
-## <fixnum>?
+## <fixnum>?                                                            *[function]*
 
 ```
 (<fixnum>? x)
@@ -96,7 +96,7 @@ Returns true if x is a fixnum (small integer that fits in a machine word).
 
 ---
 
-## <bignum>?
+## <bignum>?                                                            *[function]*
 
 ```
 (<bignum>? x)
@@ -113,7 +113,7 @@ Returns true if x is a bignum (arbitrary precision integer).
 
 ---
 
-## <float>?
+## <float>?                                                             *[function]*
 
 ```
 (<float>? x)
@@ -131,7 +131,7 @@ Returns true if x is a floating-point number.
 
 ---
 
-## <single-float>?
+## <single-float>?                                                      *[function]*
 
 ```
 (<single-float>? x)
@@ -148,7 +148,7 @@ Returns true if x is a single-precision float.
 
 ---
 
-## <double-float>?
+## <double-float>?                                                      *[function]*
 
 ```
 (<double-float>? x)
@@ -166,7 +166,7 @@ Returns true if x is a double-precision float.
 
 ---
 
-## <ratio>?
+## <ratio>?                                                             *[function]*
 
 ```
 (<ratio>? x)
@@ -185,7 +185,7 @@ Returns true if x is a ratio (exact fraction).
 
 ---
 
-## <rational>?
+## <rational>?                                                          *[function]*
 
 ```
 (<rational>? x)
@@ -203,7 +203,7 @@ Returns true if x is a rational number (integer or ratio).
 
 ---
 
-## <complex>?
+## <complex>?                                                           *[function]*
 
 ```
 (<complex>? x)
@@ -221,7 +221,7 @@ Returns true if x is a complex number.
 
 ---
 
-## <string>?
+## <string>?                                                            *[function]*
 
 ```
 (<string>? x)
@@ -240,7 +240,7 @@ Returns true if x is a string.
 
 ---
 
-## <symbol>?
+## <symbol>?                                                            *[function]*
 
 ```
 (<symbol>? x)
@@ -258,7 +258,7 @@ Returns true if x is a symbol (including keywords).
 
 ---
 
-## <keyword>?
+## <keyword>?                                                           *[function]*
 
 ```
 (<keyword>? x)

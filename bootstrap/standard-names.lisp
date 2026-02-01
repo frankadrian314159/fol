@@ -417,6 +417,9 @@
             '>= #'>=
             'min #'min
             'max #'max
+            'eq #'cl:eq
+            'eql #'cl:eql
+            'equal #'cl:equal
             ;; Logical
             'not #'not
             'and #'and
@@ -517,7 +520,17 @@
             ;; String operations
             'str #'(lambda (&rest args)
                      (apply #'concatenate 'string
-                            (mapcar #'princ-to-string args)))
+                            (mapcar (lambda (x)
+                                      (cond
+                                        ((null x) "nil")
+                                        ;; Handle wrapped FOL <string> objects
+                                        ((typep x 'fol.classes:<string>)
+                                         (fol.wrappers:fol-value x))
+                                        ;; Handle raw CL strings
+                                        ((stringp x) x)
+                                        ;; Everything else
+                                        (t (princ-to-string x))))
+                                    args)))
             'sub #'fol.seqop:sub
             'blank? #'fol.string:blank?
             'trim #'fol.string:trim
@@ -525,6 +538,8 @@
             'trimr #'fol.string:trimr
             'trim-newline #'fol.string:trim-newline
             'capitalize #'fol.string:capitalize
+            'upper-case #'cl:string-upcase
+            'lower-case #'cl:string-downcase
             'starts-with? #'fol.string:starts-with?
             'ends-with? #'fol.string:ends-with?
             'includes? #'fol.string:includes?
@@ -588,16 +603,42 @@
                           (lambda (&rest more-args)
                             (apply-function f (append more-args bound-args))))
             'juxt #'(lambda (&rest fns)
-                      "Returns a function that applies each fn to its args and returns the results as multiple values.
-                       (juxt f g h) returns a function that, when called with args, returns (values (f args) (g args) (h args))."
+                      "Returns a function that applies each fn to its args and returns the results as a vector.
+                       (juxt f g h) returns a function that, when called with args, returns [(f args) (g args) (h args)]."
                       (lambda (&rest args)
-                        (values-list
-                         (loop for fn in fns
-                               collect (apply-function fn args)))))
+                        (apply #'fol.collection:make-vector
+                               (loop for fn in fns
+                                     collect (apply-function fn args)))))
             'print #'cl:print
+            'eval #'fol-eval
             'type #'fol.wrappers:fol-type-of
             ;; Generic constructor
             'make #'make
+            ;; MOP introspection functions
+            'class-name* #'cl:class-name
+            'class-direct-superclasses* #'(lambda (class)
+                                            (apply #'fol.collection:make-list
+                                                   (c2mop:class-direct-superclasses class)))
+            'class-slots* #'(lambda (class)
+                              (apply #'fol.collection:make-list
+                                     (c2mop:class-slots class)))
+            'slot-names #'(lambda (class)
+                            (apply #'fol.collection:make-list
+                                   (mapcar #'c2mop:slot-definition-name
+                                           (c2mop:class-slots class))))
+            'slot-value* #'cl:slot-value
+            'instance-class #'cl:class-of
+            '<persistent-object>? #'(lambda (x) (typep x 'fol.persistent:<persistent-object>))
+            'symbol? #'cl:symbolp
+            ;; Class objects for MOP
+            '<string> (find-class 'fol.classes:<string>)
+            '<integer> (find-class 'fol.classes:<integer>)
+            '<number> (find-class 'fol.classes:<number>)
+            '<vector> (find-class 'fol.collection:<vector>)
+            '<list> (find-class 'fol.collection:<list>)
+            '<dict> (find-class 'fol.collection:<dict>)
+            '<set> (find-class 'fol.collection:<set>)
+            '<persistent-object> (find-class 'fol.persistent:<persistent-object>)
             ;; Bitwise operations
             'bitnot #'fol.bitop:bitnot
             'bitand #'fol.bitop:bitand
@@ -687,9 +728,13 @@
             'set #'fol.collection:make-set
             'hash-set #'fol.collection:make-set
             'sorted-set #'fol.collection:make-sorted-set
+            '<sorted-set> #'fol.collection:make-sorted-set
             'ordered-set #'fol.collection:make-ordered-set
+            '<ordered-set> #'fol.collection:make-ordered-set
             'int-set #'fol.collection:make-int-set
+            '<int-set> #'fol.collection:make-int-set
             'dense-int-set #'fol.collection:make-dense-int-set
+            '<dense-int-set> #'fol.collection:make-dense-int-set
             ;; Set type predicates
             '<set>? #'fol.collection:<set>?
             '<sorted-set>? #'fol.collection:<sorted-set>?
@@ -698,15 +743,21 @@
             '<dense-int-set>? #'fol.collection:<dense-int-set>?
             ;; sorted-set-by constructor and predicate
             'sorted-set-by #'fol.collection:sorted-set-by
+            '<sorted-set-by> #'fol.collection:sorted-set-by
             '<sorted-set-by>? #'fol.collection:<sorted-set-by>?
             ;; Dict constructors (Clojure-style)
             'array-dict #'fol.collection:array-dict
+            '<array-dict> #'fol.collection:array-dict
             'array-dict-with-limit #'fol.collection:array-dict-with-limit
             'sorted-dict #'fol.collection:sorted-dict
+            '<sorted-dict> #'fol.collection:sorted-dict
             'sorted-dict-by #'fol.collection:sorted-dict-by
             'ordered-dict #'fol.collection:ordered-dict
+            '<ordered-dict> #'fol.collection:ordered-dict
             'priority-dict #'fol.collection:priority-dict
+            '<priority-dict> #'fol.collection:priority-dict
             'int-dict #'fol.collection:int-dict
+            '<int-dict> #'fol.collection:int-dict
             ;; Set operations (FOL names union/difference/intersection, CL impl set-union/etc.)
             'union #'fol.seqop:set-union
             'difference #'fol.seqop:set-difference
@@ -717,6 +768,10 @@
             ;; Ordered set subsequence operations
             'subs #'fol.seqop:subs
             'rsubs #'fol.seqop:rsubs
+            ;; Base collection constructors
+            'dict #'fol.collection:make-dict
+            'bag #'fol.collection:make-bag
+            'array #'fol.collection:make-array
             ;; Dict query functions
             'get-in #'fol.seqop:get-in
             'find #'fol.seqop:find
@@ -1439,6 +1494,42 @@
                                     when result return result
                                     do (setf s (fol.seqop:rest s))
                                     finally (return nil))))))
+            'every #'(lambda (pred &rest colls)
+                       "Returns true if (pred x) is logical true for every x in coll, else false."
+                       (if (null colls)
+                           t
+                           (let ((coll (cl:first colls)))
+                             (let ((s (fol.seqop:seq coll)))
+                               (loop until (cl:or (null s) (fol.seqop:empty? s))
+                                     for elem = (fol.seqop:first s)
+                                     for result = (apply-function pred (cl:list elem))
+                                     unless result return nil
+                                     do (setf s (fol.seqop:rest s))
+                                     finally (return t))))))
+            'not-any #'(lambda (pred &rest colls)
+                         "Returns false if (pred x) is logical true for any x in coll, else true."
+                         (if (null colls)
+                             t
+                             (let ((coll (cl:first colls)))
+                               (let ((s (fol.seqop:seq coll)))
+                                 (loop until (cl:or (null s) (fol.seqop:empty? s))
+                                       for elem = (fol.seqop:first s)
+                                       for result = (apply-function pred (cl:list elem))
+                                       when result return nil
+                                       do (setf s (fol.seqop:rest s))
+                                       finally (return t))))))
+            'not-every #'(lambda (pred &rest colls)
+                           "Returns false if (pred x) is logical true for every x in coll, else true."
+                           (if (null colls)
+                               nil
+                               (let ((coll (cl:first colls)))
+                                 (let ((s (fol.seqop:seq coll)))
+                                   (loop until (cl:or (null s) (fol.seqop:empty? s))
+                                         for elem = (fol.seqop:first s)
+                                         for result = (apply-function pred (cl:list elem))
+                                         unless result return t
+                                         do (setf s (fol.seqop:rest s))
+                                         finally (return nil))))))
             ;; Relational algebra functions (operate on collections of maps)
             'rel-join #'(lambda (xrel yrel &rest keyvals)
                           "Returns the natural join of xrel and yrel (collections of maps).
@@ -2746,7 +2837,9 @@
             'lazy-cat (make-lazy-cat-macro)
             'delay (make-delay-macro)
             'assert (make-assert-macro)
-            'comment (make-comment-macro))))
+            'comment (make-comment-macro)
+            ;; Internal test function
+            '%test% #'fol.repl:fol-test)))
     ;; Export all symbols from the module
     (let ((items (fol.persistent:pslot-value module 'fol.collection::items)))
       (fset:do-map (key val items)
@@ -2757,7 +2850,7 @@
 (defun make-zip-module ()
   "Create a module with FOL zipper functions for navigating and editing tree structures.
    All symbols are exported."
-  (let ((module (fol.module:make-module "zip"
+  (let ((module (fol.module:make-module "fol.zip"
             ;; Zipper creation
             'zipper? #'fol.seqop:<zipper>?
             'zipper #'fol.seqop:zipper

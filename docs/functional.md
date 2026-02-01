@@ -2,7 +2,7 @@
 
 Higher-order functions for functional programming.
 
-## identity
+## identity                                                             *[function]*
 
 ```
 (identity x)
@@ -23,7 +23,7 @@ Returns x unchanged. Useful as a placeholder function or when a function is requ
 
 ---
 
-## complement
+## complement                                                           *[function]*
 
 ```
 (complement f)
@@ -52,7 +52,7 @@ but returns the logical complement (negation) of f's result.
 
 ---
 
-## disjoin
+## disjoin                                                              *[function]*
 
 ```
 (disjoin predicate1 & more-predicates)
@@ -89,7 +89,7 @@ A disjunction is similar to an `or` expression of calls to the predicates.
 
 ---
 
-## conjoin
+## conjoin                                                              *[function]*
 
 ```
 (conjoin predicate1 & more-predicates)
@@ -140,7 +140,7 @@ A conjunction is similar to an `and` expression of calls to the predicates.
 
 ---
 
-## partial
+## partial                                                              *[function]*
 
 ```
 (partial f & args)
@@ -174,7 +174,7 @@ partial application.
 
 ---
 
-## rpartial
+## rpartial                                                             *[function]*
 
 ```
 (rpartial f & args)
@@ -214,7 +214,7 @@ partial application - the bound args are appended to the end.
 
 ---
 
-## juxt
+## juxt                                                                 *[function]*
 
 ```
 (juxt f1 f2 ... fn)
@@ -260,7 +260,7 @@ This is useful for computing multiple values from the same input in a single pas
 
 ---
 
-## constantly
+## constantly                                                           *[function]*
 
 ```
 (constantly x)
@@ -288,7 +288,7 @@ Useful when you need a function that ignores its arguments.
 
 ---
 
-## comp
+## comp                                                                 *[function]*
 
 ```
 (comp f1 f2 ... fn)
@@ -323,7 +323,7 @@ With no arguments, returns identity.
 
 ---
 
-## memoize
+## memoize                                                              *[function]*
 
 ```
 (memoize f)
@@ -361,7 +361,7 @@ Useful for expensive computations with repeated calls.
 
 ---
 
-## fnil
+## fnil                                                                 *[function]*
 
 ```
 (fnil f default1 & more-defaults)
@@ -395,7 +395,7 @@ Useful for providing default values to functions.
 
 ---
 
-## fn?
+## fn?                                                                  *[function]*
 
 ```
 (fn? x)
@@ -416,7 +416,7 @@ Returns true if x is a function (FOL function, macro, or Common Lisp function).
 
 ---
 
-## trampoline
+## trampoline                                                           *[function]*
 
 ```
 (trampoline f & args)

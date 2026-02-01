@@ -1,6 +1,6 @@
 # Logical Functions
 
-## not
+## not                                                                  *[function]*
 
 ```
 (not x)
@@ -20,7 +20,7 @@ Returns true if x is nil or false, false otherwise.
 
 ---
 
-## and
+## and                                                                     *[macro]*
 
 ```
 (and & args)
@@ -42,7 +42,7 @@ or the last value if all are truthy. With no arguments, returns true.
 
 ---
 
-## or
+## or                                                                      *[macro]*
 
 ```
 (or & args)
@@ -64,7 +64,7 @@ or the last value if all are falsey. With no arguments, returns nil.
 
 ---
 
-## xor
+## xor                                                                  *[function]*
 
 ```
 (xor & args)
@@ -84,7 +84,7 @@ For two arguments, returns true if exactly one is truthy.
 
 ---
 
-## implies
+## implies                                                              *[function]*
 
 ```
 (implies a b)
@@ -104,7 +104,7 @@ Returns false only when a is true and b is false.
 
 ---
 
-## nand
+## nand                                                                 *[function]*
 
 ```
 (nand & args)
@@ -122,7 +122,7 @@ Logical NAND (NOT AND). Returns the negation of AND.
 
 ---
 
-## nor
+## nor                                                                  *[function]*
 
 ```
 (nor & args)

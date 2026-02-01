@@ -12,7 +12,7 @@ FOL has three regex-related types:
 
 ---
 
-## wrap-re-pattern
+## wrap-re-pattern                                                      *[function]*
 
 ```
 (wrap-re-pattern pattern-string)
@@ -36,7 +36,7 @@ Creates a `<re-pattern>` from a string. The `#"..."` reader syntax is the idioma
 
 ---
 
-## make-re-scanner
+## make-re-scanner                                                      *[function]*
 
 ```
 (make-re-scanner pattern)
@@ -70,7 +70,7 @@ Creates a compiled `<re-scanner>` from a `<re-pattern>` with optional flags. Com
 
 ---
 
-## re-find
+## re-find                                                              *[function]*
 
 ```
 (re-find regex target)
@@ -132,7 +132,7 @@ The dict always includes `"$0"` for the complete match. Unnamed groups are named
 
 ---
 
-## re-seq
+## re-seq                                                               *[function]*
 
 ```
 (re-seq regex target)

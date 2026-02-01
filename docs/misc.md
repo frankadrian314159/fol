@@ -2,7 +2,7 @@
 
 See also [functional.md](functional.md) for higher-order functions like `identity` and `complement`.
 
-## print
+## print                                                                *[function]*
 
 ```
 (print x)
@@ -19,7 +19,7 @@ Prints x to standard output with a newline, then returns x.
 
 ---
 
-## type
+## type                                                                 *[function]*
 
 ```
 (type x)
@@ -43,7 +43,7 @@ Returns the FOL type of x as a symbol.
 
 ---
 
-## make
+## make                                                         *[generic function]*
 
 ```
 (make class & args)
@@ -68,7 +68,7 @@ with the given arguments.
 
 ---
 
-## str
+## str                                                                  *[function]*
 
 ```
 (str & args)
@@ -87,7 +87,7 @@ Concatenates the string representations of all arguments into a single string.
 
 ---
 
-## list
+## list                                                                 *[function]*
 
 ```
 (list & args)
@@ -105,7 +105,7 @@ Creates a CL-style list containing the given arguments.
 
 ---
 
-## append
+## append                                                               *[function]*
 
 ```
 (append & lists)
@@ -123,7 +123,7 @@ Concatenates CL-style lists together. Returns a new list containing all elements
 
 ---
 
-## reverse
+## reverse                                                              *[function]*
 
 ```
 (reverse sequence)
@@ -141,7 +141,7 @@ Returns a new sequence with elements in reverse order.
 
 ---
 
-## parse-bool
+## parse-bool                                                           *[function]*
 
 ```
 (parse-bool s)
@@ -166,7 +166,7 @@ Parses a boolean string and returns a `<bool>` instance. The input is case-insen
 
 ---
 
-## parse-int
+## parse-int                                                            *[function]*
 
 ```
 (parse-int s)
@@ -189,7 +189,7 @@ Parses an integer string and returns an `<integer>` instance.
 
 ---
 
-## parse-double
+## parse-double                                                         *[function]*
 
 ```
 (parse-double s)
@@ -212,7 +212,7 @@ Parses a floating-point string and returns a `<double-float>` instance. Integers
 
 ---
 
-## parse-uuid
+## parse-uuid                                                           *[function]*
 
 ```
 (parse-uuid s)
@@ -235,7 +235,7 @@ Parses a UUID string and returns a `<uuid>` instance.
 
 ---
 
-## keyword
+## keyword                                                              *[function]*
 
 ```
 (keyword name)
@@ -274,7 +274,7 @@ Creates a keyword from NAME.
 
 ---
 
-## find-keyword
+## find-keyword                                                         *[function]*
 
 ```
 (find-keyword name)
@@ -314,7 +314,7 @@ Returns the keyword if found, or `NIL` if no such keyword exists.
 
 ---
 
-## symbol
+## symbol                                                               *[function]*
 
 ```
 (symbol name)
@@ -354,7 +354,7 @@ In both cases, the `module-name` slot on the resulting `<symbol>` is set to the 
 
 ---
 
-## gensym
+## gensym                                                               *[function]*
 
 ```
 (gensym)
@@ -395,7 +395,7 @@ Creates a unique symbol with an auto-generated name containing a monotonically i
 
 ---
 
-## int
+## int                                                                  *[function]*
 
 ```
 (int x)
@@ -436,7 +436,7 @@ Converts a value to an integer.
 
 ---
 
-## <double-float>
+## <double-float>                                                       *[function]*
 
 ```
 (<double-float> x)

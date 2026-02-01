@@ -390,6 +390,8 @@
     ;; Threading macros
     (setf (gethash "->" table) 'eval-thread-first)
     (setf (gethash "->>" table) 'eval-thread-last)
+    (setf (gethash "COND->" table) 'eval-cond-thread-first)
+    (setf (gethash "COND->>" table) 'eval-cond-thread-last)
     ;; FOL MOP forms
     (setf (gethash "DEFGENERIC" table) 'eval-defgeneric*)
     (setf (gethash "DEFCLASS" table) 'eval-defclass*)
@@ -397,6 +399,8 @@
     ;; Module operations
     (setf (gethash "USE-MODULE" table) 'eval-use-module)
     (setf (gethash "MODULE" table) 'eval-module)
+    ;; Environment access
+    (setf (gethash "ENV" table) 'eval-env)
     ;; Unquote forms are errors outside syntax-quote
     (setf (gethash "UNQUOTE" table) 'eval-unquote-error)
     (setf (gethash "UNQUOTE-SPLICING" table) 'eval-unquote-splicing-error)
@@ -464,6 +468,15 @@
     (error 'fol-arity-error :expected 1 :got (length args)
            :form (cons 'quote args)))
   (car args))
+
+;;; --- ENV ---
+
+(defun eval-env (args env)
+  "Evaluate (env). Returns the current environment."
+  (unless (= (length args) 0)
+    (error 'fol-arity-error :expected 0 :got (length args)
+           :form (cons 'env args)))
+  env)
 
 ;;; --- IF ---
 
@@ -1611,6 +1624,49 @@
         x  ; No forms, just return x
         (dolist (form forms x)
           (setf x (apply-threaded x form :last env))))))
+
+(defun eval-cond-thread-first (args env)
+  "Evaluate (cond-> x test1 form1 test2 form2 ...).
+   Threads x through forms where corresponding test is true (thread-first).
+
+   Example:
+     (cond-> 1 true (+ 1) false (+ 10) true (* 2))
+     ; evaluates (+ 1 1) => 2, skips (+ 10), evaluates (* 2 2) => 4
+     ; returns 4"
+  (unless (>= (length args) 1)
+    (error 'fol-arity-error :expected "at least 1" :got (length args)
+           :form (cons 'cond-> args)))
+  (let ((x (fol-eval (first args) env))
+        (clauses (rest args)))
+    ;; Process pairs of (test form)
+    (loop while (>= (length clauses) 2)
+          for test = (fol-eval (first clauses) env)
+          for form = (second clauses)
+          do (when test
+               (setf x (apply-threaded x form :first env)))
+             (setf clauses (cddr clauses)))
+    x))
+
+(defun eval-cond-thread-last (args env)
+  "Evaluate (cond->> x test1 form1 test2 form2 ...).
+   Threads x through forms where corresponding test is true (thread-last).
+
+   Example:
+     (cond->> [1 2 3] true (map inc) false (map dec))
+     ; evaluates to [2 3 4]"
+  (unless (>= (length args) 1)
+    (error 'fol-arity-error :expected "at least 1" :got (length args)
+           :form (cons 'cond->> args)))
+  (let ((x (fol-eval (first args) env))
+        (clauses (rest args)))
+    ;; Process pairs of (test form)
+    (loop while (>= (length clauses) 2)
+          for test = (fol-eval (first clauses) env)
+          for form = (second clauses)
+          do (when test
+               (setf x (apply-threaded x form :last env)))
+             (setf clauses (cddr clauses)))
+    x))
 
 ;;; --- FOL MOP FORMS ---
 

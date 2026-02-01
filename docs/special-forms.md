@@ -4,7 +4,7 @@ Special forms are the primitive building blocks of FOL that have special evaluat
 
 ---
 
-## quote
+## quote                                                          *[special form]*
 
 ```
 (quote form)
@@ -28,7 +28,7 @@ Returns the form unevaluated. The reader macro `'` is shorthand for `quote`.
 
 ---
 
-## if
+## if                                                             *[special form]*
 
 ```
 (if test then)
@@ -49,7 +49,7 @@ Otherwise, evaluates and returns `else` (or nil if not provided).
 
 ---
 
-## do
+## do                                                             *[special form]*
 
 ```
 (do form0 form1 ... formN)
@@ -71,7 +71,7 @@ Returns nil if no forms are provided.
 
 ---
 
-## bind / let
+## bind / let                                                     *[special form]*
 
 ```
 (bind [bindings] body...)
@@ -100,7 +100,7 @@ Supports destructuring. `let` is an alias for `bind`.
 
 ---
 
-## fn / λ
+## fn / λ                                                         *[special form]*
 
 ```
 (fn [params] body...)
@@ -139,7 +139,7 @@ Supports destructuring in parameters (see [destructuring](destructuring.md)).
 
 ---
 
-## def
+## def                                                            *[special form]*
 
 ```
 (def name value)
@@ -157,7 +157,7 @@ Defines a global variable with the given name and value.
 
 ---
 
-## defn
+## defn                                                           *[special form]*
 
 ```
 (defn name [params] body...)
@@ -195,7 +195,7 @@ For functions that accept different arities or patterns:
 
 ---
 
-## defmacro
+## defmacro                                                       *[special form]*
 
 ```
 (defmacro name [params] body...)
@@ -218,7 +218,7 @@ Defines a macro. Macros receive unevaluated forms and return a new form to evalu
 
 ---
 
-## cond
+## cond                                                           *[special form]*
 
 ```
 (cond test1 form1 test2 form2 ... testN formN)
@@ -244,7 +244,7 @@ evaluates and returns the corresponding form. If no test is truthy, returns nil.
 
 ---
 
-## case
+## case                                                           *[special form]*
 
 ```
 (case target-form
@@ -275,7 +275,7 @@ Each target can be an atom or a vector of atoms.
 
 ---
 
-## loop
+## loop                                                           *[special form]*
 
 ```
 (loop [bindings] body*)
@@ -305,7 +305,7 @@ to the loop with new values.
 
 ---
 
-## recur
+## recur                                                          *[special form]*
 
 ```
 (recur arg*)
@@ -317,7 +317,7 @@ The number of arguments must match the number of loop bindings.
 
 ---
 
-## throw
+## throw                                                          *[special form]*
 
 ```
 (throw value)
@@ -338,7 +338,7 @@ Throws an exception with the given value.
 
 ---
 
-## try
+## try                                                            *[special form]*
 
 ```
 (try
@@ -363,7 +363,7 @@ Exception handling. Evaluates body forms, catching any exceptions.
 
 ---
 
-## syntax-quote
+## syntax-quote                                                   *[special form]*
 
 ```
 `form
@@ -389,7 +389,7 @@ Quasiquote syntax for building code templates. Supports:
 
 ---
 
-## make-dynamic
+## make-dynamic                                                   *[special form]*
 
 ```
 (make-dynamic name)
@@ -407,7 +407,7 @@ Creates a dynamic variable with the given name and optional initial value.
 
 ---
 
-## binding
+## binding                                                        *[special form]*
 
 ```
 (binding [bindings] body*)
@@ -430,7 +430,7 @@ Temporarily rebinds dynamic variables for the duration of body evaluation.
 
 ---
 
-## lazy-seq
+## lazy-seq                                                       *[special form]*
 
 ```
 (lazy-seq body)
@@ -451,7 +451,7 @@ The body should return a cons pair or nil.
 
 ---
 
-## -> (thread-first)
+## -> (thread-first)                                                       *[macro]*
 
 ```
 (-> x form*)
@@ -475,7 +475,7 @@ Threads value `x` through each form as the **first** argument.
 
 ---
 
-## ->> (thread-last)
+## ->> (thread-last)                                                       *[macro]*
 
 ```
 (->> x form*)
@@ -495,7 +495,7 @@ Threads value `x` through each form as the **last** argument.
 
 ---
 
-## defgeneric
+## defgeneric                                                              *[macro]*
 
 ```
 (defgeneric name [lambda-list] option*)
@@ -512,7 +512,7 @@ Defines a generic function with the given name and lambda list.
 
 ---
 
-## defclass
+## defclass                                                                *[macro]*
 
 ```
 (defclass name [superclasses] [slots] class-option*)
@@ -530,7 +530,7 @@ Defines a class with the given name, superclasses, and slots.
 
 ---
 
-## defmethod
+## defmethod                                                               *[macro]*
 
 ```
 (defmethod name qualifier* [specialized-lambda-list] body*)
@@ -547,7 +547,7 @@ Defines a method on a generic function.
 
 ---
 
-## definline
+## definline                                                               *[macro]*
 
 ```
 (definline name [params] body)
@@ -576,7 +576,7 @@ Unlike Common Lisp's definline, this supports variadic and destructuring argumen
 
 ---
 
-## trampoline
+## trampoline                                                           *[function]*
 
 ```
 (trampoline f & args)

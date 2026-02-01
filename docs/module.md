@@ -22,13 +22,13 @@ FOL provides two standard modules:
 
 The core module containing all standard FOL functions, macros, and values. This is automatically loaded as the base environment when starting the REPL or evaluating code.
 
-### `zip`
+### `fol.zip`
 
 The zipper module containing functions for navigating and editing tree structures. See [zip.md](zip.md) for details.
 
 ## Using Modules
 
-### `(use-module name)`
+### `(use-module name)`                                            *[function]*
 
 Imports all exported symbols from the named module into the current module's imports dict.
 
@@ -38,7 +38,7 @@ Imports all exported symbols from the named module into the current module's imp
 **Example:**
 ```clojure
 ;; Import all zipper functions
-(use-module "zip")
+(use-module "fol.zip")
 
 ;; Now zipper functions are available
 (def z (vector-zip [1 [2 3] 4]))
@@ -53,7 +53,7 @@ Imports all exported symbols from the named module into the current module's imp
 
 ## Creating Modules
 
-### `(module)` or `(module name)`
+### `(module)` or `(module name)`                                   *[function]*
 
 Creates a new module and adds it to the environment chain. The new module has the current environment as its parent.
 
@@ -92,7 +92,7 @@ At the implementation level, modules can be created using `make-module`:
 
 ## Exporting Symbols
 
-Symbols must be explicitly exported from a module to be available for import by other modules. The `fol.core` and `zip` modules export all their symbols automatically.
+Symbols must be explicitly exported from a module to be available for import by other modules. The `fol.core` and `fol.zip` modules export all their symbols automatically.
 
 At the implementation level, use `module-export`:
 
@@ -122,7 +122,7 @@ This search order means:
 ```clojure
 ;; Start with fol.core as the base module
 ;; Import zipper functionality
-(use-module "zip")
+(use-module "fol.zip")
 
 ;; Create a zipper over a nested vector
 (def tree [1 [2 3] [4 [5 6]]])

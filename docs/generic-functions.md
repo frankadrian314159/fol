@@ -2,7 +2,7 @@
 
 FOL provides a metaobject protocol (MOP) for defining generic functions and methods using vector syntax instead of traditional Lisp list syntax.
 
-## defgeneric
+## defgeneric                                                              *[macro]*
 
 ```
 (defgeneric name [lambda-list] option*)
@@ -72,7 +72,7 @@ Standard CLOS options are supported:
 
 ---
 
-## defmethod
+## defmethod                                                               *[macro]*
 
 ```
 (defmethod name qualifier* [specialized-lambda-list] body*)
@@ -246,7 +246,7 @@ The dispatcher checks:
 
 ---
 
-## defclass
+## defclass                                                                *[macro]*
 
 ```
 (defclass name [superclasses] [slots] class-option*)

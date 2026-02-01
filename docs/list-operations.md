@@ -6,7 +6,7 @@ Note: `first`, `rest`, `nth`, and `size` are generic collection functions
 that work on all collection types (vectors, lists, dicts, sets, strings).
 See [collections.md](collections.md) for their documentation.
 
-## list
+## list                                                                 *[function]*
 
 ```
 (list & args)
@@ -25,7 +25,7 @@ Creates a FOL `<list>` containing the given arguments. This is the primary way t
 
 ---
 
-## cons
+## cons                                                                 *[function]*
 
 ```
 (cons x coll)
@@ -44,7 +44,7 @@ Returns a new seq where x is the first element and coll is the rest. This is the
 
 ---
 
-## list*
+## list*                                                                *[function]*
 
 ```
 (list* & args)
@@ -63,7 +63,7 @@ Creates a new list containing the items prepended to the rest, where the last ar
 
 ---
 
-## peek
+## peek                                                                 *[function]*
 
 ```
 (peek coll)
@@ -81,7 +81,7 @@ For a list, returns the first element. Returns nil if the collection is empty.
 
 ---
 
-## pop
+## pop                                                                  *[function]*
 
 ```
 (pop coll)
@@ -110,7 +110,7 @@ Returns nil for empty lists, empty vector for empty vectors.
 
 ---
 
-## push
+## push                                                                 *[function]*
 
 ```
 (push item coll)
@@ -135,7 +135,7 @@ Returns a new collection with item added. The position depends on the collection
 
 ---
 
-## append
+## append                                                               *[function]*
 
 ```
 (append & lists)
@@ -154,7 +154,7 @@ Concatenates CL-style lists together. Returns a new list containing all elements
 
 ---
 
-## reverse
+## reverse                                                              *[function]*
 
 ```
 (reverse sequence)

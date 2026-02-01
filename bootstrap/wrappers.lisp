@@ -37,6 +37,11 @@
 (defmethod fol-value ((obj cons)) obj)
 ;; Pass-through for persistent objects that are not wrappers (e.g. collections)
 (defmethod fol-value ((obj fol.persistent:<persistent-object>)) obj)
+;; Pass-through for class objects (used in MOP operations)
+(defmethod fol-value ((obj standard-class)) obj)
+;; Pass-through for slot definition objects (used in class-slots* operations)
+(defmethod fol-value ((obj c2mop:standard-effective-slot-definition)) obj)
+(defmethod fol-value ((obj c2mop:standard-direct-slot-definition)) obj)
 
 ;;; --- Extraction for wrapped FOL objects ---
 (defmethod fol-value ((obj <bool>)) (slot-value obj 'val))

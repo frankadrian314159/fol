@@ -1,6 +1,6 @@
 # Control Flow
 
-## if
+## if                                                               *[special form]*
 
 ```
 (if test then)
@@ -21,7 +21,7 @@ Otherwise, evaluates and returns `else` (or nil if not provided).
 
 ---
 
-## when
+## when                                                                    *[macro]*
 
 ```
 (when test form0 form1 ... formN)
@@ -55,7 +55,7 @@ This is a macro that expands to `(if test (do form0 form1 ... formN) nil)`.
 
 ---
 
-## unless
+## unless                                                                  *[macro]*
 
 ```
 (unless test form0 form1 ... formN)
@@ -89,7 +89,7 @@ This is a macro that expands to `(if test nil (do form0 form1 ... formN))`.
 
 ---
 
-## do
+## do                                                               *[special form]*
 
 ```
 (do form0 form1 ... formN)
@@ -111,7 +111,7 @@ Returns nil if no forms are provided.
 
 ---
 
-## bind
+## bind                                                             *[special form]*
 
 ```
 (bind [bindings] body...)
@@ -139,7 +139,7 @@ Supports destructuring.
 
 ---
 
-## cond
+## cond                                                             *[special form]*
 
 ```
 (cond test1 form1 test2 form2 ... testN formN)
@@ -177,7 +177,7 @@ Requires an even number of arguments (test/form pairs).
 
 ---
 
-## case
+## case                                                             *[special form]*
 
 ```
 (case target-form
@@ -239,7 +239,7 @@ Duplicate targets cause an error at evaluation time.
 
 ---
 
-## fn
+## fn                                                               *[special form]*
 
 ```
 (fn [params] body...)
@@ -273,7 +273,7 @@ Supports destructuring in parameters (see [destructuring](destructuring.md)).
 
 ---
 
-## def
+## def                                                              *[special form]*
 
 ```
 (def name value)
@@ -291,7 +291,7 @@ Defines a global variable with the given name and value.
 
 ---
 
-## defn
+## defn                                                                    *[macro]*
 
 ```
 (defn name [params] body...)
@@ -402,7 +402,7 @@ All patterns support full destructuring:
 
 ---
 
-## loop
+## loop                                                             *[special form]*
 
 ```
 (loop [bindings] body*)
@@ -451,7 +451,7 @@ to the loop with new values. This is FOL's primary iteration construct.
 
 ---
 
-## recur
+## recur                                                            *[special form]*
 
 ```
 (recur arg*)
@@ -488,7 +488,7 @@ The number of arguments must match the number of loop bindings.
 
 ---
 
-## throw
+## throw                                                            *[special form]*
 
 ```
 (throw value)
@@ -514,7 +514,7 @@ describing the error. Use `try`/`catch` to handle thrown exceptions.
 
 ---
 
-## try
+## try                                                              *[special form]*
 
 ```
 (try
@@ -568,7 +568,7 @@ is always executed, whether or not an exception occurred.
 
 ---
 
-## make-dynamic
+## make-dynamic                                                     *[special form]*
 
 ```
 (make-dynamic name)
@@ -593,7 +593,7 @@ The name is not evaluated (like `def`).
 
 ---
 
-## binding
+## binding                                                          *[special form]*
 
 ```
 (binding [bindings] body*)
@@ -648,7 +648,7 @@ Original values are restored after body executes (even if an error occurs).
 
 ---
 
-## lazy-seq
+## lazy-seq                                                         *[special form]*
 
 ```
 (lazy-seq body)
@@ -703,7 +703,7 @@ until they're needed.
 
 ---
 
-## -> (thread-first)
+## -> (thread-first)                                                       *[macro]*
 
 ```
 (-> x form*)
@@ -749,7 +749,7 @@ If a form is a bare symbol, it's called as a function with `x` as the only argum
 
 ---
 
-## ->> (thread-last)
+## ->> (thread-last)                                                       *[macro]*
 
 ```
 (->> x form*)
@@ -805,7 +805,7 @@ Use `->>` when working with:
 
 ---
 
-## as->
+## as->                                                                        *[macro]*
 
 ```
 (as-> expr name form*)
@@ -830,7 +830,7 @@ Binds `name` to `expr`, then threads through forms. In each form, `name` refers 
 
 ---
 
-## cond->
+## cond->                                                                      *[macro]*
 
 ```
 (cond-> expr test1 form1 test2 form2 ...)
@@ -854,7 +854,7 @@ Takes an expression and pairs of test/form. For each pair, if test is truthy, th
 
 ---
 
-## cond->>
+## cond->>                                                                     *[macro]*
 
 ```
 (cond->> expr test1 form1 test2 form2 ...)
@@ -872,7 +872,7 @@ Like `cond->` but threads as last argument.
 
 ---
 
-## some->
+## some->                                                                      *[macro]*
 
 ```
 (some-> expr form*)
@@ -895,7 +895,7 @@ Threads expr through forms as first argument, short-circuiting on nil. If any fo
 
 ---
 
-## some->>
+## some->>                                                                     *[macro]*
 
 ```
 (some->> expr form*)
@@ -918,7 +918,7 @@ Like `some->` but threads as last argument.
 
 ---
 
-## when-not
+## when-not                                                                    *[macro]*
 
 ```
 (when-not test form*)
@@ -938,7 +938,7 @@ Evaluates forms when test is falsy. Returns nil when test is truthy.
 
 ---
 
-## when-let
+## when-let                                                                    *[macro]*
 
 ```
 (when-let [name expr] body*)
@@ -958,7 +958,7 @@ Binds name to expr, then executes body if the value is truthy.
 
 ---
 
-## when-first
+## when-first                                                                  *[macro]*
 
 ```
 (when-first [name coll] body*)
@@ -978,7 +978,7 @@ Binds name to the first element of coll if coll is not empty, then executes body
 
 ---
 
-## if-not
+## if-not                                                                      *[macro]*
 
 ```
 (if-not test then)
@@ -996,7 +996,7 @@ Equivalent to `(if (not test) then else)`.
 
 ---
 
-## if-let
+## if-let                                                                      *[macro]*
 
 ```
 (if-let [name expr] then else?)
@@ -1018,7 +1018,7 @@ Binds name to expr, executes then if truthy, else otherwise.
 
 ---
 
-## when-some
+## when-some                                                                   *[macro]*
 
 ```
 (when-some [name expr] body*)
@@ -1038,7 +1038,7 @@ Like `when-let` but tests with `some?` instead of truthiness. Executes body when
 
 ---
 
-## if-some
+## if-some                                                                     *[macro]*
 
 ```
 (if-some [name expr] then else?)
@@ -1060,7 +1060,7 @@ Like `if-let` but tests with `some?` instead of truthiness.
 
 ---
 
-## condp
+## condp                                                                       *[macro]*
 
 ```
 (condp pred expr clause* default?)
@@ -1083,7 +1083,7 @@ Takes a predicate, an expression, and clauses. For each clause `(test-val result
 
 ---
 
-## dotimes
+## dotimes                                                                     *[macro]*
 
 ```
 (dotimes [name n] body*)
@@ -1100,7 +1100,7 @@ Executes body n times with name bound to 0, 1, ..., n-1. Returns nil.
 
 ---
 
-## doseq
+## doseq                                                                       *[macro]*
 
 ```
 (doseq [name coll] body*)
@@ -1117,7 +1117,7 @@ Executes body for each element in coll. Returns nil.
 
 ---
 
-## for
+## for                                                                         *[macro]*
 
 ```
 (for [name coll] body)
@@ -1137,7 +1137,7 @@ List comprehension. Returns a lazy sequence of body evaluated for each element.
 
 ---
 
-## lazy-cat
+## lazy-cat                                                                    *[macro]*
 
 ```
 (lazy-cat coll1 coll2 ...)
@@ -1157,7 +1157,7 @@ Lazily concatenates collections without realizing them.
 
 ---
 
-## delay
+## delay                                                                       *[macro]*
 
 ```
 (delay body*)
@@ -1175,7 +1175,7 @@ Creates a delay object that computes body when forced. The result is cached.
 
 ---
 
-## assert
+## assert                                                                      *[macro]*
 
 ```
 (assert test)
@@ -1193,7 +1193,7 @@ Throws an exception if test is falsy.
 
 ---
 
-## comment
+## comment                                                                     *[macro]*
 
 ```
 (comment body*)

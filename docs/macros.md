@@ -4,7 +4,7 @@ FOL supports hygienic macros that receive unevaluated forms and return code to b
 
 ---
 
-## defmacro
+## defmacro                                                       *[special form]*
 
 ```
 ;; Single-pattern form
@@ -90,7 +90,7 @@ or different argument types.
 
 ---
 
-## quote
+## quote                                                          *[special form]*
 
 ```
 (quote form)
@@ -114,7 +114,7 @@ Returns the form unevaluated. The reader macro `'` is shorthand for `quote`.
 
 ---
 
-## syntax-quote
+## syntax-quote                                                   *[special form]*
 
 ```
 `form
@@ -180,7 +180,7 @@ Symbols ending with `#` generate unique symbols, consistent within the same synt
 
 ---
 
-## macroexpand-1
+## macroexpand-1                                                        *[function]*
 
 ```
 (macroexpand-1 form env)
@@ -205,7 +205,7 @@ Otherwise returns the form unchanged.
 
 ---
 
-## macroexpand
+## macroexpand                                                          *[function]*
 
 ```
 (macroexpand form env)
