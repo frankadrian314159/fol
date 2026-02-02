@@ -27,6 +27,18 @@
 (defmethod class-name ((class symbol))
   (cl:class-name (find-class class)))
 
+(defgeneric class-name* (class)
+  (:documentation "Return the name of the class. Alias for class-name with * suffix for consistency."))
+
+(defmethod class-name* ((class persistent-class))
+  (class-name class))
+
+(defmethod class-name* ((class class))
+  (class-name class))
+
+(defmethod class-name* ((class symbol))
+  (class-name class))
+
 (defgeneric class-direct-superclasses* (class)
   (:documentation "Return the list of direct superclasses of CLASS."))
 
@@ -90,6 +102,21 @@
 
 (defmethod class-slots ((class symbol))
   (class-slots (find-class class)))
+
+(defgeneric class-slots* (class)
+  (:documentation "Return the list of all effective slot definitions for CLASS. Alias for class-slots with * suffix for consistency."))
+
+(defmethod class-slots* ((class persistent-class))
+  (class-slots class))
+
+(defmethod class-slots* ((class standard-class))
+  (class-slots class))
+
+(defmethod class-slots* ((class class))
+  (class-slots class))
+
+(defmethod class-slots* ((class symbol))
+  (class-slots class))
 
 (defgeneric finalized-p (class)
   (:documentation "Return T if CLASS has been finalized, NIL otherwise."))
@@ -221,6 +248,12 @@
 
 (defmethod slot-value (instance slot-name)
   (cl:slot-value instance slot-name))
+
+(defgeneric slot-value* (instance slot-name)
+  (:documentation "Return the value of SLOT-NAME in INSTANCE. Alias for slot-value with * suffix for consistency."))
+
+(defmethod slot-value* (instance slot-name)
+  (slot-value instance slot-name))
 
 ;;; ============================================================================
 ;;; Utility Functions

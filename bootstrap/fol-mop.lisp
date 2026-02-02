@@ -184,16 +184,15 @@
   (cond
     ;; Simple symbol - matches any
     ((symbolp param) nil)
-    ;; List in defmethod context - type specialization (not destructuring)
-    ;; (var type) or (var (eql value))
+    ;; List in defmethod context - type or predicate specialization (not destructuring)
+    ;; (var type) or (var (fn arg...))
     ((and (listp param)
           (not (null param))
           (not defgeneric-context)
           (symbolp (first param))
           (= (length param) 2)
-          (or (symbolp (second param))
-              (and (listp (second param))
-                   (eq (first (second param)) 'eql))))
+          (or (symbolp (second param))           ; Type: (var <type>)
+              (listp (second param))))           ; Predicate: (var (fn ...))
      nil)
     ;; Vector - check if it's destructuring
     ((and (fol.collection:<vector>? param)
@@ -204,35 +203,155 @@
     ;; Anything else
     (t nil)))
 
+(defun compute-element-signature (elem)
+  "Compute signature for a single element within a destructuring pattern.
+   Used recursively for nested patterns. Returns a signature spec."
+  (cond
+    ;; Simple symbol - matches anything
+    ((symbolp elem) (list :any))
+    ;; Predicate specializer: (var (fn arg0 arg1 ...))
+    ((and (listp elem)
+          (not (null elem))
+          (= (length elem) 2)
+          (symbolp (first elem))
+          (listp (second elem))
+          (not (null (second elem))))
+     (let ((pred-form (second elem)))
+       ;; Evaluate quoted arguments
+       (let ((eval-args (mapcar (lambda (arg)
+                                  (if (and (listp arg)
+                                           (eq (first arg) 'quote))
+                                      (second arg)
+                                      arg))
+                                (rest pred-form))))
+         (list :pred (first pred-form) eval-args))))
+    ;; Type specialization: (var <type>)
+    ((and (listp elem)
+          (not (null elem))
+          (= (length elem) 2)
+          (symbolp (first elem))
+          (symbolp (second elem)))
+     (list :type (second elem)))
+    ;; Nested vector - recursively process elements
+    ((fol.collection:<vector>? elem)
+     (let ((elements (vector-to-list elem)))
+       (list :seq (mapcar #'compute-element-signature elements))))
+    ;; Default: any (including CL lists for other destructuring forms)
+    (t (list :any))))
+
 (defun compute-pattern-signature (lambda-list)
   "Compute a signature describing what each parameter expects.
-   Returns a list of (:any) or (:seq min-size) for each parameter."
+   Returns a list of pattern specs for each parameter:
+   - (:any) for simple parameters
+   - (:seq element-sigs) for sequence destructuring with nested structure
+   - (:type class-name) for type specialization (var class-name)
+   - (:type-pred predicate-fn) for type predicate ((<type>? var))
+   - (:pred fn args) for predicate specialization (var (fn args...))
+
+   The new :seq format includes per-element signatures to support nested
+   predicates like [x y (z (< 10))]."
   (mapcar (lambda (param)
-            (let ((seq-size (pattern-expects-seq-p param)))
-              (if seq-size
-                  (list :seq seq-size)
-                  (list :any))))
+            (cond
+              ;; Predicate specializer: (var (fn arg0 arg1 ...))
+              ;; Any list form is treated as a predicate application
+              ((and (listp param)
+                    (not (null param))
+                    (= (length param) 2)
+                    (symbolp (first param))
+                    (listp (second param))
+                    (not (null (second param))))
+               (let ((pred-form (second param)))
+                 ;; Predicate: (var (fn arg0 arg1 ...))
+                 ;; Evaluate quoted arguments
+                 (let ((eval-args (mapcar (lambda (arg)
+                                            (if (and (listp arg)
+                                                     (eq (first arg) 'quote))
+                                                (second arg)
+                                                arg))
+                                          (rest pred-form))))
+                   (list :pred (first pred-form) eval-args))))
+              ;; Type specialization with predicate: ((<type>? var))
+              ((and (listp param)
+                    (not (null param))
+                    (= (length param) 1)
+                    (listp (first param))
+                    (= (length (first param)) 2)
+                    (symbolp (first (first param)))
+                    (let ((pred-name (symbol-name (first (first param)))))
+                      (and (> (length pred-name) 1)
+                           (char= (char pred-name (1- (length pred-name))) #\?))))
+               (list :type-pred (first (first param))))
+              ;; Type specialization: (var <type>)
+              ((and (listp param)
+                    (not (null param))
+                    (= (length param) 2)
+                    (symbolp (first param))
+                    (symbolp (second param)))
+               (list :type (second param)))
+              ;; Sequence pattern - recursively compute element signatures
+              ((fol.collection:<vector>? param)
+               (let ((elements (vector-to-list param)))
+                 (list :seq (mapcar #'compute-element-signature elements))))
+              ;; Default: any
+              (t (list :any))))
           lambda-list))
+
+(defun pattern-specificity-level (sig)
+  "Return numeric specificity level for a signature.
+   Higher numbers are more specific.
+   Order: Pred (4) > Type (3) > Type-Pred (2) > Seq (1) > Any (0)
+
+   For sequences, the base level is 1, but specificity also considers
+   the element signatures for detailed comparison."
+  (case (first sig)
+    (:pred 4)  ; Predicate specializers (=, <, >, contains?, etc.)
+    (:type 3)
+    (:type-pred 2)
+    (:seq 1)
+    (:any 0)
+    (t 0)))
 
 (defun pattern-more-specific-p (sig1 sig2)
   "Return T if SIG1 is more specific than SIG2.
-   :seq patterns are more specific than :any patterns."
+   Specificity order: :eql > :type > :type-pred > :seq > :any"
   (loop for s1 in sig1
         for s2 in sig2
+        for level1 = (pattern-specificity-level s1)
+        for level2 = (pattern-specificity-level s2)
         do (cond
-             ;; :seq is more specific than :any
-             ((and (eq (first s1) :seq) (eq (first s2) :any))
+             ;; Different specificity levels
+             ((> level1 level2)
               (return-from pattern-more-specific-p t))
-             ;; :any is less specific than :seq
-             ((and (eq (first s1) :any) (eq (first s2) :seq))
+             ((< level1 level2)
               (return-from pattern-more-specific-p nil))
-             ;; Both :seq - larger min-size is more specific
+             ;; Same level - check sub-specificity for sequences
              ((and (eq (first s1) :seq) (eq (first s2) :seq))
-              (cond
-                ((> (second s1) (second s2))
-                 (return-from pattern-more-specific-p t))
-                ((< (second s1) (second s2))
-                 (return-from pattern-more-specific-p nil))))))
+              ;; Compare element signatures
+              (let ((elems1 (second s1))
+                    (elems2 (second s2)))
+                (cond
+                  ;; More elements = more specific
+                  ((> (length elems1) (length elems2))
+                   (return-from pattern-more-specific-p t))
+                  ((< (length elems1) (length elems2))
+                   (return-from pattern-more-specific-p nil))
+                  ;; Same number of elements - compare element by element
+                  (t
+                   (loop for e1 in elems1
+                         for e2 in elems2
+                         for el1 = (pattern-specificity-level e1)
+                         for el2 = (pattern-specificity-level e2)
+                         do (cond
+                              ((> el1 el2)
+                               (return-from pattern-more-specific-p t))
+                              ((< el1 el2)
+                               (return-from pattern-more-specific-p nil))
+                              ;; If both are sequences, recurse
+                              ((and (eq (first e1) :seq) (eq (first e2) :seq))
+                               (let ((sub-result (pattern-more-specific-p
+                                                   (list e1) (list e2))))
+                                 (when sub-result
+                                   (return-from pattern-more-specific-p t))))))))))))
   ;; Equal specificity
   nil)
 

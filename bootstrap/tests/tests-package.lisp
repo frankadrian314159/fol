@@ -214,6 +214,7 @@
                           :class-name :class-slots :slot-value)
   ;; Import symbols from fol.mop
   (:import-from :fol.mop
+                :class-name* :class-slots* :slot-value*
                 :class-direct-superclasses* :class-direct-subclasses*
                 :class-precedence-list* :class-direct-slots*
                 :finalized-p :ensure-finalized

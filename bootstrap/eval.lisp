@@ -660,11 +660,25 @@
   (cl:and (symbolp sym)
        (string= (symbol-name sym) "_")))
 
+(defun predicate-specializer-p (pattern)
+  "Return T if PATTERN is a predicate specializer of the form (symbol (fn args...)).
+   A predicate specializer is a CL list with exactly 2 elements where:
+   - First element is a symbol (variable name)
+   - Second element is a list (predicate form)"
+  (cl:and (cl:listp pattern)
+       (= (length pattern) 2)
+       (let ((var (cl:first pattern))
+             (pred-form (cl:second pattern)))
+         (cl:and (or (symbolp var) (<symbol>? var))
+              (cl:listp pred-form)
+              (not (null pred-form))))))
+
 (defun destructure-pattern (pattern value)
   "Destructure VALUE according to PATTERN, returning an alist of (symbol . value) pairs.
    Supports:
    - Simple symbol: binds the whole value
    - Underscore _: discards the value (no binding created)
+   - Predicate specializer (var (fn args...)): binds var (predicate already checked)
    - Typed binding (symbol type): binds with type check, e.g., (x <integer>)
    - Vector [a b c]: sequential destructuring for lists/vectors
    - Vector with &: [a b & rest] captures remaining elements
@@ -689,6 +703,13 @@
      (if (underscore-symbol-p (fol-value pattern))
          nil  ; underscore discards value
          (list (cons (fol-value pattern) value))))
+
+    ;; Predicate specializer: (var (fn args...)) - just bind the variable
+    ;; The predicate has already been checked by args-match-pattern-p
+    ((predicate-specializer-p pattern)
+     (let* ((var-sym (cl:first pattern))
+            (var-name (if (<symbol>? var-sym) (fol-value var-sym) var-sym)))
+       (list (cons var-name value))))
 
     ;; Typed binding: (symbol type) - check type before binding
     ((typed-binding-p pattern)
@@ -912,33 +933,130 @@
 
 ;;; --- FN ---
 
+(defun multi-pattern-fn-p (args)
+  "Check if ARGS represents a multi-pattern fn form.
+   Multi-pattern syntax: (fn ([params1] body1*) ([params2] body2*) ...)
+   or (fn name ([params1] body1*) ([params2] body2*) ...)
+   Each clause is a list whose first element is a vector."
+  (let ((potential-clauses (if (cl:and (symbolp (first args))
+                                       (cl:not (null (first args)))
+                                       (>= (length args) 2))
+                              (rest args)  ; Skip name
+                              args)))
+    (cl:and (>= (length potential-clauses) 1)
+            (listp (first potential-clauses))
+            (cl:not (null (first potential-clauses)))
+            (<vector>? (first (first potential-clauses))))))
+
 (defun eval-fn (args env)
   "Evaluate (fn [params] body*) or (fn name [params] body*).
+   Also supports multi-pattern fn with EQL and type specializers:
+   (fn ([pattern1] body1*) ([pattern2] body2*) ...)
    Creates a function with the given parameters and body, capturing the current environment."
   (unless (>= (length args) 1)
     (error 'fol-eval-error :message "fn requires at least parameters"
            :form (cons 'fn args)))
-  (let (name params body)
-    ;; Check if first arg is a name (symbol, not vector/list)
-    (if (cl:and (symbolp (first args))
-             (cl:not (null (first args)))
-             (>= (length args) 2))
-        (progn
-          (setf name (first args))
-          (setf params (second args))
-          (setf body (cddr args)))
-        (progn
-          (setf params (first args))
-          (setf body (cdr args))))
-    ;; Parse parameter list
-    (let ((param-list (if (<vector>? params)
-                          (vector-to-list params)
-                          params)))
-      (multiple-value-bind (regular-params rest-param)
-          (parse-params param-list)
-        (make-function regular-params body env
-                       :rest-param rest-param
-                       :name name)))))
+
+  ;; Check for optional name
+  (let ((has-name (cl:and (symbolp (first args))
+                         (cl:not (null (first args)))
+                         (>= (length args) 2)
+                         (cl:or (listp (second args))
+                               (<vector>? (second args)))))
+        name)
+    (when has-name
+      (setf name (first args))
+      (setf args (rest args)))
+
+    (if (multi-pattern-fn-p (if has-name (cons name args) args))
+        ;; Multi-pattern fn
+        (let* ((clauses args)
+               ;; Parse each clause
+               (parsed-clauses
+                 (loop for clause in clauses
+                       for idx from 0
+                       for parsed = (parse-defn-clause clause)
+                       for params = (car parsed)
+                       for body = (cdr parsed)
+                       for param-list = (vector-to-list params)
+                       for (regular-params rest-param) = (multiple-value-list
+                                                          (parse-params param-list))
+                       for arity = (length regular-params)
+                       for has-rest = (cl:not (null rest-param))
+                       for signature = (compute-pattern-signature regular-params)
+                       for internal-name = (gensym (if name
+                                                      (format nil "~A-P~D" name idx)
+                                                      (format nil "FN-P~D" idx)))
+                       collect (list :index idx
+                                     :arity arity
+                                     :has-rest has-rest
+                                     :params params
+                                     :body body
+                                     :signature signature
+                                     :internal-name internal-name)))
+               ;; Sort by arity, then by specificity
+               (sorted-clauses
+                 (stable-sort (copy-list parsed-clauses)
+                              (lambda (c1 c2)
+                                (let ((a1 (getf c1 :arity))
+                                      (a2 (getf c2 :arity)))
+                                  (cond
+                                    ((< a1 a2) t)
+                                    ((> a1 a2) nil)
+                                    (t (pattern-more-specific-p
+                                        (getf c1 :signature)
+                                        (getf c2 :signature))))))))
+               ;; Create internal functions with stripped parameters
+               (internal-fns
+                 (loop for c in parsed-clauses
+                       for internal-name = (getf c :internal-name)
+                       for params = (getf c :params)
+                       for body = (getf c :body)
+                       for stripped-param-list = (strip-specializers
+                                                  (vector-to-list params))
+                       for (regular-params rest-param) = (multiple-value-list
+                                                          (parse-params stripped-param-list))
+                       for fn = (make-function regular-params body env
+                                              :rest-param rest-param
+                                              :name internal-name)
+                       collect (cons internal-name fn)))
+               ;; Collect valid arities
+               (valid-arities
+                 (remove-duplicates
+                  (loop for c in parsed-clauses
+                        collect (if (getf c :has-rest)
+                                    (format nil "~A+" (getf c :arity))
+                                    (getf c :arity))))))
+          ;; Create dispatcher
+          (lambda (&rest call-args)
+            (let ((call-arity (length call-args)))
+              (loop for c in sorted-clauses
+                    for min-arity = (getf c :arity)
+                    for has-rest = (getf c :has-rest)
+                    for sig = (getf c :signature)
+                    for internal-name = (getf c :internal-name)
+                    when (if has-rest
+                             (>= call-arity min-arity)
+                             (= call-arity min-arity))
+                      when (args-match-pattern-p
+                            (subseq call-args 0 (min (length sig) call-arity))
+                            sig)
+                        return (let ((internal-fn (cdr (cl:assoc internal-name internal-fns))))
+                                 (apply-function internal-fn call-args))
+                    finally (error 'fol-arity-error
+                                   :expected valid-arities
+                                   :got call-arity)))))
+        ;; Single-pattern fn (original behavior)
+        (let ((params (first args))
+              (body (rest args)))
+          (let ((param-list (if (<vector>? params)
+                                (vector-to-list params)
+                                params)))
+            (multiple-value-bind (regular-params rest-param)
+                (parse-params param-list)
+              (make-function regular-params body env
+                             :rest-param rest-param
+                             :name name)))))))
 
 ;;; --- DEF ---
 
@@ -993,25 +1111,95 @@
              :message "Invalid defmacro clause: expected ([params] body*)"
              :form clause)))
 
+(defun element-matches-signature-p (elem elem-sig)
+  "Check if a single element matches its signature.
+   Used recursively for nested pattern matching."
+  (case (first elem-sig)
+    (:any t)
+    (:pred (apply (second elem-sig) elem (third elem-sig)))
+    (:type (type-conforms-p elem (second elem-sig)))
+    (:type-pred (funcall (second elem-sig) elem))
+    (:seq
+     ;; Nested sequence - recursively check elements
+     (let ((elem-sigs (second elem-sig)))
+       (cl:and (cl:or (<vector>? elem) (<list>? elem) (listp elem))
+               (let ((elem-list (cond
+                                  ((<vector>? elem) (vector-to-list elem))
+                                  ((<list>? elem) (fol-list-to-cl-list elem))
+                                  ((listp elem) elem)
+                                  (t nil))))
+                 (cl:and (>= (length elem-list) (length elem-sigs))
+                         (loop for e in elem-list
+                               for es in elem-sigs
+                               always (element-matches-signature-p e es)))))))
+    (t t)))
+
 (defun args-match-pattern-p (args signature)
   "Check if ARGS match the given pattern SIGNATURE at runtime.
-   SIGNATURE is a list of (:any) or (:seq min-size) specs."
+   SIGNATURE is a list of pattern specs:
+   - (:any) matches anything
+   - (:seq element-sigs) matches sequences with nested structure checking
+   - (:pred fn-name args) matches if (apply fn-name arg args) returns truthy
+   - (:type class-name) matches if arg is instance of class
+   - (:type-pred predicate) matches if predicate returns true for arg"
   (loop for arg in args
         for sig in signature
         always (case (first sig)
                  (:any t)
-                 (:seq (cl:and (cl:or (<vector>? arg)
-                                      (<list>? arg)
-                                      (listp arg))
-                               (>= (if (listp arg)
-                                       (length arg)
-                                       (fol.seqop:size arg))
-                                   (second sig))))
+                 (:seq
+                  ;; Check sequence with element signatures
+                  (let ((elem-sigs (second sig)))
+                    (cl:and (cl:or (<vector>? arg) (<list>? arg) (listp arg))
+                            (let ((arg-list (cond
+                                              ((<vector>? arg) (vector-to-list arg))
+                                              ((<list>? arg) (fol-list-to-cl-list arg))
+                                              ((listp arg) arg)
+                                              (t nil))))
+                              (cl:and (>= (length arg-list) (length elem-sigs))
+                                      (loop for a in arg-list
+                                            for es in elem-sigs
+                                            always (element-matches-signature-p a es)))))))
+                 (:pred (apply (second sig) arg (third sig)))
+                 (:type (type-conforms-p arg (second sig)))
+                 (:type-pred (funcall (second sig) arg))
                  (t t))))
+
+(defun macro-element-matches-signature-p (elem elem-sig)
+  "Check if a macro argument element matches its signature (unevaluated form).
+   Used for nested macro pattern matching. Predicates should never appear
+   here as they are caught during macro definition."
+  (case (first elem-sig)
+    (:any t)
+    (:seq
+     ;; Nested sequence in macro - check structure only
+     (let ((elem-sigs (second elem-sig)))
+       (cl:and (cl:or (<vector>? elem) (<list>? elem) (listp elem))
+               (let ((elem-list (cond
+                                  ((<vector>? elem) (vector-to-list elem))
+                                  ((<list>? elem) (fol-list-to-cl-list elem))
+                                  ((listp elem) elem)
+                                  (t nil))))
+                 (cl:and (>= (length elem-list) (length elem-sigs))
+                         (loop for e in elem-list
+                               for es in elem-sigs
+                               always (macro-element-matches-signature-p e es)))))))
+    (:pred
+     ;; This should never happen - caught during macro definition
+     (error 'fol-eval-error
+            :message "Predicate specializers cannot be used in macro parameter lists (macros receive unevaluated forms)"
+            :form elem-sig))
+    (:type nil)      ; Type specializers not supported in macros
+    (:type-pred nil) ; Type predicates not supported in macros
+    (t t)))
 
 (defun macro-args-match-pattern-p (args signature)
   "Check if unevaluated macro ARGS match the given pattern SIGNATURE.
-   SIGNATURE is a list of (:any) or (:seq min-size) specs.
+   SIGNATURE is a list of pattern specs:
+   - (:any) matches anything
+   - (:seq element-sigs) matches sequence forms with nested structure
+   - (:pred fn args) not supported for macros (signals error)
+   - (:type class-name) not supported for macros (returns nil)
+   - (:type-pred predicate) not supported for macros (returns nil)
    Unlike args-match-pattern-p, this works on raw forms (not evaluated values)."
   (loop for arg in args
         for sig in signature
@@ -1019,15 +1207,55 @@
                  (:any t)
                  ;; For macros, check if the form is a sequence type
                  ;; Forms that can be destructured: lists, vectors
-                 (:seq (cl:and (cl:or (<vector>? arg)  ; FOL vector
-                                      (<list>? arg)    ; FOL list
-                                      (listp arg))     ; CL list form
-                               (>= (cond ((listp arg) (length arg))
-                                         ((<vector>? arg) (fol.seqop:size arg))
-                                         ((<list>? arg) (fol.seqop:size arg))
-                                         (t 0))
-                                   (second sig))))
+                 (:seq
+                  (let ((elem-sigs (second sig)))
+                    (cl:and (cl:or (<vector>? arg) (<list>? arg) (listp arg))
+                            (let ((arg-list (cond
+                                              ((<vector>? arg) (vector-to-list arg))
+                                              ((<list>? arg) (fol-list-to-cl-list arg))
+                                              ((listp arg) arg)
+                                              (t nil))))
+                              (cl:and (>= (length arg-list) (length elem-sigs))
+                                      (loop for a in arg-list
+                                            for es in elem-sigs
+                                            always (macro-element-matches-signature-p a es)))))))
+                 ;; Predicate specializers don't make sense for unevaluated forms
+                 (:pred (error 'fol-eval-error
+                               :message "Predicate specializers cannot be used in macro parameter lists (macros receive unevaluated forms)"
+                               :form sig))
+                 ;; Type specializers don't make sense for unevaluated forms
+                 (:type nil)
+                 (:type-pred nil)
                  (t t))))
+
+(defun strip-specializers (param-list)
+  "Strip type and predicate specializers from parameters, returning just variable names.
+   (n (= 0)) -> n
+   (x <number>) -> x
+   n -> n
+   [a b] -> [a b]  (destructuring patterns preserved)"
+  (mapcar (lambda (param)
+            (let ((is-pred-spec
+                    (handler-case
+                        (and (listp param)
+                             (not (null param))
+                             (= (length param) 2)
+                             (symbolp (first param))
+                             (listp (second param)))
+                      (error () nil)))
+                  (is-type-spec
+                    (handler-case
+                        (and (listp param)
+                             (not (null param))
+                             (= (length param) 2)
+                             (symbolp (first param))
+                             (symbolp (second param)))
+                      (error () nil))))
+              (cond
+                (is-pred-spec (first param))
+                (is-type-spec (first param))
+                (t param))))
+          param-list))
 
 (defun eval-defn (args env)
   "Evaluate defn in single-pattern or multi-pattern form.
@@ -1090,7 +1318,12 @@
                        for internal-name = (getf c :internal-name)
                        for params = (getf c :params)
                        for body = (getf c :body)
-                       for fn = (fol-eval `(fn ,internal-name ,params ,@body) env)
+                       ;; Strip specializers from params for the internal function
+                       for stripped-param-list = (strip-specializers
+                                                  (vector-to-list params))
+                       for stripped-params = (apply #'fol.collection:make-vector
+                                                    stripped-param-list)
+                       for fn = (fol-eval `(fn ,internal-name ,stripped-params ,@body) env)
                        collect (cons internal-name fn)))
                ;; Collect valid arities for error messages
                (valid-arities
@@ -1134,6 +1367,37 @@
 
 ;;; --- DEFMACRO ---
 
+(defun check-for-predicate-specializers (param-list form-type)
+  "Check if PARAM-LIST contains predicate specializers and signal error if found.
+   Recursively checks nested vector destructuring patterns.
+   FORM-TYPE should be 'defmacro' or similar for error message."
+  (when param-list
+    (labels ((check-param (param)
+               (cond
+                 ;; Skip simple symbols
+                 ((symbolp param) nil)
+                 ;; FOL Vector destructuring: recursively check elements
+                 ((<vector>? param)
+                  (let ((elems (vector-to-list param)))
+                    (dolist (elem elems)
+                      (check-param elem))))
+                 ;; Predicate specializer: (var (fn args...))
+                 ;; Must check AFTER vector check because we need to recurse into vectors first
+                 ((and (listp param)
+                       (not (null param))
+                       (= (length param) 2)
+                       (symbolp (first param))
+                       (listp (second param))
+                       (not (null (second param))))
+                  (error 'fol-eval-error
+                         :message (format nil "Predicate specializers cannot be used in ~A parameter lists (macros receive unevaluated forms)"
+                                         form-type)
+                         :form param))
+                 ;; Ignore other patterns (type specializers, etc.)
+                 (t nil))))
+      (dolist (param param-list)
+        (check-param param)))))
+
 (defun eval-defmacro (args env)
   "Evaluate defmacro in single-pattern or multi-pattern form.
 
@@ -1159,25 +1423,24 @@
                (parsed-clauses
                  (loop for clause in clauses
                        for idx from 0
-                       for parsed = (parse-defmacro-clause clause)
-                       for params = (car parsed)
-                       for body = (cdr parsed)
-                       for param-list = (vector-to-list params)
-                       ;; Parse to separate regular params from rest param
-                       for (regular-params rest-param) = (multiple-value-list
-                                                          (parse-params param-list))
-                       for arity = (length regular-params)
-                       for has-rest = (cl:not (null rest-param))
-                       for signature = (compute-pattern-signature regular-params)
-                       for internal-name = (make-pattern-name sym-name idx)
-                       collect (list :index idx
-                                     :arity arity
-                                     :has-rest has-rest
-                                     :regular-params regular-params
-                                     :rest-param rest-param
-                                     :body body
-                                     :signature signature
-                                     :internal-name internal-name)))
+                       collect (let* ((parsed (parse-defmacro-clause clause))
+                                      (params (car parsed))
+                                      (body (cdr parsed))
+                                      (param-list (vector-to-list params))
+                                      (regular-params-and-rest (multiple-value-list
+                                                               (parse-params param-list)))
+                                      (regular-params (first regular-params-and-rest))
+                                      (rest-param (second regular-params-and-rest)))
+                                 ;; Check for predicate specializers (not allowed in macros)
+                                 (check-for-predicate-specializers regular-params 'defmacro)
+                                 (list :index idx
+                                       :arity (length regular-params)
+                                       :has-rest (cl:not (null rest-param))
+                                       :regular-params regular-params
+                                       :rest-param rest-param
+                                       :body body
+                                       :signature (compute-pattern-signature regular-params)
+                                       :internal-name (make-pattern-name sym-name idx)))))
                ;; Sort by arity, then by specificity (most specific first)
                (sorted-clauses
                  (stable-sort (copy-list parsed-clauses)
@@ -1248,6 +1511,7 @@
                                params)))
           (multiple-value-bind (regular-params rest-param)
               (parse-params param-list)
+            (check-for-predicate-specializers regular-params 'defmacro)
             ;; Create the macro object and bind it
             (let ((macro-obj (make-macro regular-params body env
                                          :rest-param rest-param

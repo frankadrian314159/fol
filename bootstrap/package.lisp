@@ -34,11 +34,13 @@
   (:export
    ;; Class introspection
    class-name
+   class-name*
    class-direct-superclasses*
    class-direct-subclasses*
    class-precedence-list*
    class-direct-slots*
    class-slots
+   class-slots*
    finalized-p
    ensure-finalized
    ;; Slot definition introspection
@@ -57,6 +59,7 @@
    slot-exists-p*
    slot-boundp*
    slot-value
+   slot-value*
    ;; Utility functions
    all-persistent-classes
    subclasses*

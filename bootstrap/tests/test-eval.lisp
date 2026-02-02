@@ -3602,6 +3602,216 @@
     ;; More args
     (is (cl:= 15 (fol-eval (fol-form "(variadic 1 2 3 4 5)") env)))))
 
+(test defn-eql-specializer-factorial
+  "Test defn with EQL specializers for factorial function."
+  (let ((env (make-standard-module)))
+    ;; Define factorial with EQL specializers
+    (fol-eval (fol-form "(defn factorial
+                          ([(n (= 0))] 1)
+                          ([(n (= 1))] 1)
+                          ([n] (* n (factorial (dec n)))))") env)
+    ;; Test base cases
+    (is (cl:= 1 (fol-eval (fol-form "(factorial 0)") env)))
+    (is (cl:= 1 (fol-eval (fol-form "(factorial 1)") env)))
+    ;; Test recursive cases
+    (is (cl:= 2 (fol-eval (fol-form "(factorial 2)") env)))
+    (is (cl:= 6 (fol-eval (fol-form "(factorial 3)") env)))
+    (is (cl:= 24 (fol-eval (fol-form "(factorial 4)") env)))
+    (is (cl:= 120 (fol-eval (fol-form "(factorial 5)") env)))))
+
+(test defn-eql-specializer-symbol
+  "Test defn with EQL specializers on symbols."
+  (let ((env (make-standard-module)))
+    ;; Define function that dispatches on specific symbols
+    (fol-eval (fol-form "(defn operation
+                          ([(op (= 'add)) a b] (+ a b))
+                          ([(op (= 'mul)) a b] (* a b))
+                          ([(op (= 'sub)) a b] (- a b))
+                          ([op a b] :unknown))") env)
+    ;; Test EQL matches
+    (is (cl:= 7 (fol-eval (fol-form "(operation 'add 3 4)") env)))
+    (is (cl:= 12 (fol-eval (fol-form "(operation 'mul 3 4)") env)))
+    (is (cl:= -1 (fol-eval (fol-form "(operation 'sub 3 4)") env)))
+    ;; Test fallback
+    (is (eq :unknown (fol-eval (fol-form "(operation 'div 3 4)") env)))))
+
+(test defn-eql-specializer-keyword
+  "Test defn with EQL specializers on keywords."
+  (let ((env (make-standard-module)))
+    ;; Define function that dispatches on keyword tags
+    (fol-eval (fol-form "(defn process
+                          ([(tag (= :start))] :starting)
+                          ([(tag (= :stop))] :stopping)
+                          ([(tag (= :pause))] :pausing)
+                          ([tag] :other))") env)
+    ;; Test each case
+    (is (eq :starting (fol-eval (fol-form "(process :start)") env)))
+    (is (eq :stopping (fol-eval (fol-form "(process :stop)") env)))
+    (is (eq :pausing (fol-eval (fol-form "(process :pause)") env)))
+    (is (eq :other (fol-eval (fol-form "(process :resume)") env)))))
+
+(test defn-eql-specializer-specificity
+  "Test that EQL specializers are more specific than general patterns."
+  (let ((env (make-standard-module)))
+    ;; EQL should match before general pattern
+    (fol-eval (fol-form "(defn classify
+                          ([(x (= 0))] :zero)
+                          ([(x (= 1))] :one)
+                          ([x] :other-number))") env)
+    (is (eq :zero (fol-eval (fol-form "(classify 0)") env)))
+    (is (eq :one (fol-eval (fol-form "(classify 1)") env)))
+    (is (eq :other-number (fol-eval (fol-form "(classify 42)") env)))))
+
+(test defn-type-specializer-basic
+  "Test defn with type specializers."
+  (let ((env (make-standard-module)))
+    ;; Define function that dispatches on type
+    (fol-eval (fol-form "(defn type-of-val
+                          ([(x <number>)] :a-number)
+                          ([(x <string>)] :a-string)
+                          ([(x <vector>)] :a-vector)
+                          ([x] :something-else))") env)
+    ;; Test each type
+    (is (eq :a-number (fol-eval (fol-form "(type-of-val 42)") env)))
+    (is (eq :a-string (fol-eval (fol-form "(type-of-val \"hello\")") env)))
+    (is (eq :a-vector (fol-eval (fol-form "(type-of-val [1 2 3])") env)))
+    (is (eq :something-else (fol-eval (fol-form "(type-of-val {:a 1})") env)))))
+
+(test defn-type-specializer-computation
+  "Test defn with type specializers performing computations."
+  (let ((env (make-standard-module)))
+    ;; Define function that handles different types differently
+    (fol-eval (fol-form "(defn double-it
+                          ([(x <number>)] (* x 2))
+                          ([(x <string>)] (str x x))
+                          ([(x <vector>)] (into [] (concat x x))))") env)
+    ;; Test numeric doubling
+    (is (cl:= 10 (fol-eval (fol-form "(double-it 5)") env)))
+    ;; Test string doubling
+    (is (string= "hihi" (fol-eval (fol-form "(double-it \"hi\")") env)))
+    ;; Test vector concatenation
+    (let ((result (fol-eval (fol-form "(double-it [1 2])") env)))
+      (is (cl:= 4 (fol.seqop:size result)))
+      (is (cl:= 1 (fol.seqop:nth result 0)))
+      (is (cl:= 2 (fol.seqop:nth result 1)))
+      (is (cl:= 1 (fol.seqop:nth result 2)))
+      (is (cl:= 2 (fol.seqop:nth result 3))))))
+
+(test defn-type-specializer-specificity
+  "Test that type specializers are more specific than general patterns."
+  (let ((env (make-standard-module)))
+    ;; Type should match before general pattern
+    (fol-eval (fol-form "(defn categorize
+                          ([(x <number>)] :numeric)
+                          ([x] :non-numeric))") env)
+    (is (eq :numeric (fol-eval (fol-form "(categorize 42)") env)))
+    (is (eq :non-numeric (fol-eval (fol-form "(categorize \"hello\")") env)))))
+
+(test defn-eql-vs-type-specificity
+  "Test that EQL specializers are more specific than type specializers."
+  (let ((env (make-standard-module)))
+    ;; EQL should match before type
+    (fol-eval (fol-form "(defn special-number
+                          ([(x (= 0))] :the-zero)
+                          ([(x (= 1))] :the-one)
+                          ([(x <number>)] :other-number)
+                          ([x] :not-a-number))") env)
+    ;; EQL matches take precedence
+    (is (eq :the-zero (fol-eval (fol-form "(special-number 0)") env)))
+    (is (eq :the-one (fol-eval (fol-form "(special-number 1)") env)))
+    ;; Type match for other numbers
+    (is (eq :other-number (fol-eval (fol-form "(special-number 42)") env)))
+    ;; General fallback for non-numbers
+    (is (eq :not-a-number (fol-eval (fol-form "(special-number \"foo\")") env)))))
+
+(test defn-type-with-destructuring
+  "Test defn combining type specialization with destructuring."
+  (let ((env (make-standard-module)))
+    ;; Type specialization on first param, destructuring on second
+    (fol-eval (fol-form "(defn compute
+                          ([(op <keyword>) [a b]]
+                            (if (= op :add)
+                              (+ a b)
+                              (* a b))))") env)
+    (is (cl:= 7 (fol-eval (fol-form "(compute :add [3 4])") env)))
+    (is (cl:= 12 (fol-eval (fol-form "(compute :mul [3 4])") env)))))
+
+(test defn-multiple-type-specializers
+  "Test defn with type specializers on multiple parameters."
+  (let ((env (make-standard-module)))
+    ;; Multiple type-specialized parameters
+    (fol-eval (fol-form "(defn combine
+                          ([(x <number>) (y <number>)] (+ x y))
+                          ([(x <string>) (y <string>)] (str x y))
+                          ([x y] [x y]))") env)
+    ;; Both numbers
+    (is (cl:= 7 (fol-eval (fol-form "(combine 3 4)") env)))
+    ;; Both strings
+    (is (string= "helloworld" (fol-eval (fol-form "(combine \"hello\" \"world\")") env)))
+    ;; Mixed types - fallback returns vector
+    (let ((result (fol-eval (fol-form "(combine 3 \"hi\")") env)))
+      (is (fol.collection:<vector>? result))
+      (is (cl:= 2 (fol.seqop:size result))))))
+
+;;; ---------------------------------------------------------------------------
+;;; FN with EQL and Type Specializers
+;;; ---------------------------------------------------------------------------
+
+(test fn-eql-specializer-basic
+  "Test fn with EQL specializers."
+  (let ((env (make-standard-module)))
+    ;; Create anonymous function with EQL specializers
+    (fol-eval (fol-form "(def factorial-fn
+                          (fn ([(n (= 0))] 1)
+                              ([(n (= 1))] 1)
+                              ([n] (* n (factorial-fn (dec n))))))") env)
+    (is (cl:= 1 (fol-eval (fol-form "(factorial-fn 0)") env)))
+    (is (cl:= 1 (fol-eval (fol-form "(factorial-fn 1)") env)))
+    (is (cl:= 120 (fol-eval (fol-form "(factorial-fn 5)") env)))))
+
+(test fn-type-specializer-basic
+  "Test fn with type specializers."
+  (let ((env (make-standard-module)))
+    ;; Create anonymous function with type specializers
+    (fol-eval (fol-form "(def double-fn
+                          (fn ([(x <number>)] (* x 2))
+                              ([(x <string>)] (str x x))))") env)
+    (is (cl:= 10 (fol-eval (fol-form "(double-fn 5)") env)))
+    (is (string= "hihi" (fol-eval (fol-form "(double-fn \"hi\")") env)))))
+
+(test fn-inline-usage
+  "Test fn with specializers used inline."
+  (let ((env (make-standard-module)))
+    ;; Use fn with specializers directly in a call
+    (is (cl:= 3 (fol-eval (fol-form "((fn ([(x (= 1))] 3)
+                                          ([x] 0)) 1)") env)))
+    (is (cl:= 0 (fol-eval (fol-form "((fn ([(x (= 1))] 3)
+                                          ([x] 0)) 2)") env)))))
+
+(test fn-named-with-specializers
+  "Test named fn with specializers (non-recursive)."
+  (let ((env (make-standard-module)))
+    ;; Test that fn can have a name for debugging
+    (fol-eval (fol-form "(def classifier
+                          (fn my-classifier
+                            ([(x (= 0))] :zero)
+                            ([(x (= 1))] :one)
+                            ([x] :other)))") env)
+    (is (eq :zero (fol-eval (fol-form "(classifier 0)") env)))
+    (is (eq :one (fol-eval (fol-form "(classifier 1)") env)))
+    (is (eq :other (fol-eval (fol-form "(classifier 42)") env)))))
+
+(test fn-specificity-ordering
+  "Test that EQL > Type > Any in fn."
+  (let ((env (make-standard-module)))
+    (fol-eval (fol-form "(def classifier
+                          (fn ([(x (= 0))] :zero)
+                              ([(x <number>)] :number)
+                              ([x] :other)))") env)
+    (is (eq :zero (fol-eval (fol-form "(classifier 0)") env)))
+    (is (eq :number (fol-eval (fol-form "(classifier 42)") env)))
+    (is (eq :other (fol-eval (fol-form "(classifier \"hi\")") env)))))
+
 ;;; ---------------------------------------------------------------------------
 ;;; New Sequence Functions
 ;;; ---------------------------------------------------------------------------
@@ -3848,9 +4058,9 @@
 (test compare-function
   "Test compare function."
   (let ((env (make-standard-module)))
-    (is (cl:= -1 (fol-eval (fol-form "(compare 1 2)") env)))
-    (is (cl:= 0 (fol-eval (fol-form "(compare 2 2)") env)))
-    (is (cl:= 1 (fol-eval (fol-form "(compare 3 2)") env)))))
+    (is (cl:= -1 (fol-eval (fol-form "(check-signs 1 2)") env)))
+    (is (cl:= 0 (fol-eval (fol-form "(check-signs 2 2)") env)))
+    (is (cl:= 1 (fol-eval (fol-form "(check-signs 3 2)") env)))))
 
 (test some-function
   "Test some function."
@@ -3881,3 +4091,355 @@
       (is-true (fol.seqop:contains? result :x))
       (is-false (fol.seqop:contains? result :a))
       (is-true (fol.seqop:contains? result :b)))))
+(in-package :fol.tests)
+
+(def-suite predicate-specializer-suite :in fol-suite)
+(def-suite* :fol.predicate-specializer-tests :in predicate-specializer-suite)
+
+;;; ============================================================================
+;;; Basic Predicate Specializer Tests
+;;; ============================================================================
+
+(test defn-predicate-equality
+  "Test defn with equality predicate specializers."
+  (let ((env (make-standard-module)))
+    (fol-eval (fol-form "(defn check
+                          ([(x (= 0))] :zero)
+                          ([(x (= 1))] :one)
+                          ([x] :other))") env)
+    (is (eq :zero (fol-eval (fol-form "(check 0)") env)))
+    (is (eq :one (fol-eval (fol-form "(check 1)") env)))
+    (is (eq :other (fol-eval (fol-form "(check 42)") env)))))
+
+(test defn-predicate-comparison
+  "Test defn with comparison predicate specializers."
+  (let ((env (make-standard-module)))
+    (fol-eval (fol-form "(defn classify
+                          ([(n (< 0))] :negative)
+                          ([(n (= 0))] :zero)
+                          ([(n (> 0))] :positive))") env)
+    (is (eq :negative (fol-eval (fol-form "(classify -5)") env)))
+    (is (eq :zero (fol-eval (fol-form "(classify 0)") env)))
+    (is (eq :positive (fol-eval (fol-form "(classify 10)") env)))))
+
+(test defn-predicate-range
+  "Test defn with range predicate specializers."
+  (let ((env (make-standard-module)))
+    (fol-eval (fol-form "(defn age-group
+                          ([(age (< 13))] :child)
+                          ([(age (< 20))] :teen)
+                          ([(age (< 65))] :adult)
+                          ([age] :senior))") env)
+    (is (eq :child (fol-eval (fol-form "(age-group 10)") env)))
+    (is (eq :teen (fol-eval (fol-form "(age-group 16)") env)))
+    (is (eq :adult (fol-eval (fol-form "(age-group 35)") env)))
+    (is (eq :senior (fol-eval (fol-form "(age-group 70)") env)))))
+
+(test defn-predicate-with-symbols
+  "Test predicate specializers with symbol matching."
+  (let ((env (make-standard-module)))
+    (fol-eval (fol-form "(defn dispatch
+                          ([(cmd (= 'start))] :starting)
+                          ([(cmd (= 'stop))] :stopping)
+                          ([cmd] :unknown))") env)
+    (is (eq :starting (fol-eval (fol-form "(dispatch 'start)") env)))
+    (is (eq :stopping (fol-eval (fol-form "(dispatch 'stop)") env)))
+    (is (eq :unknown (fol-eval (fol-form "(dispatch 'pause)") env)))))
+
+(test defn-predicate-with-keywords
+  "Test predicate specializers with keyword matching."
+  (let ((env (make-standard-module)))
+    (fol-eval (fol-form "(defn status
+                          ([(s (= :ready))] :ok)
+                          ([(s (= :error))] :failed)
+                          ([s] :unknown))") env)
+    (is (eq :ok (fol-eval (fol-form "(status :ready)") env)))
+    (is (eq :failed (fol-eval (fol-form "(status :error)") env)))
+    (is (eq :unknown (fol-eval (fol-form "(status :pending)") env)))))
+
+;;; ============================================================================
+;;; Function (fn) Predicate Specializer Tests
+;;; ============================================================================
+
+(test fn-predicate-basic
+  "Test fn with predicate specializers."
+  (let ((env (make-standard-module)))
+    (fol-eval (fol-form "(def my-fn
+                          (fn ([(n (= 0))] :zero)
+                              ([(n (< 0))] :negative)
+                              ([n] :positive)))") env)
+    (is (eq :zero (fol-eval (fol-form "(my-fn 0)") env)))
+    (is (eq :negative (fol-eval (fol-form "(my-fn -5)") env)))
+    (is (eq :positive (fol-eval (fol-form "(my-fn 10)") env)))))
+
+(test fn-predicate-inline
+  "Test inline fn with predicate specializers."
+  (let ((env (make-standard-module)))
+    (is (eq :small (fol-eval (fol-form "((fn ([(x (< 10))] :small)
+                                             ([x] :large)) 5)") env)))
+    (is (eq :large (fol-eval (fol-form "((fn ([(x (< 10))] :small)
+                                             ([x] :large)) 50)") env)))))
+
+;;; ============================================================================
+;;; Error Case: Predicate Specializers in Macros
+;;; ============================================================================
+
+(test defmacro-predicate-error
+  "Test that predicate specializers in defmacro signal an error."
+  (let ((env (make-standard-module)))
+    (signals fol-eval-error
+      (fol-eval (fol-form "(defmacro bad-macro
+                            ([(x (= 0))] `0)
+                            ([x] `(inc ~x)))") env))))
+
+(test defmacro-multi-pattern-predicate-error
+  "Test that predicates in multi-pattern defmacro signal an error."
+  (let ((env (make-standard-module)))
+    (signals fol-eval-error
+      (fol-eval (fol-form "(defmacro bad-macro
+                            ([x] `(inc ~x))
+                            ([(x (< 10)) y] `(+ ~x ~y)))") env))))
+
+(test defmacro-nested-predicate-error
+  "Test that predicates nested in macro destructuring signal an error."
+  (let ((env (make-standard-module)))
+    (signals fol-eval-error
+      (fol-eval (fol-form "(defmacro bad-macro
+                            ([[[(x (= 0))]]] `0)
+                            ([x] `(inc ~x)))") env))))
+
+;;; ============================================================================
+;;; Specificity Tests
+;;; ============================================================================
+
+(test predicate-vs-type-specificity
+  "Test that predicates have same specificity as type specializers."
+  (let ((env (make-standard-module)))
+    ;; Both predicates and types are level 4
+    ;; When both match, first one wins
+    (fol-eval (fol-form "(defn check
+                          ([(x (= 5))] :pred-match)
+                          ([(x <number>)] :type-match))") env)
+    (is (eq :pred-match (fol-eval (fol-form "(check 5)") env)))
+    (is (eq :type-match (fol-eval (fol-form "(check 10)") env)))))
+
+(test predicate-vs-any-specificity
+  "Test that predicates are more specific than any pattern."
+  (let ((env (make-standard-module)))
+    (fol-eval (fol-form "(defn check
+                          ([(x (< 10))] :pred-match)
+                          ([x] :any-match))") env)
+    (is (eq :pred-match (fol-eval (fol-form "(check 5)") env)))
+    (is (eq :any-match (fol-eval (fol-form "(check 50)") env)))))
+
+;;; ============================================================================
+;;; Complex Predicate Tests
+;;; ============================================================================
+
+(test predicate-multiple-params
+  "Test multiple parameters with different predicates."
+  (let ((env (make-standard-module)))
+    (fol-eval (fol-form "(defn check-signs
+                          ([(a (< 0)) (b (> 0))] :negative-positive)
+                          ([(a (> 0)) (b (< 0))] :positive-negative)
+                          ([a b] :other))") env)
+    (is (eq :negative-positive (fol-eval (fol-form "(check-signs -5 10)") env)))
+    (is (eq :positive-negative (fol-eval (fol-form "(check-signs 10 -5)") env)))
+    (is (eq :other (fol-eval (fol-form "(check-signs 5 10)") env)))))
+(in-package :fol.tests)
+
+(def-suite nested-predicate-suite :in fol-suite)
+(def-suite* :fol.nested-predicate-tests :in nested-predicate-suite)
+
+;;; ============================================================================
+;;; Basic Nested Predicate Tests
+;;; ============================================================================
+
+(test nested-predicate-in-vector-basic
+  "Test basic nested predicate in vector destructuring."
+  (let ((env (make-standard-module)))
+    (fol-eval (fol-form "(defn check
+                          ([[x (y (< 10))]] :y-small)
+                          ([[x y]] :y-large))") env)
+    (is (eq :y-small (fol-eval (fol-form "(check [5 8])") env)))
+    (is (eq :y-large (fol-eval (fol-form "(check [5 15])") env)))))
+
+(test nested-predicate-deeper
+  "Test predicate nested two levels deep."
+  (let ((env (make-standard-module)))
+    (fol-eval (fol-form "(defn process
+                          ([[[x (y (= 0))]]] :y-zero)
+                          ([[[x y]]] :y-other))") env)
+    (is (eq :y-zero (fol-eval (fol-form "(process [[10 0]])") env)))
+    (is (eq :y-other (fol-eval (fol-form "(process [[10 5]])") env)))))
+
+(test nested-predicate-multiple-elements
+  "Test multiple predicates in nested vector."
+  (let ((env (make-standard-module)))
+    (fol-eval (fol-form "(defn check-range
+                          ([[(a (>= 0)) (b (<= 100))]] :in-range)
+                          ([[a b]] :out-of-range))") env)
+    (is (eq :in-range (fol-eval (fol-form "(check-range [50 75])") env)))
+    (is (eq :out-of-range (fol-eval (fol-form "(check-range [-5 75])") env)))
+    (is (eq :out-of-range (fol-eval (fol-form "(check-range [50 150])") env)))))
+
+;;; ============================================================================
+;;; User's Example - Complex Nested Case
+;;; ============================================================================
+
+(test nested-predicate-complex-example
+  "Test the user's example: [x y [a b (c (includes? [0 1 2]))]]"
+  (let ((env (make-standard-module)))
+    ;; Define includes? helper
+    (fol-eval (fol-form "(defn includes? [coll item]
+                          (some (fn [x] (= x item)) coll))") env)
+    ;; Define function with nested predicate
+    (fol-eval (fol-form "(defn match-pattern
+                          ([x y [a b (c (includes? [0 1 2]))]] :matched)
+                          ([x y other] :no-match))") env)
+    ;; Test cases
+    (is (eq :matched (fol-eval (fol-form "(match-pattern 1 2 [3 4 0])") env)))
+    (is (eq :matched (fol-eval (fol-form "(match-pattern 1 2 [3 4 1])") env)))
+    (is (eq :matched (fol-eval (fol-form "(match-pattern 1 2 [3 4 2])") env)))
+    (is (eq :no-match (fol-eval (fol-form "(match-pattern 1 2 [3 4 5])") env)))
+    (is (eq :no-match (fol-eval (fol-form "(match-pattern 1 2 [3 4 99])") env)))))
+
+;;; ============================================================================
+;;; Mixed Predicates and Destructuring
+;;; ============================================================================
+
+(test nested-predicate-mixed-patterns
+  "Test mixing predicates with regular destructuring."
+  (let ((env (make-standard-module)))
+    (fol-eval (fol-form "(defn process-data
+                          ([[(x (> 0)) [y z (w (< 100))]]] :match)
+                          ([[x other]] :no-match))") env)
+    (is (eq :match (fol-eval (fol-form "(process-data [5 [10 20 50]])") env)))
+    (is (eq :no-match (fol-eval (fol-form "(process-data [5 [10 20 150]])") env)))
+    (is (eq :no-match (fol-eval (fol-form "(process-data [-5 [10 20 50]])") env)))))
+
+(test nested-predicate-with-equality
+  "Test nested predicates with equality checks."
+  (let ((env (make-standard-module)))
+    (fol-eval (fol-form "(defn check-coords
+                          ([[x y (z (= 0))]] :z-zero)
+                          ([[x y z]] :z-other))") env)
+    (is (eq :z-zero (fol-eval (fol-form "(check-coords [10 20 0])") env)))
+    (is (eq :z-other (fol-eval (fol-form "(check-coords [10 20 5])") env)))))
+
+;;; ============================================================================
+;;; Tests for fn and lambda
+;;; ============================================================================
+
+(test nested-predicate-in-fn
+  "Test nested predicates in fn."
+  (let ((env (make-standard-module)))
+    (fol-eval (fol-form "(def my-fn
+                          (fn ([[x (y (< 5))]] :small)
+                              ([[x y]] :large)))") env)
+    (is (eq :small (fol-eval (fol-form "(my-fn [10 3])") env)))
+    (is (eq :large (fol-eval (fol-form "(my-fn [10 8])") env)))))
+
+(test nested-predicate-inline-fn
+  "Test nested predicates in inline fn."
+  (let ((env (make-standard-module)))
+    (is (eq :match
+            (fol-eval (fol-form "((fn ([[a (b (= 0))]] :match)
+                                      ([[a b]] :no-match))
+                                  [5 0])") env)))
+    (is (eq :no-match
+            (fol-eval (fol-form "((fn ([[a (b (= 0))]] :match)
+                                      ([[a b]] :no-match))
+                                  [5 1])") env)))))
+
+(test nested-predicate-in-lambda
+  "Test nested predicates in lambda."
+  (let ((env (make-standard-module)))
+    (fol-eval (fol-form "(def f
+                          (λ ([[x (y (> 0))]] :positive)
+                             ([[x y]] :not-positive)))") env)
+    (is (eq :positive (fol-eval (fol-form "(f [1 10])") env)))
+    (is (eq :not-positive (fol-eval (fol-form "(f [1 -5])") env)))))
+
+;;; ============================================================================
+;;; Tests for defgeneric and defmethod
+;;; ============================================================================
+
+(test nested-predicate-in-defmethod
+  "Test nested predicates in defmethod."
+  (let ((env (make-standard-module)))
+    (fol-eval (fol-form "(defgeneric process-nested [data])") env)
+    (fol-eval (fol-form "(defmethod process-nested [[[x (y (< 10))]]]
+                          :y-small)") env)
+    (fol-eval (fol-form "(defmethod process-nested [[[x y]]]
+                          :y-large)") env)
+    (is (eq :y-small (fol-eval (fol-form "(process-nested [[5 8]])") env)))
+    (is (eq :y-large (fol-eval (fol-form "(process-nested [[5 15]])") env)))))
+
+(test nested-predicate-defmethod-with-types
+  "Test nested predicates combined with type specializers in defmethod."
+  (let ((env (make-standard-module)))
+    (fol-eval (fol-form "(defgeneric analyze [item])") env)
+    (fol-eval (fol-form "(defmethod analyze [(item <vector>?)]
+                          (if (> (size item) 0)
+                              (first item)
+                              :empty))") env)
+    (fol-eval (fol-form "(defmethod analyze [[[a (b (= 0))]]]
+                          :has-zero)") env)
+    (is (eq :has-zero (fol-eval (fol-form "(analyze [[10 0]])") env)))
+    (is (equalp 5 (fol-eval (fol-form "(analyze [5 10])") env)))))
+
+;;; ============================================================================
+;;; Specificity Tests
+;;; ============================================================================
+
+(test nested-predicate-specificity
+  "Test that nested predicates have proper specificity ordering."
+  (let ((env (make-standard-module)))
+    (fol-eval (fol-form "(defn check
+                          ([[(x (= 5))]] :exact-five)
+                          ([[x]] :any-value))") env)
+    (is (eq :exact-five (fol-eval (fol-form "(check [5])") env)))
+    (is (eq :any-value (fol-eval (fol-form "(check [10])") env)))))
+
+(test nested-predicate-vs-longer-pattern
+  "Test specificity: more elements vs nested predicate."
+  (let ((env (make-standard-module)))
+    ;; Pattern with more elements should match first
+    (fol-eval (fol-form "(defn match
+                          ([[a b c]] :three-elements)
+                          ([[(x (> 0)) y]] :two-with-pred))") env)
+    (is (eq :three-elements (fol-eval (fol-form "(match [1 2 3])") env)))
+    (is (eq :two-with-pred (fol-eval (fol-form "(match [5 10])") env)))))
+
+;;; ============================================================================
+;;; Edge Cases
+;;; ============================================================================
+
+(test nested-predicate-deeply-nested
+  "Test deeply nested predicates (3+ levels)."
+  (let ((env (make-standard-module)))
+    (fol-eval (fol-form "(defn deep-check
+                          ([[[[a (b (< 5))]]] c]] :deep-match)
+                          ([other] :no-match))") env)
+    (is (eq :deep-match (fol-eval (fol-form "(deep-check [[[10 3]] 99])") env)))
+    (is (eq :no-match (fol-eval (fol-form "(deep-check [[[10 8]] 99])") env)))))
+
+(test nested-predicate-with-rest-args
+  "Test nested predicates combined with rest arguments."
+  (let ((env (make-standard-module)))
+    (fol-eval (fol-form "(defn process
+                          ([[x (y (= 0))] & rest] :y-zero)
+                          ([data & rest] :other))") env)
+    (is (eq :y-zero (fol-eval (fol-form "(process [5 0] 1 2 3)") env)))
+    (is (eq :other (fol-eval (fol-form "(process [5 1] 1 2 3)") env)))))
+
+(test nested-predicate-with-as-binding
+  "Test nested predicates with :as binding."
+  (let ((env (make-standard-module)))
+    (fol-eval (fol-form "(defn capture
+                          ([[(x (< 10)) y :as pair]] pair)
+                          ([[a b :as other]] other))") env)
+    (let ((result (fol-eval (fol-form "(capture [5 20])") env)))
+      (is (fol.seqop:contains? result 5))
+      (is (fol.seqop:contains? result 20)))))

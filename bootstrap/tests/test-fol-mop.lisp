@@ -130,25 +130,35 @@
 
 (test defmethod*-with-specialization-and-multi-pattern
   "Test that defmethod* handles specialized params with multi-pattern generics."
-  ;; Create multi-pattern generic
-  (eval `(fol.fol-mop:defgeneric* test-specialized-multi
-           (,(make-vector 'a) ,(make-vector 'a 'b))))
-  ;; Add specialized methods for different patterns
-  ;; Type specialization uses list syntax: (var type)
-  (eval `(fol.fol-mop:defmethod* test-specialized-multi
-           ,(make-vector '(a number))
-           (cl:list :one-number a)))
-  (eval `(fol.fol-mop:defmethod* test-specialized-multi
-           ,(make-vector '(a number) '(b number))
-           (cl:list :two-numbers a b)))
-  ;; Test
-  (is (equal '(:one-number 42) (test-specialized-multi 42)))
-  (is (equal '(:two-numbers 1 2) (test-specialized-multi 1 2)))
-  ;; Cleanup
-  (fmakunbound 'test-specialized-multi)
-  (fmakunbound 'test-specialized-multi/p0)
-  (fmakunbound 'test-specialized-multi/p1)
-  (cl:remprop 'test-specialized-multi 'fol.fol-mop::multi-pattern-info))
+  ;; Use unique function name to avoid conflicts
+  (let ((fname 'test-spec-multi-unique-2026))
+    ;; Cleanup any previous definitions
+    (when (fboundp fname)
+      (fmakunbound fname))
+    (when (fboundp (intern (format nil "~A/P0" (symbol-name fname))))
+      (fmakunbound (intern (format nil "~A/P0" (symbol-name fname)))))
+    (when (fboundp (intern (format nil "~A/P1" (symbol-name fname))))
+      (fmakunbound (intern (format nil "~A/P1" (symbol-name fname)))))
+    (cl:remprop fname 'fol.fol-mop::multi-pattern-info)
+    ;; Create multi-pattern generic
+    (eval `(fol.fol-mop:defgeneric* ,fname
+             (,(make-vector 'a) ,(make-vector 'a 'b))))
+    ;; Add specialized methods for different patterns
+    ;; Type specialization uses list syntax: (var type)
+    (eval `(fol.fol-mop:defmethod* ,fname
+             ,(make-vector '(a number))
+             (cl:list :one-number a)))
+    (eval `(fol.fol-mop:defmethod* ,fname
+             ,(make-vector '(a number) '(b number))
+             (cl:list :two-numbers a b)))
+    ;; Test
+    (is (equal '(:one-number 42) (funcall fname 42)))
+    (is (equal '(:two-numbers 1 2) (funcall fname 1 2)))
+    ;; Cleanup
+    (fmakunbound fname)
+    (fmakunbound (intern (format nil "~A/P0" (symbol-name fname))))
+    (fmakunbound (intern (format nil "~A/P1" (symbol-name fname))))
+    (cl:remprop fname 'fol.fol-mop::multi-pattern-info)))
 
 (test multi-pattern-dispatcher-signals-error-for-invalid-arity
   "Test that multi-pattern dispatcher signals error for unsupported arities."
