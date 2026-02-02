@@ -49,18 +49,18 @@
 ;;; ============================================================================
 
 (test mop-class-name
-  "Test class-name* function"
+  "Test class-name function"
   ;; Test with class object
-  (is (eq '<test-base> (class-name* (find-class '<test-base>))))
-  (is (eq '<test-derived> (class-name* (find-class '<test-derived>))))
+  (is (eq '<test-base> (class-name (find-class '<test-base>))))
+  (is (eq '<test-derived> (class-name (find-class '<test-derived>))))
 
   ;; Test with symbol
-  (is (eq '<test-base> (class-name* '<test-base>)))
-  (is (eq '<symbol> (class-name* '<symbol>))))
+  (is (eq '<test-base> (class-name '<test-base>)))
+  (is (eq '<symbol> (class-name '<symbol>))))
 
 (test mop-class-name-standard-class
-  "Test class-name* with standard classes"
-  (is (eq 'standard-object (class-name* (find-class 'standard-object)))))
+  "Test class-name with standard classes"
+  (is (eq 'standard-object (class-name (find-class 'standard-object)))))
 
 (test mop-class-superclasses
   "Test class-direct-superclasses* function"
@@ -68,18 +68,18 @@
   (let ((supers (class-direct-superclasses* '<test-base>)))
     (is (= 1 (length supers)))
     (is (eq '<persistent-object>
-            (class-name* (first supers)))))
+            (class-name (first supers)))))
 
   ;; <test-derived> has <test-base> as direct superclass
   (let ((supers (class-direct-superclasses* '<test-derived>)))
     (is (= 1 (length supers)))
-    (is (eq '<test-base> (class-name* (first supers)))))
+    (is (eq '<test-base> (class-name (first supers)))))
 
   ;; <test-multi-inherit> has two direct superclasses
   (let ((supers (class-direct-superclasses* '<test-multi-inherit>)))
     (is (= 2 (length supers)))
-    (is (member '<test-derived> (mapcar #'class-name* supers)))
-    (is (member '<symbol> (mapcar #'class-name* supers)))))
+    (is (member '<test-derived> (mapcar #'class-name supers)))
+    (is (member '<symbol> (mapcar #'class-name supers)))))
 
 (test mop-class-subclasses
   "Test class-direct-subclasses* function"
@@ -92,21 +92,21 @@
   ;; Get precedence list for <test-derived>
   (let ((cpl (class-precedence-list* '<test-derived>)))
     ;; Should include itself, <test-base>, <persistent-object>, etc.
-    (is (member '<test-derived> (mapcar #'class-name* cpl)))
-    (is (member '<test-base> (mapcar #'class-name* cpl)))
-    (is (member '<persistent-object> (mapcar #'class-name* cpl)))
+    (is (member '<test-derived> (mapcar #'class-name cpl)))
+    (is (member '<test-base> (mapcar #'class-name cpl)))
+    (is (member '<persistent-object> (mapcar #'class-name cpl)))
     ;; <test-derived> should come before <test-base>
-    (is (< (position '<test-derived> (mapcar #'class-name* cpl))
-           (position '<test-base> (mapcar #'class-name* cpl))))))
+    (is (< (position '<test-derived> (mapcar #'class-name cpl))
+           (position '<test-base> (mapcar #'class-name cpl))))))
 
 (test mop-class-precedence-list-multi-inherit
   "Test class-precedence-list* with multiple inheritance"
   (let ((cpl (class-precedence-list* '<test-multi-inherit>)))
     ;; Should include all classes in the hierarchy
-    (is (member '<test-multi-inherit> (mapcar #'class-name* cpl)))
-    (is (member '<test-derived> (mapcar #'class-name* cpl)))
-    (is (member '<test-base> (mapcar #'class-name* cpl)))
-    (is (member '<symbol> (mapcar #'class-name* cpl)))))
+    (is (member '<test-multi-inherit> (mapcar #'class-name cpl)))
+    (is (member '<test-derived> (mapcar #'class-name cpl)))
+    (is (member '<test-base> (mapcar #'class-name cpl)))
+    (is (member '<symbol> (mapcar #'class-name cpl)))))
 
 (test mop-class-slots
   "Test class-direct-slots* and class-slots* functions"
@@ -437,11 +437,11 @@
 (test mop-fol-number-hierarchy
   "Test MOP introspection on FOL number class hierarchy"
   (let ((cpl (class-precedence-list* '<integer>)))
-    (is (member '<integer> (mapcar #'class-name* cpl)))
-    (is (member '<rational> (mapcar #'class-name* cpl)))
-    (is (member '<real> (mapcar #'class-name* cpl)))
-    (is (member '<number> (mapcar #'class-name* cpl)))
-    (is (member '<persistent-object> (mapcar #'class-name* cpl)))))
+    (is (member '<integer> (mapcar #'class-name cpl)))
+    (is (member '<rational> (mapcar #'class-name cpl)))
+    (is (member '<real> (mapcar #'class-name cpl)))
+    (is (member '<number> (mapcar #'class-name cpl)))
+    (is (member '<persistent-object> (mapcar #'class-name cpl)))))
 
 (test mop-fol-value-slot
   "Test MOP introspection on FOL value class slots"
@@ -458,7 +458,7 @@
 (test mop-class-operations-with-symbol
   "Test that all class operations work with symbols"
   ;; All these should work with symbol instead of class object
-  (is (eq '<test-base> (class-name* '<test-base>)))
+  (is (eq '<test-base> (class-name '<test-base>)))
   (is (listp (class-direct-superclasses* '<test-base>)))
   (is (listp (class-direct-subclasses* '<test-base>)))
   (is (listp (class-precedence-list* '<test-base>)))

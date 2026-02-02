@@ -29,15 +29,16 @@
 
 (defpackage fol.mop
   (:use cl fol.persistent)
+  (:shadow #:class-name #:slot-value)
   (:import-from closer-mop)
   (:export
    ;; Class introspection
-   class-name*
+   class-name
    class-direct-superclasses*
    class-direct-subclasses*
    class-precedence-list*
    class-direct-slots*
-   class-slots*
+   class-slots
    finalized-p
    ensure-finalized
    ;; Slot definition introspection
@@ -55,7 +56,7 @@
    slot-names
    slot-exists-p*
    slot-boundp*
-   slot-value*
+   slot-value
    ;; Utility functions
    all-persistent-classes
    subclasses*

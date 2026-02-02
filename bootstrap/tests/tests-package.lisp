@@ -7,7 +7,17 @@
 
 (defpackage :fol.tests
   (:use :cl :fiveam)
-  (:export :run-fol-tests)
+  (:export :run-fol-tests
+           ;; Coverage utilities
+           :enable-coverage :disable-coverage :reset-coverage
+           :generate-coverage-report :coverage-summary
+           :run-fol-tests-with-coverage
+           :run-integration-tests-with-coverage
+           :collect-test-statistics :print-full-coverage-report
+           :coverage-stats :make-coverage-stats
+           :coverage-stats-total-tests :coverage-stats-passed-tests
+           :coverage-stats-failed-tests :coverage-stats-skipped-tests
+           :coverage-stats-expression-coverage :coverage-stats-branch-coverage)
   ;; Shadow CL symbols that FOL redefines
   (:shadowing-import-from :fol.arithop
                           :+ :- :* :/
@@ -199,15 +209,18 @@
                 :defgeneric* :defclass* :defmethod*
                 :eval-defgeneric* :eval-defclass* :eval-defmethod*
                 :vector-to-list :convert-slot-specifier :convert-specialized-param)
+  ;; Shadow CL symbols that FOL.MOP redefines
+  (:shadowing-import-from :fol.mop
+                          :class-name :class-slots :slot-value)
   ;; Import symbols from fol.mop
   (:import-from :fol.mop
-                :class-name* :class-direct-superclasses* :class-direct-subclasses*
-                :class-precedence-list* :class-direct-slots* :class-slots*
+                :class-direct-superclasses* :class-direct-subclasses*
+                :class-precedence-list* :class-direct-slots*
                 :finalized-p :ensure-finalized
                 :slot-definition-name* :slot-definition-type* :slot-definition-initargs*
                 :slot-definition-initform* :slot-definition-initfunction*
                 :slot-definition-allocation* :slot-definition-readers* :slot-definition-writers*
-                :instance-class :instance-slots :slot-names :slot-exists-p* :slot-boundp* :slot-value*
+                :instance-class :instance-slots :slot-names :slot-exists-p* :slot-boundp*
                 :all-persistent-classes :subclasses* :superclasses* :find-slot-definition
                 :slot-properties :class-info :describe-class :describe-slot
                 :persistent-class-p :persistent-object-p

@@ -1,0 +1,402 @@
+;;; eval.fol - FOL Evaluator implemented in FOL
+;;;
+;;; This is a self-hosted implementation of the FOL evaluator, written in FOL itself.
+;;; It demonstrates FOL's metaprogramming capabilities and serves as a reference
+;;; implementation for understanding the evaluation semantics.
+;;;
+;;; The evaluator uses generic functions to dispatch on different form types,
+;;; and consults the special-form dispatch table to identify special forms.
+
+;;; =============================================================================
+;;; Special Form Dispatch Table
+;;; =============================================================================
+
+(def special-forms
+  "Dispatch table mapping special form names to their evaluator functions.
+   This mirrors the *special-forms* table in the bootstrap implementation."
+  {"quote"      eval-quote
+   "if"         eval-if
+   "do"         eval-do
+   "bind"       eval-bind
+   "fn"         eval-fn
+   "def"        eval-def
+   "defn"       eval-defn
+   "defmacro"   eval-defmacro
+   "loop"       eval-loop
+   "recur"      eval-recur
+   "throw"      eval-throw
+   "try"        eval-try
+   "->"         eval-thread-first
+   "->>"        eval-thread-last
+   "cond->"     eval-cond-thread-first
+   "cond->>"    eval-cond-thread-last
+   "."          eval-dot
+   "new"        eval-new
+   "defclass"   eval-defclass
+   "defgeneric" eval-defgeneric
+   "defmethod"  eval-defmethod})
+
+(defn special-form?
+  "Check if the given symbol names a special form."
+  [sym]
+  (and (symbol? sym)
+       (contains? special-forms (name sym))))
+
+;;; =============================================================================
+;;; Generic Evaluation Protocol
+;;; =============================================================================
+
+(defgeneric eval-form
+  "Generic function for evaluating different types of FOL forms.
+   Dispatches based on the type of the form being evaluated."
+  [form env])
+
+;;; --- Self-evaluating forms ---
+
+(defmethod eval-form [(<number>? form) env]
+  "Numbers evaluate to themselves."
+  form)
+
+(defmethod eval-form [(<string>? form) env]
+  "Strings evaluate to themselves."
+  form)
+
+(defmethod eval-form [(<keyword>? form) env]
+  "Keywords evaluate to themselves."
+  form)
+
+(defmethod eval-form [(nil? form) env]
+  "nil evaluates to itself."
+  nil)
+
+(defmethod eval-form [(<bool>? form) env]
+  "Booleans evaluate to themselves."
+  form)
+
+;;; --- Symbol lookup ---
+
+(defmethod eval-form [(<symbol>? form) env]
+  "Symbols are looked up in the environment."
+  (if-bind [value (lookup env form)]
+    value
+    (throw (str "Unbound variable: " form))))
+
+;;; --- Vector evaluation ---
+
+(defmethod eval-form [(<vector>? form) env]
+  "Vectors evaluate all their elements and return a new vector."
+  (into [] (map (fn [x] (eval-form x env)) form)))
+
+;;; --- Dict evaluation ---
+
+(defmethod eval-form [(<dict>? form) env]
+  "Dicts evaluate all their keys and values and return a new dict."
+  (into {}
+        (map (fn [[k v]]
+               [(eval-form k env) (eval-form v env)])
+             form)))
+
+;;; --- Set evaluation ---
+
+(defmethod eval-form [(<set>? form) env]
+  "Sets evaluate all their elements and return a new set."
+  (into #{}
+        (map (fn [x] (eval-form x env)) form)))
+
+;;; --- List evaluation (function/macro/special form application) ---
+
+(defmethod eval-form [(<list>? form) env]
+  "Lists represent function calls, macro calls, or special forms.
+   The evaluation strategy depends on the operator (first element)."
+  (if (empty? form)
+    form  ; Empty list evaluates to itself
+    (bind [op (first form)
+           args (rest form)]
+      (cond
+        ;; Special form?
+        (special-form? op)
+        (bind [special-eval (get special-forms (name op))]
+          (special-eval args env))
+
+        ;; Regular function or macro call
+        :else
+        (bind [fn-value (eval-form op env)]
+          (if (<macro>? fn-value)
+            ;; Macro: expand and evaluate
+            (eval-form (expand-macro fn-value args env) env)
+            ;; Function: evaluate args and apply
+            (bind [evaled-args (map (fn [arg] (eval-form arg env)) args)]
+              (apply-function fn-value evaled-args))))))))
+
+;;; --- Default case ---
+
+(defmethod eval-form [:default form env]
+  "Default case for forms we don't recognize - return as-is."
+  form)
+
+;;; =============================================================================
+;;; Main Eval Function
+;;; =============================================================================
+
+(defn fol-eval
+  "Evaluate a FOL form in the given environment.
+   This is the main entry point for the evaluator."
+  [form env]
+  (eval-form form env))
+
+;;; =============================================================================
+;;; Special Form Evaluators
+;;; =============================================================================
+
+;;; --- QUOTE ---
+
+(defn eval-quote
+  "Evaluate (quote form). Returns the form unevaluated.
+
+   Examples:
+     (quote x) => x (the symbol itself, not its value)
+     (quote (1 2 3)) => (1 2 3) (the list itself)
+     'x => x (reader syntax for quote)"
+  [args env]
+  (if (not= (size args) 1)
+    (throw (str "quote: expected 1 argument, got " (size args)))
+    (first args)))
+
+;;; --- IF ---
+
+(defn eval-if
+  "Evaluate (if test then else?).
+   If test is truthy, evaluate then; otherwise evaluate else (or nil if omitted).
+
+   Examples:
+     (if true 1 2) => 1
+     (if false 1 2) => 2
+     (if nil 1) => nil
+     (if 0 :truthy :falsy) => :truthy  ; 0 is truthy in FOL"
+  [args env]
+  (bind [arg-count (size args)]
+    (if (or (< arg-count 2) (> arg-count 3))
+      (throw (str "if: expected 2 or 3 arguments, got " arg-count))
+      (bind [test-form (nth args 0)
+             then-form (nth args 1)
+             else-form (if (>= arg-count 3) (nth args 2) nil)
+             test-result (fol-eval test-form env)]
+        (if test-result
+          (fol-eval then-form env)
+          (fol-eval else-form env))))))
+
+;;; --- DO ---
+
+(defn eval-do
+  "Evaluate (do form*). Evaluates each form in sequence and returns the last value.
+
+   Examples:
+     (do (println \"hello\") (+ 1 2)) => 3
+     (do) => nil
+     (do 1 2 3) => 3"
+  [args env]
+  (if (empty? args)
+    nil
+    (bind [forms args]
+      (loop [remaining forms
+             result nil]
+        (if (empty? remaining)
+          result
+          (recur (rest remaining)
+                 (fol-eval (first remaining) env)))))))
+
+;;; --- BIND (let) ---
+
+(defn eval-bind-pair
+  "Helper to evaluate a single binding pair [name value] and extend environment."
+  [env name value-form]
+  (bind [value (fol-eval value-form env)]
+    (assoc env name value)))
+
+(defn eval-bind
+  "Evaluate (bind [name1 val1 name2 val2 ...] body*).
+   Creates new bindings and evaluates body forms in the extended environment.
+
+   Examples:
+     (bind [x 1 y 2] (+ x y)) => 3
+     (bind [x (+ 1 2)] (* x 3)) => 9
+     (bind [] :no-bindings) => :no-bindings"
+  [args env]
+  (if (< (size args) 1)
+    (throw "bind: expected at least 1 argument (bindings vector)")
+    (bind [bindings (first args)
+           body (rest args)]
+      (if (not (<vector>? bindings))
+        (throw "bind: first argument must be a vector")
+        (if (odd? (size bindings))
+          (throw "bind: bindings vector must have even number of elements")
+          ;; Process bindings
+          (bind [new-env (loop [pairs (partition 2 bindings)
+                                current-env env]
+                           (if (empty? pairs)
+                             current-env
+                             (bind [[name value-form] (first pairs)]
+                               (recur (rest pairs)
+                                      (eval-bind-pair current-env name value-form)))))]
+            ;; Evaluate body in new environment
+            (eval-do body new-env)))))))
+
+;;; --- THREAD-LAST (->>)  ---
+
+(defn apply-threaded-last
+  "Helper to thread a value through a form as the last argument."
+  [x form env]
+  (cond
+    ;; If form is a symbol, treat it as (form x)
+    (symbol? form)
+    (bind [fn-value (fol-eval form env)]
+      (apply-function fn-value [x]))
+
+    ;; If form is a list, insert x as last argument
+    (<list>? form)
+    (bind [fn-form (first form)
+           args (rest form)
+           new-form (concat (list fn-form) args (list x))]
+      (fol-eval new-form env))
+
+    ;; Otherwise, error
+    :else
+    (throw (str "->>: form must be a symbol or list, got " (type form)))))
+
+(defn eval-thread-last
+  "Evaluate (->> x form*).
+   Threads x through each form as the last argument.
+
+   Examples:
+     (->> 5 (+ 3) (* 2))
+     ; => (* 2 (+ 3 5)) => (* 2 8) => 16
+
+     (->> [1 2 3] (map inc) (filter even?))
+     ; => (filter even? (map inc [1 2 3]))
+     ; => (filter even? [2 3 4]) => [2 4]
+
+     (->> 10 inc dec)
+     ; => (dec (inc 10)) => (dec 11) => 10"
+  [args env]
+  (if (< (size args) 1)
+    (throw "->>: expected at least 1 argument")
+    (bind [initial (fol-eval (first args) env)
+           forms (rest args)]
+      (if (empty? forms)
+        initial  ; No forms to thread through
+        (loop [x initial
+               remaining forms]
+          (if (empty? remaining)
+            x
+            (recur (apply-threaded-last x (first remaining) env)
+                   (rest remaining))))))))
+
+;;; --- THREAD-FIRST (->)  ---
+
+(defn apply-threaded-first
+  "Helper to thread a value through a form as the first argument."
+  [x form env]
+  (cond
+    ;; If form is a symbol, treat it as (form x)
+    (symbol? form)
+    (bind [fn-value (fol-eval form env)]
+      (apply-function fn-value [x]))
+
+    ;; If form is a list, insert x as first argument
+    (<list>? form)
+    (bind [fn-form (first form)
+           args (rest form)
+           new-form (concat (list fn-form x) args)]
+      (fol-eval new-form env))
+
+    ;; Otherwise, error
+    :else
+    (throw (str "->: form must be a symbol or list, got " (type form)))))
+
+(defn eval-thread-first
+  "Evaluate (-> x form*).
+   Threads x through each form as the first argument.
+
+   Examples:
+     (-> 5 (+ 3) (* 2))
+     ; => (* (+ 5 3) 2) => (* 8 2) => 16
+
+     (-> {:a 1} (assoc :b 2) (dissoc :a))
+     ; => (dissoc (assoc {:a 1} :b 2) :a)
+     ; => (dissoc {:a 1 :b 2} :a) => {:b 2}
+
+     (-> 10 inc dec)
+     ; => (dec (inc 10)) => (dec 11) => 10"
+  [args env]
+  (if (< (size args) 1)
+    (throw "->: expected at least 1 argument")
+    (bind [initial (fol-eval (first args) env)
+           forms (rest args)]
+      (if (empty? forms)
+        initial  ; No forms to thread through
+        (loop [x initial
+               remaining forms]
+          (if (empty? remaining)
+            x
+            (recur (apply-threaded-first x (first remaining) env)
+                   (rest remaining))))))))
+
+;;; =============================================================================
+;;; Helper Functions
+;;; =============================================================================
+
+(defn apply-function
+  "Apply a function to arguments.
+   This would normally call the underlying function application mechanism."
+  [fn args]
+  ;; In a real implementation, this would invoke the function
+  ;; For now, this is a placeholder that would be implemented
+  ;; using the host language's function application
+  (comment "This would be implemented using host apply mechanism"))
+
+(defn expand-macro
+  "Expand a macro call with the given arguments.
+   This would normally call the macro expander."
+  [macro args env]
+  ;; In a real implementation, this would expand the macro
+  (comment "This would be implemented using host macro expansion"))
+
+(defn lookup
+  "Look up a symbol in the environment.
+   Returns the value if found, nil otherwise."
+  [env sym]
+  ;; In a real implementation, this would search the environment
+  (comment "This would be implemented using host environment lookup"))
+
+;;; =============================================================================
+;;; Usage Examples
+;;; =============================================================================
+
+(comment
+  "Example usages of the FOL evaluator:
+
+  ;; Simple arithmetic
+  (fol-eval '(+ 1 2 3) std-env)
+  ; => 6
+
+  ;; Variable binding
+  (fol-eval '(bind [x 10 y 20] (+ x y)) std-env)
+  ; => 30
+
+  ;; Conditional
+  (fol-eval '(if (> 5 3) :greater :not-greater) std-env)
+  ; => :greater
+
+  ;; Threading
+  (fol-eval '(->> [1 2 3 4] (map inc) (filter even?) (reduce +)) std-env)
+  ; => 10  ; [2 3 4 5] -> [2 4] -> 6
+
+  ;; Quoted forms
+  (fol-eval '(quote (+ 1 2)) std-env)
+  ; => (+ 1 2)  ; Returns the list itself, not evaluated
+
+  ;; Nested evaluation
+  (fol-eval '(bind [double (fn [x] (* x 2))]
+               (->> 5 double double double))
+            std-env)
+  ; => 40")

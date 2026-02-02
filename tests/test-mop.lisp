@@ -68,9 +68,9 @@
 ;;; ---------------------------------------------------------------------------
 
 (test class-name-introspection
-  "Test class-name* function."
-  (fol-is-true "(symbol? (class-name* <vector>))")
-  (fol-is-true "(symbol? (class-name* <string>))"))
+  "Test class-name function."
+  (fol-is-true "(symbol? (class-name <vector>))")
+  (fol-is-true "(symbol? (class-name <string>))"))
 
 (test class-superclasses
   "Test class-direct-superclasses* function."
@@ -78,10 +78,10 @@
   (fol-is-true "(<list>? (class-direct-superclasses* <integer>))"))
 
 (test class-slots-introspection
-  "Test class-slots* function returns slot info."
-  ;; class-slots* returns a list of slot definition objects
+  "Test class-slots function returns slot info."
+  ;; class-slots returns a list of slot definition objects
   ;; Just check that the function returns something
-  (fol-is-true "(class-slots* <string>)"))
+  (fol-is-true "(class-slots <string>)"))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Instance Introspection

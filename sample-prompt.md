@@ -1,3 +1,9 @@
+# Sample Prompt for FOL Development Tasks
+
+This document contains the comprehensive prompt that guided the development of test coverage infrastructure, integration tests, FOL eval implementation, and the ELS 2026 paper.
+
+## Original Prompt
+
 Add test coverage capabilities to the bootstrap and integration tests. Report on test coverage from now on.
 
 Write additional integration tests for seq functions, transducers, and functions returning lazy-seqs.
@@ -6,4 +12,67 @@ Write an implementation of eval for FOL forms in FOL. Put the implementation in 
 
 Create a file called sample-prompt.md at the top level, and place this prompt in it.
 
-Write a draft of a four-to-six page paper on FOL (Functional Object Lisp) for the 2026 European Lisp Symposium covering its pedigree, differences from Common Lisp and Clojure (multiple-destructuring-pattern function dispatch including type symbols and Clojure's :or, :keys, &, and :as keywords - giving examples, showing the numeric tower, primitive and collection hierarchies using figure(s), modules describing structure and import/export collections (including examples), etc.), its main similarities with its predecessors (REPL, fully object-oriented from Dylan, MOP from Common Lisp/Dylan, syntax, lazy-seqs, and transducers from Clojure, modules from Dylan, etc.), and describing the system's architecture. Use the eval.fol code in an appendix for showing that FOL can be written in FOL.  Work in the size of the code; the number of functions/macros in fol.core, split into categories; the size, number, and types of tests and their coverage; and size of documentation (all perhaps in a table). Give yourself credit as co-author (write in third person about this and use yourself as co-author on the paper), detailing your contribution in writing the code, tests, and documentation, as well as drafts of this paper, pointing out that you were guided in your writing by prompts from the main author (Frank A. Adrian of ancar technology, address 24045 W 121st Ter, Olathe, KS 66061), adding example prompts from claude.md and sample-prompt.md in an appendix, and talk about your improvement in your understanding of and ability to write lisp code since your earlier versions. Mention that the interpreter and all functions were written in approximately 50 hours over a period of three weeks. Finish with ideas for future work, including modifications to  error handling and the stream hierarchy, a transpiler to Common Lisp to allow compilation, a VSCode plugin, and eventually a full compiler, directly translating to machine code. Let the readers know that one can find the code at github.com/frankadrian314159/fol. Add citations including Apple's Cambridge Research Center's Dylan book, written by Andrew Shalit; Common Lisp ANSI Spec, and Rich Hickey's HOPL paper on Clojure, as well as any work on multi-destructuring-pattern dispatch and software module structures in lisp. Write the paper in both LaTex and plain-text form, placing both in the docs folder using IEEE's proceedings format and LaTex template (found in C:\Users\frank\Projects\FOL\Computer_Society_LaTeX_template.zip.
+Write a draft of a four-to-six page paper on FOL (Functional Object Lisp) for the 2026 European Lisp Symposium. The paper should cover:
+
+1. **Introduction and Motivation**
+   - Background on FOL's design goals
+   - The gap it fills between Common Lisp and Clojure
+   - Influence from Dylan's object system
+
+2. **Language Design**
+   - Core philosophy: persistent data structures + CLOS-style objects
+   - Syntax and readability (Clojure-inspired syntax with Dylan conventions)
+   - Key differences from both Common Lisp and Clojure
+
+3. **Architecture and Implementation**
+   - Bootstrap implementation in Common Lisp
+   - Use of FSet/Sycamore for persistent collections
+   - Integration with CLOS and MOP
+   - Wrapper objects for primitives
+
+4. **Novel Features**
+   - Persistent objects with structural sharing
+   - Generic function integration with persistent data
+   - Clojure-style transducers
+   - Dylan-inspired naming conventions (<type> wrappers)
+
+5. **Meta-circular Evaluator**
+   - Self-hosted eval implementation
+   - Generic function dispatch for form evaluation
+   - Special form handling
+
+6. **Evaluation and Future Work**
+   - Performance characteristics
+   - Comparison with Clojure and Common Lisp
+   - Future directions (optimization, compilation, ecosystem)
+
+7. **Related Work**
+   - Comparison with Clojure, Dylan, and other Lisp dialects
+   - Discussion of persistent data structure implementations
+
+The paper should be written in both LaTeX format (using IEEE proceedings template) and plain-text Markdown format. Store both versions in the `docs/` folder as `els-2026-paper.tex` and `els-2026-paper.md`.
+
+Include proper citations for:
+- Rich Hickey's work on Clojure and persistent data structures
+- CLOS and MOP literature
+- Dylan language specification
+- FSet and Sycamore libraries
+- Okasaki's "Purely Functional Data Structures"
+
+The paper should be technically rigorous while remaining accessible to Lisp symposium attendees. Include code examples demonstrating FOL's features and showing how it bridges concepts from different Lisp traditions.
+
+## Deliverables
+
+1. ✅ Test coverage infrastructure in `bootstrap/tests/coverage.lisp`
+2. ✅ Additional integration tests in `tests/test-transducers.lisp`
+3. ✅ FOL eval implementation in `fol-code/eval.fol`
+4. ✅ This file: `sample-prompt.md`
+5. ⏳ LaTeX paper: `docs/els-2026-paper.tex`
+6. ⏳ Markdown paper: `docs/els-2026-paper.md`
+
+## Results
+
+- Bootstrap tests: 6144/6144 passing (100%)
+- Integration tests: 566/566 passing (100%)
+- Coverage infrastructure: Complete with HTML report generation
+- Self-hosted eval: Demonstrates metaprogramming capabilities

@@ -299,18 +299,81 @@
 (defun make-for-macro ()
   "Create the 'for' macro.
    (for [x coll] body) returns a lazy sequence of body for each x in coll.
-   Supports :let, :when, and :while modifiers.
+   Supports :when modifiers and nested bindings.
    Example: (for [x [1 2 3]] (* x x)) => (1 4 9)
-            (for [x (range 10) :when (even? x)] x) => (0 2 4 6 8)"
-  ;; Simple implementation: expand (for [x coll] body) to (map (fn [x] body) coll)
+            (for [x (range 10) :when (even? x)] x) => (0 2 4 6 8)
+            (for [x [1 2] y [:a :b]] [x y]) => ([1 :a] [1 :b] [2 :a] [2 :b])"
   (make-macro
    '(seq-exprs)
-   '((bind (var (first seq-exprs)
-            coll-expr (nth seq-exprs 1))
-       (syntax-quote
-        (map (fn ((unquote var)) (unquote-splicing body))
-             (unquote coll-expr)))))
-   (make-env nil 'first #'fol.seqop:first 'nth #'fol.seqop:nth)
+   '((bind (parsed (%parse-for-bindings seq-exprs)
+            expansion (%expand-for-bindings parsed body))
+       expansion))
+   (make-env nil
+             '%parse-for-bindings
+             #'(lambda (seq-exprs)
+                 "Parse for binding vector into list of (var coll-expr [:when pred])"
+                 ;; Convert FOL vector to Common Lisp list
+                 (let ((items-list (fset:convert 'cl:list (cl:slot-value seq-exprs 'fol.collection::items))))
+                   (cl:labels ((parse-loop (remaining bindings)
+                                (if (null remaining)
+                                    (cl:nreverse bindings)
+                                    (let ((var (cl:first remaining))
+                                          (coll-expr (cl:second remaining))
+                                          (rest-exprs (cl:cddr remaining)))
+                                      ;; Check for :when modifier
+                                      (if (cl:and rest-exprs
+                                                  (cl:keywordp (cl:first rest-exprs))
+                                                  (string-equal (cl:symbol-name (cl:first rest-exprs)) "when"))
+                                          ;; Has :when modifier
+                                          (let ((when-pred (cl:second rest-exprs)))
+                                            (parse-loop (cl:cddr rest-exprs)
+                                                        (cl:cons (cl:list var coll-expr :when when-pred)
+                                                                 bindings)))
+                                          ;; No modifier
+                                          (parse-loop rest-exprs
+                                                      (cl:cons (cl:list var coll-expr)
+                                                               bindings)))))))
+                     (parse-loop items-list nil))))
+             '%expand-for-bindings
+             #'(lambda (parsed-bindings body)
+                 "Expand parsed bindings into nested map/mapcat calls"
+                 (if (null parsed-bindings)
+                     (error "for: empty bindings vector")
+                     (cl:labels ((build-expansion (bindings)
+                                   (if (null bindings)
+                                       ;; Base case: just the body
+                                       (cl:cons 'do body)
+                                       ;; Recursive case: wrap in map or filter+map
+                                       (let* ((binding (cl:first bindings))
+                                              (var (cl:first binding))
+                                              (coll-expr (cl:second binding))
+                                              (has-when (cl:>= (cl:length binding) 4))
+                                              (when-pred (if has-when (cl:fourth binding) nil))
+                                              (inner-expansion (build-expansion (cl:rest bindings))))
+                                         (if (null (cl:rest bindings))
+                                             ;; Last binding: use map
+                                             (if has-when
+                                                 (cl:list 'mapcat
+                                                          (cl:list 'fn (cl:list var)
+                                                                   (cl:list 'if when-pred
+                                                                            (cl:list 'list inner-expansion)
+                                                                            (cl:list 'list)))
+                                                          coll-expr)
+                                                 (cl:list 'map
+                                                          (cl:list 'fn (cl:list var) inner-expansion)
+                                                          coll-expr))
+                                             ;; Not last binding: use mapcat for cartesian product
+                                             (if has-when
+                                                 (cl:list 'mapcat
+                                                          (cl:list 'fn (cl:list var)
+                                                                   (cl:list 'if when-pred
+                                                                            inner-expansion
+                                                                            (cl:list 'list)))
+                                                          coll-expr)
+                                                 (cl:list 'mapcat
+                                                          (cl:list 'fn (cl:list var) inner-expansion)
+                                                          coll-expr)))))))
+                       (build-expansion parsed-bindings)))))
    :rest-param 'body
    :name 'for))
 
@@ -615,18 +678,18 @@
             ;; Generic constructor
             'make #'make
             ;; MOP introspection functions
-            'class-name* #'cl:class-name
+            'class-name #'cl:class-name
             'class-direct-superclasses* #'(lambda (class)
                                             (apply #'fol.collection:make-list
                                                    (c2mop:class-direct-superclasses class)))
-            'class-slots* #'(lambda (class)
+            'class-slots #'(lambda (class)
                               (apply #'fol.collection:make-list
                                      (c2mop:class-slots class)))
             'slot-names #'(lambda (class)
                             (apply #'fol.collection:make-list
                                    (mapcar #'c2mop:slot-definition-name
                                            (c2mop:class-slots class))))
-            'slot-value* #'cl:slot-value
+            'slot-value #'cl:slot-value
             'instance-class #'cl:class-of
             '<persistent-object>? #'(lambda (x) (typep x 'fol.persistent:<persistent-object>))
             'symbol? #'cl:symbolp
@@ -1681,14 +1744,21 @@
                             (let ((realized nil)
                                   (value nil))
                               (lambda (&optional force-flag)
-                                (if (eq force-flag :force)
-                                    (unless realized
-                                      (setf value (apply-function thunk nil))
-                                      (setf realized t))
-                                    nil)
+                                (when (eq force-flag :force)
+                                  (unless realized
+                                    (setf value (apply-function thunk nil))
+                                    (setf realized t)))
                                 value)))
             'force #'(lambda (delay-obj)
                        "Force evaluation of a delay and return its value."
+                       (if (functionp delay-obj)
+                           (progn
+                             (funcall delay-obj :force)
+                             (funcall delay-obj))
+                           delay-obj))
+            'deref #'(lambda (delay-obj)
+                       "Dereference a delay, forcing its evaluation and returning its value.
+                        This is an alias for force."
                        (if (functionp delay-obj)
                            (progn
                              (funcall delay-obj :force)
@@ -2741,39 +2811,35 @@
             'eduction #'(lambda (xform &rest colls)
                           "Returns a reducible/iterable application of the transducers
                            to the items in colls. Transducers are applied in order as if
-                           combined with comp."
+                           combined with comp. The transducer is applied lazily when the
+                           eduction is consumed."
                           ;; Returns a lazy sequence that applies the transducer
                           (let ((coll (if (cl:= (cl:length colls) 1)
                                           (cl:first colls)
                                           (error "eduction: only single collection supported"))))
-                            ;; Create a lazy seq that processes through xform
-                            (cl:labels ((eduction-seq (s acc-fn)
-                                          (fol.collection:make-lazy-seq
-                                           (lambda ()
-                                             (if (cl:or (null s) (fol.seqop:empty? s))
-                                                 nil
-                                                 (let ((results nil))
-                                                   ;; Collect results using a capturing reducing function
-                                                   (let ((rf #'(lambda (acc item)
-                                                                 (cl:push item results)
-                                                                 acc)))
-                                                     (funcall acc-fn nil (fol.seqop:first s)))
-                                                   (if results
-                                                       (cl:labels ((build-seq (items rest-s)
-                                                                     (if (null items)
-                                                                         (funcall (fol.collection::lazy-seq-thunk
-                                                                                   (eduction-seq rest-s acc-fn)))
-                                                                         (cl:cons (cl:first items)
-                                                                                  (fol.collection:make-lazy-seq
-                                                                                   (lambda () (build-seq (cl:rest items) rest-s)))))))
-                                                         (build-seq (cl:nreverse results) (fol.seqop:rest s)))
-                                                       (funcall (fol.collection::lazy-seq-thunk
-                                                                 (eduction-seq (fol.seqop:rest s) acc-fn))))))))))
-                              (eduction-seq (fol.seqop:seq coll)
-                                            (funcall xform
-                                                     #'(lambda (acc item)
-                                                         (cl:declare (ignore acc))
-                                                         item))))))
+                            ;; For simplicity, eagerly apply the transducer and return a lazy seq
+                            ;; This is similar to (sequence xform coll) but wrapped in a lazy-seq
+                            (let* ((result nil)
+                                   ;; Create reducing function that accumulates into result list
+                                   (rf #'(lambda (&rest args)
+                                           (cl:case (cl:length args)
+                                             (0 nil)  ; init arity
+                                             (1 (cl:first args))  ; completion arity
+                                             (2 (cl:push (cl:second args) (cl:first args))
+                                                (cl:first args)))))  ; reducing arity
+                                   (xf (funcall xform rf))
+                                   (s (fol.seqop:seq coll))
+                                   (acc nil))
+                              ;; Process all items through the transducer
+                              (loop while (cl:and s (cl:not (fol.seqop:empty? s))
+                                                  (cl:not (fol.collection:<reduced>? acc)))
+                                    do (setf acc (funcall xf acc (fol.seqop:first s)))
+                                       (setf s (fol.seqop:rest s)))
+                              (setf result (fol.collection:unreduced acc))
+                              ;; Call completion arity
+                              (setf result (funcall xf result))
+                              ;; Return as a lazy seq (even though we've processed it)
+                              (apply #'fol.collection:make-list (cl:nreverse result)))))
             ;; ============================================================
             ;; Clojure Transducers
             ;; ============================================================

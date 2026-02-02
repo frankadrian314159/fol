@@ -14,18 +14,18 @@
 ;;; Class Introspection
 ;;; ============================================================================
 
-(defgeneric class-name* (class)
+(defgeneric class-name (class)
   (:documentation "Return the name of the class."))
 
-(defmethod class-name* ((class persistent-class))
-  (class-name class))
+(defmethod class-name ((class persistent-class))
+  (cl:class-name class))
 
-(defmethod class-name* ((class class))
+(defmethod class-name ((class class))
   "Catch-all method for any class object (handles standard-class, etc.)."
-  (class-name class))
+  (cl:class-name class))
 
-(defmethod class-name* ((class symbol))
-  (class-name (find-class class)))
+(defmethod class-name ((class symbol))
+  (cl:class-name (find-class class)))
 
 (defgeneric class-direct-superclasses* (class)
   (:documentation "Return the list of direct superclasses of CLASS."))
@@ -73,23 +73,23 @@
 (defmethod class-direct-slots* ((class symbol))
   (class-direct-slots* (find-class class)))
 
-(defgeneric class-slots* (class)
+(defgeneric class-slots (class)
   (:documentation "Return the list of all effective slot definitions for CLASS (including inherited)."))
 
-(defmethod class-slots* ((class persistent-class))
+(defmethod class-slots ((class persistent-class))
   (ensure-finalized class)
   (closer-mop:class-slots class))
 
-(defmethod class-slots* ((class standard-class))
+(defmethod class-slots ((class standard-class))
   "Fallback for standard CL classes."
   (closer-mop:class-slots class))
 
-(defmethod class-slots* ((class class))
+(defmethod class-slots ((class class))
   "General fallback for any class type (including implementation-specific classes)."
   (closer-mop:class-slots class))
 
-(defmethod class-slots* ((class symbol))
-  (class-slots* (find-class class)))
+(defmethod class-slots ((class symbol))
+  (class-slots (find-class class)))
 
 (defgeneric finalized-p (class)
   (:documentation "Return T if CLASS has been finalized, NIL otherwise."))
@@ -183,13 +183,13 @@
   (:documentation "Return the list of slot definitions for INSTANCE's class."))
 
 (defmethod instance-slots (instance)
-  (class-slots* (class-of instance)))
+  (class-slots (class-of instance)))
 
 (defgeneric slot-names (class-or-instance)
   (:documentation "Return a list of slot names for CLASS-OR-INSTANCE."))
 
 (defmethod slot-names ((class persistent-class))
-  (mapcar #'closer-mop:slot-definition-name (class-slots* class)))
+  (mapcar #'closer-mop:slot-definition-name (class-slots class)))
 
 (defmethod slot-names ((class symbol))
   (slot-names (find-class class)))
@@ -201,7 +201,7 @@
   (:documentation "Return T if SLOT-NAME exists in CLASS-OR-INSTANCE, NIL otherwise."))
 
 (defmethod slot-exists-p* ((class persistent-class) slot-name)
-  (not (null (find slot-name (class-slots* class)
+  (not (null (find slot-name (class-slots class)
                    :key #'closer-mop:slot-definition-name))))
 
 (defmethod slot-exists-p* ((class symbol) slot-name)
@@ -216,11 +216,11 @@
 (defmethod slot-boundp* (instance slot-name)
   (slot-boundp instance slot-name))
 
-(defgeneric slot-value* (instance slot-name)
+(defgeneric slot-value (instance slot-name)
   (:documentation "Return the value of SLOT-NAME in INSTANCE."))
 
-(defmethod slot-value* (instance slot-name)
-  (slot-value instance slot-name))
+(defmethod slot-value (instance slot-name)
+  (cl:slot-value instance slot-name))
 
 ;;; ============================================================================
 ;;; Utility Functions
@@ -256,7 +256,7 @@
 (defun find-slot-definition (class slot-name)
   "Find and return the slot definition for SLOT-NAME in CLASS, or NIL if not found."
   (let ((class-obj (if (symbolp class) (find-class class) class)))
-    (find slot-name (class-slots* class-obj)
+    (find slot-name (class-slots class-obj)
           :key #'closer-mop:slot-definition-name)))
 
 (defun slot-properties (class-or-instance slot-name)
@@ -285,12 +285,12 @@
 (defun class-info (class)
   "Return a property list with detailed information about CLASS."
   (let ((class-obj (if (symbolp class) (find-class class) class)))
-    (list :name (class-name* class-obj)
-          :direct-superclasses (mapcar #'class-name* (class-direct-superclasses* class-obj))
-          :direct-subclasses (mapcar #'class-name* (class-direct-subclasses* class-obj))
-          :precedence-list (mapcar #'class-name* (class-precedence-list* class-obj))
+    (list :name (class-name class-obj)
+          :direct-superclasses (mapcar #'class-name (class-direct-superclasses* class-obj))
+          :direct-subclasses (mapcar #'class-name (class-direct-subclasses* class-obj))
+          :precedence-list (mapcar #'class-name (class-precedence-list* class-obj))
           :direct-slots (mapcar #'slot-definition-name* (class-direct-slots* class-obj))
-          :all-slots (mapcar #'slot-definition-name* (class-slots* class-obj))
+          :all-slots (mapcar #'slot-definition-name* (class-slots class-obj))
           :finalized (finalized-p class-obj))))
 
 (defun describe-class (class &optional (stream *standard-output*))
@@ -344,7 +344,7 @@
 (defun class-name-string (class)
   "Return the name of CLASS as a string."
   (let ((class-obj (if (symbolp class) (find-class class) class)))
-    (symbol-name (class-name* class-obj))))
+    (symbol-name (class-name class-obj))))
 
 (defun bare-class-name (class)
   "Return the class name without angle brackets.
@@ -361,7 +361,7 @@
    E.g., '<string>' becomes 'MAKE-STRING'."
   (let* ((bare-name (bare-class-name class))
          (class-obj (if (symbolp class) (find-class class) class))
-         (class-sym (class-name* class-obj))
+         (class-sym (class-name class-obj))
          (pkg (symbol-package class-sym)))
     (intern (concatenate 'string prefix (string-upcase bare-name)) pkg)))
 
@@ -372,7 +372,7 @@
     (remove-duplicates
      (mapcan (lambda (slot)
                (copy-list (slot-definition-initargs* slot)))
-             (class-slots* class-obj)))))
+             (class-slots class-obj)))))
 
 (defun required-initargs (class)
   "Return a list of initargs for slots that have no initform (required args)."
@@ -382,7 +382,7 @@
      (mapcan (lambda (slot)
                (when (null (slot-definition-initfunction* slot))
                  (copy-list (slot-definition-initargs* slot))))
-             (class-slots* class-obj)))))
+             (class-slots class-obj)))))
 
 (defun optional-initargs (class)
   "Return a list of initargs for slots that have an initform (optional args)."
@@ -392,7 +392,7 @@
      (mapcan (lambda (slot)
                (when (slot-definition-initfunction* slot)
                  (copy-list (slot-definition-initargs* slot))))
-             (class-slots* class-obj)))))
+             (class-slots class-obj)))))
 
 (defgeneric make-instance* (class &rest initargs)
   (:documentation "Generic constructor for FOL classes.
@@ -424,7 +424,7 @@
          (ctor-name (or constructor-name
                         (constructor-name class-obj)))
          (target-pkg (or package
-                         (symbol-package (class-name* class-obj))))
+                         (symbol-package (class-name class-obj))))
          (ctor-sym (if (symbolp ctor-name)
                        ctor-name
                        (intern ctor-name target-pkg)))
@@ -454,7 +454,7 @@
   "Return the source form that would define a constructor for CLASS.
    Useful for metaprogramming and code generation."
   (let* ((class-obj (if (symbolp class) (find-class class) class))
-         (class-name (class-name* class-obj))
+         (class-name (class-name class-obj))
          (ctor-name (constructor-name class-obj)))
     `(defun ,ctor-name (&rest initargs)
        ,(format nil "Create an instance of ~A." class-name)
@@ -468,7 +468,7 @@
 (defun describe-constructor (class &optional (stream *standard-output*))
   "Print information about the constructor that would be generated for CLASS."
   (let* ((class-obj (if (symbolp class) (find-class class) class))
-         (class-name (class-name* class-obj))
+         (class-name (class-name class-obj))
          (ctor-name (constructor-name class-obj))
          (required (required-initargs class-obj))
          (optional (optional-initargs class-obj)))

@@ -34,6 +34,7 @@
   :components ((:module "tests"
                  :components
                  ((:file "tests-package")
+                  (:file "coverage" :depends-on ("tests-package"))
                   (:file "test-bool"   :depends-on ("tests-package"))
                   (:file "test-char"   :depends-on ("tests-package"))
                   (:file "test-string"   :depends-on ("tests-package"))
