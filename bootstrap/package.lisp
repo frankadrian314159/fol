@@ -580,6 +580,7 @@
   (:shadow * ** *** + ++ +++ / // ///)
   (:import-from fol.reader fol-read-from-string *clojure-readtable*)
   (:import-from fol.eval make-standard-module make-zip-module)
+  (:import-from fol.module use-module)
   (:export repl
            * ** ***
            + ++ +++

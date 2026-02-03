@@ -9,10 +9,12 @@
   "Global registry mapping module names (strings) to <module> instances.")
 
 (defun find-module (name)
-  (gethash (string name) +module-registry+))
+  "Find a module by name (case-insensitive, normalized to uppercase)."
+  (gethash (string-upcase (string name)) +module-registry+))
 
 (defun register-module (name module)
-  (setf (gethash (string name) +module-registry+) module))
+  "Register a module by name (case-insensitive, normalized to uppercase)."
+  (setf (gethash (string-upcase (string name)) +module-registry+) module))
 
 (defclass <module> (fol.env:<env>)
   ((name :initarg :name
@@ -132,7 +134,9 @@
                  (val (fset:lookup src-items key)))
             (when val
               (setf current-imports (fset:with current-imports key val)))))
-        (fol.persistent:set-pslot-value target-module 'imports current-imports)))
+        (let ((updated-module (fol.persistent:set-pslot-value target-module 'imports current-imports)))
+          ;; Re-register the updated module
+          (register-module (module-name target-module) updated-module))))
     target-env))
 
 ;;; ============================================================================

@@ -2870,6 +2870,20 @@
                                                 (fol.collection:reduced
                                                  (funcall ret-fn (funcall rf result) input))
                                                 (funcall rf result input)))))))))
+            ;; Atom functions
+            'atom #'fol.atom:atom
+            'atom? #'fol.atom:<atom>?
+            'deref #'fol.atom:deref
+            'reset! #'fol.atom:reset!
+            'swap! #'fol.atom:swap!
+            ;; Number predicates
+            'number? #'fol.number:<number>?
+            'complex? #'fol.number:<complex>?
+            'real? #'fol.number:<real>?
+            'float? #'fol.number:<float>?
+            'integer? #'fol.number:<integer>?
+            'rational? #'fol.number:<rational>?
+            'ratio? #'fol.number:<ratio>?
             ;; Intern function
             'intern #'(lambda (ns name)
                         "Finds or creates a var named by the symbol name in a namespace ns.
@@ -2916,7 +2930,7 @@
 (defun make-zip-module ()
   "Create a module with FOL zipper functions for navigating and editing tree structures.
    All symbols are exported."
-  (let ((module (fol.module:make-module "fol.zip"
+  (let* ((module (fol.module:make-module "fol.zip"
             ;; Zipper creation
             'zipper? #'fol.seqop:<zipper>?
             'zipper #'fol.seqop:zipper
@@ -2949,18 +2963,21 @@
             'zip-next #'fol.seqop:zip-next
             'prev #'fol.seqop:prev
             'root #'fol.seqop:root
-            'end? #'fol.seqop:end?)))
+            'end? #'fol.seqop:end?))
+         (items (fol.persistent:pslot-value module 'fol.collection::items))
+         (updated-module module))
     ;; Export all symbols from the module
-    (let ((items (fol.persistent:pslot-value module 'fol.collection::items)))
-      (fset:do-map (key val items)
-        (declare (ignore val))
-        (fol.module:module-export module key)))
-    module))
+    (fset:do-map (key val items)
+      (declare (ignore val))
+      (setf updated-module (fol.module:module-export updated-module key)))
+    ;; Re-register the updated module
+    (fol.module:register-module "fol.zip" updated-module)
+    updated-module))
 
 (defun make-walk-module ()
   "Create a module with FOL walk functions for tree traversal and transformation.
    All symbols are exported."
-  (let ((module (fol.module:make-module "fol.walk"
+  (let* ((module (fol.module:make-module "fol.walk"
             ;; Walk functions
             'walk #'fol.walk:walk
             'prewalk #'fol.walk:prewalk
@@ -2968,10 +2985,22 @@
             'prewalk-replace #'fol.walk:prewalk-replace
             'postwalk #'fol.walk:postwalk
             'postwalk-demo #'fol.walk:postwalk-demo
-            'postwalk-replace #'fol.walk:postwalk-replace)))
+            'postwalk-replace #'fol.walk:postwalk-replace))
+         (items (fol.persistent:pslot-value module 'fol.collection::items))
+         (updated-module module))
     ;; Export all symbols from the module
-    (let ((items (fol.persistent:pslot-value module 'fol.collection::items)))
-      (fset:do-map (key val items)
-        (declare (ignore val))
-        (fol.module:module-export module key)))
-    module))
+    (fset:do-map (key val items)
+      (declare (ignore val))
+      (setf updated-module (fol.module:module-export updated-module key)))
+    ;; Re-register the updated module
+    (fol.module:register-module "fol.walk" updated-module)
+    updated-module))
+
+;;; ============================================================================
+;;; Initialize Standard Modules
+;;; ============================================================================
+
+;; Create and register the standard walk and zip modules when this file is loaded
+;; Note: make-module automatically registers modules in the global registry
+(make-zip-module)
+(make-walk-module)

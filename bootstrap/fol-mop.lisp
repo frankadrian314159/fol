@@ -232,12 +232,36 @@
           (symbolp (first elem))
           (symbolp (second elem)))
      (list :type (second elem)))
+    ;; Dict pattern - map destructuring (treat as :any for signature matching)
+    ((fol.collection:<dict>? elem)
+     (list :any))
     ;; Nested vector - recursively process elements
     ((fol.collection:<vector>? elem)
      (let ((elements (vector-to-list elem)))
-       (list :seq (mapcar #'compute-element-signature elements))))
+       ;; Filter out :as bindings (they don't affect pattern matching)
+       (let ((filtered-elems (filter-as-bindings elements)))
+         (list :seq (mapcar #'compute-element-signature filtered-elems)))))
     ;; Default: any (including CL lists for other destructuring forms)
     (t (list :any))))
+
+(defun filter-as-bindings (elem-list)
+  "Filter out :as and its following symbol from an element list.
+   Also filters out & and rest parameters.
+   Returns elements that participate in pattern matching."
+  (let ((result nil))
+    (loop for remaining on elem-list
+          for elem = (car remaining)
+          do (cond
+               ;; :as keyword - skip it and the next element
+               ((eq elem :as)
+                (setf remaining (cdr remaining)) ; Skip the next element too
+                (return))
+               ;; & keyword - stop processing (rest params don't participate in matching)
+               ((and (symbolp elem) (string= (symbol-name elem) "&"))
+                (return))
+               ;; Regular element - include it
+               (t (push elem result))))
+    (nreverse result)))
 
 (defun compute-pattern-signature (lambda-list)
   "Compute a signature describing what each parameter expects.
@@ -288,10 +312,15 @@
                     (symbolp (first param))
                     (symbolp (second param)))
                (list :type (second param)))
+              ;; Dict pattern - map destructuring (treat as :any for signature matching)
+              ((fol.collection:<dict>? param)
+               (list :any))
               ;; Sequence pattern - recursively compute element signatures
               ((fol.collection:<vector>? param)
                (let ((elements (vector-to-list param)))
-                 (list :seq (mapcar #'compute-element-signature elements))))
+                 ;; Filter out :as bindings (they don't affect pattern matching)
+                 (let ((filtered-elems (filter-as-bindings elements)))
+                   (list :seq (mapcar #'compute-element-signature filtered-elems)))))
               ;; Default: any
               (t (list :any))))
           lambda-list))
@@ -357,16 +386,19 @@
 
 (defun generate-pattern-check (signature arg-sym)
   "Generate code to check if ARG-SYM matches SIGNATURE.
-   SIGNATURE is a single pattern spec like (:any) or (:seq 2)."
+   SIGNATURE is a single pattern spec like (:any) or (:seq [element-sigs])."
   (case (first signature)
     (:any t)
-    (:seq `(and (or (fol.collection:<vector>? ,arg-sym)
-                    (fol.collection:<list>? ,arg-sym)
-                    (listp ,arg-sym))
-                (>= (if (listp ,arg-sym)
-                        (length ,arg-sym)
-                        (fol.seqop:size ,arg-sym))
-                    ,(second signature))))
+    (:seq
+     ;; The second element is a list of element signatures, get its length for arity
+     (let ((arity (length (second signature))))
+       `(and (or (fol.collection:<vector>? ,arg-sym)
+                 (fol.collection:<list>? ,arg-sym)
+                 (listp ,arg-sym))
+             (>= (if (listp ,arg-sym)
+                     (length ,arg-sym)
+                     (fol.seqop:size ,arg-sym))
+                 ,arity))))
     (t t)))
 
 (defun generate-args-pattern-check (signatures args-sym)
@@ -586,20 +618,21 @@
    A method can be added to a pattern if:
    - Same number of parameters
    - Each method param is compatible with the pattern param
-   :any method param matches :any pattern
-   :seq method param matches :seq pattern (with same or larger size)"
+
+   Pattern :any accepts any method signature (most general)
+   Method specializers (:type, :pred, :type-pred) can match :any patterns"
   (and (= (length method-sig) (length pattern-sig))
        (every (lambda (m-sig p-sig)
                 (cond
+                  ;; Pattern :any accepts any method signature
+                  ((eq (first p-sig) :any) t)
                   ;; Both :any - match
                   ((and (eq (first m-sig) :any) (eq (first p-sig) :any)) t)
                   ;; Both :seq - method size must be <= pattern size (method is more general)
                   ((and (eq (first m-sig) :seq) (eq (first p-sig) :seq))
-                   (<= (second m-sig) (second p-sig)))
-                  ;; Method :any, pattern :seq - the method can handle the seq
-                  ((and (eq (first m-sig) :any) (eq (first p-sig) :seq)) t)
-                  ;; Method :seq, pattern :any - method is too specific
-                  ((and (eq (first m-sig) :seq) (eq (first p-sig) :any)) nil)
+                   (<= (length (second m-sig)) (length (second p-sig))))
+                  ;; Both same type of specialization - match
+                  ((eq (first m-sig) (first p-sig)) t)
                   (t nil)))
               method-sig pattern-sig)))
 
@@ -632,6 +665,30 @@
         pattern-match
         function-name)))
 
+(defun generate-destructuring-method (function-name qualifiers params body)
+  "Generate a method definition with destructuring pattern support.
+   PARAMS is a list that may contain FOL vectors (destructuring patterns).
+   Returns a defmethod form that checks patterns and destructures arguments."
+  (let* ((simple-params (loop for p in params
+                             for i from 0
+                             collect (if (fol.collection:<vector>? p)
+                                       (intern (format nil "ARG~D" i))
+                                       (convert-specialized-param p))))
+         (target-name (determine-method-target function-name
+                                              (mapcar #'convert-specialized-param params))))
+    `(defmethod ,target-name ,@qualifiers ,simple-params
+       ;; Check pattern and destructure
+       (let ((args (list ,@simple-params)))
+         (if (fol.eval::args-match-pattern-p args ',(compute-pattern-signature params))
+             ;; Pattern matches - destructure and bind variables
+             (fol.eval::destructure-and-execute
+              ',params
+              args
+              (lambda ,(fol.eval::collect-pattern-vars params)
+                ,@body))
+             ;; Pattern doesn't match - try next method
+             (call-next-method))))))
+
 (defmacro defmethod* (function-name &rest args)
   "Define a method with FOL syntax.
    Specialized lambda list is specified as a vector.
@@ -641,19 +698,19 @@
 
    Specialized parameters can be:
      - Simple: var
-     - Specialized: [var class-name] or [var [eql form]]
+     - Specialized: (var class-name) or (var (eql form))
+     - Destructuring: [a b] or [[a b] c] etc. with nested predicates
 
    For multi-arity generics (defined with a list of vectors), the method
    is automatically routed to the correct arity-specific generic function.
 
    Example:
-     (defmethod* distance [[a <point>] [b <point>]]
+     (defmethod* distance [(a <point>) (b <point>)]
        (sqrt (+ (expt (- (point-x b) (point-x a)) 2)
                 (expt (- (point-y b) (point-y a)) 2))))
 
-     (defmethod* distance :around [[a <point>] [b <point>]]
-       (format t \"Computing distance...~%\")
-       (call-next-method))"
+     (defmethod* process [[[x (y (< 10))]]]
+       (list :matched x y))"
   ;; Parse qualifiers and lambda-list from args
   ;; Qualifiers are non-list, non-vector atoms before the lambda-list
   (let ((qualifiers nil)
@@ -670,14 +727,19 @@
     (when remaining
       (setf lambda-list-vec (pop remaining))
       (setf body remaining))
-    ;; Convert lambda list
-    (let* ((lambda-list (if (fol.collection:<vector>? lambda-list-vec)
-                            (mapcar #'convert-specialized-param
-                                    (vector-to-list lambda-list-vec))
-                            lambda-list-vec))
-           (target-name (determine-method-target function-name lambda-list)))
-      `(defmethod ,target-name ,@qualifiers ,lambda-list
-         ,@body))))
+    ;; Check if lambda list has destructuring patterns
+    (let* ((params (if (fol.collection:<vector>? lambda-list-vec)
+                       (vector-to-list lambda-list-vec)
+                       lambda-list-vec))
+           (has-destructuring (some #'fol.collection:<vector>? params)))
+      (if has-destructuring
+          ;; Generate method with destructuring support
+          (generate-destructuring-method function-name qualifiers params body)
+          ;; Standard method without destructuring
+          (let* ((lambda-list (mapcar #'convert-specialized-param params))
+                 (target-name (determine-method-target function-name lambda-list)))
+            `(defmethod ,target-name ,@qualifiers ,lambda-list
+               ,@body))))))
 
 ;;; ============================================================================
 ;;; Evaluation Support for FOL

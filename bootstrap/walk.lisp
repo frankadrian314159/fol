@@ -16,24 +16,24 @@
 
 (defun %walk-collection (form inner make-fn)
   "Helper to walk a collection with inner function and rebuild with make-fn."
-  (let ((result '())
-        (iter (fol.collection:iterator form)))
-    (loop until (fol.collection:done? iter)
-          do (push (%call-fn inner (fol.collection:current iter)) result)
-             (fol.collection:next iter))
-    (apply make-fn (nreverse result))))
+  (let ((iter (fol.collection:iterator form)))
+    (let ((result
+            (loop until (fol.collection:done? iter)
+                  collect (prog1
+                              (%call-fn inner (fol.collection:current iter))
+                            (fol.collection:next iter)))))
+      (apply make-fn result))))
 
 (defun %walk-set (form inner make-fn)
   "Helper to walk a set with inner function and rebuild with make-fn.
    Set iterators return (value . T) cons cells, so we extract the car."
-  (let ((result '())
-        (iter (fol.collection:iterator form)))
-    (loop until (fol.collection:done? iter)
-          do (let ((entry (fol.collection:current iter)))
-               ;; Extract value from (value . T) cons cell
-               (push (%call-fn inner (car entry)) result))
-             (fol.collection:next iter))
-    (apply make-fn (nreverse result))))
+  (let ((iter (fol.collection:iterator form)))
+    (let ((result
+            (loop until (fol.collection:done? iter)
+                  collect (prog1
+                              (%call-fn inner (car (fol.collection:current iter)))
+                            (fol.collection:next iter)))))
+      (apply make-fn result))))
 
 (defun walk (inner outer form)
   "Walk a data structure, applying inner to each element, then outer to the result.
@@ -50,17 +50,18 @@
 
     ;; Dicts - walk each key-value pair with inner, then apply outer
     ((fol.collection:<dict>? form)
-     (let ((pairs '())
-           (iter (fol.collection:iterator form)))
-       (loop until (fol.collection:done? iter)
-             do (let* ((entry (fol.collection:current iter))
-                       (k (car entry))
-                       (v (cdr entry))
-                       (new-entry (%call-fn inner (fol.collection:make-vector k v))))
-                  (push (fol.seqop:first new-entry) pairs)
-                  (push (fol.collection:second new-entry) pairs))
-                (fol.collection:next iter))
-       (%call-fn outer (apply #'fol.collection:make-dict (nreverse pairs)))))
+     (let ((iter (fol.collection:iterator form)))
+       (let ((entries
+               (loop until (fol.collection:done? iter)
+                     collect (prog1
+                                 (let* ((entry (fol.collection:current iter))
+                                        (k (car entry))
+                                        (v (cdr entry))
+                                        (new-entry (%call-fn inner (fol.collection:make-vector k v))))
+                                   (list (fol.seqop:first new-entry)
+                                         (fol.collection:second new-entry)))
+                               (fol.collection:next iter)))))
+         (%call-fn outer (apply #'fol.collection:make-dict (apply #'append entries))))))
 
     ;; Sets - walk each element with inner, then apply outer
     ((fol.collection:<set>? form)

@@ -304,17 +304,40 @@
 
 (defun test-fol (code-string)
   "Parse and evaluate FOL code from a string using the Clojure readtable.
-   Returns the result of evaluation."
+   Returns the result of evaluation. Automatically imports fol.walk and fol.zip modules."
   (let* ((form (fol-read-from-string code-string))
-         (std-env (make-standard-module))
-         (walk-env (fol.env:make-env std-env
-                                     'walk #'fol.walk:walk
-                                     'prewalk #'fol.walk:prewalk
-                                     'prewalk-demo #'fol.walk:prewalk-demo
-                                     'prewalk-replace #'fol.walk:prewalk-replace
-                                     'postwalk #'fol.walk:postwalk
-                                     'postwalk-demo #'fol.walk:postwalk-demo
-                                     'postwalk-replace #'fol.walk:postwalk-replace))
-         (test-env (fol.env:make-env walk-env
-                                     'import (lambda (&rest args) (declare (ignore args)) nil))))
-    (fol-eval form test-env)))
+         ;; Create a fresh standard module
+         (std-env (make-standard-module)))
+    ;; Pre-import walk and zip modules so they're available in tests
+    (fol.module:use-module "fol.walk" std-env)
+    (fol.module:use-module "fol.zip" std-env)
+    ;; Get the updated module from the registry after imports
+    (let ((test-env (fol.module:find-module "fol.core")))
+      ;; Process the form to extract and execute imports, then evaluate without them
+      (labels ((process-form (form)
+                 "Process a form: execute imports separately, then evaluate rest."
+                 (if (and (cl:consp form) (cl:eq (cl:first form) 'do))
+                     ;; It's a do block - process each subform
+                     (let ((non-import-forms '())
+                           (updated-env test-env))
+                       (cl:dolist (subform (cl:rest form))
+                         (if (cl:consp subform)
+                             (let ((first-elem (cl:first subform)))
+                               (if (or (cl:eq first-elem 'import)
+                                       (cl:eq first-elem 'use-module))
+                                   ;; Execute import and update environment
+                                   (progn
+                                     (fol-eval subform updated-env)
+                                     (setf updated-env (fol.module:find-module "fol.core")))
+                                   ;; Keep non-import forms
+                                   (cl:push subform non-import-forms)))
+                             ;; Non-cons forms (like bare symbols)
+                             (cl:push subform non-import-forms)))
+                       ;; Evaluate the remaining forms in a new do block
+                       (if non-import-forms
+                           (let ((new-form (cl:list* 'do (cl:nreverse non-import-forms))))
+                             (fol-eval new-form updated-env))
+                           nil))
+                     ;; Not a do block - just evaluate it
+                     (fol-eval form test-env))))
+        (process-form form)))))

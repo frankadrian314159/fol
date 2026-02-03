@@ -398,6 +398,7 @@
     (setf (gethash "DEFMETHOD" table) 'eval-defmethod*)
     ;; Module operations
     (setf (gethash "USE-MODULE" table) 'eval-use-module)
+    (setf (gethash "IMPORT" table) 'eval-use-module)  ; import is an alias for use-module
     (setf (gethash "MODULE" table) 'eval-module)
     ;; Environment access
     (setf (gethash "ENV" table) 'eval-env)
@@ -672,6 +673,52 @@
          (cl:and (or (symbolp var) (<symbol>? var))
               (cl:listp pred-form)
               (not (null pred-form))))))
+
+(defun collect-pattern-vars (params)
+  "Collect all variable names from a parameter pattern list.
+   Used by defmethod* to generate the lambda list for destructured code."
+  (let ((vars nil))
+    (labels ((collect-from-pattern (pat)
+               (cond
+                 ;; Simple symbol
+                 ((symbolp pat)
+                  (unless (or (eq pat '_) (eq pat :as) (string= (symbol-name pat) "&"))
+                    (push pat vars)))
+                 ;; Predicate specializer (var (pred ...))
+                 ((and (listp pat) (= (length pat) 2) (symbolp (first pat)) (listp (second pat)))
+                  (push (first pat) vars))
+                 ;; Type specializer (var type)
+                 ((and (listp pat) (= (length pat) 2) (symbolp (first pat)) (symbolp (second pat)))
+                  (push (first pat) vars))
+                 ;; Vector destructuring
+                 ((fol.collection:<vector>? pat)
+                  (let ((elements (fol.fol-mop::vector-to-list pat)))
+                    (loop for elem in elements
+                          do (unless (eq elem :as)
+                               (collect-from-pattern elem)))))
+                 ;; CL list (for other forms)
+                 ((listp pat)
+                  (dolist (elem pat)
+                    (collect-from-pattern elem))))))
+      (dolist (param params)
+        (collect-from-pattern param)))
+    (nreverse vars)))
+
+(defun destructure-and-execute (patterns values body-fn)
+  "Destructure VALUES according to PATTERNS and execute BODY-FN with bound variables.
+   Used by defmethod* for pattern-matched methods."
+  (let ((all-bindings nil))
+    ;; Destructure each pattern-value pair
+    (loop for pattern in patterns
+          for value in values
+          do (let ((bindings (destructure-pattern pattern value)))
+               (setf all-bindings (append all-bindings bindings))))
+    ;; Extract values in the order expected by body-fn
+    (let ((param-names (collect-pattern-vars patterns)))
+      (let ((arg-values (mapcar (lambda (name)
+                                   (cdr (assoc name all-bindings)))
+                                 param-names)))
+        (apply body-fn arg-values)))))
 
 (defun destructure-pattern (pattern value)
   "Destructure VALUE according to PATTERN, returning an alist of (symbol . value) pairs.
@@ -1376,6 +1423,8 @@
                (cond
                  ;; Skip simple symbols
                  ((symbolp param) nil)
+                 ;; Dict destructuring: no need to recurse (can't have predicates inside)
+                 ((<dict>? param) nil)
                  ;; FOL Vector destructuring: recursively check elements
                  ((<vector>? param)
                   (let ((elems (vector-to-list param)))
