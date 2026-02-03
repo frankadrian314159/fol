@@ -818,7 +818,8 @@
                           #\u #\v #\w #\x #\y #\z
                           #\A #\B #\C #\D #\E #\F #\G #\H #\I #\J
                           #\K #\L #\M #\N #\O #\P #\Q #\R #\S #\T
-                          #\U #\V #\W #\X #\Y #\Z)
+                          #\U #\V #\W #\X #\Y #\Z
+                          #\GREEK_SMALL_LETTER_LAMDA)  ; λ for lambda alias
                     :symbol-constituent
                         '(#\- #\+ #\* #\/ #\< #\> #\? #\! #\$ #\%
                           #\& #\_ #\= #\.)

@@ -1,402 +1,1143 @@
-;;; eval.fol - FOL Evaluator implemented in FOL
+;;; ============================================================================
+;;; FOL Self-Hosted Evaluator
+;;; ============================================================================
+;;; A meta-circular evaluator for FOL, written in FOL itself.
+;;; This evaluator demonstrates FOL's ability to implement its own semantics.
 ;;;
-;;; This is a self-hosted implementation of the FOL evaluator, written in FOL itself.
-;;; It demonstrates FOL's metaprogramming capabilities and serves as a reference
-;;; implementation for understanding the evaluation semantics.
-;;;
-;;; The evaluator uses generic functions to dispatch on different form types,
-;;; and consults the special-form dispatch table to identify special forms.
+;;; This implementation mirrors the Common Lisp bootstrap evaluator in
+;;; bootstrap/eval.lisp, translating it to FOL's Clojure-style syntax.
 
-;;; =============================================================================
+;;; ============================================================================
+;;; Error Conditions
+;;; ============================================================================
+
+(defclass <fol-eval-error> (<error>)
+  [message form]
+  :documentation "Base error for evaluation errors.")
+
+(defclass <fol-arity-error> (<fol-eval-error>)
+  [expected got]
+  :documentation "Error for arity mismatches.")
+
+(defclass <fol-type-error> (<fol-eval-error>)
+  [expected-type actual-type variable]
+  :documentation "Error for type mismatches in destructuring.")
+
+;;; ============================================================================
+;;; FOL Function and Macro Representations
+;;; ============================================================================
+
+(defclass <fol-function> (<persistent-object>)
+  [params body env rest-param name]
+  :documentation "A FOL function with captured lexical environment.")
+
+(defn fol-function? [obj]
+  "Returns true if obj is a FOL function."
+  (instance? <fol-function> obj))
+
+(defn make-fol-function [params body env & {:keys [rest-param name]}]
+  "Create a new FOL function."
+  {:params params
+   :body body
+   :env env
+   :rest-param rest-param
+   :name name})
+
+(defclass <fol-macro> (<persistent-object>)
+  [params body env rest-param name]
+  :documentation "A FOL macro that receives unevaluated arguments.")
+
+(defn fol-macro? [obj]
+  "Returns true if obj is a FOL macro."
+  (instance? <fol-macro> obj))
+
+(defn make-fol-macro [params body env & {:keys [rest-param name]}]
+  "Create a new FOL macro."
+  {:params params
+   :body body
+   :env env
+   :rest-param rest-param
+   :name name})
+
+(defclass <fol-dynamic-var> (<object>)
+  [name root-value value-stack]
+  :documentation "A dynamic variable with a value stack for nested bindings.")
+
+(defn dynamic-var? [obj]
+  "Returns true if obj is a dynamic variable."
+  (instance? <fol-dynamic-var> obj))
+
+(defn make-dynamic-var [name & [root-value]]
+  "Create a new dynamic variable."
+  {:name name
+   :root-value root-value
+   :value-stack []})
+
+(defn dynamic-var-value [dvar]
+  "Get the current value of a dynamic variable."
+  (bind [stack (:value-stack dvar)]
+    (if (empty? stack)
+      (:root-value dvar)
+      (first stack))))
+
+(defn dynamic-var-push! [dvar value]
+  "Push a new value onto the dynamic variable's value stack."
+  (update dvar :value-stack #(cons value %)))
+
+(defn dynamic-var-pop! [dvar]
+  "Pop a value from the dynamic variable's value stack."
+  (bind [stack (:value-stack dvar)
+         value (first stack)]
+    (assoc dvar :value-stack (rest stack))))
+
+;;; ============================================================================
+;;; Recur Signal (for loop/recur)
+;;; ============================================================================
+
+(defclass <recur-signal> (<condition>)
+  [args]
+  :documentation "Signal used to implement recur within loop.")
+
+;;; ============================================================================
 ;;; Special Form Dispatch Table
-;;; =============================================================================
+;;; ============================================================================
 
-(def special-forms
-  "Dispatch table mapping special form names to their evaluator functions.
-   This mirrors the *special-forms* table in the bootstrap implementation."
-  {"quote"      eval-quote
-   "if"         eval-if
-   "do"         eval-do
-   "bind"       eval-bind
-   "fn"         eval-fn
-   "def"        eval-def
-   "defn"       eval-defn
-   "defmacro"   eval-defmacro
-   "loop"       eval-loop
-   "recur"      eval-recur
-   "throw"      eval-throw
-   "try"        eval-try
-   "->"         eval-thread-first
-   "->>"        eval-thread-last
-   "cond->"     eval-cond-thread-first
-   "cond->>"    eval-cond-thread-last
-   "."          eval-dot
-   "new"        eval-new
-   "defclass"   eval-defclass
-   "defgeneric" eval-defgeneric
-   "defmethod"  eval-defmethod})
+(def *special-forms*
+  "Map of special form names to their handler functions."
+  {"quote"            eval-quote
+   "if"               eval-if
+   "do"               eval-do
+   "bind"             eval-bind
+   "fn"               eval-fn
+   "λ"                eval-fn
+   "def"              eval-def
+   "loop"             eval-loop
+   "recur"            eval-recur
+   "throw"            eval-throw
+   "try"              eval-try
+   "defn"             eval-defn
+   "defmacro"         eval-defmacro
+   "definline"        eval-definline
+   "syntax-quote"     eval-syntax-quote
+   "make-dynamic"     eval-make-dynamic
+   "binding"          eval-binding
+   "lazy-seq"         eval-lazy-seq
+   "cond"             eval-cond
+   "case"             eval-case
+   "->"               eval-thread-first
+   "->>"              eval-thread-last
+   "cond->"           eval-cond-thread-first
+   "cond->>"          eval-cond-thread-last
+   "defgeneric"       eval-defgeneric
+   "defclass"         eval-defclass
+   "defmethod"        eval-defmethod
+   "use-module"       eval-use-module
+   "import"           eval-use-module
+   "module"           eval-module
+   "env"              eval-env
+   "unquote"          eval-unquote-error
+   "unquote-splicing" eval-unquote-splicing-error})
 
-(defn special-form?
-  "Check if the given symbol names a special form."
-  [sym]
-  (and (symbol? sym)
-       (contains? special-forms (name sym))))
+;;; ============================================================================
+;;; Main Evaluation Function
+;;; ============================================================================
 
-;;; =============================================================================
-;;; Generic Evaluation Protocol
-;;; =============================================================================
+(defgeneric fol-eval [form env]
+  "Evaluate form in the context of environment env.")
 
-(defgeneric eval-form
-  "Generic function for evaluating different types of FOL forms.
-   Dispatches based on the type of the form being evaluated."
-  [form env])
+;;; --- Self-Evaluating Forms ---
 
-;;; --- Self-evaluating forms ---
+(defmethod fol-eval [(= form t) env]
+  "T is self-evaluating."
+  t)
 
-(defmethod eval-form [(<number>? form) env]
-  "Numbers evaluate to themselves."
-  form)
-
-(defmethod eval-form [(<string>? form) env]
-  "Strings evaluate to themselves."
-  form)
-
-(defmethod eval-form [(<keyword>? form) env]
-  "Keywords evaluate to themselves."
-  form)
-
-(defmethod eval-form [(nil? form) env]
-  "nil evaluates to itself."
+(defmethod fol-eval [(= form nil) env]
+  "Nil is self-evaluating."
   nil)
 
-(defmethod eval-form [(<bool>? form) env]
-  "Booleans evaluate to themselves."
+(defmethod fol-eval [(form <number>) env]
+  "Numbers are self-evaluating."
   form)
 
-;;; --- Symbol lookup ---
+(defmethod fol-eval [(form <string>) env]
+  "Strings are self-evaluating."
+  form)
 
-(defmethod eval-form [(<symbol>? form) env]
-  "Symbols are looked up in the environment."
-  (if-bind [value (lookup env form)]
-    value
-    (throw (str "Unbound variable: " form))))
+(defmethod fol-eval [(form <char>) env]
+  "Characters are self-evaluating."
+  form)
 
-;;; --- Vector evaluation ---
+(defmethod fol-eval [(form <keyword>) env]
+  "Keywords are self-evaluating."
+  form)
 
-(defmethod eval-form [(<vector>? form) env]
-  "Vectors evaluate all their elements and return a new vector."
-  (into [] (map (fn [x] (eval-form x env)) form)))
+(defmethod fol-eval [(form <collection>) env]
+  "Collections are self-evaluating."
+  form)
 
-;;; --- Dict evaluation ---
+(defmethod fol-eval [(form <fol-function>) env]
+  "FOL functions are self-evaluating."
+  form)
 
-(defmethod eval-form [(<dict>? form) env]
-  "Dicts evaluate all their keys and values and return a new dict."
-  (into {}
-        (map (fn [[k v]]
-               [(eval-form k env) (eval-form v env)])
-             form)))
+(defmethod fol-eval [(form <fol-macro>) env]
+  "FOL macros are self-evaluating."
+  form)
 
-;;; --- Set evaluation ---
+(defmethod fol-eval [(form <fol-dynamic-var>) env]
+  "Dynamic variables evaluate to their current value."
+  (dynamic-var-value form))
 
-(defmethod eval-form [(<set>? form) env]
-  "Sets evaluate all their elements and return a new set."
-  (into #{}
-        (map (fn [x] (eval-form x env)) form)))
+(defmethod fol-eval [(form <function>) env]
+  "Host functions are self-evaluating."
+  form)
 
-;;; --- List evaluation (function/macro/special form application) ---
+;;; --- Symbol Lookup ---
 
-(defmethod eval-form [(<list>? form) env]
-  "Lists represent function calls, macro calls, or special forms.
-   The evaluation strategy depends on the operator (first element)."
+(defn auto-gensym? [sym]
+  "Check if symbol is an auto-gensym (ends with #)."
+  (when (symbol? sym)
+    (bind [name-str (name sym)]
+      (when (> (count name-str) 1)
+        (= (last name-str) \#)))))
+
+(defmethod fol-eval [(form <symbol>) env]
+  "Symbols are looked up in the environment.
+   Keywords are self-evaluating.
+   Auto-gensym symbols are errors outside syntax-quote.
+   Dynamic variables are auto-dereferenced."
+  (cond
+    (keyword? form) form
+    (auto-gensym? form)
+    (throw {:type :fol-eval-error
+            :message (str "Auto-gensym " form " only valid inside syntax-quote")
+            :form form})
+    :else
+    (bind [value (try
+                   (lookup env form)
+                   (catch :unbound-variable e
+                     (if (cl-boundp form)
+                       (cl-symbol-value form)
+                       (throw e))))]
+      (if (dynamic-var? value)
+        (dynamic-var-value value)
+        value))))
+
+;;; --- List Forms (Special Forms and Function Application) ---
+
+(defmethod fol-eval [(form <list>) env]
+  "Evaluate a list form. Dispatch on the operator."
   (if (empty? form)
-    form  ; Empty list evaluates to itself
-    (bind [op (first form)
-           args (rest form)]
-      (cond
-        ;; Special form?
-        (special-form? op)
-        (bind [special-eval (get special-forms (name op))]
-          (special-eval args env))
+    form
+    (bind [[op & args] form
+           handler (when (symbol? op)
+                    (get *special-forms* (name op)))]
+      (if handler
+        (handler args env)
+        (eval-application op args env)))))
 
-        ;; Regular function or macro call
-        :else
-        (bind [fn-value (eval-form op env)]
-          (if (<macro>? fn-value)
-            ;; Macro: expand and evaluate
-            (eval-form (expand-macro fn-value args env) env)
-            ;; Function: evaluate args and apply
-            (bind [evaled-args (map (fn [arg] (eval-form arg env)) args)]
-              (apply-function fn-value evaled-args))))))))
-
-;;; --- Default case ---
-
-(defmethod eval-form [:default form env]
-  "Default case for forms we don't recognize - return as-is."
-  form)
-
-;;; =============================================================================
-;;; Main Eval Function
-;;; =============================================================================
-
-(defn fol-eval
-  "Evaluate a FOL form in the given environment.
-   This is the main entry point for the evaluator."
-  [form env]
-  (eval-form form env))
-
-;;; =============================================================================
+;;; ============================================================================
 ;;; Special Form Evaluators
-;;; =============================================================================
+;;; ============================================================================
 
-;;; --- QUOTE ---
+(defn eval-quote [args env]
+  "Evaluate (quote form). Returns the form unevaluated."
+  (when (not= (count args) 1)
+    (throw {:type :fol-arity-error :expected 1 :got (count args)}))
+  (first args))
 
-(defn eval-quote
-  "Evaluate (quote form). Returns the form unevaluated.
+(defn eval-env [args env]
+  "Evaluate (env). Returns the current environment."
+  (when (not= (count args) 0)
+    (throw {:type :fol-arity-error :expected 0 :got (count args)}))
+  env)
 
-   Examples:
-     (quote x) => x (the symbol itself, not its value)
-     (quote (1 2 3)) => (1 2 3) (the list itself)
-     'x => x (reader syntax for quote)"
-  [args env]
-  (if (not= (size args) 1)
-    (throw (str "quote: expected 1 argument, got " (size args)))
-    (first args)))
-
-;;; --- IF ---
-
-(defn eval-if
+(defn eval-if [args env]
   "Evaluate (if test then else?).
-   If test is truthy, evaluate then; otherwise evaluate else (or nil if omitted).
+   If test is truthy, evaluate then; otherwise evaluate else."
+  (bind [len (count args)]
+    (when (not (<= 2 len 3))
+      (throw {:type :fol-arity-error :expected "2 or 3" :got len}))
+    (bind [[test then-form else-form] args]
+      (if (fol-eval test env)
+        (fol-eval then-form env)
+        (fol-eval else-form env)))))
 
-   Examples:
-     (if true 1 2) => 1
-     (if false 1 2) => 2
-     (if nil 1) => nil
-     (if 0 :truthy :falsy) => :truthy  ; 0 is truthy in FOL"
-  [args env]
-  (bind [arg-count (size args)]
-    (if (or (< arg-count 2) (> arg-count 3))
-      (throw (str "if: expected 2 or 3 arguments, got " arg-count))
-      (bind [test-form (nth args 0)
-             then-form (nth args 1)
-             else-form (if (>= arg-count 3) (nth args 2) nil)
-             test-result (fol-eval test-form env)]
-        (if test-result
-          (fol-eval then-form env)
-          (fol-eval else-form env))))))
+(defn eval-cond [args env]
+  "Evaluate (cond test1 form1 test2 form2 ...).
+   Evaluates test/form pairs sequentially.
+   Returns nil if no test is truthy."
+  (when (not (even? (count args)))
+    (throw {:type :fol-eval-error
+            :message "cond requires even number of arguments"}))
+  (loop [[test form & rest-args] args]
+    (if (nil? test)
+      nil
+      (if (fol-eval test env)
+        (fol-eval form env)
+        (recur rest-args)))))
 
-;;; --- DO ---
+(defn eval-case [args env]
+  "Evaluate (case target-form target1 form1 target2 form2 ... [default]).
+   Evaluates target-form, then matches against targets."
+  (when (< (count args) 1)
+    (throw {:type :fol-eval-error
+            :message "case requires at least a target form"}))
+  (bind [[target-form & clauses] args
+         target-value (fol-eval target-form env)
+         has-default (odd? (count clauses))
+         default-form (when has-default (last clauses))
+         case-pairs (if has-default (butlast clauses) clauses)
+         dispatch-table
+         (reduce
+           (fn [table [target form]]
+             (bind [targets (if (vector? target) target [target])]
+               (reduce #(assoc %1 %2 form) table targets)))
+           {}
+           (partition 2 case-pairs))]
+    (if-bind [matching-form (get dispatch-table target-value)]
+      (fol-eval matching-form env)
+      (if has-default
+        (fol-eval default-form env)
+        (throw {:type :fol-eval-error
+                :message (str "No matching case for " target-value)})))))
 
-(defn eval-do
-  "Evaluate (do form*). Evaluates each form in sequence and returns the last value.
-
-   Examples:
-     (do (println \"hello\") (+ 1 2)) => 3
-     (do) => nil
-     (do 1 2 3) => 3"
-  [args env]
+(defn eval-do [args env]
+  "Evaluate (do form*). Evaluates each form in sequence, returns last result."
   (if (empty? args)
     nil
-    (bind [forms args]
-      (loop [remaining forms
-             result nil]
-        (if (empty? remaining)
-          result
-          (recur (rest remaining)
-                 (fol-eval (first remaining) env)))))))
+    (last (map #(fol-eval % env) args))))
 
-;;; --- BIND (let) ---
+;;; --- Destructuring ---
 
-(defn eval-bind-pair
-  "Helper to evaluate a single binding pair [name value] and extend environment."
-  [env name value-form]
-  (bind [value (fol-eval value-form env)]
-    (assoc env name value)))
+(defn underscore? [sym]
+  "Check if symbol is the underscore placeholder."
+  (and (symbol? sym) (= (name sym) "_")))
 
-(defn eval-bind
-  "Evaluate (bind [name1 val1 name2 val2 ...] body*).
-   Creates new bindings and evaluates body forms in the extended environment.
+(defn typed-binding? [pattern]
+  "Check if pattern is a typed binding [symbol type]."
+  (and (vector? pattern)
+       (= (count pattern) 2)
+       (bind [[var type-spec] pattern]
+         (and (symbol? var)
+              (fol-type-symbol? type-spec)))))
 
-   Examples:
-     (bind [x 1 y 2] (+ x y)) => 3
-     (bind [x (+ 1 2)] (* x 3)) => 9
-     (bind [] :no-bindings) => :no-bindings"
-  [args env]
-  (if (< (size args) 1)
-    (throw "bind: expected at least 1 argument (bindings vector)")
-    (bind [bindings (first args)
-           body (rest args)]
-      (if (not (<vector>? bindings))
-        (throw "bind: first argument must be a vector")
-        (if (odd? (size bindings))
-          (throw "bind: bindings vector must have even number of elements")
-          ;; Process bindings
-          (bind [new-env (loop [pairs (partition 2 bindings)
-                                current-env env]
-                           (if (empty? pairs)
-                             current-env
-                             (bind [[name value-form] (first pairs)]
-                               (recur (rest pairs)
-                                      (eval-bind-pair current-env name value-form)))))]
-            ;; Evaluate body in new environment
-            (eval-do body new-env)))))))
+(defn fol-type-symbol? [sym]
+  "Check if symbol looks like a FOL type symbol (<...>)."
+  (when (symbol? sym)
+    (bind [name-str (name sym)]
+      (and (> (count name-str) 2)
+           (= (first name-str) \<)
+           (= (last name-str) \>)))))
 
-;;; --- THREAD-LAST (->>)  ---
+(defn predicate-specializer? [pattern]
+  "Check if pattern is a predicate specializer [var (pred ...)]."
+  (and (vector? pattern)
+       (= (count pattern) 2)
+       (bind [[var pred-form] pattern]
+         (and (symbol? var) (list? pred-form)))))
 
-(defn apply-threaded-last
-  "Helper to thread a value through a form as the last argument."
-  [x form env]
+(defn type-conforms? [value expected-type]
+  "Check if value conforms to expected-type."
+  (= (type-of value) expected-type))
+
+(defn destructure-pattern [pattern value]
+  "Destructure value according to pattern, returning map of bindings."
   (cond
-    ;; If form is a symbol, treat it as (form x)
-    (symbol? form)
-    (bind [fn-value (fol-eval form env)]
-      (apply-function fn-value [x]))
+    ;; Underscore - discard value
+    (underscore? pattern) {}
 
-    ;; If form is a list, insert x as last argument
-    (<list>? form)
-    (bind [fn-form (first form)
-           args (rest form)
-           new-form (concat (list fn-form) args (list x))]
-      (fol-eval new-form env))
+    ;; Simple symbol - bind whole value
+    (symbol? pattern) {pattern value}
 
-    ;; Otherwise, error
-    :else
-    (throw (str "->>: form must be a symbol or list, got " (type form)))))
+    ;; Predicate specializer - bind variable (predicate already checked)
+    (predicate-specializer? pattern)
+    (bind [[var pred-form] pattern]
+      {var value})
 
-(defn eval-thread-last
-  "Evaluate (->> x form*).
-   Threads x through each form as the last argument.
+    ;; Typed binding - check type and bind
+    (typed-binding? pattern)
+    (bind [[var type-spec] pattern]
+      (if (type-conforms? value type-spec)
+        {var value}
+        (throw {:type :fol-type-error
+                :expected-type type-spec
+                :actual-type (type-of value)
+                :variable var})))
 
-   Examples:
-     (->> 5 (+ 3) (* 2))
-     ; => (* 2 (+ 3 5)) => (* 2 8) => 16
+    ;; Vector pattern - sequential destructuring
+    (vector? pattern) (destructure-sequential pattern value)
 
-     (->> [1 2 3] (map inc) (filter even?))
-     ; => (filter even? (map inc [1 2 3]))
-     ; => (filter even? [2 3 4]) => [2 4]
+    ;; Dict pattern - associative destructuring
+    (dict? pattern) (destructure-associative pattern value)
 
-     (->> 10 inc dec)
-     ; => (dec (inc 10)) => (dec 11) => 10"
-  [args env]
-  (if (< (size args) 1)
-    (throw "->>: expected at least 1 argument")
-    (bind [initial (fol-eval (first args) env)
-           forms (rest args)]
-      (if (empty? forms)
-        initial  ; No forms to thread through
-        (loop [x initial
-               remaining forms]
-          (if (empty? remaining)
-            x
-            (recur (apply-threaded-last x (first remaining) env)
-                   (rest remaining))))))))
+    ;; List pattern - sequential destructuring
+    (list? pattern) (destructure-sequential (vec pattern) value)
 
-;;; --- THREAD-FIRST (->)  ---
+    :else (throw {:type :fol-eval-error
+                  :message (str "Invalid destructuring pattern: " pattern)})))
 
-(defn apply-threaded-first
-  "Helper to thread a value through a form as the first argument."
-  [x form env]
-  (cond
-    ;; If form is a symbol, treat it as (form x)
-    (symbol? form)
-    (bind [fn-value (fol-eval form env)]
-      (apply-function fn-value [x]))
+(defn destructure-sequential [pattern value]
+  "Destructure value as a sequence according to pattern.
+   Handles & for rest binding and :as for whole binding."
+  (bind [seq-value (cond
+                     (vector? value) value
+                     (list? value) (vec value)
+                     (seq? value) (vec value)
+                     :else (throw {:type :fol-eval-error
+                                   :message (str "Cannot destructure non-sequential: " value)}))
+         as-idx (.indexOf pattern :as)
+         has-as (>= as-idx 0)
+         as-sym (when has-as (get pattern (inc as-idx)))
+         amp-idx (.indexOf pattern '&)
+         has-rest (>= amp-idx 0)
+         rest-sym (when has-rest (get pattern (inc amp-idx)))
+         regular-count (cond
+                         has-rest amp-idx
+                         has-as as-idx
+                         :else (count pattern))
+         bindings (transient {})]
+    ;; Bind regular elements
+    (dotimes [i regular-count]
+      (bind [pat (get pattern i)
+             val (get seq-value i nil)
+             elem-bindings (destructure-pattern pat val)]
+        (doseq [[k v] elem-bindings]
+          (assoc! bindings k v))))
+    ;; Bind rest if present
+    (when has-rest
+      (bind [rest-val (subvec seq-value amp-idx)
+             rest-bindings (destructure-pattern rest-sym rest-val)]
+        (doseq [[k v] rest-bindings]
+          (assoc! bindings k v))))
+    ;; Bind :as if present
+    (when has-as
+      (assoc! bindings as-sym value))
+    (persistent! bindings)))
 
-    ;; If form is a list, insert x as first argument
-    (<list>? form)
-    (bind [fn-form (first form)
-           args (rest form)
-           new-form (concat (list fn-form x) args)]
-      (fol-eval new-form env))
+(defn destructure-associative [pattern value]
+  "Destructure value as a map according to dict pattern.
+   Handles :keys, :strs, :syms, :as, and :or."
+  (bind [bindings (transient {})
+         defaults (get pattern :or {})
+         get-with-default (fn [key sym]
+                           (if-bind [val (get value key)]
+                             val
+                             (get defaults (keyword (name sym)))))]
+    ;; Handle :keys
+    (when-bind [keys-val (get pattern :keys)]
+      (doseq [k (if (vector? keys-val) keys-val [keys-val])]
+        (bind [sym (if (symbol? k) k (symbol k))
+               keyword-key (keyword (name sym))
+               val (get-with-default keyword-key sym)]
+          (assoc! bindings sym val))))
+    ;; Handle :strs
+    (when-bind [strs-val (get pattern :strs)]
+      (doseq [s (if (vector? strs-val) strs-val [strs-val])]
+        (bind [sym (if (symbol? s) s (symbol s))
+               str-key (name sym)
+               val (get-with-default str-key sym)]
+          (assoc! bindings sym val))))
+    ;; Handle :syms
+    (when-bind [syms-val (get pattern :syms)]
+      (doseq [s (if (vector? syms-val) syms-val [syms-val])]
+        (bind [sym (if (symbol? s) s (symbol s))
+               val (get-with-default sym sym)]
+          (assoc! bindings sym val))))
+    ;; Handle :as
+    (when-bind [as-val (get pattern :as)]
+      (assoc! bindings as-val value))
+    ;; Handle explicit key->binding pairs
+    (doseq [[k v] pattern]
+      (when (not (contains? #{:keys :strs :syms :as :or} k))
+        (bind [local-sym k
+               lookup-key v
+               val (get-with-default lookup-key local-sym)]
+          (assoc! bindings local-sym val))))
+    (persistent! bindings)))
 
-    ;; Otherwise, error
-    :else
-    (throw (str "->: form must be a symbol or list, got " (type form)))))
+(defn eval-bind [args env]
+  "Evaluate (bind [bindings] body*).
+   Bindings are pairs: [pattern1 val1 pattern2 val2 ...].
+   Supports destructuring patterns."
+  (when (< (count args) 1)
+    (throw {:type :fol-eval-error
+            :message "bind requires at least bindings"}))
+  (bind [[bindings & body] args
+         binding-vec (if (vector? bindings) bindings (vec bindings))
+         pairs (partition 2 binding-vec)]
+    ;; Process bindings sequentially
+    (loop [current-env env
+           [[pattern val-form] & rest-pairs :as remaining-pairs] pairs]
+      (if (empty? remaining-pairs)
+        ;; Evaluate body in final environment
+        (if (empty? body)
+          nil
+          (last (map #(fol-eval % current-env) body)))
+        (bind [val (fol-eval val-form current-env)
+               new-bindings (destructure-pattern pattern val)
+               next-env (reduce-kv
+                          (fn [e k v] (assoc e k v))
+                          current-env
+                          new-bindings)]
+          (recur next-env rest-pairs))))))
 
-(defn eval-thread-first
+;;; --- Function Definition ---
+
+(defn parse-params [param-list]
+  "Parse parameter list, returning [regular-params rest-param]."
+  (bind [params (if (vector? param-list) param-list (vec param-list))
+         amp-idx (.indexOf params '&)]
+    (if (>= amp-idx 0)
+      [(subvec params 0 amp-idx) (get params (inc amp-idx))]
+      [params nil])))
+
+(defn multi-pattern-fn? [args]
+  "Check if args represent a multi-pattern fn form."
+  (bind [potential-clauses (if (and (symbol? (first args))
+                                   (not (nil? (first args))))
+                            (rest args)
+                            args)]
+    (and (>= (count potential-clauses) 1)
+         (list? (first potential-clauses))
+         (not (nil? (first potential-clauses)))
+         (vector? (first (first potential-clauses))))))
+
+(defn eval-fn [args env]
+  "Evaluate (fn [params] body*) or (fn name [params] body*).
+   Also handles multi-pattern: (fn ([p1] b1) ([p2] b2) ...)."
+  (if (multi-pattern-fn? args)
+    (eval-multi-pattern-fn args env)
+    (eval-single-pattern-fn args env)))
+
+(defn eval-single-pattern-fn [args env]
+  "Evaluate single-pattern fn form."
+  (bind [has-name (symbol? (first args))
+         fn-name (when has-name (first args))
+         remaining (if has-name (rest args) args)]
+    (when (< (count remaining) 1)
+      (throw {:type :fol-arity-error
+              :message "fn requires at least [params]"}))
+    (bind [[params & body] remaining
+           [regular-params rest-param] (parse-params params)]
+      (make-fol-function regular-params body env
+                        :rest-param rest-param
+                        :name fn-name))))
+
+(defn eval-multi-pattern-fn [args env]
+  "Evaluate multi-pattern fn form with multiple arity clauses."
+  (bind [has-name (symbol? (first args))
+         fn-name (when has-name (first args))
+         clauses (if has-name (rest args) args)]
+    ;; Create dispatcher that selects appropriate clause
+    (make-fol-function []
+                      [(fn [& call-args]
+                         (bind [num-args (count call-args)
+                                matching-clause
+                                (first
+                                  (filter
+                                    (fn [clause]
+                                      (bind [[params & _] clause
+                                             [regular rest-param] (parse-params params)
+                                             arity (count regular)]
+                                        (if rest-param
+                                          (>= num-args arity)
+                                          (= num-args arity))))
+                                    clauses))]
+                           (if matching-clause
+                             (bind [[params & body] matching-clause
+                                    fn (eval-single-pattern-fn (cons params body) env)]
+                               (apply-fol-function fn call-args))
+                             (throw {:type :fol-arity-error
+                                     :message (str "No matching arity for " num-args " args")}))))]
+                      env
+                      :name fn-name)))
+
+(defn eval-def [args env]
+  "Evaluate (def name value?) or (def name doc value).
+   Defines a variable in the environment."
+  (bind [len (count args)]
+    (when (< len 1)
+      (throw {:type :fol-arity-error :expected "1, 2, or 3" :got len}))
+    (bind [name (first args)
+           has-doc (= len 3)
+           doc (when has-doc (second args))
+           value-form (cond
+                       (= len 1) nil
+                       (= len 2) (second args)
+                       :else (nth args 2))
+           value (when value-form (fol-eval value-form env))]
+      ;; Define in module
+      (define-in-env! env name value)
+      value)))
+
+(defn eval-defn [args env]
+  "Evaluate (defn name [params] body*) or multi-pattern defn."
+  (when (< (count args) 2)
+    (throw {:type :fol-arity-error
+            :message "defn requires at least name and params"}))
+  (bind [name (first args)
+         remaining (rest args)
+         has-doc (string? (first remaining))
+         doc (when has-doc (first remaining))
+         fn-args (if has-doc (rest remaining) remaining)
+         fn-value (fol-eval (cons 'fn (cons name fn-args)) env)]
+    (define-in-env! env name fn-value)
+    fn-value))
+
+(defn eval-defmacro [args env]
+  "Evaluate (defmacro name [params] body*)."
+  (when (< (count args) 2)
+    (throw {:type :fol-arity-error
+            :message "defmacro requires at least name and params"}))
+  (bind [name (first args)
+         remaining (rest args)
+         has-doc (string? (first remaining))
+         doc (when has-doc (first remaining))
+         macro-args (if has-doc (rest remaining) remaining)
+         [params & body] macro-args
+         [regular-params rest-param] (parse-params params)
+         macro-value (make-fol-macro regular-params body env
+                                    :rest-param rest-param
+                                    :name name)]
+    (define-in-env! env name macro-value)
+    macro-value))
+
+(defn eval-definline [args env]
+  "Evaluate (definline name [params] body).
+   Creates an inline function."
+  (eval-defn args env))
+
+;;; --- Loop/Recur ---
+
+(defn eval-loop [args env]
+  "Evaluate (loop [bindings] body*).
+   Establishes a recursion point for recur."
+  (when (< (count args) 1)
+    (throw {:type :fol-eval-error :message "loop requires at least bindings"}))
+  (bind [[bindings & body] args
+         binding-vec (if (vector? bindings) bindings (vec bindings))
+         pairs (partition 2 binding-vec)
+         init-env (reduce
+                    (fn [e [pattern val-form]]
+                      (bind [val (fol-eval val-form e)
+                             new-bindings (destructure-pattern pattern val)]
+                        (reduce-kv (fn [env k v] (assoc env k v))
+                                  e
+                                  new-bindings)))
+                    env
+                    pairs)]
+    ;; Loop with recur handling
+    (loop [current-env init-env]
+      (try
+        (if (empty? body)
+          nil
+          (last (map #(fol-eval % current-env) body)))
+        (catch <recur-signal> sig
+          (bind [new-args (:args sig)
+                 new-env (reduce
+                          (fn [e [[pattern _] val]]
+                            (bind [new-bindings (destructure-pattern pattern val)]
+                              (reduce-kv (fn [env k v] (assoc env k v))
+                                        e
+                                        new-bindings)))
+                          env
+                          (map vector pairs new-args))]
+            (recur new-env)))))))
+
+(defn eval-recur [args env]
+  "Evaluate (recur args*).
+   Signals a recur back to the enclosing loop."
+  (bind [evaluated-args (map #(fol-eval % env) args)]
+    (throw {:type :recur-signal :args evaluated-args})))
+
+;;; --- Exception Handling ---
+
+(defn eval-throw [args env]
+  "Evaluate (throw exception)."
+  (when (not= (count args) 1)
+    (throw {:type :fol-arity-error :expected 1 :got (count args)}))
+  (throw (fol-eval (first args) env)))
+
+(defn eval-try [args env]
+  "Evaluate (try body* (catch type binding handler*) (finally body*))."
+  (bind [body-forms (take-while #(not (and (list? %) (= (first %) 'catch))) args)
+         catch-forms (filter #(and (list? %) (= (first %) 'catch)) args)
+         finally-form (first (filter #(and (list? %) (= (first %) 'finally)) args))]
+    (try
+      (last (map #(fol-eval % env) body-forms))
+      (catch Exception e
+        (if (empty? catch-forms)
+          (throw e)
+          (bind [matched-handler
+                 (first
+                   (filter
+                     (fn [[_ exception-type _ & _]]
+                       (instance? exception-type e))
+                     catch-forms))]
+            (if matched-handler
+              (bind [[_ exception-type binding & handler-body] matched-handler
+                     handler-env (assoc env binding e)]
+                (last (map #(fol-eval % handler-env) handler-body)))
+              (throw e)))))
+      (finally
+        (when finally-form
+          (bind [[_ & finally-body] finally-form]
+            (doseq [form finally-body]
+              (fol-eval form env))))))))
+
+;;; --- Dynamic Variables ---
+
+(defn eval-make-dynamic [args env]
+  "Evaluate (make-dynamic name value?)."
+  (bind [len (count args)]
+    (cond
+      (= len 1) (make-dynamic-var (first args))
+      (= len 2) (make-dynamic-var (first args) (fol-eval (second args) env))
+      :else (throw {:type :fol-arity-error :expected "1 or 2" :got len}))))
+
+(defn eval-binding [args env]
+  "Evaluate (binding [dvar value ...] body*).
+   Temporarily rebinds dynamic variables."
+  (when (< (count args) 1)
+    (throw {:type :fol-eval-error :message "binding requires at least bindings"}))
+  (bind [[bindings & body] args
+         binding-vec (if (vector? bindings) bindings (vec bindings))
+         pairs (partition 2 binding-vec)]
+    ;; Push new values
+    (doseq [[dvar-form value-form] pairs]
+      (bind [dvar (fol-eval dvar-form env)
+             value (fol-eval value-form env)]
+        (dynamic-var-push! dvar value)))
+    (try
+      (if (empty? body)
+        nil
+        (last (map #(fol-eval % env) body)))
+      (finally
+        ;; Pop values
+        (doseq [[dvar-form _] pairs]
+          (bind [dvar (fol-eval dvar-form env)]
+            (dynamic-var-pop! dvar)))))))
+
+;;; --- Lazy Sequences ---
+
+(defn eval-lazy-seq [args env]
+  "Evaluate (lazy-seq body*).
+   Returns a lazy sequence."
+  (lazy-seq
+    (when (not (empty? args))
+      (fol-eval (cons 'do args) env))))
+
+;;; --- Threading Macros ---
+
+(defn eval-thread-first [args env]
   "Evaluate (-> x form*).
-   Threads x through each form as the first argument.
+   Threads x through forms as first argument."
+  (when (< (count args) 1)
+    (throw {:type :fol-eval-error :message "-> requires at least an initial value"}))
+  (bind [[init-form & forms] args]
+    (reduce
+      (fn [val form]
+        (if (list? form)
+          (fol-eval (cons (first form) (cons val (rest form))) env)
+          (fol-eval (list form val) env)))
+      (fol-eval init-form env)
+      forms)))
 
-   Examples:
-     (-> 5 (+ 3) (* 2))
-     ; => (* (+ 5 3) 2) => (* 8 2) => 16
+(defn eval-thread-last [args env]
+  "Evaluate (->> x form*).
+   Threads x through forms as last argument."
+  (when (< (count args) 1)
+    (throw {:type :fol-eval-error :message "->> requires at least an initial value"}))
+  (bind [[init-form & forms] args]
+    (reduce
+      (fn [val form]
+        (if (list? form)
+          (fol-eval (concat form [val]) env)
+          (fol-eval (list form val) env)))
+      (fol-eval init-form env)
+      forms)))
 
-     (-> {:a 1} (assoc :b 2) (dissoc :a))
-     ; => (dissoc (assoc {:a 1} :b 2) :a)
-     ; => (dissoc {:a 1 :b 2} :a) => {:b 2}
+(defn eval-cond-thread-first [args env]
+  "Evaluate (cond-> x test form test form ...).
+   Conditionally threads x through forms."
+  (when (< (count args) 1)
+    (throw {:type :fol-eval-error :message "cond-> requires at least an initial value"}))
+  (bind [[init-form & clauses] args
+         init-val (fol-eval init-form env)]
+    (loop [val init-val
+           [test form & rest-clauses :as remaining] clauses]
+      (if (empty? remaining)
+        val
+        (if (fol-eval test env)
+          (recur (if (list? form)
+                  (fol-eval (cons (first form) (cons val (rest form))) env)
+                  (fol-eval (list form val) env))
+                rest-clauses)
+          (recur val rest-clauses))))))
 
-     (-> 10 inc dec)
-     ; => (dec (inc 10)) => (dec 11) => 10"
-  [args env]
-  (if (< (size args) 1)
-    (throw "->: expected at least 1 argument")
-    (bind [initial (fol-eval (first args) env)
-           forms (rest args)]
-      (if (empty? forms)
-        initial  ; No forms to thread through
-        (loop [x initial
-               remaining forms]
-          (if (empty? remaining)
-            x
-            (recur (apply-threaded-first x (first remaining) env)
-                   (rest remaining))))))))
+(defn eval-cond-thread-last [args env]
+  "Evaluate (cond->> x test form test form ...).
+   Conditionally threads x through forms as last argument."
+  (when (< (count args) 1)
+    (throw {:type :fol-eval-error :message "cond->> requires at least an initial value"}))
+  (bind [[init-form & clauses] args
+         init-val (fol-eval init-form env)]
+    (loop [val init-val
+           [test form & rest-clauses :as remaining] clauses]
+      (if (empty? remaining)
+        val
+        (if (fol-eval test env)
+          (recur (if (list? form)
+                  (fol-eval (concat form [val]) env)
+                  (fol-eval (list form val) env))
+                rest-clauses)
+          (recur val rest-clauses))))))
 
-;;; =============================================================================
-;;; Helper Functions
-;;; =============================================================================
+;;; --- Syntax Quote ---
 
-(defn apply-function
-  "Apply a function to arguments.
-   This would normally call the underlying function application mechanism."
-  [fn args]
-  ;; In a real implementation, this would invoke the function
-  ;; For now, this is a placeholder that would be implemented
-  ;; using the host language's function application
-  (comment "This would be implemented using host apply mechanism"))
+(defn eval-syntax-quote [args env]
+  "Evaluate (syntax-quote form).
+   Performs quasi-quotation with unquote support."
+  (when (not= (count args) 1)
+    (throw {:type :fol-arity-error :expected 1 :got (count args)}))
+  (expand-syntax-quote (first args) env))
 
-(defn expand-macro
-  "Expand a macro call with the given arguments.
-   This would normally call the macro expander."
-  [macro args env]
-  ;; In a real implementation, this would expand the macro
-  (comment "This would be implemented using host macro expansion"))
+(defn expand-syntax-quote [form env]
+  "Recursively expand syntax-quote, handling unquote and unquote-splicing."
+  (cond
+    ;; Unquote: evaluate the inner form
+    (and (list? form) (= (first form) 'unquote))
+    (fol-eval (second form) env)
 
-(defn lookup
-  "Look up a symbol in the environment.
-   Returns the value if found, nil otherwise."
-  [env sym]
-  ;; In a real implementation, this would search the environment
-  (comment "This would be implemented using host environment lookup"))
+    ;; Self-evaluating
+    (or (number? form) (string? form) (keyword? form) (char? form))
+    form
 
-;;; =============================================================================
-;;; Usage Examples
-;;; =============================================================================
+    ;; Symbol: namespace-qualify it
+    (symbol? form)
+    (qualify-symbol form env)
 
-(comment
-  "Example usages of the FOL evaluator:
+    ;; Vector: recursively expand elements
+    (vector? form)
+    (vec (mapcat
+          (fn [elem]
+            (if (and (list? elem) (= (first elem) 'unquote-splicing))
+              (fol-eval (second elem) env)
+              [(expand-syntax-quote elem env)]))
+          form))
 
-  ;; Simple arithmetic
-  (fol-eval '(+ 1 2 3) std-env)
-  ; => 6
+    ;; List: recursively expand elements
+    (list? form)
+    (apply list
+      (mapcat
+        (fn [elem]
+          (if (and (list? elem) (= (first elem) 'unquote-splicing))
+            (fol-eval (second elem) env)
+            [(expand-syntax-quote elem env)]))
+        form))
 
-  ;; Variable binding
-  (fol-eval '(bind [x 10 y 20] (+ x y)) std-env)
-  ; => 30
+    ;; Dict: recursively expand keys and values
+    (dict? form)
+    (into {}
+      (map (fn [[k v]]
+            [(expand-syntax-quote k env)
+             (expand-syntax-quote v env)])
+          form))
 
-  ;; Conditional
-  (fol-eval '(if (> 5 3) :greater :not-greater) std-env)
-  ; => :greater
+    ;; Set: recursively expand elements
+    (set? form)
+    (set (map #(expand-syntax-quote % env) form))
 
-  ;; Threading
-  (fol-eval '(->> [1 2 3 4] (map inc) (filter even?) (reduce +)) std-env)
-  ; => 10  ; [2 3 4 5] -> [2 4] -> 6
+    ;; Default: return as-is
+    :else form))
 
-  ;; Quoted forms
-  (fol-eval '(quote (+ 1 2)) std-env)
-  ; => (+ 1 2)  ; Returns the list itself, not evaluated
+(defn qualify-symbol [sym env]
+  "Qualify a symbol with its namespace."
+  (if (namespace sym)
+    sym
+    (symbol (str "user/" (name sym)))))
 
-  ;; Nested evaluation
-  (fol-eval '(bind [double (fn [x] (* x 2))]
-               (->> 5 double double double))
-            std-env)
-  ; => 40")
+(defn eval-unquote-error [args env]
+  "Signal error for unquote outside syntax-quote."
+  (throw {:type :fol-eval-error
+          :message "unquote (~) only valid inside syntax-quote"}))
+
+(defn eval-unquote-splicing-error [args env]
+  "Signal error for unquote-splicing outside syntax-quote."
+  (throw {:type :fol-eval-error
+          :message "unquote-splicing (~@) only valid inside syntax-quote"}))
+
+;;; --- MOP Forms ---
+
+(defn eval-defgeneric [args env]
+  "Evaluate (defgeneric name [params] options*).
+   Defines a generic function."
+  (when (< (count args) 1)
+    (throw {:type :fol-arity-error :message "defgeneric requires at least a name"}))
+  (bind [name (first args)]
+    (define-generic! env name)
+    name))
+
+(defn eval-defclass [args env]
+  "Evaluate (defclass name [superclasses] [slots] options*).
+   Defines a class."
+  (when (< (count args) 1)
+    (throw {:type :fol-arity-error :message "defclass requires at least a name"}))
+  (bind [name (first args)
+         remaining (rest args)
+         superclasses (when (vector? (first remaining)) (first remaining))
+         slots (when (vector? (second remaining)) (second remaining))]
+    (define-class! env name superclasses slots)
+    name))
+
+(defn eval-defmethod [args env]
+  "Evaluate (defmethod name [params] body*).
+   Defines a method on a generic function."
+  (when (< (count args) 2)
+    (throw {:type :fol-arity-error :message "defmethod requires at least name and params"}))
+  (bind [name (first args)
+         [params & body] (rest args)
+         method-fn (fol-eval (cons 'fn (cons params body)) env)]
+    (define-method! env name method-fn)
+    name))
+
+;;; --- Module Operations ---
+
+(defn eval-use-module [args env]
+  "Evaluate (use-module module-name).
+   Imports all exported symbols from a module."
+  (when (not= (count args) 1)
+    (throw {:type :fol-arity-error :expected 1 :got (count args)}))
+  (bind [name-form (first args)
+         name (fol-eval name-form env)]
+    (use-module! env name)
+    nil))
+
+(defn eval-module [args env]
+  "Evaluate (module name?).
+   Creates a new module."
+  (bind [name-form (first args)
+         name (when name-form (fol-eval name-form env))]
+    (make-module! env name)))
+
+;;; ============================================================================
+;;; Function Application
+;;; ============================================================================
+
+(defn eval-application [op args env]
+  "Evaluate a function or macro application."
+  (bind [fn-value (fol-eval op env)]
+    (cond
+      ;; FOL macro - expand with unevaluated args
+      (fol-macro? fn-value)
+      (bind [expanded (expand-fol-macro fn-value args)]
+        (fol-eval expanded env))
+
+      ;; Function - evaluate args first
+      :else
+      (bind [evaluated-args (map #(fol-eval % env) args)]
+        (apply-fol-function fn-value evaluated-args)))))
+
+(defgeneric apply-fol-function [fn args]
+  "Apply function to arguments.")
+
+(defmethod apply-fol-function [(fn <function>) args]
+  "Apply host function."
+  (apply fn args))
+
+(defmethod apply-fol-function [(fn <fol-function>) args]
+  "Apply FOL function with destructuring support."
+  (bind [params (:params fn)
+         rest-param (:rest-param fn)
+         body (:body fn)
+         closure-env (:env fn)
+         name (:name fn)
+         num-params (count params)
+         num-args (count args)]
+    ;; Check arity
+    (if rest-param
+      (when (< num-args num-params)
+        (throw {:type :fol-arity-error
+                :expected (str "at least " num-params)
+                :got num-args}))
+      (when (not= num-args num-params)
+        (throw {:type :fol-arity-error :expected num-params :got num-args})))
+    ;; Create environment with parameter bindings
+    (bind [fn-env closure-env
+           ;; Bind regular parameters with destructuring
+           fn-env (reduce
+                    (fn [e [param arg]]
+                      (bind [bindings (destructure-pattern param arg)]
+                        (reduce-kv (fn [env k v] (assoc env k v))
+                                  e
+                                  bindings)))
+                    fn-env
+                    (map vector params args))
+           ;; Bind rest parameter if present
+           fn-env (if rest-param
+                   (bind [rest-args (drop num-params args)
+                          rest-bindings (destructure-pattern rest-param rest-args)]
+                     (reduce-kv (fn [env k v] (assoc env k v))
+                               fn-env
+                               rest-bindings))
+                   fn-env)
+           ;; Bind function name for recursion
+           fn-env (if name (assoc fn-env name fn) fn-env)]
+      ;; Evaluate body
+      (if (empty? body)
+        nil
+        (last (map #(fol-eval % fn-env) body))))))
+
+;; Symbols as functions (for collection access)
+(defmethod apply-fol-function [(fn <symbol>) args]
+  "Symbols can access collections."
+  (when (not= (count args) 1)
+    (throw {:type :fol-arity-error :expected 1 :got (count args)}))
+  (bind [coll (first args)]
+    (if (or (dict? coll) (set? coll))
+      (get coll fn)
+      (throw {:type :fol-eval-error
+              :message (str "Cannot use symbol " fn " as function on " coll)}))))
+
+;; Collections as functions
+(defmethod apply-fol-function [(coll <collection>) args]
+  "Collections can access their elements."
+  (bind [num-args (count args)]
+    (cond
+      (= num-args 1) (get coll (first args))
+      (= num-args 2) (get coll (first args) (second args))
+      :else (throw {:type :fol-arity-error :expected "1 or 2" :got num-args}))))
+
+;;; ============================================================================
+;;; Macro Expansion
+;;; ============================================================================
+
+(defn expand-fol-macro [macro args]
+  "Expand a macro with unevaluated arguments."
+  (bind [params (:params macro)
+         rest-param (:rest-param macro)
+         body (:body macro)
+         closure-env (:env macro)
+         name (:name macro)
+         num-params (count params)
+         num-args (count args)]
+    ;; Check arity
+    (if rest-param
+      (when (< num-args num-params)
+        (throw {:type :fol-arity-error
+                :expected (str "at least " num-params)
+                :got num-args}))
+      (when (not= num-args num-params)
+        (throw {:type :fol-arity-error :expected num-params :got num-args})))
+    ;; Create environment with parameter bindings (args NOT evaluated)
+    (bind [macro-env closure-env
+           ;; Bind regular parameters to unevaluated args
+           macro-env (reduce
+                      (fn [e [param arg]]
+                        (bind [bindings (destructure-pattern param arg)]
+                          (reduce-kv (fn [env k v] (assoc env k v))
+                                    e
+                                    bindings)))
+                      macro-env
+                      (map vector params args))
+           ;; Bind rest parameter if present
+           macro-env (if rest-param
+                      (bind [rest-args (drop num-params args)
+                             rest-bindings (destructure-pattern rest-param rest-args)]
+                        (reduce-kv (fn [env k v] (assoc env k v))
+                                  macro-env
+                                  rest-bindings))
+                      macro-env)
+           ;; Bind macro name for recursive macros
+           macro-env (if name (assoc macro-env name macro) macro-env)]
+      ;; Evaluate body to produce expanded form
+      (if (empty? body)
+        nil
+        (last (map #(fol-eval % macro-env) body))))))
+
+(defn macroexpand-1 [form env]
+  "Expand form once if it's a macro call.
+   Returns [expanded-form was-expanded?]."
+  (if (and (list? form) (symbol? (first form)))
+    (bind [op-sym (first form)
+           op-value (try
+                     (lookup env op-sym)
+                     (catch :unbound-variable e
+                       (when (cl-boundp op-sym)
+                         (cl-symbol-value op-sym))))]
+      (if (fol-macro? op-value)
+        [(expand-fol-macro op-value (rest form)) true]
+        [form false]))
+    [form false]))
+
+(defn macroexpand [form env]
+  "Repeatedly expand form until it's no longer a macro call."
+  (loop [current-form form]
+    (bind [[expanded was-expanded] (macroexpand-1 current-form env)]
+      (if was-expanded
+        (recur expanded)
+        current-form))))
+
+;;; ============================================================================
+;;; Helper Functions (Host Interop Placeholders)
+;;; ============================================================================
+;;; These functions would be implemented to interface with the host runtime.
+
+(defn lookup [env sym]
+  "Look up a symbol in the environment."
+  ;; Placeholder - would delegate to host environment lookup
+  (cl:lookup env sym))
+
+(defn define-in-env! [env name value]
+  "Define a variable in the environment."
+  ;; Placeholder - would delegate to host environment mutation
+  (cl:define env name value))
+
+(defn define-generic! [env name]
+  "Define a generic function."
+  ;; Placeholder - would delegate to host generic function definition
+  (cl:defgeneric name))
+
+(defn define-class! [env name supers slots]
+  "Define a class."
+  ;; Placeholder - would delegate to host class definition
+  (cl:defclass name supers slots))
+
+(defn define-method! [env name method-fn]
+  "Define a method."
+  ;; Placeholder - would delegate to host method definition
+  (cl:defmethod name method-fn))
+
+(defn use-module! [env name]
+  "Use a module."
+  ;; Placeholder - would delegate to host module system
+  (cl:use-module name env))
+
+(defn make-module! [env name]
+  "Make a module."
+  ;; Placeholder - would delegate to host module creation
+  (cl:make-module name env))
+
+(defn cl-boundp [sym]
+  "Check if host symbol is bound."
+  (cl:boundp sym))
+
+(defn cl-symbol-value [sym]
+  "Get host symbol value."
+  (cl:symbol-value sym))
+
+;;; ============================================================================
+;;; Public API
+;;; ============================================================================
+
+(defn fol-eval-string [code-str env]
+  "Evaluate a string of FOL code in the given environment."
+  (bind [form (read-string code-str)]
+    (fol-eval form env)))
+
+(defn fol-eval-file [file-path env]
+  "Evaluate a file of FOL code in the given environment."
+  (bind [forms (read-file file-path)]
+    (last (map #(fol-eval % env) forms))))
+
+;;; End of FOL self-hosted evaluator

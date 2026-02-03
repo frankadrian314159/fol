@@ -18,4 +18,5 @@
                (:file "test-predicates")
                (:file "test-control-flow")
                (:file "test-mop")
-               (:file "test-transducers")))
+               (:file "test-transducers")
+               (:file "test-paper-examples")))

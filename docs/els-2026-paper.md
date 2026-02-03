@@ -74,9 +74,9 @@ FOL adopts Clojure's reader syntax for consistency with functional programming c
 
 ;; Rest parameters with &
 (defn sum-and-product
-  ([first & rest]
-    {:sum (+ first (apply + rest))
-     :product (* first (apply * rest))}))
+  ([fst & rst]
+    (dict :sum (+ fst (apply + rst))
+          :product (* fst (apply * rst)))))
 
 ;; Nested destructuring with :or for defaults
 (defn process-config
@@ -144,19 +144,19 @@ The implementation consists of approximately 6,000 lines of Common Lisp code org
 FOL extends CLOS with a persistent object protocol. All user-defined classes inherit from `<persistent-object>` and use `pslot-value` for slot access:
 
 ```clojure
-(defclass* <person> (<persistent-object>)
-  ((name :type <string>)
-   (age :type <number>)))
+(defclass <person> [<persistent-object>]
+  [[name :type <string>]
+   [age :type <number>]])
 
 (def alice (make <person> :name "Alice" :age 30))
 
-;; Updates return new instances
+;; Updates return new instances via slot-value
 (def older-alice
   (set-pslot-value alice 'age 31))
 
 ;; Original unchanged
-(pslot-value alice 'age)  ; => 30
-(pslot-value older-alice 'age)  ; => 31
+(slot-value alice 'age)  ; => 30
+(slot-value older-alice 'age)  ; => 31
 ```
 
 The `defclass*` macro extends CLOS's `defclass` to create persistent classes. It ensures all instances inherit from `<persistent-object>` and automatically implements the persistent slot protocol. Like CLOS, it supports slot options including `:type`, `:initarg`, `:initform`, and `:reader`/`:writer` specifications.
@@ -172,12 +172,12 @@ The persistent object protocol also interacts with Common Lisp's garbage collect
 FOL's collections are implemented as thin wrappers around FSet and Sycamore data structures:
 
 ```clojure
-(defclass* <collection> (<persistent-object>)
-  ((items :type fset:collection)))
+(defclass <collection> [<persistent-object>]
+  [[items :type fset:collection]])
 
-(defclass* <vector> (<collection>) ())
-(defclass* <dict> (<collection>) ())
-(defclass* <set> (<collection>) ())
+(defclass <vector> [<collection>] [])
+(defclass <dict> [<collection>] [])
+(defclass <set> [<collection>] [])
 ```
 
 This design provides several benefits:
@@ -206,8 +206,8 @@ FOL implements Clojure's transducer protocol [6], enabling composable algorithmi
         (take 5)))
 
 ;; Apply to different contexts
-(transduce xform + 0 (range))  ; => 220
-(into [] xform (range 20))     ; => [0 4 16 36 64]
+(transduce xform + 0 (range 20))  ; => 120 (0+4+16+36+64)
+(into [] xform (range 20))        ; => [0 4 16 36 64]
 ```
 
 Transducers separate the essence of transformation from the context of application. The same transducer works with reduction, sequence building, or channel processing.
@@ -217,16 +217,15 @@ Transducers separate the essence of transformation from the context of applicati
 FOL provides lazy sequences that delay computation until needed:
 
 ```clojure
+(defn fib-helper [a b]
+  (lazy-seq (cons a (fib-helper b (+ a b)))))
+
 (defn fibonacci []
-  (bind [fib-helper
-         (fn [a b]
-           (lazy-seq
-             (cons a (fib-helper b (+ a b)))))]
-    (fib-helper 0 1)))
+  (fib-helper 0 1))
 
 ;; Only computes as needed
-(take 10 (fibonacci))
-; => (0 1 1 2 3 5 8 13 21 34)
+(vec (take 10 (fibonacci)))
+; => [0 1 1 2 3 5 8 13 21 34]
 ```
 
 Lazy sequences enable infinite data structures and efficient pipeline processing. The implementation uses thunks that cache their results after first evaluation.
@@ -238,65 +237,59 @@ FOL's generic functions fully integrate with persistent data. Methods dispatch o
 ```clojure
 (defgeneric process [x])
 
-(defmethod process [(<vector>? x)]
-  (map process x))
+(defmethod process [(x <vector>)]
+  (vec (map process x)))
 
-(defmethod process [(<dict>? x)]
+(defmethod process [(x <dict>)]
   (update-vals x process))
 
-(defmethod process [(<number>? x)]
+(defmethod process [(x <number>)]
   (* x 2))
 
 ;; Works recursively on nested structures
 (process [1 {:a 2 :b 3} [[4]]])
 ; => [2 {:a 4 :b 6} [[8]]]
 
-;; Multiple dispatch with type predicates and destructuring
+;; Multiple dispatch with type specialization
 (defgeneric compute-total [items discount])
 
-;; Dispatch on collection type with destructuring
-(defmethod compute-total [(<vector>? items) (<number>? discount)]
+;; Dispatch on collection type
+(defmethod compute-total [(items <vector>) (discount <number>)]
   (* (reduce + items) (- 1.0 discount)))
 
-;; Dispatch using both type and predicate
-(defmethod compute-total
-  [(<dict>? items)
-   {:keys [rate type] :or {type :percentage}}]
-  (bind [subtotal (reduce + (vals items))]
+;; Dispatch with map destructuring in body
+(defmethod compute-total [(items <dict>) (discount <dict>)]
+  (bind [{:keys [rate type] :or {type :percentage}} discount
+         subtotal (reduce + (vals items))]
     (if (= type :percentage)
       (* subtotal (- 1.0 rate))
       (- subtotal rate))))
 
-;; Multiple dispatch with nested patterns and rest args
+;; Generic with rest args
 (defgeneric merge-data [source target & options])
 
-(defmethod merge-data
-  [(<dict>? source)
-   (<dict>? target)
-   & {:keys [strategy overwrite?]
-      :or {strategy :shallow overwrite? false}
-      :as opts}]
-  (cond
-    (= strategy :deep)
-      (deep-merge source target overwrite?)
-    (= strategy :shallow)
-      (if overwrite?
-        (merge target source)
-        (merge source target))))
+(defmethod merge-data [(source <dict>) (target <dict>) & options]
+  (bind [{:keys [strategy overwrite?]
+          :or {strategy :shallow overwrite? nil}} (apply dict options)]
+    (cond
+      (= strategy :deep)
+        (deep-merge source target overwrite?)
+      (= strategy :shallow)
+        (if overwrite?
+          (merge target source)
+          (merge source target)))))
 
-;; Pattern matching with nested vectors and type predicates
+;; Pattern matching with nested vectors
 (defgeneric transform-shape [shape transform])
 
-(defmethod transform-shape
-  [[(<keyword>? type)
-    [(<number>? x) (<number>? y)]
-    :as shape]
-   {:keys [scale rotate translate]
-    :or {scale 1.0 rotate 0 translate [0 0]}}]
-  (bind [[[dx dy] translate]
+(defmethod transform-shape [(shape <vector>) (transform <dict>)]
+  (bind [[type [x y]] shape
+         {:keys [scale rotate translate]
+          :or {scale 1.0 rotate 0 translate [0 0]}} transform
+         [dx dy] translate
          [rx ry] [(* x scale) (* y scale)]
          [tx ty] [(+ rx dx) (+ ry dy)]]
-    [type [tx ty] :transformed true]))
+    [type [tx ty] :transformed t]))
 
 This demonstrates how generic functions provide polymorphism through multiple dispatch while maintaining destructuring capabilities and functional purity.
 
@@ -356,17 +349,14 @@ Predicate specializers support multiple parameters with independent predicates:
 Any function can serve as a predicate, enabling domain-specific dispatch:
 
 ```clojure
-;; Type predicates
+;; Type predicates with correct syntax: (var (predicate))
 (defn process-value
-  ([(<number>? x)] (* x 2))
-  ([(<string>? x)] (str x x))
-  ([(<vector>? x)] (map process-value x))
+  ([(x (<number>?))] (* x 2))
+  ([(x (<string>?))] (str x x))
+  ([(x (<vector>?))] (vec (map process-value x)))
   ([x] x))
 
-;; User-defined predicates
-(defn even? [n] (= (mod n 2) 0))
-(defn odd? [n] (= (mod n 2) 1))
-
+;; Using standard even?/odd? predicates
 (defn classify-parity
   ([(n (even?))] :even)
   ([(n (odd?))] :odd))
@@ -378,12 +368,12 @@ Predicate specializers have the same specificity level as type specializers (lev
 
 ```clojure
 (defn check
-  ([(x (= 5))] :exactly-five)     ; Predicate (level 4)
-  ([(x <number>)] :some-number)   ; Type (level 3)
-  ([x] :anything))                ; Any (level 0)
+  ([(x (= 5))] :exactly-five)       ; Predicate (level 4)
+  ([(x (<number>?))] :some-number)  ; Type predicate (level 4)
+  ([x] :anything))                  ; Any (level 0)
 
 (check 5)   ; => :exactly-five (predicate matches first)
-(check 10)  ; => :some-number (type matches)
+(check 10)  ; => :some-number (type predicate matches)
 (check "x") ; => :anything (fallback)
 ```
 
@@ -433,13 +423,13 @@ FOL includes a meta-circular evaluator written in FOL itself (approximately 350 
 ```clojure
 (defgeneric eval-form [form env])
 
-(defmethod eval-form [(<number>? form) env]
+(defmethod eval-form [(form <number>) env]
   form)  ; Self-evaluating
 
-(defmethod eval-form [(<symbol>? form) env]
+(defmethod eval-form [(form <symbol>) env]
   (lookup env form))
 
-(defmethod eval-form [(<list>? form) env]
+(defmethod eval-form [(form <list>) env]
   (if (empty? form)
     form
     (bind [op (first form)
