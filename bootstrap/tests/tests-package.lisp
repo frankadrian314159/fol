@@ -301,3 +301,20 @@
 
 (defun run-fol-tests ()
   (run! 'fol-suite))
+
+(defun test-fol (code-string)
+  "Parse and evaluate FOL code from a string using the Clojure readtable.
+   Returns the result of evaluation."
+  (let* ((form (fol-read-from-string code-string))
+         (std-env (make-standard-module))
+         (walk-env (fol.env:make-env std-env
+                                     'walk #'fol.walk:walk
+                                     'prewalk #'fol.walk:prewalk
+                                     'prewalk-demo #'fol.walk:prewalk-demo
+                                     'prewalk-replace #'fol.walk:prewalk-replace
+                                     'postwalk #'fol.walk:postwalk
+                                     'postwalk-demo #'fol.walk:postwalk-demo
+                                     'postwalk-replace #'fol.walk:postwalk-replace))
+         (test-env (fol.env:make-env walk-env
+                                     'import (lambda (&rest args) (declare (ignore args)) nil))))
+    (fol-eval form test-env)))

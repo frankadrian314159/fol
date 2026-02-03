@@ -17,6 +17,7 @@
                (:file "char"   :depends-on ("package" "wrappers"))
                (:file "string"   :depends-on ("package" "wrappers" "collection"))
                (:file "seqop"  :depends-on ("package" "wrappers" "collection" "string"))
+               (:file "walk" :depends-on ("package" "wrappers" "collection" "seqop"))
                (:file "symbol"   :depends-on ("package" "wrappers"))
                (:file "number" :depends-on ("package" "wrappers"))
                (:file "stream" :depends-on ("package" "classes"))
@@ -25,7 +26,8 @@
                (:file "fol-mop" :depends-on ("package" "collection"))
                (:file "eval" :depends-on ("package" "wrappers" "classes" "collection" "env"
                                           "logop" "arithop" "compareop" "fol-mop"))
-               (:file "standard-names" :depends-on ("eval" "module"))
+               (:file "atom" :depends-on ("package" "wrappers" "eval"))
+               (:file "standard-names" :depends-on ("eval" "module" "atom"))
                (:file "repl" :depends-on ("eval" "reader")))
   :in-order-to ((test-op (test-op "bootstrap/tests"))))
 
@@ -58,5 +60,6 @@
                   (:file "test-eval" :depends-on ("tests-package"))
                   (:file "test-transducers" :depends-on ("tests-package"))
                   (:file "test-zip" :depends-on ("tests-package"))
+                  (:file "test-walk" :depends-on ("tests-package"))
                   )))
   :perform (test-op (o s) (symbol-call :fol.tests :run-fol-tests)))

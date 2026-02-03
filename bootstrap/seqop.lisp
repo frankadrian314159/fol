@@ -507,7 +507,7 @@
    KEY can be raw or wrapped; it's unwrapped for lookup."
   (multiple-value-bind (val found)
       (fset:lookup (pslot-value dict 'fol.collection::items)
-                   (fol.wrappers:fol-value key))
+                   (fol.collection::%dict-key key))
     (if found val default)))
 
 (defmethod get ((dict <sorted-dict>) key &optional default)
@@ -851,7 +851,7 @@
 
 (defmethod contains? ((c <unordered-collection>) item)
   (multiple-value-bind (val found)
-      (fset:lookup (pslot-value c 'fol.collection::items) (fol.wrappers:fol-value item))
+      (fset:lookup (pslot-value c 'fol.collection::items) (fol.collection::%dict-key item))
     (declare (ignore val))
     (if found t nil)))
 
@@ -2564,7 +2564,7 @@
         (current coll))
     (dolist (k ks)
       (if (typep current '<dict>)
-          (let ((raw-k (fol.wrappers:fol-value k)))
+          (let ((raw-k (fol.collection::%dict-key k)))
             (multiple-value-bind (val found)
                 (fset:lookup (pslot-value current 'fol.collection::items) raw-k)
               (if found
@@ -2600,7 +2600,7 @@
 
 (defmethod find ((coll <dict>) key)
   "Find the map entry for KEY in dict, returns (KEY . VALUE) or NIL."
-  (let ((raw-key (fol.wrappers:fol-value key)))
+  (let ((raw-key (fol.collection::%dict-key key)))
     (multiple-value-bind (val found)
         (fset:lookup (pslot-value coll 'fol.collection::items) raw-key)
       (when found

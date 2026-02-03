@@ -528,6 +528,7 @@
    ;; Standard modules
    make-standard-module
    make-zip-module
+   make-walk-module
    ;; Function class and predicate
    <function> <function>?
    ;; Macro class, predicate, and accessors
@@ -552,6 +553,27 @@
    identity complement type
    ;; Standard environment symbols (for macro form construction)
    cl-cons cl-list))
+
+(defpackage fol.atom
+  (:use cl)
+  (:shadow atom)
+  (:import-from fol.wrappers fol-value)
+  (:import-from fol.eval apply-function)
+  (:import-from bordeaux-threads
+                make-lock
+                with-lock-held)
+  (:export <atom> <atom>?
+           atom deref reset! swap!))
+
+(defpackage fol.walk
+  (:use cl fol.wrappers fol.classes fol.collection fol.seqop)
+  (:shadowing-import-from fol.collection
+                          assoc get rest first reverse remove pop push make-list
+                          third second nth vector make-array)
+  (:shadowing-import-from fol.seqop find merge reduce set-difference set-intersection)
+  (:import-from fol.eval apply-function)
+  (:export walk prewalk prewalk-demo prewalk-replace
+           postwalk postwalk-demo postwalk-replace))
 
 (defpackage fol.repl
   (:use cl)

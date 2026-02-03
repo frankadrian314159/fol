@@ -67,6 +67,12 @@
           :documentation "The underlying FSet map holding the key-value pairs."))
   (:metaclass persistent-class)
   (:documentation "A persistent dictionary mapping keys to values."))
+(defun %dict-key (key)
+  "Unwrap a key for dict storage. Collections are unwrapped to their storage."
+  (let ((unwrapped (fol.wrappers:fol-value key)))
+    (if (typep unwrapped '<persistent-object>)
+        (fol.persistent:%persistent-storage unwrapped)
+        unwrapped)))
 
 (defun make-dict (&rest pairs)
   "Create a new <dict> populated with the given key-value pairs.
@@ -74,7 +80,7 @@
   (let ((map (fset:empty-map)))
     (loop for (key val) on pairs by #'cddr
           do (setf map (fset:with map
-                                  (fol.wrappers:fol-value key)
+                                  (%dict-key key)
                                   (fol.wrappers:fol-value val))))
     (make-instance '<dict> :items map)))
 

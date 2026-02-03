@@ -80,7 +80,11 @@
 ;;; --- Persistent objects ---
 
 (defmethod %= ((a <persistent-object>) (b <persistent-object>))
-  (equal (%persistent-storage a) (%persistent-storage b)))
+  (handler-case
+      (fset:equal? (%persistent-storage a) (%persistent-storage b))
+    (error ()
+      ;; Fallback for objects that don't have persistent storage
+      (eq a b))))
 
 ;;; --- Fallback using equal ---
 

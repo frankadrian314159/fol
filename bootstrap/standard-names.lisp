@@ -2956,3 +2956,22 @@
         (declare (ignore val))
         (fol.module:module-export module key)))
     module))
+
+(defun make-walk-module ()
+  "Create a module with FOL walk functions for tree traversal and transformation.
+   All symbols are exported."
+  (let ((module (fol.module:make-module "fol.walk"
+            ;; Walk functions
+            'walk #'fol.walk:walk
+            'prewalk #'fol.walk:prewalk
+            'prewalk-demo #'fol.walk:prewalk-demo
+            'prewalk-replace #'fol.walk:prewalk-replace
+            'postwalk #'fol.walk:postwalk
+            'postwalk-demo #'fol.walk:postwalk-demo
+            'postwalk-replace #'fol.walk:postwalk-replace)))
+    ;; Export all symbols from the module
+    (let ((items (fol.persistent:pslot-value module 'fol.collection::items)))
+      (fset:do-map (key val items)
+        (declare (ignore val))
+        (fol.module:module-export module key)))
+    module))
