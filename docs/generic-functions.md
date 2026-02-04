@@ -1,6 +1,24 @@
 # Generic Functions
 
-FOL provides a metaobject protocol (MOP) for defining generic functions and methods using vector syntax instead of traditional Lisp list syntax.
+FOL provides a metaobject protocol (MOP) for defining generic functions and methods using vector syntax instead of traditional Lisp list syntax. FOL's generic function system combines CLOS-style type dispatch with Clojure-style pattern matching and predicate-based specialization.
+
+---
+
+## Pattern Signature System
+
+At the core of FOL's dispatch mechanism is the **pattern signature** system. Each parameter in a method definition is analyzed and classified into one of these categories, ordered from most to least specific:
+
+| Level | Signature Type | Syntax Example | Description |
+|-------|---------------|----------------|-------------|
+| 4 | `:pred` | `(var (< 10))` | Predicate specialization (guard clause) |
+| 3 | `:type` | `(var <number>)` | Type specialization |
+| 2 | `:type-pred` | `(<integer>? var)` | Type predicate |
+| 1 | `:seq` | `[[a b]]` | Sequence destructuring |
+| 0 | `:any` | `var` | Matches anything (catch-all) |
+
+When dispatching, more specific patterns are tried before less specific ones.
+
+---
 
 ## defgeneric                                                              *[macro]*
 
@@ -78,7 +96,7 @@ Standard CLOS options are supported:
 (defmethod name qualifier* [specialized-lambda-list] body*)
 ```
 
-Defines a method on a generic function. Parameters can be specialized to dispatch on type.
+Defines a method on a generic function. Parameters can be specialized to dispatch on type or predicates.
 
 ### Basic Methods
 
@@ -95,7 +113,7 @@ Defines a method on a generic function. Parameters can be specialized to dispatc
   (str "An integer: " obj))
 ```
 
-### Specialized Parameters
+### Type Specializers
 
 Use a list `(var type)` to specialize on a type:
 
@@ -110,19 +128,195 @@ Use a list `(var type)` to specialize on a type:
            (expt (- (point-z b) (point-z a)) 2))))
 ```
 
-### EQL Specializers
+### = Specializers
 
-Specialize on a specific value using `(var (eql value))`:
+Specialize on a specific value using `(var (= value))`:
 
 ```fol
-(defmethod factorial [(n (eql 0))]
+(defmethod factorial [(n (= 0))]
   1)
 
 (defmethod factorial [(n <integer>)]
   (* n (factorial (- n 1))))
 ```
 
-### Method Qualifiers
+---
+
+## Predicate Specializers (Guard Clauses)
+
+One of FOL's most powerful features is **predicate specialization**, which allows methods to dispatch based on arbitrary predicates (guard clauses). This enables pattern matching on value properties, not just types.
+
+### Syntax
+
+```
+(var (predicate-fn arg*))
+```
+
+The parameter matches when `(predicate-fn var arg*)` returns truthy.
+
+### Common Predicate Patterns
+
+```fol
+;; Equality check
+(defmethod classify [(x (= 0))]
+  :zero)
+
+;; Comparison predicates
+(defmethod classify [(x (< 0))]
+  :negative)
+
+(defmethod classify [(x (> 0))]
+  :positive)
+
+;; Range matching with multiple predicates
+(defmethod temperature-feel [(temp (< 32))]
+  :freezing)
+
+(defmethod temperature-feel [(temp (< 60))]
+  :cold)
+
+(defmethod temperature-feel [(temp (< 80))]
+  :comfortable)
+
+(defmethod temperature-feel [temp]
+  :hot)
+```
+
+### Multiple Parameter Predicates
+
+Predicates can be combined across multiple parameters:
+
+```fol
+(defgeneric quadrant [x y])
+
+(defmethod quadrant [(x (> 0)) (y (> 0))]
+  :first)
+
+(defmethod quadrant [(x (< 0)) (y (> 0))]
+  :second)
+
+(defmethod quadrant [(x (< 0)) (y (< 0))]
+  :third)
+
+(defmethod quadrant [(x (> 0)) (y (< 0))]
+  :fourth)
+
+(defmethod quadrant [x y]
+  :on-axis)
+```
+
+### Predicates with Additional Arguments
+
+Predicate specializers can include additional arguments:
+
+```fol
+;; (contains? coll value) - matches when collection contains value
+(defmethod handle-response [(status (contains? #{200 201 204}))]
+  :success)
+
+(defmethod handle-response [(status (contains? #{400 401 403 404}))]
+  :client-error)
+
+(defmethod handle-response [(status (contains? #{500 502 503}))]
+  :server-error)
+```
+
+### Custom Predicate Functions
+
+Any function returning truthy/falsy can be used:
+
+```fol
+(defn prime? [n]
+  ;; primality test implementation
+  ...)
+
+(defmethod classify-number [(n prime?)]
+  :prime)
+
+(defmethod classify-number [(n even?)]
+  :even-composite)
+
+(defmethod classify-number [n]
+  :odd-composite)
+```
+
+### Predicate Specificity
+
+When multiple predicate methods could match, they are tried in definition order. More specific predicates should be defined first:
+
+```fol
+;; Define from most specific to least specific
+(defmethod age-group [(age (= 0))]
+  :newborn)
+
+(defmethod age-group [(age (< 13))]
+  :child)
+
+(defmethod age-group [(age (< 20))]
+  :teen)
+
+(defmethod age-group [(age (< 65))]
+  :adult)
+
+(defmethod age-group [age]
+  :senior)
+```
+
+---
+
+## Combining Types and Predicates
+
+Type specializers and predicate specializers can be combined for precise matching:
+
+```fol
+(defgeneric process-value [val])
+
+;; Type + predicate combination
+(defmethod process-value [(n <integer>)]
+  (if (< n 0)
+      :negative-integer
+      :non-negative-integer))
+
+;; Or use predicates directly
+(defmethod process-value [(n (< 0))]
+  :negative)
+
+(defmethod process-value [(s <string>)]
+  (if (empty? s)
+      :empty-string
+      :non-empty-string))
+```
+
+### Precedence Rules
+
+When both type and predicate specializers could match:
+1. Predicate specializers (`:pred`) are checked first (level 4)
+2. Type specializers (`:type`) are checked second (level 3)
+3. Catch-all patterns (`:any`) are checked last (level 0)
+
+```fol
+(defgeneric classify [x])
+
+;; This matches first for zero (predicate check)
+(defmethod classify [(x (= 0))]
+  :zero)
+
+;; This matches for any integer (type check)
+(defmethod classify [(x <integer>)]
+  :integer)
+
+;; This is the fallback (catch-all)
+(defmethod classify [x]
+  :unknown)
+
+(classify 0)   ; => :zero (predicate matched first)
+(classify 5)   ; => :integer (type matched)
+(classify "x") ; => :unknown (catch-all)
+```
+
+---
+
+## Method Qualifiers
 
 Standard CLOS qualifiers are supported:
 
@@ -199,6 +393,31 @@ When a generic function is defined with multiple patterns, `defmethod` routes me
 (combine 1 2 3)              ; => 6
 ```
 
+### Example: Multi-Pattern with Predicates
+
+```fol
+;; Factorial using predicate dispatch
+(defgeneric factorial [n])
+
+(defmethod factorial [(n (= 0))]
+  1)
+
+(defmethod factorial [(n (= 1))]
+  1)
+
+(defmethod factorial [(n <integer>)]
+  (* n (factorial (- n 1))))
+
+;; Fibonacci using predicates for base cases
+(defgeneric fib [n])
+
+(defmethod fib [(n (< 2))]
+  n)
+
+(defmethod fib [(n <integer>)]
+  (+ (fib (- n 1)) (fib (- n 2))))
+```
+
 ### Pattern Dispatch Errors
 
 Calling a multi-pattern function with an unsupported arity signals an error:
@@ -243,6 +462,55 @@ The dispatcher checks:
 1. Arity (number of arguments)
 2. For same-arity patterns, checks if arguments match structure requirements
 3. More specific patterns (sequence expectations) are tried first
+
+---
+
+## Destructuring Patterns with Predicates
+
+FOL supports nested predicates within destructuring patterns:
+
+```fol
+;; Destructure a pair and validate elements
+(defgeneric process-pair [pair])
+
+(defmethod process-pair [[[x (y (> 0))]]]
+  (str "x=" x " with positive y=" y))
+
+(defmethod process-pair [[[x y]]]
+  (str "x=" x " y=" y))
+
+;; Usage
+(process-pair [1 5])   ; => "x=1 with positive y=5"
+(process-pair [1 -3])  ; => "x=1 y=-3"
+```
+
+### Supported Destructuring Forms
+
+```fol
+[a b c]           ; Sequential destructuring
+[a & rest]        ; Rest parameter
+[a b :as whole]   ; Whole binding
+{:keys [x y]}     ; Dict destructuring
+[[x y]]           ; Nested sequence patterns
+[x (y (< 10))]    ; Predicates within patterns
+```
+
+---
+
+## Restrictions
+
+### Macros Cannot Use Predicate Specializers
+
+Predicate specializers are **not allowed in macros** because macros receive unevaluated forms, not values. Predicates need evaluated values to run:
+
+```fol
+;; This will signal an error
+(defmacro bad-macro
+  ([(x (= 0))] ...)  ; ERROR: Predicate specializers not allowed in macros
+  ([x] ...))
+```
+
+Type specializers are also not supported in macros for the same reason.
 
 ---
 
@@ -328,6 +596,53 @@ Defines a class using vector syntax.
 
 ---
 
+## Advanced Example: Calculator with Predicate Dispatch
+
+```fol
+;; A calculator that handles special cases with predicates
+
+(defgeneric calc [op a b])
+
+;; Division by zero protection
+(defmethod calc [(op (= :div)) a (b (= 0))]
+  (error "Division by zero"))
+
+;; Multiplication by zero optimization
+(defmethod calc [(op (= :mul)) a (b (= 0))]
+  0)
+
+(defmethod calc [(op (= :mul)) (a (= 0)) b]
+  0)
+
+;; Multiplication by one optimization
+(defmethod calc [(op (= :mul)) a (b (= 1))]
+  a)
+
+(defmethod calc [(op (= :mul)) (a (= 1)) b]
+  b)
+
+;; Standard operations
+(defmethod calc [(op (= :add)) (a <number>) (b <number>)]
+  (+ a b))
+
+(defmethod calc [(op (= :sub)) (a <number>) (b <number>)]
+  (- a b))
+
+(defmethod calc [(op (= :mul)) (a <number>) (b <number>)]
+  (* a b))
+
+(defmethod calc [(op (= :div)) (a <number>) (b <number>)]
+  (/ a b))
+
+;; Usage
+(calc :mul 5 0)    ; => 0 (optimized)
+(calc :mul 1 42)   ; => 42 (optimized)
+(calc :div 10 0)   ; => Error: Division by zero
+(calc :add 3 4)    ; => 7
+```
+
+---
+
 ## Grammar
 
 ```
@@ -347,6 +662,12 @@ method-description ::= (:method method-qualifier* method-destructuring-vector me
 gf-destructuring-vector ::= <destructuring-vector>
 
 method-destructuring-vector ::= <destructuring-vector>
+
+specialized-parameter ::= var                      ; Unspecialized (:any)
+                       | (var type)                ; Type specializer (:type)
+                       | (var (pred-fn arg*))      ; Predicate specializer (:pred)
+                       | (type-pred? var)          ; Type predicate (:type-pred)
+                       | [pattern-element*]        ; Sequence pattern (:seq)
 ```
 
 ---
@@ -356,8 +677,28 @@ method-destructuring-vector ::= <destructuring-vector>
 - Multi-pattern generics create internal functions named `name/PN` where N is the pattern index (0, 1, 2...)
 - The dispatcher function with the original name routes calls by checking:
   1. Argument count (arity)
-  2. For same-arity patterns: argument structure (is it a sequence?)
-- Pattern signatures are computed at definition time to determine specificity
-- More specific patterns (expecting sequences) are tried before catch-all patterns
-- Single-pattern generics work exactly like standard CLOS generic functions
+  2. For same-arity patterns: argument structure and predicate conditions
+- Pattern signatures are computed at definition time by `compute-pattern-signature`
+- Specificity levels determine dispatch order (predicates > types > sequences > catch-all)
+- Runtime matching uses `args-match-pattern-p` which evaluates predicate specializers
+- Single-pattern generics work exactly like standard CLOS generic functions (no dispatcher overhead)
 - All standard CLOS features (method combination, qualifiers, etc.) are available
+
+### Runtime Pattern Matching
+
+At call time, the generated dispatcher:
+1. Checks argument count against known arities
+2. For each same-arity pattern (most specific first):
+   - Evaluates each parameter's predicate/type check
+   - Short-circuits on first failure
+3. Routes to the first matching internal generic
+4. Internal generic uses standard CLOS dispatch for additional type specialization
+
+### Related Functions
+
+| Function | Purpose |
+|----------|---------|
+| `compute-pattern-signature` | Analyzes parameters to determine signature |
+| `args-match-pattern-p` | Runtime check if args match a signature |
+| `element-matches-signature-p` | Recursive check for nested patterns |
+| `type-conforms-p` | Check if value matches a type |

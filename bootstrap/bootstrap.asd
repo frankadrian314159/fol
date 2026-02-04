@@ -61,5 +61,6 @@
                   (:file "test-transducers" :depends-on ("tests-package"))
                   (:file "test-zip" :depends-on ("tests-package"))
                   (:file "test-walk" :depends-on ("tests-package"))
+                  (:file "test-timing" :depends-on ("tests-package"))
                   )))
   :perform (test-op (o s) (symbol-call :fol.tests :run-fol-tests)))

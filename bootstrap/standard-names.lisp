@@ -432,6 +432,32 @@
    :rest-param 'body
    :name 'comment))
 
+(defun fol-time-thunk (thunk)
+  "Execute THUNK (a FOL function of no arguments) and print timing information.
+   Returns the result of calling the thunk."
+  (let* ((start-time (get-internal-real-time))
+         (result (fol.eval:apply-function thunk nil))
+         (end-time (get-internal-real-time))
+         (elapsed-seconds (/ (- end-time start-time)
+                             (float internal-time-units-per-second))))
+    (format t "~&Elapsed time: ~,6F seconds~%" elapsed-seconds)
+    (finish-output)
+    result))
+
+(defun make-%time%-macro ()
+  "Create the '%time%' macro.
+   (%time% body...) evaluates the body forms and prints the elapsed time.
+   Returns the result of evaluating the body.
+   Example: (%time% (reduce + (range 10000))) prints elapsed time and returns 49995000"
+  (let ((empty-vec (make-instance 'fol.collection:<vector> :items (fset:empty-seq))))
+    (make-macro
+     nil
+     `((syntax-quote
+        (%time-thunk% (fn ,empty-vec (unquote-splicing body)))))
+     nil
+     :rest-param 'body
+     :name '%time%)))
+
 ;;; ============================================================================
 ;;; Standard Environment
 ;;; ============================================================================
@@ -2918,7 +2944,9 @@
             'delay (make-delay-macro)
             'assert (make-assert-macro)
             'comment (make-comment-macro)
-            ;; Internal test function
+            ;; Internal functions
+            '%time% (make-%time%-macro)
+            '%time-thunk% #'fol-time-thunk
             '%test% #'fol.repl:fol-test)))
     ;; Export all symbols from the module
     (let ((items (fol.persistent:pslot-value module 'fol.collection::items)))

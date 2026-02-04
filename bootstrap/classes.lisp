@@ -35,18 +35,6 @@
   (:metaclass fol.persistent:persistent-class)
   (:documentation "A regular expression pattern. Inherits from <string> and holds the pattern string."))
 
-;;; --- Regular Expression Scanner Class ---
-;;; Note: Scanner class is NOT a persistent object because it holds a compiled
-;;; scanner function which is inherently mutable/stateful.
-
-(defclass <re-scanner> ()
-  ((val :initarg :val :accessor -fol-value :type <re-pattern>
-        :documentation "The <re-pattern> from which this scanner was created.")
-   (scanner :initarg :scanner :accessor scanner-function :type function
-            :documentation "The compiled scanner function from CL-PPCRE.")
-   (register-names :initarg :register-names :accessor scanner-register-names
-                   :documentation "A <vector> of register names for named groups."))
-  (:documentation "A compiled regular expression scanner wrapping CL-PPCRE's scanner."))
 
 ;;; --- Symbol Class ---
 
@@ -145,22 +133,29 @@
   ()
   (:documentation "Base class for output streams."))
 
-(defclass <string-input-stream> (<input-stream>)
+(defclass <string-stream> (<stream> <string>)
   ((source-string :initarg :source-string :accessor stream-source-string :type string
                   :documentation "The string to read from."))
   (:documentation "An input stream that reads from a string."))
 
-(defclass <file-input-stream> (<input-stream>)
+(defclass <file-stream> (<stream>)
   ((file-path :initarg :file-path :accessor stream-file-path :type string
               :documentation "The path to the file to read from."))
   (:documentation "An input stream that reads from a file."))
 
-(defclass <string-output-stream> (<output-stream>)
+(defclass <string-input-stream> (<input-stream> <string-stream>)
+  ()
+  (:documentation "An input stream that reads from a string."))
+
+(defclass <string-output-stream> (<output-stream> <string-stream>)
   ()
   (:documentation "An output stream that writes to a string."))
 
-(defclass <file-output-stream> (<output-stream>)
-  ((file-path :initarg :file-path :accessor stream-file-path :type string
-              :documentation "The path to the file to write to."))
+(defclass <file-output-stream> (<input-stream> <file-stream>)
+  ()
+  (:documentation "An input stream that reads from a file."))
+
+(defclass <file-output-stream> (<output-stream> <file-stream>)
+  ()
   (:documentation "An output stream that writes to a file."))
 

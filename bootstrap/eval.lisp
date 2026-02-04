@@ -619,28 +619,37 @@
                        (fol-type-symbol-p (fol-value type-spec))))))))
 
 (defun get-fol-type-class (type-sym)
-  "Return the CL class corresponding to a FOL type symbol, or NIL if not found."
-  (cl:find-class type-sym nil))
+  "Return the CL class corresponding to a FOL type symbol, or NIL if not found.
+   Normalizes the type symbol by looking in fol.classes and fol.collection packages."
+  (cl:or (cl:find-class type-sym nil)
+         ;; Try finding in fol.classes package
+         (let ((classes-sym (cl:find-symbol (symbol-name type-sym) :fol.classes)))
+           (when classes-sym (cl:find-class classes-sym nil)))
+         ;; Try finding in fol.collection package
+         (let ((collection-sym (cl:find-symbol (symbol-name type-sym) :fol.collection)))
+           (when collection-sym (cl:find-class collection-sym nil)))))
 
 (defun type-conforms-p (value expected-type)
   "Return T if VALUE conforms to EXPECTED-TYPE.
-   Uses the FOL class hierarchy to check subtypes."
+   Uses the FOL class hierarchy to check subtypes.
+   Compares type symbols by name to handle package differences."
   (let ((type-class (get-fol-type-class expected-type)))
     (if type-class
         ;; Check using CLOS type hierarchy
-        (or
+        (cl:or
          ;; Check if value is an instance of the expected type class
          (typep value type-class)
          ;; For raw CL values, check against their FOL type and hierarchy
          (let ((actual-type (fol.wrappers:fol-type-of value)))
-           (if (eq actual-type expected-type)
-               t  ; Exact match
+           (if (string= (symbol-name actual-type) (symbol-name expected-type))
+               t  ; Name match (handles package differences)
                ;; Check if actual-type's class is a subtype of expected-type
                (let ((actual-class (get-fol-type-class actual-type)))
                  (cl:and actual-class type-class
                       (subtypep actual-class type-class))))))
-        ;; No class found for expected-type - try symbol comparison
-        (eq (fol.wrappers:fol-type-of value) expected-type))))
+        ;; No class found for expected-type - try symbol name comparison
+        (string= (symbol-name (fol.wrappers:fol-type-of value))
+                 (symbol-name expected-type)))))
 
 (defun bind-with-type-check (var-name type-spec value)
   "Create a binding for VAR-NAME to VALUE, checking that VALUE conforms to TYPE-SPEC.
@@ -851,15 +860,31 @@
       (let ((keys-val (get pattern :keys nil)))
         (when keys-val
           ;; :keys [a b c] -> bind a to :a, b to :b, etc.
+          ;; :keys [(a type) b (c type)] -> bind with type checking
           (let ((key-list (cond
                             ((<vector>? keys-val) (vector-to-list keys-val))
                             ((cl:listp keys-val) keys-val)
                             (t (list keys-val)))))
             (dolist (k key-list)
-              (let* ((sym (extract-symbol k))
+              ;; Check if k is a type-annotated pair: (name type) or [name type]
+              (let* ((is-typed (cl:or (cl:and (cl:listp k) (= (length k) 2)
+                                              (cl:or (symbolp (cl:first k)) (<symbol>? (cl:first k))))
+                                      (cl:and (<vector>? k) (= (size k) 2))))
+                     (k-elements (when is-typed
+                                   (if (<vector>? k) (vector-to-list k) k)))
+                     (sym (if is-typed
+                              (extract-symbol (cl:first k-elements))
+                              (extract-symbol k)))
+                     (type-spec (when is-typed
+                                  (let ((ts (cl:second k-elements)))
+                                    (if (<symbol>? ts) (fol-value ts) ts))))
                      (keyword (intern (symbol-name sym) :keyword))
                      (val (get-with-default keyword sym)))
-                (cl:push (cons sym val) bindings))))))
+                (if type-spec
+                    ;; With type annotation - use type checking
+                    (setf bindings (append (bind-with-type-check sym type-spec val) bindings))
+                    ;; Without type annotation - simple binding
+                    (cl:push (cons sym val) bindings)))))))
 
       ;; Check for :strs shortcut (string keys)
       (let ((strs-val (get pattern :strs nil)))
@@ -2023,27 +2048,113 @@
 
 (defun eval-defmethod* (args env)
   "Evaluate (defmethod* name qualifier* [specialized-lambda-list] body*).
-   Defines a method with FOL syntax where the specialized lambda list is a vector."
+   Defines a method with FOL syntax where the specialized lambda list is a vector.
+   Also supports multi-clause syntax:
+   (defmethod* name ([pattern1] body1*) ([pattern2] body2*) ...)
+   Multi-clause creates a dispatcher function like defn."
   (unless (>= (length args) 2)
     (error 'fol-eval-error :message "defmethod* requires name and lambda-list"
            :form (cons 'defmethod* args)))
   (let ((name (first args))
         (remaining (rest args))
-        (qualifiers nil)
-        (lambda-list-vec nil)
-        (body nil))
-    ;; Collect qualifiers (atoms that aren't the lambda list vector)
-    ;; Use cl:and since fol.logop:and is shadowed in this package
+        (qualifiers nil))
+    ;; Collect qualifiers (atoms that aren't the lambda list vector or clause list)
     (loop while (cl:and remaining
                         (cl:not (<vector>? (car remaining)))
                         (cl:not (listp (car remaining))))
           do (cl:push (cl:pop remaining) qualifiers))
     (setf qualifiers (nreverse qualifiers))
-    ;; Next should be the lambda list
-    (when remaining
-      (setf lambda-list-vec (fol-eval (cl:pop remaining) env))
-      (setf body remaining))
-    (fol.fol-mop:eval-defmethod* name qualifiers lambda-list-vec body)))
+    ;; Check if this is multi-clause syntax: each remaining item is a list starting with a vector
+    (if (cl:and remaining
+                (every (lambda (item)
+                         (cl:and (listp item)
+                                 (not (null item))
+                                 (<vector>? (car item))))
+                       remaining))
+        ;; Multi-clause defmethod: create a dispatcher like defn does
+        (let* ((clauses remaining)
+               ;; Parse each clause
+               (parsed-clauses
+                 (loop for clause in clauses
+                       for idx from 0
+                       for params = (car clause)
+                       for body = (cdr clause)
+                       for param-list = (vector-to-list params)
+                       for (regular-params rest-param) = (multiple-value-list
+                                                          (parse-params param-list))
+                       for arity = (length regular-params)
+                       for has-rest = (cl:not (null rest-param))
+                       for signature = (compute-pattern-signature regular-params)
+                       for internal-name = (make-pattern-name name idx)
+                       collect (list :index idx
+                                     :arity arity
+                                     :has-rest has-rest
+                                     :params params
+                                     :body body
+                                     :signature signature
+                                     :internal-name internal-name)))
+               ;; Sort by arity, then by specificity (most specific first)
+               (sorted-clauses
+                 (stable-sort (copy-list parsed-clauses)
+                              (lambda (c1 c2)
+                                (let ((a1 (getf c1 :arity))
+                                      (a2 (getf c2 :arity)))
+                                  (cond
+                                    ((< a1 a2) t)
+                                    ((> a1 a2) nil)
+                                    (t (pattern-more-specific-p
+                                        (getf c1 :signature)
+                                        (getf c2 :signature))))))))
+               ;; Create internal functions
+               (internal-fns
+                 (loop for c in parsed-clauses
+                       for internal-name = (getf c :internal-name)
+                       for params = (getf c :params)
+                       for body = (getf c :body)
+                       for stripped-param-list = (strip-specializers
+                                                  (vector-to-list params))
+                       for stripped-params = (apply #'fol.collection:make-vector
+                                                    stripped-param-list)
+                       for fn = (fol-eval `(fn ,internal-name ,stripped-params ,@body) env)
+                       collect (cons internal-name fn)))
+               ;; Collect valid arities
+               (valid-arities
+                 (remove-duplicates
+                  (loop for c in parsed-clauses
+                        collect (if (getf c :has-rest)
+                                    (format nil "~A+" (getf c :arity))
+                                    (getf c :arity))))))
+          ;; Create dispatcher
+          (let ((dispatcher
+                  (lambda (&rest call-args)
+                    (let ((call-arity (length call-args)))
+                      (loop for c in sorted-clauses
+                            for min-arity = (getf c :arity)
+                            for has-rest = (getf c :has-rest)
+                            for sig = (getf c :signature)
+                            for internal-name = (getf c :internal-name)
+                            when (if has-rest
+                                     (>= call-arity min-arity)
+                                     (= call-arity min-arity))
+                              when (args-match-pattern-p
+                                    (subseq call-args 0 (min (length sig) call-arity))
+                                    sig)
+                                return (let ((internal-fn (cdr (cl:assoc internal-name internal-fns))))
+                                         (apply-function internal-fn call-args))
+                            finally (error 'fol-arity-error
+                                           :expected valid-arities
+                                           :got call-arity))))))
+            ;; Store as global function (matching defn behavior)
+            (let ((sym-name (extract-symbol name)))
+              (cl:eval `(cl:defparameter ,sym-name ',dispatcher))
+              dispatcher)))
+        ;; Single-clause defmethod (original behavior using CL defmethod)
+        (let ((lambda-list-vec nil)
+              (body nil))
+          (when remaining
+            (setf lambda-list-vec (fol-eval (cl:pop remaining) env))
+            (setf body remaining))
+          (fol.fol-mop:eval-defmethod* name qualifiers lambda-list-vec body)))))
 
 ;;; --- LOOP/RECUR ---
 

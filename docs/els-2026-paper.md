@@ -15,7 +15,7 @@ We present FOL (Functional Object Lisp), a new Lisp dialect that combines persis
 
 ## 1. Introduction
 
-The Lisp family of languages has evolved along multiple paths, each emphasizing different aspects of the language's core philosophy. Common Lisp [1] provides a mature, standardized platform with powerful object-oriented features through CLOS [2] and metaprogramming through the MOP [3]. Clojure [4] introduced persistent data structures and functional programming idioms to the JVM ecosystem, emphasizing immutability and simplicity. Dylan [5] explored an object-oriented Lisp with a clear type system.
+The Lisp family of languages has evolved along multiple paths, each emphasizing different aspects of the language's core philosophy. Common Lisp [1] provides a mature, standardized platform with powerful object-oriented features through CLOS [2] and metaprogramming through the MOP [3]. Clojure [4] introduced persistent data structures and functional programming idioms to the JVM ecosystem, emphasizing immutability and simplicity. Dylan [5] explored an object-oriented Lisp with a clear type system. Clojure provides objects, but this facility is constrained by what is easily provided by the JVM and the language itself. We believe CLOS and its MOP provides a much richer object system. FOL exists to show that immutable persistent objects and an object system like CLOS can co-exist and, in fact, can be synergystic when used together. In addition, FOL provides extended multiple destructuring patterns in functions, CLOS generic functions and methods, and macros, providing a richer programming experience for the user.
 
 FOL (Functional Object Lisp) synthesizes ideas from these traditions to create a language that:
 
@@ -60,23 +60,22 @@ FOL adopts Clojure's reader syntax for consistency with functional programming c
 ;; Sets
 #{1 2 3 4}
 
-;; Function definition with pattern matching
+;; Destructuring definition with predicate tests
 (defn factorial
-  ([(n (= 0))] 1)
-  ([(n (= 1))] 1)
+  ([(n (<= 1))] 1)
   ([n]
     (* n (factorial (dec n)))))
 
 ;; Destructuring with type constraints and :as
 (defn summarize-person
-  ([{:keys [name age] :as person}]
+  ([{:keys [(name string) (age number)] :as person}]
     (str name " is " age " years old")))
 
 ;; Rest parameters with &
 (defn sum-and-product
   ([fst & rst]
-    (dict :sum (+ fst (apply + rst))
-          :product (* fst (apply * rst)))))
+    (make <dict> :sum (+ fst (apply + rst))
+                  product (* fst (apply * rst)))))
 
 ;; Nested destructuring with :or for defaults
 (defn process-config
@@ -88,15 +87,9 @@ FOL adopts Clojure's reader syntax for consistency with functional programming c
       {:host host
        :port port
        :timeout timeout})))
+  (expt (- y2 y1) 2)))))
 
-;; Vector destructuring
-(defn point-distance
-  ([[x1 y1] [x2 y2]]
-    (sqrt (+ (expt (- x2 x1) 2)
-             (expt (- y2 y1) 2)))))
-```
-
-These examples demonstrate FOL's rich destructuring capabilities, combining pattern matching with equality tests, default values, and nested destructuring. The use of angle brackets (`<>`) for type names, borrowed from Dylan, provides visual distinction between types and values.
+These examples demonstrate FOL's rich destructuring capabilities, combining pattern matching with predicate tests, default values, and nested destructuring. The use of angle brackets (`<>`) for type names, borrowed from Dylan, provides visual distinction between types and values.
 
 ### 2.3 Type System
 
@@ -152,11 +145,11 @@ FOL extends CLOS with a persistent object protocol. All user-defined classes inh
 
 ;; Updates return new instances via slot-value
 (def older-alice
-  (set-pslot-value alice 'age 31))
+  (assoc alice 'age 31))
 
 ;; Original unchanged
-(slot-value alice 'age)  ; => 30
-(slot-value older-alice 'age)  ; => 31
+(:age alice )  ; => 30
+(:age older-alice)  ; => 31
 ```
 
 The `defclass*` macro extends CLOS's `defclass` to create persistent classes. It ensures all instances inherit from `<persistent-object>` and automatically implements the persistent slot protocol. Like CLOS, it supports slot options including `:type`, `:initarg`, `:initform`, and `:reader`/`:writer` specifications.

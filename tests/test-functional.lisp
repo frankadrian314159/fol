@@ -111,3 +111,4 @@
   (fol-is-true "(fn? inc)")
   (fol-is-false "(fn? 42)")
   (fol-is-false "(fn? \"hello\")"))
+

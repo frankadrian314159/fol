@@ -379,7 +379,7 @@
 ;;; A persistent set optimized for dense integer ranges using bit vectors.
 ;;; Efficient when integers are clustered within a known range.
 
-(defclass <dense-int-set> (<set> <ordered-collection>)
+(defclass <dense-int-set> (<ordered-collection>)
   ((base :initarg :base
          :initform 0
          :documentation "The base (minimum) integer of the range.")

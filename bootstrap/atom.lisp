@@ -6,7 +6,8 @@
 ;;;
 ;;; Atoms provide a way to manage shared, synchronous, independent state
 ;;; in a multi-threaded environment. All operations are protected by a mutex.
-;;; Based on Clojure's atom type.
+;;; Based on Clojure's atom type and are not persistent because they are mutable.
+;;; ============================================================================
 
 (defclass <atom> ()
   ((value :initarg :value

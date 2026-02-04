@@ -19,4 +19,5 @@
                (:file "test-control-flow")
                (:file "test-mop")
                (:file "test-transducers")
-               (:file "test-paper-examples")))
+               (:file "test-timing")
+               (:file "test-test")))
