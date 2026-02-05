@@ -292,10 +292,47 @@
   (declare (ignore env))
   (fol-value form))
 
-;;; --- FOL Collections are Self-Evaluating ---
+;;; --- FOL Collections Evaluate Their Contents ---
+
+(defun needs-evaluation-p (form)
+  "Returns T if FORM needs to be evaluated (is not self-evaluating).
+   Lists (code) and non-keyword symbols need evaluation."
+  (or (and (cl:listp form) (not (null form)))  ; Non-empty lists are code
+      (and (symbolp form)                       ; Symbols that aren't keywords
+           (not (keywordp form))
+           (not (eq form t))
+           (not (eq form nil)))))
+
+(defmethod fol-eval ((form <dict>) env)
+  "Dicts evaluate their values. Keys are typically keywords/symbols which
+   self-evaluate, but values may be expressions that need evaluation.
+   Returns a new dict with evaluated values if any values need evaluation,
+   otherwise returns the dict as-is."
+  (let ((needs-eval nil)
+        (items (slot-value form 'fol.collection::items)))
+    ;; Check if any value needs evaluation
+    (fset:do-map (k v items)
+      (declare (ignore k))
+      (when (needs-evaluation-p v)
+        (setf needs-eval t)
+        (return)))
+    (if needs-eval
+        ;; Build a new dict with evaluated values
+        ;; Convert fset map to alist, evaluate, then build new dict
+        (let* ((alist (fset:convert 'list items))
+               (flat-pairs
+                 (loop for (k . v) in alist
+                       collect (fol-eval k env)
+                       collect (fol-eval v env))))
+          (apply #'fol.collection:make-dict flat-pairs))
+        ;; No evaluation needed, return as-is
+        form)))
 
 (defmethod fol-eval ((form <collection>) env)
-  "Collections are self-evaluating."
+  "Collections (vectors, sets, lists, etc.) are self-evaluating.
+   Note: Vectors and sets are often used structurally (e.g., parameter lists,
+   patterns) so they must not evaluate their contents. Dict values are
+   evaluated separately via the <dict> method above."
   (declare (ignore env))
   form)
 
@@ -327,12 +364,23 @@
   (declare (ignore env))
   form)
 
+;;; --- User-Defined FOL Objects are Self-Evaluating ---
+
+(defmethod fol-eval ((form fol.persistent:<persistent-object>) env)
+  "User-defined FOL objects (instances of classes inheriting from <persistent-object>)
+   are self-evaluating. This allows them to be used directly in forms like
+   (-> object (predicate)) where the object needs to thread through the expression."
+  (declare (ignore env))
+  form)
+
 ;;; --- Symbol Lookup ---
 
 (defmethod fol-eval ((form symbol) env)
   "Symbols are looked up in the environment. Keywords are self-evaluating.
    Auto-gensym symbols (ending with #) are an error outside syntax-quote.
-   If the looked-up value is a <dynamic-var>, it is automatically dereferenced."
+   If the looked-up value is a <dynamic-var>, it is automatically dereferenced.
+   Also checks for CL function bindings (fboundp) to allow calling generic functions
+   created by defclass accessors and other CL-defined functions."
   (cond
     ((keywordp form) form)
     ((auto-gensym-symbol-p form)
@@ -341,13 +389,19 @@
             :form form))
     (t (let ((value (handler-case (lookup env form)
                       (fol-unbound-variable ()
-                        ;; Not in local env, check global CL binding
-                        (if (boundp form)
-                            (symbol-value form)
-                            ;; Neither local nor global - signal unbound error
-                            (error 'fol-unbound-variable
-                                   :name form
-                                   :message (format nil "Variable ~A is unbound" form)))))))
+                        ;; Not in local env, check global CL binding (variable or function)
+                        (cond
+                          ;; Check if it's a bound variable (defparameter, defvar)
+                          ((boundp form)
+                           (symbol-value form))
+                          ;; Check if it's a bound function (defun, defgeneric accessor)
+                          ((fboundp form)
+                           (symbol-function form))
+                          ;; Neither local, variable, nor function - signal unbound error
+                          (t
+                           (error 'fol-unbound-variable
+                                  :name form
+                                  :message (format nil "Variable ~A is unbound" form))))))))
          ;; Auto-dereference dynamic variables
          (if (<dynamic-var>? value)
              (dynamic-var-value value)
@@ -357,17 +411,21 @@
 
 (defmethod fol-eval ((form <symbol>) env)
   "Wrapped symbols are looked up using their raw symbol value.
-   If the looked-up value is a <dynamic-var>, it is automatically dereferenced."
+   If the looked-up value is a <dynamic-var>, it is automatically dereferenced.
+   Also checks for CL function bindings (fboundp) to allow calling generic functions."
   (let* ((sym (fol-value form))
          (value (handler-case (lookup env sym)
                   (fol-unbound-variable ()
-                    ;; Not in local env, check global CL binding
-                    (if (boundp sym)
-                        (symbol-value sym)
-                        ;; Neither local nor global - signal unbound error
-                        (error 'fol-unbound-variable
-                               :name sym
-                               :message (format nil "Variable ~A is unbound" sym)))))))
+                    ;; Not in local env, check global CL binding (variable or function)
+                    (cond
+                      ((boundp sym)
+                       (symbol-value sym))
+                      ((fboundp sym)
+                       (symbol-function sym))
+                      (t
+                       (error 'fol-unbound-variable
+                              :name sym
+                              :message (format nil "Variable ~A is unbound" sym))))))))
     ;; Auto-dereference dynamic variables
     (if (<dynamic-var>? value)
         (dynamic-var-value value)
@@ -414,6 +472,7 @@
     (setf (gethash "USE-MODULE" table) 'eval-use-module)
     (setf (gethash "IMPORT" table) 'eval-use-module)  ; import is an alias for use-module
     (setf (gethash "MODULE" table) 'eval-module)
+    (setf (gethash "EXPORT" table) 'eval-export)
     ;; Environment access
     (setf (gethash "ENV" table) 'eval-env)
     ;; Unquote forms are errors outside syntax-quote
@@ -430,13 +489,34 @@
     (fol.module:use-module name env)
     nil))
 
+(defun eval-export (args env)
+  "Mark symbols for export from the current module.
+   (export sym1 sym2 ...)
+   The symbols are added to the nearest enclosing module's export list."
+  (let ((module (fol.module:find-module-in-chain env)))
+    (unless module
+      (error 'fol-eval-error
+             :message "export can only be used within a module"
+             :form (cl:cons 'export args)))
+    (dolist (sym-form args)
+      (let ((sym (if (cl:and (cl:listp sym-form) (eq (cl:first sym-form) 'quote))
+                     (cl:second sym-form)  ; Handle quoted symbols
+                     sym-form)))           ; Handle bare symbols
+        (fol.module:module-export module sym)
+        ;; Re-register the updated module
+        (when (fol.module:module-name module)
+          (fol.module:register-module (fol.module:module-name module) module))))
+    nil))
+
 (defun eval-module (args env)
-  "Create a new module and add it to the environment chain.
+  "Create a new module and optionally evaluate forms within it.
    (module) - creates an anonymous module (not registered)
    (module name) - creates a named module and registers it
+   (module name body...) - creates a named module, evaluates body forms in it
    Returns the new module with the current environment as its parent."
   (let* ((name-form (cl:first args))
          (name (when name-form (fol-eval name-form env)))
+         (body (cl:rest args))
          (module (make-instance 'fol.module:<module>
                                 :name name
                                 :items (fset:empty-map)
@@ -444,7 +524,18 @@
     ;; Register named modules
     (when name
       (fol.module:register-module name module))
-    module))
+    ;; If there's a body, evaluate it in the module's context
+    (when body
+      (let ((result nil))
+        (dolist (form body)
+          (setf result (fol-eval form module)))
+        ;; Re-register the module after body evaluation (exports may have changed)
+        (when name
+          (fol.module:register-module name module))
+        result))
+    ;; Return the module if no body, otherwise body result was returned
+    (unless body
+      module)))
 
 (defun eval-unquote-error (args env)
   "Signal error for unquote outside syntax-quote."
@@ -1121,9 +1212,15 @@
                                      :body body
                                      :signature signature
                                      :internal-name internal-name)))
+               ;; Resolve predicate functions in signatures so FOL functions can be called
+               (clauses-with-resolved-sigs
+                 (loop for c in parsed-clauses
+                       for sig = (getf c :signature)
+                       for resolved-sig = (resolve-signature-predicates sig env)
+                       collect (list* :resolved-signature resolved-sig c)))
                ;; Sort by arity, then by specificity
                (sorted-clauses
-                 (stable-sort (copy-list parsed-clauses)
+                 (stable-sort (copy-list clauses-with-resolved-sigs)
                               (lambda (c1 c2)
                                 (let ((a1 (getf c1 :arity))
                                       (a2 (getf c2 :arity)))
@@ -1160,12 +1257,12 @@
               (loop for c in sorted-clauses
                     for min-arity = (getf c :arity)
                     for has-rest = (getf c :has-rest)
-                    for sig = (getf c :signature)
+                    for sig = (getf c :resolved-signature)
                     for internal-name = (getf c :internal-name)
                     when (if has-rest
                              (>= call-arity min-arity)
                              (= call-arity min-arity))
-                      when (args-match-pattern-p
+                      when (args-match-pattern-with-resolved-fns-p
                             (subseq call-args 0 (min (length sig) call-arity))
                             sig)
                         return (let ((internal-fn (cdr (cl:assoc internal-name internal-fns))))
@@ -1426,9 +1523,15 @@
                                      :body body
                                      :signature signature
                                      :internal-name internal-name)))
+               ;; Resolve predicate functions in signatures so FOL functions can be called
+               (clauses-with-resolved-sigs
+                 (loop for c in parsed-clauses
+                       for sig = (getf c :signature)
+                       for resolved-sig = (resolve-signature-predicates sig env)
+                       collect (list* :resolved-signature resolved-sig c)))
                ;; Sort by arity, then by specificity (most specific first)
                (sorted-clauses
-                 (stable-sort (copy-list parsed-clauses)
+                 (stable-sort (copy-list clauses-with-resolved-sigs)
                               (lambda (c1 c2)
                                 (let ((a1 (getf c1 :arity))
                                       (a2 (getf c2 :arity)))
@@ -1467,14 +1570,14 @@
                       (loop for c in sorted-clauses
                             for min-arity = (getf c :arity)
                             for has-rest = (getf c :has-rest)
-                            for sig = (getf c :signature)
+                            for sig = (getf c :resolved-signature)
                             for internal-name = (getf c :internal-name)
                             ;; Check if arity matches (exact or >= for rest params)
                             when (if has-rest
                                      (>= call-arity min-arity)
                                      (= call-arity min-arity))
                               ;; Check pattern signature on non-rest args
-                              when (args-match-pattern-p
+                              when (args-match-pattern-with-resolved-fns-p
                                     (subseq call-args 0 (min (length sig) call-arity))
                                     sig)
                                 return (let ((internal-fn (cdr (cl:assoc internal-name internal-fns))))
@@ -1938,7 +2041,8 @@
   "Apply FORM to X in a threaded context.
    THREAD-POSITION is :first for -> or :last for ->>.
    If FORM is a bare symbol, call it as a function with X as the only arg.
-   If FORM is a list (fn arg*), evaluate fn and args, then call with X inserted."
+   If FORM is a list (fn arg*), evaluate fn and args, then call with X inserted.
+   If FORM's head is a special form like ->, evaluate the whole form with X threaded in."
   (cond
     ;; If form is a bare symbol/keyword, evaluate it and apply to x
     ((or (symbolp form) (keywordp form))
@@ -1948,17 +2052,32 @@
     ((<symbol>? form)
      (let ((fn (fol-eval form env)))
        (apply-function fn (list x))))
-    ;; If form is a list (fn arg1 arg2 ...), evaluate fn and args, insert x
+    ;; If form is a list, check if it's headed by a special form or collection
     ((cl:listp form)
-     (let* ((fn-form (car form))
-            (arg-forms (cdr form))
-            (fn (fol-eval fn-form env))
-            (evaluated-args (mapcar (lambda (arg) (fol-eval arg env)) arg-forms)))
-       (if (eq thread-position :first)
-           ;; Thread-first: x is the first argument
-           (apply-function fn (cons x evaluated-args))
-           ;; Thread-last: x is the last argument
-           (apply-function fn (append evaluated-args (list x))))))
+     (let ((fn-form (car form)))
+       ;; Check collection FIRST to avoid any symbol-name calls on non-symbols
+       (cond
+         ;; Collection (set, dict, vector) as function: call directly with x
+         ;; This handles forms like (#{a b c}) where the collection is in function position
+         ((fol.collection:<collection>? fn-form)
+          (apply-function fn-form (list x)))
+         ;; Special form: thread x into the form and evaluate the whole thing
+         ((and (symbolp fn-form)
+               (gethash (symbol-name fn-form) *special-form-dispatch*))
+          (let ((threaded-form (if (eq thread-position :first)
+                                   (cons fn-form (cons x (cdr form)))
+                                   (cons fn-form (append (cdr form) (list x))))))
+            (fol-eval threaded-form env)))
+         ;; Regular function: evaluate fn and args, then apply with x inserted
+         (t
+          (let* ((arg-forms (cdr form))
+                 (fn (fol-eval fn-form env))
+                 (evaluated-args (mapcar (lambda (arg) (fol-eval arg env)) arg-forms)))
+            (if (eq thread-position :first)
+                ;; Thread-first: x is the first argument
+                (apply-function fn (cons x evaluated-args))
+                ;; Thread-last: x is the last argument
+                (apply-function fn (append evaluated-args (list x)))))))))
     ;; For FOL vectors, treat them like lists
     ((<vector>? form)
      (let* ((form-list (vector-to-list form))
@@ -2091,7 +2210,8 @@
 
 (defun eval-defclass* (args env)
   "Evaluate (defclass* name [superclasses] [slots] class-option*).
-   Defines a class with FOL syntax where superclasses and slots are vectors."
+   Defines a class with FOL syntax where superclasses and slots are vectors.
+   Superclass names are resolved through the environment if they exist there."
   (unless (>= (length args) 3)
     (error 'fol-eval-error :message "defclass* requires name, superclasses, and slots"
            :form (cons 'defclass* args)))
@@ -2099,7 +2219,145 @@
         (superclasses-vec (fol-eval (second args) env))
         (slots-vec (fol-eval (third args) env))
         (class-options (cdddr args)))
-    (fol.fol-mop:eval-defclass* name superclasses-vec slots-vec class-options)))
+    ;; Resolve superclass names through the environment
+    ;; If a symbol is bound to a class object in the environment, use that class's name
+    (let ((resolved-superclasses
+            (if (fol.collection:<vector>? superclasses-vec)
+                (apply #'fol.collection:make-vector
+                       (mapcar (lambda (sc)
+                                 (if (symbolp sc)
+                                     (handler-case
+                                         (let ((env-val (lookup env sc)))
+                                           (if (typep env-val 'cl:class)
+                                               (cl:class-name env-val)
+                                               sc))
+                                       (fol-unbound-variable () sc))
+                                     sc))
+                               (fol.fol-mop:vector-to-list superclasses-vec)))
+                superclasses-vec)))
+      (fol.fol-mop:eval-defclass* name resolved-superclasses slots-vec class-options))))
+
+(defun special-form-name-p (name)
+  "Return T if NAME is a FOL special form or macro that cannot be called as a function.
+   These require full FOL evaluation when used as predicate heads."
+  (and (symbolp name)
+       (gethash (symbol-name name) *special-form-dispatch*)))
+
+(defun resolve-signature-predicates (signature env)
+  "Resolve predicate specifications in SIGNATURE.
+   For simple predicates (function name with optional args), resolves to function objects.
+   For complex predicates (expressions like threading macros), stores them with the
+   environment for full FOL evaluation at match time.
+
+   FOL's defn stores functions as CL global variables, so we check:
+   1. FOL environment (for let-bound functions)
+   2. CL global variables (for defn-defined functions)
+   3. CL function bindings (for CL-defined functions)
+
+   Special forms (like ->, cond, if) are always treated as complex predicates
+   requiring full FOL evaluation."
+  (mapcar (lambda (sig)
+            (case (first sig)
+              (:pred
+               ;; All predicates use full FOL evaluation to correctly resolve
+               ;; function names across package namespaces (e.g., = -> fol.compareop:=)
+               (let* ((fn-name (second sig))
+                      (extra-args (third sig)))
+                 (list :pred-expr (cons fn-name extra-args) env)))
+              (:seq
+               ;; Recursively resolve nested signatures
+               (list :seq (resolve-signature-predicates (second sig) env)))
+              (t sig)))
+          signature))
+
+(defun args-match-pattern-with-resolved-fns-p (args signature)
+  "Like args-match-pattern-p but handles :pred signatures where the function
+   is already resolved to a function object (FOL or CL function).
+   Also handles :pred-expr for complex predicates requiring full FOL evaluation."
+  (loop for arg in args
+        for sig in signature
+        always (case (first sig)
+                 (:any t)
+                 (:seq
+                  (let ((elem-sigs (second sig)))
+                    (cl:and (cl:or (<vector>? arg) (<list>? arg) (listp arg))
+                            (let ((arg-list (cond
+                                              ((<vector>? arg) (vector-to-list arg))
+                                              ((<list>? arg) (fol-list-to-cl-list arg))
+                                              ((listp arg) arg)
+                                              (t nil))))
+                              (cl:and (>= (length arg-list) (length elem-sigs))
+                                      (loop for a in arg-list
+                                            for es in elem-sigs
+                                            always (element-matches-with-resolved-fns-p a es)))))))
+                 (:pred
+                  ;; Function is already resolved - either FOL function or CL function
+                  (let ((fn (second sig))
+                        (extra-args (third sig)))
+                    (cond
+                      ((functionp fn)
+                       (apply fn arg extra-args))
+                      ((<function>? fn)
+                       (apply-function fn (cons arg extra-args)))
+                      ((symbolp fn)
+                       ;; Fallback: try calling as CL function
+                       (apply fn arg extra-args))
+                      (t nil))))
+                 (:pred-expr
+                  ;; Complex predicate - evaluate as full FOL expression
+                  ;; The predicate form is threaded: (-> arg pred-form)
+                  ;; We quote the arg so it's treated as a value, not a variable lookup
+                  (let ((pred-form (second sig))
+                        (pred-env (third sig)))
+                    (handler-case
+                        (let ((thread-form `(-> (quote ,arg) ,pred-form)))
+                          (fol-eval thread-form pred-env))
+                      (error ()
+                        nil))))
+                 (:type (type-conforms-p arg (second sig)))
+                 (:type-pred (funcall (second sig) arg))
+                 (t t))))
+
+(defun element-matches-with-resolved-fns-p (elem elem-sig)
+  "Check if a single element matches its signature with resolved functions.
+   Also handles :pred-expr for complex predicates requiring full FOL evaluation."
+  (case (first elem-sig)
+    (:any t)
+    (:pred
+     (let ((fn (second elem-sig))
+           (extra-args (third elem-sig)))
+       (cond
+         ((functionp fn)
+          (apply fn elem extra-args))
+         ((<function>? fn)
+          (apply-function fn (cons elem extra-args)))
+         ((symbolp fn)
+          (apply fn elem extra-args))
+         (t nil))))
+    (:pred-expr
+     ;; Complex predicate - evaluate as full FOL expression
+     ;; We quote the elem so it's treated as a value, not a variable lookup
+     (let ((pred-form (second elem-sig))
+           (pred-env (third elem-sig)))
+       (handler-case
+           (let ((thread-form `(-> (quote ,elem) ,pred-form)))
+             (fol-eval thread-form pred-env))
+         (error () nil))))
+    (:type (type-conforms-p elem (second elem-sig)))
+    (:type-pred (funcall (second elem-sig) elem))
+    (:seq
+     (let ((elem-sigs (second elem-sig)))
+       (cl:and (cl:or (<vector>? elem) (<list>? elem) (listp elem))
+               (let ((elem-list (cond
+                                  ((<vector>? elem) (vector-to-list elem))
+                                  ((<list>? elem) (fol-list-to-cl-list elem))
+                                  ((listp elem) elem)
+                                  (t nil))))
+                 (cl:and (>= (length elem-list) (length elem-sigs))
+                         (loop for e in elem-list
+                               for es in elem-sigs
+                               always (element-matches-with-resolved-fns-p e es)))))))
+    (t t)))
 
 (defun eval-defmethod* (args env)
   "Evaluate (defmethod* name qualifier* [specialized-lambda-list] body*).
@@ -2148,9 +2406,15 @@
                                      :body body
                                      :signature signature
                                      :internal-name internal-name)))
+               ;; Resolve predicate functions in signatures so FOL functions can be called
+               (clauses-with-resolved-sigs
+                 (loop for c in parsed-clauses
+                       for sig = (getf c :signature)
+                       for resolved-sig = (resolve-signature-predicates sig env)
+                       collect (list* :resolved-signature resolved-sig c)))
                ;; Sort by arity, then by specificity (most specific first)
                (sorted-clauses
-                 (stable-sort (copy-list parsed-clauses)
+                 (stable-sort (copy-list clauses-with-resolved-sigs)
                               (lambda (c1 c2)
                                 (let ((a1 (getf c1 :arity))
                                       (a2 (getf c2 :arity)))
@@ -2186,12 +2450,12 @@
                       (loop for c in sorted-clauses
                             for min-arity = (getf c :arity)
                             for has-rest = (getf c :has-rest)
-                            for sig = (getf c :signature)
+                            for sig = (getf c :resolved-signature)
                             for internal-name = (getf c :internal-name)
                             when (if has-rest
                                      (>= call-arity min-arity)
                                      (= call-arity min-arity))
-                              when (args-match-pattern-p
+                              when (args-match-pattern-with-resolved-fns-p
                                     (subseq call-args 0 (min (length sig) call-arity))
                                     sig)
                                 return (let ((internal-fn (cdr (cl:assoc internal-name internal-fns))))

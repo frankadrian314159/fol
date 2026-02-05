@@ -316,6 +316,7 @@
   (:export <module> <module>? make-module
            module-name module-exports module-export module-import
            find-module register-module +module-registry+
+           find-module-in-chain
            ensure-standard-modules use-module))
 
 (defpackage fol.env

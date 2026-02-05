@@ -256,6 +256,10 @@ In addition, one can specify a set of destructuring patterns in defgeneric and a
                   ([a (b (< 10))] (* 2 b))
                   ([a (b <number>) (c <string>)] c)
                   ([a b c] :error))
+
+(defn is-buy-side-trade?
+      ([(trade (-> (trade-side) (= :buy)))] t)
+      ([trade] nil))
 ```
 This demonstrates how generic functions provide polymorphism through multiple dispatch while maintaining destructuring capabilities and functional purity.
 

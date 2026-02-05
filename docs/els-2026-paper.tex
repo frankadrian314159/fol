@@ -8,10 +8,11 @@
 \usepackage{xcolor}
 \usepackage{listings}
 \usepackage{url}
+\usepackage{booktabs}
 
 % Configure listings for FOL/Lisp code
 \lstdefinelanguage{FOL}{
-  morekeywords={defn,defgeneric,defmethod,defclass,defmacro,def,bind,if,cond,fn,lambda,let,do,loop,recur,throw,try,catch,quote,apply,map,reduce,filter,vec,str,make,assoc,get,merge,first,rest,nth,size,empty?,vals,update-vals,dotimes},
+  morekeywords={defn,defgeneric,defmethod,defclass,defmacro,def,bind,if,cond,fn,lambda,let,do,loop,recur,throw,try,catch,quote,apply,map,reduce,filter,vec,str,make,assoc,get,merge,first,rest,nth,size,empty?,vals,update-vals,dotimes,module,export,use-module},
   sensitive=true,
   morecomment=[l]{;},
   morecomment=[s]{\#|}{|\#},
@@ -43,9 +44,9 @@
 \title{FOL: A Functional Object Lisp}
 
 \author{\IEEEauthorblockN{Frank Adrian}
-\IEEEauthorblockA{\textit{Independent Researcher} \\
-Portland, Oregon, USA \\
-frank.adrian@gmail.com}
+\IEEEauthorblockA{\textit{ancar technology} \\
+Olathe, KS, USA \\
+frank.adrian314159@gmail.com}
 }
 
 \maketitle
@@ -117,16 +118,14 @@ FOL adopts Clojure's reader syntax for consistency with functional programming c
 
 ;; Destructuring with type constraints and :as
 (defn summarize-person
-  ([{:keys [(name <string>) (age <number>)]
-     :as person}]
+  ([{:keys [(name <string>) (age <number>)] :as person}]
     (str name " is " age " years old")))
 
 ;; Rest parameters with &
 (defn sum-and-product
   ([fst & rst]
-    (make <dict>
-      :sum (+ fst (apply + rst))
-      :product (* fst (apply * rst)))))
+    (make <dict> :sum (+ fst (apply + rst))
+                 :product (* fst (apply * rst)))))
 
 ;; Nested destructuring with :or for defaults
 (defn process-config
@@ -146,11 +145,11 @@ These examples demonstrate FOL's rich destructuring capabilities, combining patt
 
 Although a small number of system types must be mutable and derive from CLOS's standard-object, the majority of FOL's type hierarchy begins with \texttt{<persistent-object>} from which all primitive types, collection types, and user types derive.
 
-\begin{figure*}[htbp]
-\centerline{\includegraphics[width=\textwidth]{ELS-2026-paper-class-hierarchy.pdf}}
-\caption{FOL Type Hierarchy showing inheritance from \texttt{<persistent-object>}.}
+\begin{figure}[htbp]
+\centerline{\includegraphics[width=\columnwidth]{ELS-2026-paper-class-hierarchy.pdf}}
+\caption{FOL Type Hierarchy}
 \label{fig:hierarchy}
-\end{figure*}
+\end{figure}
 
 Primitive types wrap their Common Lisp equivalents in a \texttt{val} slot, accessed through the generic function \texttt{fol-val}. This allows primitives to participate in the persistent object protocol while maintaining compatibility with Common Lisp's numeric tower.
 
@@ -161,24 +160,19 @@ Primitive types wrap their Common Lisp equivalents in a \texttt{val} slot, acces
 The implementation consists of approximately 6,000 lines of Common Lisp code:
 
 \begin{table}[htbp]
-\caption{Implementation File Summary}
+\caption{Implementation Size}
 \begin{center}
-\begin{tabular}{|l|c|l|}
-\hline
+\begin{tabular}{lrl}
+\toprule
 \textbf{File} & \textbf{LOC} & \textbf{Purpose} \\
-\hline
+\midrule
 persistent & 250 & Base persistent object protocol \\
-\hline
 classes & 180 & Primitive type wrappers \\
-\hline
 collection & 890 & Persistent collections \\
-\hline
 seqop & 1420 & Sequence operations \\
-\hline
 eval & 1580 & Evaluator and special forms \\
-\hline
 standard-names & 1680 & Standard environment \\
-\hline
+\bottomrule
 \end{tabular}
 \label{tab:implementation}
 \end{center}
@@ -188,7 +182,7 @@ The code has been thoroughly tested with over 6,300 tests passing across the boo
 
 \subsection{Persistent Object Protocol}
 
-FOL extends CLOS with a persistent object protocol. All user-defined classes inherit from \texttt{<persistent-object>} and use \texttt{pslot-value} for slot access (although, as in the code below, one can also use the function \texttt{assoc} to assign new values, access values via a keyword having the slot-name, or call the \texttt{get} function to retrieve the value of a slot):
+FOL extends CLOS with a persistent object protocol. All user-defined classes inherit from \texttt{<persistent-object>} and use \texttt{pslot-value} for slot access (although, as in the code below, one can also use the function assoc to assign new values, access values via a keyword having the slot-name, or call the get function to retrieve the value of a slot):
 
 \begin{lstlisting}
 (defclass <person> [<persistent-object>]
@@ -202,9 +196,9 @@ FOL extends CLOS with a persistent object protocol. All user-defined classes inh
   (assoc alice :age 31))
 
 ;; Original unchanged
-(:age alice)    ; => 30
+(:age alice )  ; => 30
 (older-alice :age)  ; => 31
-(get alice :name)   ; => "Alice"
+(get alice :name) ; => "Alice"
 \end{lstlisting}
 
 FOL's \texttt{defclass} macro extends CLOS's \texttt{defclass} to create persistent classes. It ensures all instances inherit from \texttt{<persistent-object>} and automatically implements the persistent slot protocol. Like CLOS, it supports slot options including \texttt{:type}, \texttt{:initarg}, \texttt{:initform}, and \texttt{:reader}/\texttt{:writer} specifications. Writer functions return a new object instance sharing structure with the original object with the value of the slot changed.
@@ -279,15 +273,12 @@ FOL's generic functions fully integrate with persistent data. Methods dispatch o
 (defgeneric compute-total [items discount])
 
 ;; Dispatch on collection type
-(defmethod compute-total
-  [(items <vector>) (<number>? discount)]
+(defmethod compute-total [(items <vector>) (<number>? discount)]
   (* (reduce + items) (- 1.0 discount)))
 
 ;; Dispatch with map destructuring in body
-(defmethod compute-total
-  [(items <dict>) (discount <dict>)]
-  (bind [{:keys [(rate <number>)
-                 (type <keyword>)]
+(defmethod compute-total [(items <dict>) (discount <dict>)]
+  (bind [{:keys [(rate <number>) (type <keyword>)]
           :or {type :percentage}} discount
          subtotal (reduce + (vals items))]
     (if (= type :percentage)
@@ -295,7 +286,7 @@ FOL's generic functions fully integrate with persistent data. Methods dispatch o
       (- subtotal rate))))
 \end{lstlisting}
 
-In addition, one can specify a set of destructuring patterns in \texttt{defgeneric} and a set of patterns with their associated code in functions, methods and macros:
+In addition, one can specify a set of destructuring patterns in defgeneric and a set of patterns with their associated code in functions, methods and macros:
 
 \begin{lstlisting}
 (defgeneric process ([a]
@@ -304,10 +295,14 @@ In addition, one can specify a set of destructuring patterns in \texttt{defgener
                      [a & b c]))
 
 (defmethod process
-  ([a] 50)
-  ([a (b (< 10))] (* 2 b))
-  ([a (b <number>) (c <string>)] c)
-  ([a b c] :error))
+                  ([a] 50)
+                  ([a (b (< 10))] (* 2 b))
+                  ([a (b <number>) (c <string>)] c)
+                  ([a b c] :error))
+
+(defn is-buy-side-trade?
+      ([(trade (-> (trade-side) (= :buy)))] t)
+      ([trade] nil))
 \end{lstlisting}
 
 This demonstrates how generic functions provide polymorphism through multiple dispatch while maintaining destructuring capabilities and functional purity.
@@ -333,13 +328,6 @@ Predicates work with any function, providing flexible dispatch:
   ([(n (= 0))] :zero)
   ([(n (> 0))] :positive))
 
-;; Range checking
-(defn age-group
-  ([(age (< 13))] :child)
-  ([(age (< 20))] :teen)
-  ([(age (< 65))] :adult)
-  ([age] :senior))
-
 ;; Symbol matching with quoted values
 (defn dispatch-command
   ([(cmd (= 'start))] (start-system))
@@ -348,95 +336,30 @@ Predicates work with any function, providing flexible dispatch:
   ([cmd] (unknown-command cmd)))
 \end{lstlisting}
 
-\subsubsection{Multiple Parameter Predicates}
-
-Predicate specializers support multiple parameters with independent predicates:
-
-\begin{lstlisting}
-(defn compare-signs
-  ([(a (< 0)) (b (> 0))] :negative-positive)
-  ([(a (> 0)) (b (< 0))] :positive-negative)
-  ([(a (= 0)) (b (= 0))] :both-zero)
-  ([a b] :other))
-
-(compare-signs -5 10)  ; => :negative-positive
-(compare-signs 10 -5)  ; => :positive-negative
-\end{lstlisting}
-
-\subsubsection{Custom Predicates}
-
-Any function can serve as a predicate, enabling domain-specific dispatch:
-
-\begin{lstlisting}
-;; Type predicates
-(defn process-value
-  ([(x (<number>?))] (* x 2))
-  ([(x (<string>?))] (str x x))
-  ([(x (<vector>?))] (vec (map process-value x)))
-  ([x] x))
-
-;; Using standard even?/odd? predicates
-(defn classify-parity
-  ([(n (even?))] :even)
-  ([(n (odd?))] :odd))
-\end{lstlisting}
-
 \subsubsection{Predicate Specificity}
 
 Predicate specializers (level 3) are more specific than type specializers and type-predicate specializers (both level 2), which are more specific than destructuring patterns (level 1) and any-match (level 0). Type specializers \texttt{(x <type>)} and type-predicate specializers \texttt{((<type>? x))} are at the same level since both perform type checking. When multiple patterns at the same level could apply, first-match semantics determine the winner:
 
 \begin{lstlisting}
 (defn check
-  ([(x (= 5))] :exactly-five)     ; Predicate (level 3)
-  ([(x <number>)] :some-number)   ; Type (level 2)
-  ([x] :anything))                ; Any (level 0)
+  ([(x (= 5))] :exactly-five)       ; Predicate (level 3)
+  ([(x <number>)] :some-number)     ; Type (level 2)
+  ([x] :anything))                  ; Any (level 0)
 
-(check 5)   ; => :exactly-five (pred > type)
+(check 5)   ; => :exactly-five
 (check 10)  ; => :some-number
 (check "x") ; => :anything
 \end{lstlisting}
 
-Specificity ordering ensures that more constrained patterns are tested before less constrained ones, regardless of their definition order. This prevents common errors where a general pattern inadvertently shadows a specific one. When defining a function with multiple clauses, programmers need not worry about clause ordering for correctness---the system automatically tries the most specific matching pattern first. For sequence patterns, specificity extends to element-level comparisons: a pattern like \texttt{[(x (< 0)) y]} is more specific than \texttt{[(x <number>) y]} because its first element has higher specificity (predicate vs.\ type). This recursive specificity comparison enables precise control over dispatch behavior in complex nested destructuring scenarios.
-
-\subsubsection{Integration with fn and lambda}
-
-Predicate specializers work seamlessly in anonymous functions:
-
-\begin{lstlisting}
-;; Inline predicate dispatch
-((fn ([(x (< 10))] :small)
-     ([(x (>= 10))] :large)) 5)
-; => :small
-
-;; Lambda with predicates
-(def classifier
-  (λ ([(n (< 0))] :neg)
-     ([(n (> 0))] :pos)
-     ([n] :zero)))
-\end{lstlisting}
+Specificity ordering ensures that more constrained patterns are tested before less constrained ones, regardless of their definition order.
 
 \subsubsection{Restrictions and Design Rationale}
 
-Predicate specializers are \textbf{not allowed} in macro parameter lists because macros receive unevaluated forms. A predicate needs to evaluate its argument, but macros work with raw syntax:
-
-\begin{lstlisting}
-;; This signals an error:
-(defmacro bad-macro
-  ([(x (= 0))] `0)
-  ([x] `(inc ~x)))
-
-; ERROR: Predicate specializers cannot be
-;        used in DEFMACRO parameter lists
-;        (macros receive unevaluated forms)
-\end{lstlisting}
-
-This restriction prevents confusion between compile-time pattern matching (on syntax) and runtime value testing (on evaluated data). The error is detected immediately during macro definition, providing clear feedback.
+Predicate specializers are \textbf{not allowed} in macro parameter lists because macros receive unevaluated forms. A predicate needs to evaluate its argument, but macros work with raw syntax. This restriction prevents confusion between compile-time pattern matching (on syntax) and runtime value testing (on evaluated data).
 
 \subsubsection{Implementation}
 
 Predicate specializers are compiled to a signature format \texttt{(:pred fn-name (arg0 arg1 ...))} during function definition. At runtime, pattern matching evaluates \texttt{(apply fn-name actual-arg arg0 arg1 ...)} and dispatches to the clause when the result is truthy. The implementation maintains O(N) dispatch time where N is the number of patterns at a given arity, with patterns sorted by specificity for efficient matching.
-
-This design provides powerful dispatch capabilities while maintaining simplicity and integration with FOL's existing pattern matching infrastructure.
 
 \section{Self-Hosted Evaluator}
 
@@ -459,8 +382,7 @@ FOL includes a meta-circular evaluator written in FOL itself (approximately 350 
       (if (special-form? op)
         ((get special-forms (name op)) args env)
         (bind [fn-val (eval-form op env)
-               evaled-args
-                 (map #(eval-form % env) args)]
+               evaled-args (map #(eval-form % env) args)]
           (apply-function fn-val evaled-args))))))
 \end{lstlisting}
 
@@ -472,25 +394,7 @@ The evaluator demonstrates several FOL features:
 \item Special form handling through a dispatch table
 \end{itemize}
 
-Special form evaluators are defined as regular functions:
-
-\begin{lstlisting}
-(defn eval-if [args env]
-  (bind [arg-count (size args)]
-    (if (or (< arg-count 2) (> arg-count 3))
-      (throw "if: expected 2 or 3 args")
-      (bind [test (nth args 0)
-             then-form (nth args 1)
-             else-form (if (>= arg-count 3)
-                         (nth args 2)
-                         nil)]
-        (if (fol-eval test env)
-          (fol-eval then-form env)
-          (fol-eval else-form env))))))
-\end{lstlisting}
-
 The self-hosted evaluator serves multiple purposes:
-
 \begin{enumerate}
 \item \textbf{Specification}: Defines FOL semantics precisely
 \item \textbf{Metaprogramming}: Enables runtime code generation
@@ -499,10 +403,6 @@ The self-hosted evaluator serves multiple purposes:
 
 Beyond these practical applications, the self-hosted evaluator validates FOL's design as a complete programming environment. A language that can implement its own evaluator demonstrates sufficient expressive power for complex metaprogramming tasks. The evaluator's relative brevity---350 lines implementing core evaluation semantics---speaks to FOL's abstraction capabilities.
 
-The evaluator also serves pedagogical purposes. New FOL programmers can read the evaluator implementation to understand language semantics precisely. This executable specification complements informal documentation, resolving ambiguities through runnable code. Graduate courses on programming language implementation could use FOL's evaluator as a teaching vehicle, demonstrating how modern language features like pattern matching and persistent data structures enable elegant interpreter implementations.
-
-From a practical standpoint, the evaluator enables powerful metaprogramming patterns. Domain-specific languages embedded in FOL can define custom evaluation semantics by extending or replacing the evaluator. Code generation tools can produce FOL forms and evaluate them dynamically. Testing frameworks can instrument the evaluator to track code coverage or inject debugging capabilities. These applications demonstrate that self-hosting provides not merely theoretical elegance but practical utility.
-
 \section{Evaluation}
 
 \subsection{Performance Characteristics}
@@ -510,22 +410,18 @@ From a practical standpoint, the evaluator enables powerful metaprogramming patt
 FOL's performance characteristics reflect its implementation strategy:
 
 \begin{table}[htbp]
-\caption{Complexity Comparison: Persistent vs. Mutable}
+\caption{Performance Comparison}
 \begin{center}
-\begin{tabular}{|l|c|c|}
-\hline
+\begin{tabular}{lcc}
+\toprule
 \textbf{Operation} & \textbf{Persistent} & \textbf{Mutable} \\
-\hline
+\midrule
 Vector access & O(log n) & O(1) \\
-\hline
 Vector update & O(log n) & O(1) \\
-\hline
 Dict lookup & O(log n) & O(1) \\
-\hline
 Dict insert & O(log n) & O(1) \\
-\hline
 Set membership & O(log n) & O(1) \\
-\hline
+\bottomrule
 \end{tabular}
 \label{tab:performance}
 \end{center}
@@ -533,48 +429,35 @@ Set membership & O(log n) & O(1) \\
 
 While persistent structures incur a logarithmic factor, the constant factors are small due to high branching factors (32-64). For typical applications, the difference is negligible compared to I/O and algorithmic complexity.
 
-This performance profile makes FOL well-suited for applications where correctness, maintainability, and concurrent programming capabilities outweigh raw computational speed. Web services, data processing pipelines, and interactive development tools all benefit from persistent data structures' safety guarantees. The logarithmic overhead becomes insignificant compared to network latency, disk I/O, or algorithmic complexity of domain logic.
-
-Importantly, FOL's interpreted execution currently dominates performance characteristics more than persistent data structure overhead. Profiling reveals that evaluation dispatch and environment lookups consume more cycles than collection operations. This suggests that compilation to native code or even to optimized Common Lisp would yield substantial speedups---potentially making FOL competitive with compiled Lisps while retaining persistence benefits. The FSet library demonstrates that persistent collections compiled to native code can achieve performance within 2-3x of mutable alternatives for many workloads.
+This performance profile makes FOL well-suited for applications where correctness, maintainability, and concurrent programming capabilities outweigh raw computational speed.
 
 \subsection{Comparison with Related Languages}
 
 \begin{table}[htbp]
 \caption{Feature Comparison}
 \begin{center}
-\begin{tabular}{|l|c|c|c|}
-\hline
+\begin{tabular}{lccc}
+\toprule
 \textbf{Feature} & \textbf{FOL} & \textbf{Clojure} & \textbf{CL} \\
-\hline
-Persistent collections & $\checkmark$ & $\checkmark$ & $\times$ \\
-\hline
+\midrule
+Persistent colls & $\checkmark$ & $\checkmark$ & $\times$ \\
 CLOS/MOP & $\checkmark$ & $\times$ & $\checkmark$ \\
-\hline
 Transducers & $\checkmark$ & $\checkmark$ & $\times$ \\
-\hline
-Lazy sequences & $\checkmark$ & $\checkmark$ & $\times$ \\
-\hline
-Multi-pattern dispatch & $\checkmark$ & $\checkmark$ & $\times$ \\
-\hline
+Lazy seqs & $\checkmark$ & $\checkmark$ & $\times$ \\
+Multi destr. dispatch & $\checkmark$ & $\checkmark$ & $\times$ \\
 Macros & $\checkmark$ & $\checkmark$ & $\checkmark$ \\
-\hline
 Reader syntax & Clojure & Clojure & CL \\
-\hline
+\bottomrule
 \end{tabular}
 \label{tab:comparison}
 \end{center}
 \end{table}
 
-FOL occupies a unique position, providing both Clojure's functional features and Common Lisp's object system. This combination addresses limitations in both parent languages. Clojure programmers sometimes find protocols and records insufficient for complex object-oriented designs, particularly when inheritance hierarchies or method combinations would clarify domain models. Common Lisp programmers, conversely, recognize the benefits of persistent data structures but lack native support, forcing them to choose between mutable performance and functional purity.
-
-FOL demonstrates that these features complement rather than conflict. Persistent collections benefit from generic function dispatch---processing nested structures polymorphically becomes natural when methods can specialize on collection types. The MOP enables customization of persistence behavior, allowing classes to define specialized sharing strategies or optimization hooks. Transducers compose naturally with generic functions, enabling transformation pipelines that dispatch on element types.
-
-This synthesis suggests that the historical divergence between functional and object-oriented Lisps may be reconcilable. Rather than viewing these paradigms as opposed philosophical camps, FOL treats them as complementary tools applicable to different aspects of program design. The success of this integration challenges assumptions about paradigm incompatibility that have influenced decades of language design.
+FOL occupies a unique position, providing both Clojure's functional features and Common Lisp's object system. This combination addresses limitations in both parent languages.
 
 \section{Future Work}
 
 Several extensions are planned for FOL:
-
 \begin{itemize}
 \item \textbf{Compilation}: Native code generation via transpilation to SBCL or native compilation
 \item \textbf{Class definition enhancements}: Abstract and sealed class definitions
@@ -590,19 +473,15 @@ The most pressing need is compilation. Currently, all code is interpreted throug
 \section{Related Work}
 
 \subsection{Clojure}
-
-Clojure \cite{b4} pioneered persistent data structures in production Lisp. FOL adopts Clojure's sequence abstraction, transducer protocol and persistence while diverging in object system design. Where Clojure uses protocols and records, FOL uses CLOS generic functions and classes.
+Clojure \cite{b4} pioneered persistent data structures in production Lisp. FOL adopts Clojure's sequence abstraction, transducer protocol and persistence while diverging in object system design.
 
 \subsection{Common Lisp}
-
-FOL's object system is a direct descendant of CLOS \cite{b2}. The meta-object protocol \cite{b3} enables deep customization of class and generic function behavior. FOL extends this with persistent slot values.
+FOL's object system is a direct descendant of CLOS \cite{b2}. The meta-object protocol \cite{b3} enables deep customization of class and generic function behavior.
 
 \subsection{Dylan}
-
-Dylan \cite{b5} influenced FOL's naming conventions and multiple dispatch semantics. The \texttt{<type>} notation improves code readability by clearly distinguishing types. In addition, FOL adopts Dylan's module system. Dylan modules provide a persistent way to package symbols. We believe it is also simpler and more consistent when compared with Clojure's namespaces and Common Lisp's packages.
+Dylan \cite{b5} influenced FOL's naming conventions and multiple dispatch semantics. The \texttt{<type>} notation improves code readability.
 
 \subsection{Persistent Data Structures}
-
 Okasaki's work \cite{b7} on purely functional data structures underpins modern implementations. FSet \cite{b8} and Sycamore provide production-quality persistent collections for Common Lisp.
 
 \section{Conclusion}
@@ -610,7 +489,6 @@ Okasaki's work \cite{b7} on purely functional data structures underpins modern i
 FOL demonstrates that functional and object-oriented programming are synergistic. By combining Clojure's persistent data structures with CLOS's powerful object system, FOL enables new programming patterns unavailable in either parent language.
 
 The language's key contributions include:
-
 \begin{itemize}
 \item Integration of persistent collections and objects with CLOS
 \item Self-hosted evaluator showcasing metaprogramming
@@ -620,28 +498,17 @@ The language's key contributions include:
 
 FOL shows that the Lisp family's evolution need not be divergent. By thoughtfully combining ideas from different dialects, we can create languages that are more than the sum of their parts.
 
-The complete FOL implementation, including 6,331 comprehensive tests achieving 100\% pass rate and extensive documentation, is available at https://github.com/frankadrian/fol.
-
-\section*{Acknowledgment}
-
-The author thanks the Common Lisp community for maintaining excellent libraries including FSet and Sycamore that made this implementation possible.
+The complete FOL implementation, including 6,333 comprehensive tests achieving 100\% pass rate and extensive documentation, is available at https://github.com/frankadrian/fol.
 
 \begin{thebibliography}{00}
-\bibitem{b1} G. L. Steele Jr., \emph{Common LISP: The Language}, 2nd ed. Digital Press, 1990.
-
-\bibitem{b2} D. G. Bobrow, L. G. DeMichiel, R. P. Gabriel, S. E. Keene, G. Kiczales, and D. A. Moon, ``Common Lisp Object System Specification,'' \emph{ACM SIGPLAN Notices}, vol. 23, no. SI, pp. 1--142, 1988.
-
-\bibitem{b3} G. Kiczales, J. des Rivi\`{e}res, and D. G. Bobrow, \emph{The Art of the Metaobject Protocol}. MIT Press, 1991.
-
-\bibitem{b4} R. Hickey, ``The Clojure programming language,'' in \emph{Proceedings of the 2008 Symposium on Dynamic Languages}, 2008.
-
-\bibitem{b5} Apple Computer, Inc., \emph{Dylan Interim Reference Manual}. Apple Computer, Inc., 1993.
-
-\bibitem{b6} R. Hickey, ``Transducers,'' \emph{Clojure Blog}, August 2014. Available: https://clojure.org/reference/transducers
-
-\bibitem{b7} C. Okasaki, \emph{Purely Functional Data Structures}. Cambridge University Press, 1999.
-
-\bibitem{b8} S. L. Siskind, ``FSet: A functional set-theoretic collections library for Common Lisp,'' \emph{Quicklisp}, 2012. Available: https://common-lisp.net/project/fset/
+\bibitem{b1} G. L. Steele Jr., \textit{Common LISP: The Language}, 2nd ed. Digital Press, 1990.
+\bibitem{b2} D. G. Bobrow, L. G. DeMichiel, R. P. Gabriel, S. E. Keene, G. Kiczales, and D. A. Moon, ``Common lisp object system specification,'' \textit{ACM Sigplan Notices}, vol. 23, no. SI, pp. 1-142, 1988.
+\bibitem{b3} G. Kiczales, J. des Rivi\`eres, and D. G. Bobrow, \textit{The Art of the Metaobject Protocol}. MIT Press, 1991.
+\bibitem{b4} R. Hickey, ``The Clojure programming language,'' in \textit{Proceedings of the 2008 Symposium on Dynamic Languages}, 2008.
+\bibitem{b5} Apple Computer, Inc., \textit{Dylan Interim Reference Manual}. Apple Computer, Inc., 1993.
+\bibitem{b6} R. Hickey, ``Transducers,'' \textit{Clojure Blog}, August 2014. Available: https://clojure.org/reference/transducers
+\bibitem{b7} C. Okasaki, \textit{Purely Functional Data Structures}. Cambridge University Press, 1999.
+\bibitem{b8} S. L. Siskind, ``FSet: A functional set-theoretic collections library for Common Lisp,'' \textit{Quicklisp}, 2012. Available: https://common-lisp.net/project/fset/
 \end{thebibliography}
 
 \end{document}

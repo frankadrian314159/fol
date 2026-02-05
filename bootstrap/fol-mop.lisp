@@ -217,14 +217,9 @@
           (listp (second elem))
           (not (null (second elem))))
      (let ((pred-form (second elem)))
-       ;; Evaluate quoted arguments
-       (let ((eval-args (mapcar (lambda (arg)
-                                  (if (and (listp arg)
-                                           (eq (first arg) 'quote))
-                                      (second arg)
-                                      arg))
-                                (rest pred-form))))
-         (list :pred (first pred-form) eval-args))))
+       ;; Keep arguments as-is (including quoted forms) - they will be
+       ;; evaluated later by resolve-signature-predicates using FOL eval
+       (list :pred (first pred-form) (rest pred-form))))
     ;; Type specialization: (var <type>)
     ((and (listp elem)
           (not (null elem))
@@ -286,14 +281,9 @@
                     (not (null (second param))))
                (let ((pred-form (second param)))
                  ;; Predicate: (var (fn arg0 arg1 ...))
-                 ;; Evaluate quoted arguments
-                 (let ((eval-args (mapcar (lambda (arg)
-                                            (if (and (listp arg)
-                                                     (eq (first arg) 'quote))
-                                                (second arg)
-                                                arg))
-                                          (rest pred-form))))
-                   (list :pred (first pred-form) eval-args))))
+                 ;; Keep arguments as-is (including quoted forms) - they will be
+                 ;; evaluated later by resolve-signature-predicates using FOL eval
+                 (list :pred (first pred-form) (rest pred-form))))
               ;; Type specialization with predicate: ((<type>? var))
               ((and (listp param)
                     (not (null param))

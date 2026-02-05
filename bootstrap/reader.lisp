@@ -405,14 +405,19 @@
 ;; Reader functions for Clojure special forms
 
 (defun fol-read-delimited-list (closing-char stream readtable)
-  "Read a list of forms until CLOSING-CHAR is encountered"
+  "Read a list of forms until CLOSING-CHAR is encountered.
+   Handles reader macros that return no values (like comments) by skipping them."
   (let ((result '()))
     (loop
       (let ((chr (peek-char t stream t nil t)))
         (when (char= chr closing-char)
           (read-char stream)  ; Consume closing char
           (return (nreverse result)))
-        (push (fol-read stream t nil readtable) result)))))
+        ;; Use multiple-value-list to detect when fol-read returns no values
+        ;; (e.g., when reading a comment). In that case, skip the push.
+        (let ((values (multiple-value-list (fol-read stream t nil readtable))))
+          (when values
+            (push (first values) result)))))))
 
 (defun read-list (stream chr)
   "Read a Clojure list starting with ("
@@ -420,13 +425,18 @@
   (fol-read-delimited-list #\) stream *clojure-readtable*))
 
 (defun read-vector (stream chr)
-  "Read a Clojure vector starting with ["
+  "Read a Clojure vector starting with [
+   Creates the vector directly at read time.
+   Note: Unlike dicts, vectors are often used structurally (e.g., parameter lists)
+   so they must be created at read time."
   (declare (ignore chr))
   (let ((elements (fol-read-delimited-list #\] stream *clojure-readtable*)))
     (apply #'fol.collection:make-vector elements)))
 
 (defun read-map (stream chr)
-  "Read a Clojure map starting with {"
+  "Read a Clojure map starting with {
+   Creates the dict directly at read time. The evaluator will evaluate
+   dict values when the dict is evaluated as an expression."
   (declare (ignore chr))
   (let ((pairs (fol-read-delimited-list #\} stream *clojure-readtable*)))
     (unless (evenp (length pairs))
@@ -555,7 +565,9 @@
 ;; Dispatch macro functions (take stream, char, arg)
 
 (defun read-set-dispatch (stream char arg)
-  "Read a Clojure set starting with #{"
+  "Read a Clojure set starting with #{
+   Creates the set directly at read time.
+   Note: Set elements are NOT evaluated - use quoted symbols for literal symbols."
   (declare (ignore char arg))
   (let ((elements (fol-read-delimited-list #\} stream *clojure-readtable*)))
     (apply #'fol.collection:make-set elements)))
