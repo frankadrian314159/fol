@@ -48,6 +48,20 @@
                          (fol-type-error-expected condition)
                          (fol-type-error-actual condition))))))
 
+(define-condition fol-predicate-error (fol-eval-error)
+  ((predicate :initarg :predicate :accessor fol-predicate-error-predicate)
+   (value :initarg :value :accessor fol-predicate-error-value)
+   (variable :initarg :variable :accessor fol-predicate-error-variable :initform nil))
+  (:report (lambda (condition stream)
+             (if (fol-predicate-error-variable condition)
+                 (format stream "Predicate error: variable ~A failed predicate ~A with value ~A"
+                         (fol-predicate-error-variable condition)
+                         (fol-predicate-error-predicate condition)
+                         (fol-predicate-error-value condition))
+                 (format stream "Predicate error: ~A failed for value ~A"
+                         (fol-predicate-error-predicate condition)
+                         (fol-predicate-error-value condition))))))
+
 ;;; ============================================================================
 ;;; FOL Function Representation
 ;;; ============================================================================
@@ -670,6 +684,28 @@
   (cl:and (symbolp sym)
        (string= (symbol-name sym) "_")))
 
+(defun bind-with-predicate-check (var-name pred-form value env)
+  "Create a binding for VAR-NAME to VALUE, checking that VALUE satisfies PRED-FORM.
+   PRED-FORM is a list like (<= 10) or (<number>?) where the value is passed as first arg.
+   Returns a list containing a single (var-name . value) cons.
+   Signals fol-predicate-error if VALUE doesn't satisfy the predicate."
+  (let* ((pred-fn-sym (cl:first pred-form))
+         (pred-fn-name (if (<symbol>? pred-fn-sym) (fol-value pred-fn-sym) pred-fn-sym))
+         (pred-args (cl:rest pred-form))
+         ;; Build the call: (pred-fn value args...)
+         (call-form (cons pred-fn-name (cons value pred-args)))
+         ;; Evaluate the predicate
+         (result (fol-eval call-form env)))
+    (unless (fol.wrappers:truthy? result)
+      (error 'fol-predicate-error
+             :predicate pred-form
+             :value value
+             :variable var-name
+             :message (format nil "Predicate ~A failed for ~A in binding ~A"
+                              pred-form value var-name)
+             :form (list var-name pred-form)))
+    (list (cons var-name value))))
+
 (defun predicate-specializer-p (pattern)
   "Return T if PATTERN is a predicate specializer of the form (symbol (fn args...)).
    A predicate specializer is a CL list with exactly 2 elements where:
@@ -729,8 +765,9 @@
                                  param-names)))
         (apply body-fn arg-values)))))
 
-(defun destructure-pattern (pattern value)
+(defun destructure-pattern (pattern value &optional env)
   "Destructure VALUE according to PATTERN, returning an alist of (symbol . value) pairs.
+   Optional ENV is used for evaluating predicates in :keys patterns.
    Supports:
    - Simple symbol: binds the whole value
    - Underscore _: discards the value (no binding created)
@@ -740,6 +777,7 @@
    - Vector with &: [a b & rest] captures remaining elements
    - Vector with :as: [a b :as whole] also binds the whole collection
    - Map {:keys [a b]}: binds a and b from map keys :a and :b
+   - Map {:keys [(a <type>) (b (pred))]}: with type or predicate checks
    - Map {a :key}: binds a to the value at :key
    - Map with :as: {a :key :as whole} also binds the whole map
    - Nested patterns: [[a b] c] for nested destructuring"
@@ -778,22 +816,23 @@
 
     ;; Vector pattern - sequential destructuring
     ((<vector>? pattern)
-     (destructure-sequential (vector-to-list pattern) value))
+     (destructure-sequential (vector-to-list pattern) value env))
 
     ;; CL list pattern - sequential destructuring (for quoted patterns)
     ((cl:listp pattern)
-     (destructure-sequential pattern value))
+     (destructure-sequential pattern value env))
 
     ;; Dict pattern - associative destructuring
     ((<dict>? pattern)
-     (destructure-associative pattern value))
+     (destructure-associative pattern value env))
 
     (t (error 'fol-eval-error
               :message (format nil "Invalid destructuring pattern: ~S" pattern)
               :form pattern))))
 
-(defun destructure-sequential (pattern-list value)
+(defun destructure-sequential (pattern-list value &optional env)
   "Destructure VALUE as a sequence according to PATTERN-LIST.
+   Optional ENV is passed through for predicate evaluation.
    Handles & for rest binding and :as for whole binding."
   (let ((bindings nil)
         (seq-value (cond
@@ -826,23 +865,26 @@
                 (let ((rest-val (nthcdr current-idx seq-value)))
                   ;; Always convert to FOL list (like Clojure's rest which returns a seq)
                   (setf rest-val (apply #'make-list rest-val))
-                  (setf bindings (append bindings (destructure-pattern pat rest-val))))
+                  (setf bindings (append bindings (destructure-pattern pat rest-val env))))
                 (setf rest-mode nil))
 
                ;; Normal element - destructure at current index
                (t
                 (let ((elem-val (cl:nth current-idx seq-value)))
-                  (setf bindings (append bindings (destructure-pattern pat elem-val))))
+                  (setf bindings (append bindings (destructure-pattern pat elem-val env))))
                 (incf current-idx))))
     ;; Add :as binding if present
     (when as-binding
       (cl:push as-binding bindings))
     bindings))
 
-(defun destructure-associative (pattern value)
+(defun destructure-associative (pattern value &optional env)
   "Destructure VALUE as a map according to dict PATTERN.
+   Optional ENV is used for evaluating predicates in :keys patterns.
    Handles :keys, :strs, :syms shortcuts, :as for whole binding, and :or for defaults.
-   Example: {:keys [a b] :or {a 10 b 20}} - if a is missing, uses 10 as default."
+   :keys supports type annotations (name <type>) and predicate patterns (name (pred args...)).
+   Example: {:keys [a b] :or {a 10 b 20}} - if a is missing, uses 10 as default.
+   Example: {:keys [(x <number>) (y (<= 10))]} - x must be a number, y must be <= 10."
   (let ((bindings nil)
         (as-binding nil)
         ;; Extract :or defaults map
@@ -860,31 +902,43 @@
       (let ((keys-val (get pattern :keys nil)))
         (when keys-val
           ;; :keys [a b c] -> bind a to :a, b to :b, etc.
-          ;; :keys [(a type) b (c type)] -> bind with type checking
+          ;; :keys [(a <type>) b (c (pred))] -> bind with type or predicate checking
           (let ((key-list (cond
                             ((<vector>? keys-val) (vector-to-list keys-val))
                             ((cl:listp keys-val) keys-val)
                             (t (list keys-val)))))
             (dolist (k key-list)
-              ;; Check if k is a type-annotated pair: (name type) or [name type]
-              (let* ((is-typed (cl:or (cl:and (cl:listp k) (= (length k) 2)
-                                              (cl:or (symbolp (cl:first k)) (<symbol>? (cl:first k))))
-                                      (cl:and (<vector>? k) (= (size k) 2))))
-                     (k-elements (when is-typed
+              ;; Check if k is an annotated pair: (name spec) or [name spec]
+              ;; where spec is either a type symbol or a predicate list
+              (let* ((is-annotated (cl:or (cl:and (cl:listp k) (= (length k) 2)
+                                                  (cl:or (symbolp (cl:first k)) (<symbol>? (cl:first k))))
+                                          (cl:and (<vector>? k) (= (size k) 2))))
+                     (k-elements (when is-annotated
                                    (if (<vector>? k) (vector-to-list k) k)))
-                     (sym (if is-typed
+                     (sym (if is-annotated
                               (extract-symbol (cl:first k-elements))
                               (extract-symbol k)))
-                     (type-spec (when is-typed
-                                  (let ((ts (cl:second k-elements)))
-                                    (if (<symbol>? ts) (fol-value ts) ts))))
+                     (spec (when is-annotated
+                             (let ((s (cl:second k-elements)))
+                               (if (<symbol>? s) (fol-value s) s))))
+                     ;; Determine if spec is a type (symbol like <string>) or predicate (list like (<= 10))
+                     (is-type-spec (cl:and spec (symbolp spec) (fol-type-symbol-p spec)))
+                     (is-pred-spec (cl:and spec (cl:listp spec) (not (null spec))))
                      (keyword (intern (symbol-name sym) :keyword))
                      (val (get-with-default keyword sym)))
-                (if type-spec
-                    ;; With type annotation - use type checking
-                    (setf bindings (append (bind-with-type-check sym type-spec val) bindings))
-                    ;; Without type annotation - simple binding
-                    (cl:push (cons sym val) bindings)))))))
+                (cond
+                  ;; Type annotation - use type checking
+                  (is-type-spec
+                   (setf bindings (append (bind-with-type-check sym spec val) bindings)))
+                  ;; Predicate pattern - evaluate predicate with value
+                  (is-pred-spec
+                   (if env
+                       (setf bindings (append (bind-with-predicate-check sym spec val env) bindings))
+                       ;; No env available - just bind without check (shouldn't happen in normal use)
+                       (cl:push (cons sym val) bindings)))
+                  ;; No annotation - simple binding
+                  (t
+                   (cl:push (cons sym val) bindings))))))))
 
       ;; Check for :strs shortcut (string keys)
       (let ((strs-val (get pattern :strs nil)))
@@ -928,7 +982,7 @@
                    (val (get-with-default lookup-key local-sym)))
               ;; Support nested destructuring
               (if (or (<vector>? local-sym) (<dict>? local-sym) (cl:listp local-sym))
-                  (setf bindings (append bindings (destructure-pattern k val)))
+                  (setf bindings (append bindings (destructure-pattern k val env)))
                   (cl:push (cons local-sym val) bindings))))))
 
       ;; Add :as binding if present
@@ -993,7 +1047,8 @@
         (loop for (pattern val-form) on binding-list by #'cddr
               do (let ((val (capture-value-for-destructuring val-form current-env pattern)))
                    ;; Use destructuring to get all bindings from pattern
-                   (let ((destructured (destructure-pattern pattern val)))
+                   ;; Pass current-env for predicate evaluation in :keys patterns
+                   (let ((destructured (destructure-pattern pattern val current-env)))
                      (dolist (binding destructured)
                        (setf current-env (make-env current-env
                                                    (car binding) (cdr binding)))))))
@@ -2475,8 +2530,9 @@
     ((<symbol>? param)
      (make-env env (fol-value param) value))
     ;; Destructuring pattern - use destructure-pattern
+    ;; Pass env for predicate evaluation in :keys patterns
     ((or (<vector>? param) (<dict>? param) (cl:listp param))
-     (let ((bindings (destructure-pattern param value)))
+     (let ((bindings (destructure-pattern param value env)))
        (dolist (binding bindings)
          (setf env (make-env env (car binding) (cdr binding))))
        env))

@@ -185,7 +185,9 @@
    wrap-number unwrap-number
    ;; Type checking utilities
    fol-numberp fol-integerp fol-realp
-   fol-stringp fol-characterp fol-symbolp fol-booleanp))
+   fol-stringp fol-characterp fol-symbolp fol-booleanp
+   ;; Truthiness
+   truthy?))
 
 (defpackage fol.collection
   (:use cl fol.persistent)
@@ -515,6 +517,7 @@
    fol-eval-error fol-eval-error-message fol-eval-error-form
    fol-arity-error fol-arity-error-expected fol-arity-error-got
    fol-type-error fol-type-error-expected fol-type-error-actual fol-type-error-variable
+   fol-predicate-error fol-predicate-error-predicate fol-predicate-error-value fol-predicate-error-variable
    ;; Utilities
    make-function apply-function
    ;; Macro utilities

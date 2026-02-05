@@ -15,11 +15,11 @@ We present FOL (Functional Object Lisp), a new Lisp dialect that combines persis
 
 ## 1. Introduction
 
-The Lisp family of languages has evolved along multiple paths, each emphasizing different aspects of the language's core philosophy. Common Lisp [1] provides a mature, standardized platform with powerful object-oriented features through CLOS [2] and metaprogramming through the MOP [3]. Clojure [4] introduced persistent data structures and functional programming idioms to the JVM ecosystem, emphasizing immutability and simplicity. Dylan [5] explored an object-oriented Lisp with a clear type system. Clojure provides objects, but this facility is constrained by what is easily provided by the JVM and the language itself. We believe CLOS and its MOP provides a much richer object system. FOL exists to show that immutable persistent objects and an object system like CLOS can co-exist and, in fact, can be synergystic when used together. In addition, FOL provides extended multiple destructuring patterns in functions, CLOS generic functions and methods, and macros, providing a richer programming experience for the user.
+The Lisp family of languages has evolved along multiple paths, each emphasizing different aspects of the language's core philosophy. Common Lisp [1] provides a mature, standardized platform with powerful object-oriented features through CLOS [2] and metaprogramming through the MOP [3]. Clojure [4] introduced persistent data structures and functional programming idioms to the JVM ecosystem, emphasizing immutability and simplicity. Dylan [5] explored an object-oriented Lisp with a clear type system. Clojure provides objects, but this facility is constrained by what is easily provided by the JVM and the language itself. We believe CLOS and its MOP provides a much richer object system. FOL exists to show that immutable persistent objects and an object system like CLOS can co-exist and, in fact, can be synergistic when used together. In addition, FOL provides extended multiple destructuring patterns in functions, CLOS generic functions and methods, and macros, providing a richer programming experience for the user.
 
 FOL (Functional Object Lisp) synthesizes ideas from these traditions to create a language that:
 
-- Provides Clojure-style persistent data structures with structural sharing
+- Provides Clojure-style persistent data structures with structural sharing for all objects not requiring mutability (exceptions are streams, atoms, regular expression scanners, etc.)
 - Maintains CLOS-style generic functions including multiple destructuring pattern dispatch
 - Adopts Dylan's naming conventions (`<type>`) for clarity and its module structure which is simpler and more intuitive than Clojure's namespaces or Common Lisp's packages.
 - Supports both functional and object-oriented programming paradigms
@@ -34,7 +34,7 @@ FOL is built on the principle that persistent data structures and object-oriente
 
 The language makes the following design commitments:
 
-1. **Immutability by default**: All objects and collections are persistent
+1. **Immutability by default**: All objects and collections are persistent for all objects not requiring mutability (e.g., streams, atoms, regular expression scanners, etc.)
 2. **Structural sharing**: Updates to objects and collections create new versions sharing structure with old
 3. **Object identity**: Objects have identity separate from value equality
 4. **Generic functions**: Multiple dispatch over destructuring patterns for polymorphism
@@ -50,7 +50,7 @@ Generic functions with destructuring pattern dispatch extend CLOS's multiple dis
 
 FOL adopts Clojure's reader syntax for consistency with functional programming conventions:
 
-```clojure
+```FOL
 ;; Vectors
 [1 2 3]
 
@@ -68,14 +68,14 @@ FOL adopts Clojure's reader syntax for consistency with functional programming c
 
 ;; Destructuring with type constraints and :as
 (defn summarize-person
-  ([{:keys [(name string) (age number)] :as person}]
+  ([{:keys [(name <string>) (age <number>)] :as person}]
     (str name " is " age " years old")))
 
 ;; Rest parameters with &
 (defn sum-and-product
   ([fst & rst]
     (make <dict> :sum (+ fst (apply + rst))
-                  product (* fst (apply * rst)))))
+                 :product (* fst (apply * rst)))))
 
 ;; Nested destructuring with :or for defaults
 (defn process-config
@@ -87,26 +87,14 @@ FOL adopts Clojure's reader syntax for consistency with functional programming c
       {:host host
        :port port
        :timeout timeout})))
-  (expt (- y2 y1) 2)))))
+```
 
 These examples demonstrate FOL's rich destructuring capabilities, combining pattern matching with predicate tests, default values, and nested destructuring. The use of angle brackets (`<>`) for type names, borrowed from Dylan, provides visual distinction between types and values.
 
 ### 2.3 Type System
+Although a small number of system types must be mutable and derive from CLOS's standard-object, the majority of FOL's type hierarchy begins with `<persistent-object>` from which all primitive types, collection types, and user types derive.
 
-FOL's type hierarchy begins with `<persistent-object>`, from which all types derive:
-
-```
-<persistent-object>
-  ├─ <number>
-  ├─ <string>
-  ├─ <symbol>
-  ├─ <collection>
-  │   ├─ <vector>
-  │   ├─ <list>
-  │   ├─ <dict>
-  │   └─ <set>
-  └─ <user-defined-classes>
-```
+![Fig.1 - Type Hierarchy](ELS-2026-paper-class-hierarchy.pdf)
 
 Primitive types wrap their Common Lisp equivalents in a `val` slot, accessed through the generic function `fol-val`. This allows primitives to participate in the persistent object protocol while maintaining compatibility with Common Lisp's numeric tower.
 
@@ -114,16 +102,9 @@ Primitive types wrap their Common Lisp equivalents in a `val` slot, accessed thr
 
 ### 3.1 Bootstrap Implementation
 
-FOL is implemented in Common Lisp, leveraging existing infrastructure:
+The implementation consists of approximately 6,000 lines of Common Lisp code:
 
-- **FSet** [8]: Functional sets and maps with 2-3 finger trees
-- **Sycamore**: Weight-balanced trees for sorted collections
-- **CLOS/MOP**: Object system and metaprogramming
-- **Closer-MOP**: Portable MOP interface
-
-The implementation consists of approximately 6,000 lines of Common Lisp code organized into modules:
-
-| Module          | LOC  | Purpose                          |
+| File            | LOC  | Purpose                          |
 |-----------------|------|----------------------------------|
 | persistent      | 250  | Base persistent object protocol  |
 | classes         | 180  | Primitive type wrappers          |
@@ -132,39 +113,42 @@ The implementation consists of approximately 6,000 lines of Common Lisp code org
 | eval            | 1580 | Evaluator and special forms      |
 | standard-names  | 1680 | Standard environment             |
 
+The code has been thoroughly tested with over 6,300 tests passing across the bootstrap implementation.
+
 ### 3.2 Persistent Object Protocol
 
-FOL extends CLOS with a persistent object protocol. All user-defined classes inherit from `<persistent-object>` and use `pslot-value` for slot access:
+FOL extends CLOS with a persistent object protocol. All user-defined classes inherit from `<persistent-object>` and use `pslot-value` for slot access (although, as in the code below, one can also use the function assoc to assign new values, access values via a keyword having the slot-name, or call the get function to retrieve the value of a slot):
 
-```clojure
+```FOL
 (defclass <person> [<persistent-object>]
   [[name :type <string>]
    [age :type <number>]])
 
 (def alice (make <person> :name "Alice" :age 30))
 
-;; Updates return new instances via slot-value
+;; Updates return new instances via assoc
 (def older-alice
-  (assoc alice 'age 31))
+  (assoc alice :age 31))
 
 ;; Original unchanged
 (:age alice )  ; => 30
-(:age older-alice)  ; => 31
+(older-alice :age)  ; => 31
+(get alice :name) ; => "Alice"
 ```
 
-The `defclass*` macro extends CLOS's `defclass` to create persistent classes. It ensures all instances inherit from `<persistent-object>` and automatically implements the persistent slot protocol. Like CLOS, it supports slot options including `:type`, `:initarg`, `:initform`, and `:reader`/`:writer` specifications.
+FOL's `defclass` macro extends CLOS's `defclass` to create persistent classes. It ensures all instances inherit from `<persistent-object>` and automatically implements the persistent slot protocol. Like CLOS, it supports slot options including `:type`, `:initarg`, `:initform`, and `:reader`/`:writer` specifications. Writer functions return a new object instance sharing structure with the original object with the value of the slot changed.
 
 Persistence is achieved through careful management of slot values and structural sharing. When a slot is updated, only the affected slots are copied; others are shared between instances. This implementation strategy required solving several technical challenges. First, CLOS's native slot access mechanisms (`slot-value` and `setf`) assume mutable slots, necessitating a parallel protocol (`pslot-value` and `set-pslot-value`) that returns new instances rather than modifying existing ones.
 
-Second, integrating persistent objects with CLOS's meta-object protocol required careful attention to initialization and allocation. Instance creation must allocate slot storage that can be efficiently shared across versions. Our implementation achieves this by storing slot values in a persistent hash map, allowing O(log n) updates and structural sharing at the slot level. This design choice prioritizes flexibility and correctness over raw performance, accepting logarithmic overhead to maintain the abstraction's integrity.
+Second, integrating persistent objects with CLOS's meta-object protocol required careful attention to initialization and allocation. Instance creation must allocate slot storage that can be efficiently shared across versions. Our implementation achieves this by storing slot values in a persistent hash map, allowing O(log n) updates and structural sharing at the slot level. This design choice prioritizes flexibility and correctness over raw performance, accepting logarithmic overhead to maintain the abstraction's integrity. The use of the persistent hash map also allows a user to add additional key-value pairs to any object. 
 
 The persistent object protocol also interacts with Common Lisp's garbage collector in interesting ways. Because old versions of objects remain reachable as long as any reference exists, programs must be mindful of retention. However, this same property enables time-travel debugging and undo/redo functionality essentially for free—simply retain references to previous versions. This capability has proven valuable in interactive development environments where programmers frequently experiment with state modifications.
 
 ### 3.3 Collection Implementation
 
-FOL's collections are implemented as thin wrappers around FSet and Sycamore data structures:
+FOL's collections are implemented as thin wrappers around FSet [8] and Sycamore data structures:
 
-```clojure
+```FOL
 (defclass <collection> [<persistent-object>]
   [[items :type fset:collection]])
 
@@ -187,47 +171,21 @@ The wrapper layer also addresses impedance mismatches between Common Lisp's and 
 
 ## 4. Features
 
-### 4.1 Transducers
+### 4.1 Clojure Features
 
-FOL implements Clojure's transducer protocol [6], enabling composable algorithmic transformations:
+FOL implements several Clojure features including:
+- **Transducers**: FOL implements Clojure's transducer protocol [6], enabling composable algorithmic transformations.
+- **Lazy sequences**: Laziness is essential in efficient processing of sequences of objects and processing infinite sequences. FOL provides facilities for creating and processing lazy sequences.
+- **Atoms**: Atoms are one of the most widely used storage options in Clojure. We provide thread-safe atoms for storage and atomic updating of state.
+- **Collection hierarchy**: FOL adopts Clojure's rich set of collections. Sets and dicts have specializations that allow them to be sorted and provide efficient means to process integer-keyed collections.
+- **Sequence functions**: In addition to transducers, FOL provides Clojure's wide-ranging set of functions operating on sequences.
 
-```clojure
-;; Compose transducers
-(def xform
-  (comp (filter even?)
-        (map (fn [x] (* x x)))
-        (take 5)))
 
-;; Apply to different contexts
-(transduce xform + 0 (range 20))  ; => 120 (0+4+16+36+64)
-(into [] xform (range 20))        ; => [0 4 16 36 64]
-```
-
-Transducers separate the essence of transformation from the context of application. The same transducer works with reduction, sequence building, or channel processing.
-
-### 4.2 Lazy Sequences
-
-FOL provides lazy sequences that delay computation until needed:
-
-```clojure
-(defn fib-helper [a b]
-  (lazy-seq (cons a (fib-helper b (+ a b)))))
-
-(defn fibonacci []
-  (fib-helper 0 1))
-
-;; Only computes as needed
-(vec (take 10 (fibonacci)))
-; => [0 1 1 2 3 5 8 13 21 34]
-```
-
-Lazy sequences enable infinite data structures and efficient pipeline processing. The implementation uses thunks that cache their results after first evaluation.
-
-### 4.3 Generic Function Integration
+### 4.2 Generic Function Integration
 
 FOL's generic functions fully integrate with persistent data. Methods dispatch on type predicates (e.g., `<vector>?`, `<dict>?`) which check both the specified type and all subtypes, providing flexible polymorphism:
 
-```clojure
+```FOL
 (defgeneric process [x])
 
 (defmethod process [(x <vector>)]
@@ -247,12 +205,12 @@ FOL's generic functions fully integrate with persistent data. Methods dispatch o
 (defgeneric compute-total [items discount])
 
 ;; Dispatch on collection type
-(defmethod compute-total [(items <vector>) (discount <number>)]
+(defmethod compute-total [(items <vector>) (<number>? discount)]
   (* (reduce + items) (- 1.0 discount)))
 
 ;; Dispatch with map destructuring in body
 (defmethod compute-total [(items <dict>) (discount <dict>)]
-  (bind [{:keys [rate type] :or {type :percentage}} discount
+  (bind [{:keys [(rate <number>) (type <keyword>)] :or {type :percentage}} discount
          subtotal (reduce + (vals items))]
     (if (= type :percentage)
       (* subtotal (- 1.0 rate))
@@ -283,10 +241,25 @@ FOL's generic functions fully integrate with persistent data. Methods dispatch o
          [rx ry] [(* x scale) (* y scale)]
          [tx ty] [(+ rx dx) (+ ry dy)]]
     [type [tx ty] :transformed t]))
+```
 
+In addition, one can specify a set of destructuring patterns in defgeneric and a set of patterns with their associated code in functions, methods and macros:
+
+```FOL
+(defgeneric process ([a]
+                     [a & (b (< 10))]
+                     [a & (b <number>) (c <string>)]
+                     [a & b c]))
+
+(defmethod process
+                  ([a] 50)
+                  ([a (b (< 10))] (* 2 b))
+                  ([a (b <number>) (c <string>)] c)
+                  ([a b c] :error))
+```
 This demonstrates how generic functions provide polymorphism through multiple dispatch while maintaining destructuring capabilities and functional purity.
 
-### 4.4 Predicate Specializers
+### 4.3 Predicate Specializers
 
 FOL extends pattern matching with general predicate specializers that allow functions to dispatch based on arbitrary predicate tests. The syntax `(var (fn arg0 arg1 ...))` applies the predicate function to the argument at runtime: `(apply fn var arg0 arg1 ...)`.
 
@@ -294,7 +267,7 @@ FOL extends pattern matching with general predicate specializers that allow func
 
 Predicates work with any function, providing flexible dispatch:
 
-```clojure
+```FOL
 ;; Equality predicates
 (defn check-value
   ([(n (= 0))] :zero)
@@ -326,7 +299,7 @@ Predicates work with any function, providing flexible dispatch:
 
 Predicate specializers support multiple parameters with independent predicates:
 
-```clojure
+```FOL
 (defn compare-signs
   ([(a (< 0)) (b (> 0))] :negative-positive)
   ([(a (> 0)) (b (< 0))] :positive-negative)
@@ -341,7 +314,7 @@ Predicate specializers support multiple parameters with independent predicates:
 
 Any function can serve as a predicate, enabling domain-specific dispatch:
 
-```clojure
+```FOL
 ;; Type predicates with correct syntax: (var (predicate))
 (defn process-value
   ([(x (<number>?))] (* x 2))
@@ -357,24 +330,26 @@ Any function can serve as a predicate, enabling domain-specific dispatch:
 
 #### Predicate Specificity
 
-Predicate specializers have the same specificity level as type specializers (level 4), higher than destructuring patterns (level 1) but allowing first-match semantics when multiple predicates could apply:
+Predicate specializers (level 3) are more specific than type specializers and type-predicate specializers (both level 2), which are more specific than destructuring patterns (level 1) and any-match (level 0). Type specializers `(x <type>)` and type-predicate specializers `((<type>? x))` are at the same level since both perform type checking. When multiple patterns at the same level could apply, first-match semantics determine the winner:
 
-```clojure
+```FOL
 (defn check
-  ([(x (= 5))] :exactly-five)       ; Predicate (level 4)
-  ([(x (<number>?))] :some-number)  ; Type predicate (level 4)
+  ([(x (= 5))] :exactly-five)       ; Predicate (level 3)
+  ([(x <number>)] :some-number)     ; Type (level 2)
   ([x] :anything))                  ; Any (level 0)
 
-(check 5)   ; => :exactly-five (predicate matches first)
-(check 10)  ; => :some-number (type predicate matches)
+(check 5)   ; => :exactly-five (predicate more specific than type)
+(check 10)  ; => :some-number (type matches)
 (check "x") ; => :anything (fallback)
 ```
+
+Specificity ordering ensures that more constrained patterns are tested before less constrained ones, regardless of their definition order. This prevents common errors where a general pattern inadvertently shadows a specific one. When defining a function with multiple clauses, programmers need not worry about clause ordering for correctness—the system automatically tries the most specific matching pattern first. For sequence patterns, specificity extends to element-level comparisons: a pattern like `[(x (< 0)) y]` is more specific than `[(x <number>) y]` because its first element has higher specificity (predicate vs. type). This recursive specificity comparison enables precise control over dispatch behavior in complex nested destructuring scenarios.
 
 #### Integration with `fn` and `lambda`
 
 Predicate specializers work seamlessly in anonymous functions:
 
-```clojure
+```FOL
 ;; Inline predicate dispatch
 ((fn ([(x (< 10))] :small)
      ([(x (>= 10))] :large)) 5)
@@ -391,7 +366,7 @@ Predicate specializers work seamlessly in anonymous functions:
 
 Predicate specializers are **not allowed** in macro parameter lists because macros receive unevaluated forms. A predicate needs to evaluate its argument, but macros work with raw syntax:
 
-```clojure
+```FOL
 ;; This signals an error:
 (defmacro bad-macro
   ([(x (= 0))] `0)
@@ -413,7 +388,7 @@ This design provides powerful dispatch capabilities while maintaining simplicity
 
 FOL includes a meta-circular evaluator written in FOL itself (approximately 350 lines):
 
-```clojure
+```FOL
 (defgeneric eval-form [form env])
 
 (defmethod eval-form [(form <number>) env]
@@ -442,7 +417,7 @@ The evaluator demonstrates several FOL features:
 
 Special form evaluators are defined as regular functions:
 
-```clojure
+```FOL
 (defn eval-if [args env]
   (bind [arg-count (size args)]
     (if (or (< arg-count 2) (> arg-count 3))

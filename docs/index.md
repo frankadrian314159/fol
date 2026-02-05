@@ -7,6 +7,7 @@ FOL (Functional Object Lisp) is a Lisp dialect combining features from Common Li
 - [Primitives](primitives.md) - Basic types: booleans, characters, strings, symbols, keywords, numbers, UUIDs, streams
 - [Collections](collections.md) - Persistent collections: vectors, lists, dicts, sets, bags, arrays, lazy-seqs
 - [Destructuring](destructuring.md) - Pattern matching in bindings and function parameters
+- [Pattern Specificity](pattern-specificity.md) - Priority ordering for multi-pattern dispatch in functions, methods, and macros
 
 ## Language Reference
 

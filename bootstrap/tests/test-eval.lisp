@@ -4213,10 +4213,10 @@
 ;;; ============================================================================
 
 (test predicate-vs-type-specificity
-  "Test that predicates have same specificity as type specializers."
+  "Test that predicates are more specific than type specializers."
   (let ((env (make-standard-module)))
-    ;; Both predicates and types are level 4
-    ;; When both match, first one wins
+    ;; Predicates are level 3, types/type-preds are level 2
+    ;; Predicate wins when both match
     (fol-eval (fol-form "(defn check
                           ([(x (= 5))] :pred-match)
                           ([(x <number>)] :type-match))") env)

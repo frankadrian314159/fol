@@ -328,21 +328,21 @@
 (defun pattern-specificity-level (sig)
   "Return numeric specificity level for a signature.
    Higher numbers are more specific.
-   Order: Pred (4) > Type (3) > Type-Pred (2) > Seq (1) > Any (0)
+   Order: Pred (3) > Type/Type-Pred (2) > Seq (1) > Any (0)
 
    For sequences, the base level is 1, but specificity also considers
    the element signatures for detailed comparison."
   (case (first sig)
-    (:pred 4)  ; Predicate specializers (=, <, >, contains?, etc.)
-    (:type 3)
-    (:type-pred 2)
+    (:pred 3)  ; Predicate specializers (=, <, >, contains?, etc.)
+    (:type 2)
+    (:type-pred 2)  ; Same level as :type - both are type checks
     (:seq 1)
     (:any 0)
     (t 0)))
 
 (defun pattern-more-specific-p (sig1 sig2)
   "Return T if SIG1 is more specific than SIG2.
-   Specificity order: :eql > :type > :type-pred > :seq > :any"
+   Specificity order: :pred (3) > :type/:type-pred (2) > :seq (1) > :any (0)"
   (loop for s1 in sig1
         for s2 in sig2
         for level1 = (pattern-specificity-level s1)

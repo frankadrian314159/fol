@@ -8,11 +8,16 @@
   ()
   (:documentation "Metaclass for persistent objects whose slots are stored in an FSet map."))
 
-(defmethod closer-mop:validate-superclass ((class persistent-class) 
+(defmethod closer-mop:validate-superclass ((class persistent-class)
                                            (superclass standard-class))
   t)
 
 (defmethod closer-mop:validate-superclass ((class persistent-class)
+                                           (superclass persistent-class))
+  t)
+
+;;; Allow standard-class subclasses of persistent-class classes (for mutable classes like <lazy-seq>)
+(defmethod closer-mop:validate-superclass ((class standard-class)
                                            (superclass persistent-class))
   t)
 

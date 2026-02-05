@@ -1,0 +1,61 @@
+;; 1. Define the Trade class
+;;    Inherits from <persistent-object> for immutability
+(defclass <trade> [<persistent-object>]
+  [[symbol :initarg :symbol :accessor trade-symbol]
+   [amount :initarg :amount :accessor trade-amount]
+   [price  :initarg :price  :accessor trade-price]
+   [side   :initarg :side   :accessor trade-side]]) ; :buy or :sell
+
+;; 2. Define custom predicates for business logic
+;;    These functions return true/false based on the trade object
+
+(defn high-value? [trade]
+  (> (* (trade-amount trade) (trade-price trade)) 1000000))
+
+(defn restricted-symbol? [trade]
+  (contains? #{'GOOG 'AMZN 'META} (trade-symbol trade)))
+
+(defn penny-stock-buy? [trade]
+  (and (= (trade-side trade) :buy)
+       (< (trade-price trade) 5.00)))
+
+;; 3. Define the generic function for compliance checking
+(defgeneric validate-trade [trade])
+
+;; 4. Define methods using Predicate Specializers
+;;    Syntax: (var predicate-fn)
+
+;; Rule 1: Block restricted symbols immediately
+(defmethod validate-trade [(t restricted-symbol?)]
+  {:status :rejected
+   :reason (str "Symbol " (trade-symbol t) " is on the restricted list")})
+
+;; Rule 2: Flag high value trades for manual review
+(defmethod validate-trade [(t high-value?)]
+  {:status :manual-review
+   :reason "Trade value exceeds $1M limit"})
+
+;; Rule 3: Warn on penny stock purchases
+(defmethod validate-trade [(t penny-stock-buy?)]
+  {:status :warning
+   :reason "High risk penny stock purchase"
+   :trade t})
+
+;; Rule 4: Standard approval (Catch-all)
+(defmethod validate-trade [t]
+  {:status :approved
+   :id (gensym "TRD")})
+
+;; 5. Test the system
+(def t1 (make <trade> :symbol 'MSFT :amount 100 :price 300.00 :side :buy))
+(def t2 (make <trade> :symbol 'GOOG :amount 50 :price 150.00 :side :sell))
+(def t3 (make <trade> :symbol 'IBM  :amount 10000 :price 150.00 :side :buy))
+
+(print (str "T1: " (validate-trade t1)))
+;; => T1: {:status :approved :id TRD123}
+
+(print (str "T2: " (validate-trade t2)))
+;; => T2: {:status :rejected :reason "Symbol GOOG is on the restricted list"}
+
+(print (str "T3: " (validate-trade t3)))
+;; => T3: {:status :manual-review :reason "Trade value exceeds $1M limit"}

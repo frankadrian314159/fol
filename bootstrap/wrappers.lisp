@@ -249,3 +249,15 @@
 (defmethod fol-booleanp ((obj (eql nil))) t)
 (defmethod fol-booleanp ((obj <bool>)) t)
 (defmethod fol-booleanp (obj) nil)
+
+;;; ============================================================================
+;;; Truthiness
+;;; ============================================================================
+
+(defgeneric truthy? (obj)
+  (:documentation "Returns T if OBJ is truthy in FOL semantics.
+   In FOL/Clojure, only nil and false (wrapped or raw) are falsy.
+   Everything else is truthy."))
+(defmethod truthy? ((obj (eql nil))) nil)
+(defmethod truthy? ((obj <bool>)) (slot-value obj 'val))
+(defmethod truthy? (obj) t)

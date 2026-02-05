@@ -975,7 +975,7 @@
 ;;; Once realized, the result is cached. This enables infinite sequences
 ;;; and efficient memory usage for large transformations.
 
-(defclass <lazy-seq> ()
+(defclass <lazy-seq> (<ordered-collection>)
   ((thunk :initarg :thunk
           :initform nil
           :accessor lazy-seq-thunk
@@ -987,6 +987,8 @@
    (cached :initform nil
            :accessor lazy-seq-cached
            :documentation "The cached result after realization."))
+  ;; Note: <lazy-seq> intentionally uses standard-class (not persistent-class)
+  ;; because lazy sequences need to mutate their 'realized' and 'cached' slots.
   (:documentation "A lazy sequence that delays computation until needed.
                    Implements the sequence protocol (first, rest, seq).
                    Once realized, the result is cached for subsequent access."))
@@ -1078,11 +1080,12 @@
 ;;; A wrapper type that signals early termination in reduce operations.
 ;;; When reduce encounters a reduced value, it unwraps and returns immediately.
 
-(defclass <reduced> ()
+(defclass <reduced> (fol.persistent:<persistent-object>)
   ((value :initarg :value
           :initform nil
           :accessor reduced-value
           :documentation "The wrapped value to return from reduce."))
+  (:metaclass fol.persistent:persistent-class)
   (:documentation "Wrapper indicating early termination in reduce operations."))
 
 (defun reduced (value)
