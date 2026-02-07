@@ -33,3 +33,17 @@ quicklisp/
 # OS generated files
 .DS_Store
 Thumbs.db
+
+# LaTex templates
+docs/acmart/*
+
+# tex files
+docs/els-2026-paper.out
+docs/els-2026-paper.log
+docs/els-2026-paper.aux
+docs/els-2026-paper.tex
+docs/nul
+docs/nul.*
+nul
+nul.*
+
