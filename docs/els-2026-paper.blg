@@ -1,0 +1,78 @@
+This is BibTeX, Version 0.99e
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: els-2026-paper.aux
+Reallocating 'name_of_file' (item size: 1) to 21 items.
+The style file: ACM-Reference-Format.bst
+Reallocating 'name_of_file' (item size: 1) to 15 items.
+Reallocating 'singl_function' (item size: 4) to 100 items.
+Reallocating 'singl_function' (item size: 4) to 100 items.
+Reallocating 'wiz_functions' (item size: 4) to 6000 items.
+Database file #1: els-2026-paper.bib
+Reallocating 'singl_function' (item size: 4) to 100 items.
+Reallocating 'wiz_functions' (item size: 4) to 9000 items.
+Reallocating 'glb_str_end' (item size: 4) to 20 items.
+Reallocating 'glb_str_ptr' (item size: 4) to 20 items.
+Reallocating 'global_strs' (item size: 1) to 4000000 items.
+Reallocating 'singl_function' (item size: 4) to 100 items.
+Warning--empty address in Emir2007
+Warning--empty address in Ernst1998
+Warning--empty address in Flatt2006
+Warning--empty publisher in Garrigue1998
+Warning--empty address in Garrigue1998
+Warning--page numbers missing in both pages and numpages fields in Garrigue1998
+Warning--empty publisher in Hickey2008
+Warning--empty address in Hickey2008
+Warning--empty address in Kiczales1991
+Warning--empty address in Okasaki1998
+Warning--empty publisher in Orleans2002
+Warning--empty address in Orleans2002
+Warning--empty address in Shalit1996
+Warning--empty publisher in Smith2023
+Warning--empty address in Smith2023
+Warning--page numbers missing in both pages and numpages fields in Smith2023
+Warning--empty address in Steele1990
+Warning--empty address in Tarver2011
+Warning--empty publisher in TobinHochstadt2008
+Warning--empty address in TobinHochstadt2008
+You've used 19 entries,
+            6273 wiz_defined-function locations,
+            1638 strings with 20774 characters,
+and the built_in function-call counts, 18349 in all, are:
+= -- 2040
+> -- 489
+< -- 0
++ -- 157
+- -- 176
+* -- 1169
+:= -- 1804
+add.period$ -- 96
+call.type$ -- 19
+change.case$ -- 116
+chr.to.int$ -- 19
+cite$ -- 39
+duplicate$ -- 1816
+empty$ -- 1278
+format.name$ -- 212
+if$ -- 4335
+int.to.chr$ -- 2
+int.to.str$ -- 1
+missing$ -- 62
+newline$ -- 193
+num.names$ -- 133
+pop$ -- 770
+preamble$ -- 1
+purify$ -- 268
+quote$ -- 0
+skip$ -- 665
+stack$ -- 0
+substring$ -- 1336
+swap$ -- 153
+text.length$ -- 0
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 453
+warning$ -- 20
+while$ -- 130
+width$ -- 0
+write$ -- 397
+(There were 20 warnings)

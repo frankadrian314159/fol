@@ -498,7 +498,7 @@
             'inc #'cl:1+
             'dec #'cl:1-
             ;; Comparison
-            '= #'=
+            '= #'fol.compareop:=
             '/= #'/=
             '< #'<
             '> #'>
@@ -507,7 +507,6 @@
             'min #'min
             'max #'max
             'eq #'cl:eq
-            'eql #'cl:eql
             'equal #'cl:equal
             ;; Logical
             'not #'not
