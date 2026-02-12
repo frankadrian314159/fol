@@ -14,6 +14,8 @@ Reallocating 'glb_str_end' (item size: 4) to 20 items.
 Reallocating 'glb_str_ptr' (item size: 4) to 20 items.
 Reallocating 'global_strs' (item size: 1) to 4000000 items.
 Reallocating 'singl_function' (item size: 4) to 100 items.
+Warning--empty publisher in Chambers1999
+Warning--empty address in Chambers1999
 Warning--empty address in Emir2007
 Warning--empty address in Ernst1998
 Warning--empty address in Flatt2006
@@ -34,45 +36,45 @@ Warning--empty address in Steele1990
 Warning--empty address in Tarver2011
 Warning--empty publisher in TobinHochstadt2008
 Warning--empty address in TobinHochstadt2008
-You've used 19 entries,
+You've used 21 entries,
             6273 wiz_defined-function locations,
-            1638 strings with 20774 characters,
-and the built_in function-call counts, 18349 in all, are:
-= -- 2040
-> -- 489
+            1651 strings with 21156 characters,
+and the built_in function-call counts, 20314 in all, are:
+= -- 2259
+> -- 537
 < -- 0
-+ -- 157
-- -- 176
-* -- 1169
-:= -- 1804
-add.period$ -- 96
-call.type$ -- 19
-change.case$ -- 116
-chr.to.int$ -- 19
-cite$ -- 39
-duplicate$ -- 1816
-empty$ -- 1278
-format.name$ -- 212
-if$ -- 4335
++ -- 172
+- -- 197
+* -- 1282
+:= -- 1996
+add.period$ -- 106
+call.type$ -- 21
+change.case$ -- 127
+chr.to.int$ -- 21
+cite$ -- 43
+duplicate$ -- 2013
+empty$ -- 1416
+format.name$ -- 237
+if$ -- 4792
 int.to.chr$ -- 2
 int.to.str$ -- 1
-missing$ -- 62
-newline$ -- 193
-num.names$ -- 133
-pop$ -- 770
+missing$ -- 67
+newline$ -- 212
+num.names$ -- 147
+pop$ -- 847
 preamble$ -- 1
-purify$ -- 268
+purify$ -- 295
 quote$ -- 0
-skip$ -- 665
+skip$ -- 745
 stack$ -- 0
-substring$ -- 1336
-swap$ -- 153
+substring$ -- 1489
+swap$ -- 170
 text.length$ -- 0
 text.prefix$ -- 0
 top$ -- 0
-type$ -- 453
-warning$ -- 20
-while$ -- 130
+type$ -- 513
+warning$ -- 22
+while$ -- 147
 width$ -- 0
-write$ -- 397
-(There were 20 warnings)
+write$ -- 437
+(There were 22 warnings)

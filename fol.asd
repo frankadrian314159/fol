@@ -13,15 +13,17 @@
 ;;;
 ;;;   (asdf:test-system :fol)
 
-;; First, we need to ensure the bootstrap directory is in the source registry
-;; so ASDF can find the bootstrap.asd file.
+;; Ensure the bootstrap/ and src/ directories are in the source registry
+;; so ASDF can find bootstrap.asd and compiler.asd.
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (let* ((this-file (or *compile-file-pathname* *load-pathname*))
-         (bootstrap-dir (when this-file
-                          (merge-pathnames "bootstrap/"
-                                           (make-pathname :directory (pathname-directory this-file))))))
-    (when (and bootstrap-dir (probe-file (merge-pathnames "bootstrap.asd" bootstrap-dir)))
-      (pushnew bootstrap-dir asdf:*central-registry* :test #'equal))))
+         (base-dir (when this-file
+                     (make-pathname :directory (pathname-directory this-file)))))
+    (when base-dir
+      (dolist (subdir '("bootstrap/" "src/"))
+        (let ((dir (merge-pathnames subdir base-dir)))
+          (when (probe-file dir)
+            (pushnew dir asdf:*central-registry* :test #'equal)))))))
 
 (defsystem "fol"
   :description "Functional Object Lisp - A persistent object-oriented programming language."

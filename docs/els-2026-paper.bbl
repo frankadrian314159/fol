@@ -2,7 +2,7 @@
 %%% Do NOT edit. File created by BibTeX with style
 %%% ACM-Reference-Format-Journals [18-Jan-2012].
 
-\begin{thebibliography}{19}
+\begin{thebibliography}{21}
 
 %%% ====================================================================
 %%% NOTE TO THE USER: you can override these defaults by providing
@@ -72,6 +72,17 @@
 \tempurl}
 
 
+\bibitem[Chambers and Chen(1999)]%
+        {Chambers1999}
+\bibfield{author}{\bibinfo{person}{Craig Chambers} {and}
+  \bibinfo{person}{Weimin Chen}.} \bibinfo{year}{1999}\natexlab{}.
+\newblock \showarticletitle{Efficient Multiple and Predicate Dispatching}. In
+  \bibinfo{booktitle}{\emph{Proceedings of the 14th ACM SIGPLAN conference on
+  Object-oriented programming, systems, languages, and applications}}.
+  \bibinfo{pages}{238--255}.
+\newblock
+
+
 \bibitem[Driscoll et~al\mbox{.}(1989)]%
         {Driscoll1989}
 \bibfield{author}{\bibinfo{person}{James~R Driscoll}, \bibinfo{person}{Neil
@@ -134,6 +145,19 @@
   \bibinfo{booktitle}{\emph{Proceedings of the 2008 symposium on Dynamic
   languages}}. \bibinfo{pages}{1}.
 \newblock
+
+
+\bibitem[Hickey(2009)]%
+        {Hickey2009}
+\bibfield{author}{\bibinfo{person}{Rich Hickey}.}
+  \bibinfo{year}{2009}\natexlab{}.
+\newblock \bibinfo{title}{Are We There Yet?}
+\newblock \bibinfo{howpublished}{JVM Languages Summit Keynote}.
+\newblock
+\urldef\tempurl%
+\url{https://github.com/matthiasn/talk-transcripts/blob/master/Hickey_Rich/AreWeThereYet.md}
+\showURL{%
+\tempurl}
 
 
 \bibitem[Hickey(2014)]%

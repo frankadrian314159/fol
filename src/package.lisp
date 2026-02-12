@@ -1,0 +1,368 @@
+;;; FOL Compiler - Package Definitions
+;;;
+;;; Defines the package hierarchy for the FOL-to-Common-Lisp compiler.
+;;; The compiler reads FOL source (via the bootstrap reader), builds an AST,
+;;; and emits Common Lisp code that SBCL compiles to native code.
+
+(defpackage fol.compiler.primitives
+  (:use cl)
+  (:export
+   ;; Primitive types
+   <bool> <char> <string> <re-pattern>
+   <symbol> <keyword>
+   ;; Number hierarchy
+   <number> <complex> <real> <float>
+   <single-float> <double-float>
+   <rational> <ratio> <integer> <fixnum> <bignum>
+   ;; UUID
+   <uuid>
+   ;; Type mapping
+   fol-type-class
+   
+   ;; Type predicates
+   <bool>? <char>? <string>? <re-pattern>? <symbol>? <keyword>?
+   <number>? <complex>? <real>? <float>? <single-float>? <double-float>?
+   <rational>? <ratio>? <integer>? <fixnum>? <bignum>?
+   <uuid>?
+   ;; Constructor generic
+   make
+   ;;
+   truthy? falsy?))
+
+  (defpackage fol.compiler.compareops
+  (:use cl)
+  (:shadow < > <= >= = /= min max)
+  (:export
+   ;; Binary primitives
+   %< %> %<= %>= %= %/=
+   ;; Variadic operators
+   < > <= >= = /=
+   ;; Min/Max
+   min max))
+
+(defpackage fol.compiler.ast
+  (:use cl)
+  (:export
+   ;; AST node base
+   ast-node ast-node-p
+   ast-node-form ast-node-position
+   ;; Literal nodes
+   literal-node literal-node-p literal-node-value
+   ;; Symbol reference
+   symbol-ref-node symbol-ref-node-p symbol-ref-node-name
+   ;; Function call
+   call-node call-node-p call-node-operator call-node-args
+   ;; Special forms
+   if-node if-node-p if-node-test if-node-then if-node-else
+   do-node do-node-p do-node-body
+   bind-node bind-node-p bind-node-bindings bind-node-body
+   fn-node fn-node-p fn-node-name fn-node-clauses
+   def-node def-node-p def-node-name def-node-value
+   defn-node defn-node-p defn-node-name defn-node-clauses
+   loop-node loop-node-p loop-node-bindings loop-node-body
+   recur-node recur-node-p recur-node-args
+   quote-node quote-node-p quote-node-value
+   ;; Threading
+   thread-first-node thread-first-node-p thread-first-node-forms
+   thread-last-node thread-last-node-p thread-last-node-forms
+   ;; Condition handling
+   handler-case-node handler-case-node-p handler-case-node-expr handler-case-node-clauses
+   handler-bind-node handler-bind-node-p handler-bind-node-bindings handler-bind-node-body
+   restart-case-node restart-case-node-p restart-case-node-expr restart-case-node-clauses
+   signal-node signal-node-p signal-node-datum signal-node-args
+   error-node error-node-p error-node-datum error-node-args
+   warn-node warn-node-p warn-node-datum warn-node-args
+   invoke-restart-node invoke-restart-node-p invoke-restart-node-name invoke-restart-node-args
+   ;; Class system
+   defclass-node defclass-node-p defclass-node-name defclass-node-superclasses defclass-node-slots
+   defgeneric-node defgeneric-node-p defgeneric-node-name
+   defgeneric-node-lambda-lists defgeneric-node-options
+   defmethod-node defmethod-node-p defmethod-node-name defmethod-node-clauses
+   ;; Collection literals
+   vector-node vector-node-p vector-node-elements
+   dict-node dict-node-p dict-node-entries
+   set-node set-node-p set-node-elements
+   ;; Macro
+   defmacro-node defmacro-node-p defmacro-node-name defmacro-node-params defmacro-node-body
+   ;; Constructors
+   make-literal-node make-symbol-ref-node make-call-node make-if-node make-do-node make-bind-node
+   make-fn-node make-def-node make-defn-node make-loop-node make-recur-node
+   make-quote-node make-thread-first-node make-thread-last-node
+   make-handler-case-node make-handler-bind-node make-restart-case-node
+   make-signal-node make-error-node make-warn-node make-invoke-restart-node
+   make-defclass-node make-defgeneric-node make-defmethod-node make-defmacro-node
+   make-vector-node make-dict-node make-set-node))
+
+(defpackage fol.compiler.destructure
+  (:use cl)
+  (:export
+   ;; Wildcard support
+   wildcard-param-p
+   replace-wildcards
+   ;; Parameter parsing
+   parse-params
+   strip-specializers
+   ;; Signature computation
+   filter-as-bindings
+   compute-element-signature
+   compute-pattern-signature
+   ;; Specificity comparison
+   pattern-specificity-level
+   pattern-more-specific-p
+   ;; Type mapping
+   fol-type-to-cl-type
+   ;; Code emission
+   emit-element-pattern-check
+   emit-clause-pattern-check
+   emit-param-bindings
+   emit-single-param-binding
+   emit-rest-param-binding
+   ;; Fixed-arity optimization
+   emit-fixed-arity-pattern-check
+   emit-fixed-arity-param-bindings
+   ;; Macro lambda list
+   emit-macro-lambda-list
+   convert-macro-param))
+
+(defpackage fol.compiler.mutable
+  (:use cl)
+  (:shadow atom)
+  (:export
+   ;; Atom class
+   <atom>
+   <atom>?
+   atom
+   ;; Atom operations
+   deref
+   reset!
+   swap!
+   compare-and-set!
+   ;; Ref (STM)
+   <ref>
+   <ref>?
+   ref
+   ref-set
+   alter
+   commute
+   ensure
+   dosync
+   ;; Agent (async)
+   <agent>
+   <agent>?
+   agent
+   send
+   send-off
+   await
+   agent-error
+   restart-agent
+   set-error-handler!
+   set-error-mode!))
+
+(defpackage fol.compiler.persistent
+  (:use cl)
+  (:export
+   ;; Metaclass
+   persistent-class
+   ;; Base class
+   <persistent-object>
+   ;; Functional update API
+   update-slot
+   update-slots))
+
+(defpackage fol.compiler.collections
+  (:use cl)
+  (:shadow vector set list count array-dimension)
+  (:import-from fol.compiler.primitives make)
+  (:import-from fol.compiler.persistent persistent-class)
+  (:shadowing-import-from fol.compiler.compareops < >)
+  (:export
+   ;; Base class
+   <collection>
+   ;; Storage base
+   <collection-storage>
+   storage-items
+   ;; Type predicate
+   <collection>?
+   ;; Protocol generics
+   collection-size
+   collection-empty-p
+   collection-conj
+   collection-seq
+   count
+   empty?
+   ;; Abstract subclasses
+   <unordered-collection>
+   <unordered-collection>?
+   <ordered-collection>
+   <ordered-collection>?
+   ;; Re-export constructor generic
+   make
+   ;; Concrete: vector
+   <vector>
+   <vector>?
+   ;; Concrete: dict
+   <dict>
+   <dict>?
+   ;; Concrete: ordered-dict (subclass of dict)
+   <ordered-dict>
+   <ordered-dict>?
+   ordered-dict-key-order
+   ;; Concrete: sorted-dict
+   <sorted-dict>
+   <sorted-dict>?
+   ;; Concrete: array-dict (subclass of dict, ordered)
+   <array-dict>
+   <array-dict>?
+   array-dict-key-order
+   ;; Concrete: priority-dict (subclass of dict)
+   <priority-dict>
+   <priority-dict>?
+   priority-dict-tree
+   priority-dict-compare
+   priority-dict-peek-min
+   priority-dict-pop-min
+   ;; Concrete: set
+   <set>
+   <set>?
+   ;; Concrete: array (subclass of vector)
+   <array>
+   <array>?
+   array-dimension
+   ;; Concrete: ordered-set
+   <ordered-set>
+   <ordered-set>?
+   ;; Concrete: sorted-set
+   <sorted-set>
+   <sorted-set>?
+   ;; Comparator
+   <comparator>
+   comparator-compare
+   ;; Concrete: int-dict (subclass of sorted-dict)
+   <int-dict>
+   <int-dict>?
+   ;; Concrete: int-set
+   <int-set>
+   <int-set>?
+   ;; Concrete: dense-int-set
+   <dense-int-set>
+   <dense-int-set>?
+   dense-int-set-offset
+   dense-int-set-count
+   ;; Concrete: bag
+   <bag>
+   <bag>?
+   ;; Concrete: deque
+   <deque>
+   <deque>?
+   ;; Concrete: list
+   <list>
+   <list>?
+   list-first
+   list-rest
+   list-size
+   ;; Concrete: lazy-seq
+   <lazy-seq>
+   <lazy-seq>?
+   lazy-seq-thunk
+   lazy-seq-realized-p
+   lazy-seq-cached
+   realize-lazy-seq
+   ;; Constructor function names (defined in fol.compiler.functions)
+   vector
+   dict
+   ordered-dict
+   array-dict
+   set
+   ordered-set
+   sorted-set
+   sorted-set-by
+   sorted-dict
+   sorted-dict-by
+   int-dict
+   int-dict-by
+   priority-dict
+   int-set
+   dense-int-set
+   bag
+   deque
+   list
+   lazy-seq))
+
+(defpackage fol.compiler.functions
+  (:use cl)
+  (:shadowing-import-from fol.compiler.collections vector set list)
+  (:import-from fol.compiler.collections
+                ;; Constructor function names
+                dict ordered-dict array-dict ordered-set sorted-set sorted-set-by
+                sorted-dict sorted-dict-by int-dict int-dict-by priority-dict
+                int-set dense-int-set bag deque lazy-seq make
+                ;; Class name symbols (needed for make dispatch)
+                <vector> <dict> <ordered-dict> <array-dict> <set> <bag>
+                <ordered-set> <sorted-set> <sorted-dict> <int-dict> <priority-dict>
+                <int-set> <dense-int-set> <deque> <list> <lazy-seq>)
+  (:export
+   vector
+   dict
+   ordered-dict
+   array-dict
+   set
+   ordered-set
+   sorted-set
+   sorted-set-by
+   sorted-dict
+   sorted-dict-by
+   int-dict
+   int-dict-by
+   priority-dict
+   int-set
+   dense-int-set
+   bag
+   deque
+   list
+   lazy-seq))
+
+(defpackage fol.compiler
+  (:use cl)
+  ; (:import-from fol.reader fol-read fol-read-from-string *fol-readtable*)
+  ; (:import-from fol.wrappers wrap unwrap fol-value truthy?)
+  ; (:import-from fol.classes val)
+  ; (:import-from fol.collection
+  ;               <vector> <dict> <set> <list>
+  ;               size get seq)
+  (:import-from fol.compiler.ast
+                ast-node ast-node-p
+                make-literal-node make-symbol-ref-node make-call-node
+                make-if-node make-do-node make-bind-node)
+  (:import-from fol.compiler.primitives
+                truthy? falsy?)
+  (:export
+   ;; Main entry points
+   compile-form
+   compile-file
+   compile-string
+   ;; Compilation result
+   compilation-result
+   compilation-result-p
+   compilation-result-code
+   compilation-result-warnings
+   compilation-result-errors))
+
+(defpackage fol.compiler.reader
+  (:use cl)
+  (:export
+   ;; Readtable
+   *fol-readtable*
+   ;; Reader entry points
+   fol-read
+   fol-read-from-string))
+
+(defpackage fol.compiler.tests
+  (:use cl fiveam)
+  (:import-from fol.compiler.ast
+                ast-node literal-node symbol-ref-node
+                call-node if-node do-node bind-node
+                fn-node def-node defn-node
+                literal-node-value)
+  (:import-from fol.compiler
+                compile-form compile-string)
+  (:export run-compiler-tests))

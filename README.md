@@ -1,53 +1,189 @@
 # FOL: Functional Object Lisp
 
-FOL is an interpreter for a new Lisp dialect that harmonizes the functional programming paradigms of Clojure with the robust object-oriented capabilities of Common Lisp and Apple's Dylan. Written in Common Lisp, FOL features a unified object system where every entity is an object, backed by persistent data structures.
+FOL is a Lisp dialect that combines Clojure's persistent data structures and sequence abstractions with CLOS-style class-based object orientation and a Dylan-inspired module system. Written in Common Lisp, FOL features a unified object system where every value is an object, backed by persistent data structures with structural sharing.
 
-## Pedigree and Influences
+For a detailed discussion of the language design and its motivations, see the submitted paper:
 
-FOL is a cross between three primary languages:
+> Frank Adrian. "FOL: A Functional Object Lisp." *European Lisp Symposium*, 2026.
+> Available at [`docs/els-2026-paper.pdf`](docs/els-2026-paper.pdf).
 
-*   **Common Lisp**: Serves as the implementation language and provides the foundation for the object system (CLOS).
-*   **Clojure**: Inspires the syntax (e.g., brackets for vectors, braces for maps) and the core philosophy of immutability and persistent collections.
-*   **Dylan**: Specifically Apple's original prefix-syntax Dylan, influencing class naming conventions (e.g., `<class-name>`) and the module system.
+## Getting Started
+
+### Prerequisites
+
+- [SBCL](http://www.sbcl.org/) (Steel Bank Common Lisp)
+- [Quicklisp](https://www.quicklisp.org/) for dependency management
+
+### Installation
+
+1. Install SBCL and Quicklisp following their respective instructions.
+
+2. Install the required libraries. Add the following to your `~/.sbclrc`:
+
+   ```lisp
+   (ql:quickload "bordeaux-threads")
+   (ql:quickload "fiveam")
+   (ql:quickload "closer-mop")
+   (ql:quickload "cl-ppcre")
+   (ql:quickload "fset")
+   (ql:quickload "sycamore")
+   ```
+
+3. Register the FOL project directory with ASDF:
+
+   ```lisp
+   (push #p"/path/to/fol/" asdf:*central-registry*)
+   ```
+
+4. Load FOL:
+
+   ```lisp
+   (asdf:load-system :fol)
+   ```
+
+### Starting the REPL
+
+Once FOL is loaded, start the interactive REPL:
+
+```lisp
+(fol.repl:repl)
+```
+
+You will see the `FOL>` prompt. Try some expressions:
+
+```fol
+FOL> (+ 1 2)
+3
+
+FOL> (def greeting "Hello, FOL!")
+"Hello, FOL!"
+
+FOL> [1 2 3 4 5]
+[1 2 3 4 5]
+
+FOL> (map inc [1 2 3])
+(2 3 4)
+
+FOL> (defn factorial
+       ([0] 1)
+       ([n] (* n (factorial (dec n)))))
+factorial
+
+FOL> (factorial 10)
+3628800
+
+FOL> {:name "Alice" :age 30}
+{:name "Alice" :age 30}
+
+FOL> (-> {:name "Alice" :scores [95 87 92]}
+         :scores
+         (->> (filter (fn [x] (> x 90)))))
+(95 92)
+```
+
+### Running Tests
+
+```lisp
+(asdf:test-system :fol)
+```
 
 ## Key Features
 
-### Unified Object System
-All items in FOL are objects. The inheritance hierarchy is rooted in `<persistent-class>`. Even primitive types are wrapped as objects:
-*   `<number>`
-*   `<char>`
-*   `<string>`
+### Persistent Data Structures
 
-These primitives wrap Common Lisp values, accessible internally via the `fol-val` generic function.
+All collections are persistent and immutable. Updates return new values that share structure with the original, providing efficient O(log n) modifications.
 
-### Persistent Collections
-Collection classes in FOL are persistent; updated values share structure with older values rather than mutating them in place. This functionality is backed by Common Lisp libraries such as FSet or Sycamore.
-
-### Generic Dispatch
-FOL utilizes generic functions and methods for dispatch, similar to CLOS and Dylan. See `fol-code/eval.fol` for a meta-circular evaluator example demonstrating `defgeneric` and `defmethod`.
-
-## Development
-
-### Prerequisites
-*   A Common Lisp implementation (e.g., SBCL).
-*   Quicklisp for dependency management.
-
-### Style Guidelines
-*   **FOL Code**: Follows the Clojure Style Guide.
-*   **Interpreter Implementation**: Follows the Common Lisp Style Guide.
-
-### Testing
-
-Tests are performed using the internal function `%test%` (bound to `fol.repl:fol-test` in the Common Lisp layer). This function parses a string containing FOL source code and evaluates it in a given environment.
-
-Example usage in CL test files:
-
-```lisp
-(deftest test-arithmetic
-  (is (= 3 (fol.repl:fol-test "(+ 1 2)"))))
+```fol
+(def v [1 2 3])
+(def v2 (conj v 4))     ;; v is still [1 2 3], v2 is [1 2 3 4]
 ```
+
+Collection literals follow Clojure conventions:
+
+| Syntax | Type | Example |
+|--------|------|---------|
+| `'(...)` | List | `'(1 2 3)` |
+| `[...]` | Vector | `[1 2 3]` |
+| `{...}` | Dict | `{:a 1 :b 2}` |
+| `#{...}` | Set | `#{1 2 3}` |
+
+### Multi-Pattern Dispatch
+
+Functions and methods support multi-clause definitions with type specializers and predicate guards. A specificity hierarchy (predicate > type > destructuring > catch-all) automatically orders clauses.
+
+```fol
+(defn describe
+  ([(x <number>)] (str x " is a number"))
+  ([(x <string>)] (str x " is a string"))
+  ([(x <vector>)] (str "vector of size " (size x)))
+  ([x] (str "something else")))
+```
+
+### CLOS-Style Object System
+
+FOL provides `defclass`, `defgeneric`, and `defmethod` with persistent slot storage and full MOP (Meta-Object Protocol) support.
+
+```fol
+(defclass <point> [<persistent-object>]
+  [(x :initarg :x :accessor point-x)
+   (y :initarg :y :accessor point-y)])
+
+(defgeneric distance [p1 p2])
+
+(defmethod distance [(p1 <point>) (p2 <point>)]
+  (sqrt (+ (expt (- (point-x p2) (point-x p1)) 2)
+           (expt (- (point-y p2) (point-y p1)) 2))))
+```
+
+### Lazy Sequences and Transducers
+
+```fol
+;; Infinite sequences
+(take 10 (filter even? (range)))   ;; => (0 2 4 6 8 10 12 14 16 18)
+
+;; Transducers compose without intermediate collections
+(into [] (comp (filter odd?) (map inc) (take 5)) (range))
+;; => [2 4 6 8 10]
+```
+
+### Threading Macros
+
+```fol
+(-> person
+    :address
+    :city
+    upper-case)
+
+(->> (range 100)
+     (filter even?)
+     (map (fn [x] (* x x)))
+     (take 5))
+```
+
+### Dylan-Style Naming and Modules
+
+Classes use angle-bracket naming (`<point>`, `<vector>`). The module system provides namespace management:
+
+```fol
+(module my-module
+  (use-module fol.core)
+  (export my-function))
+```
+
+## Influences
+
+FOL draws from three primary traditions:
+
+- **Common Lisp**: Implementation language; CLOS and MOP foundations
+- **Clojure**: Persistent data structures, sequence abstractions, collection literals, transducers
+- **Dylan**: Class naming conventions (`<name>`), module system design
 
 ## Documentation
 
-*   **Internals**: See `INTERNALS.md` for documentation on internal functions like `%test%`.
-*   **Specifications**: References to CLHS, Clojure docs, and Dylan books are maintained in `claude.md`.
+- **[Language Manual](docs/FOL-MANUAL.md)** -- comprehensive reference for all FOL features
+- **[ELS 2026 Paper](docs/els-2026-paper.pdf)** -- design rationale, synergy patterns, and benchmarks
+- **[INTERNALS.md](INTERNALS.md)** -- implementation details for FOL developers
+
+## License
+
+MIT
