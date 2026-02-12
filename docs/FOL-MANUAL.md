@@ -2159,6 +2159,128 @@ per-agent. The agent's value becomes the return value of each action.
 (agent-error worker) ; => the error object
 ```
 
+## Dynamic Variables
+
+FOL supports dynamic (special) variables — variables whose bindings are visible to all code called within their dynamic extent. Dynamic variables are conventionally named with `*earmuffs*`.
+
+### Defining Dynamic Variables
+
+Both `def` and `defdynamic` define dynamic variables (both compile to CL `defvar`). Use `defdynamic` to signal explicit intent that a variable is intended for dynamic rebinding:
+
+| Form | Description |
+|------|-------------|
+| `(def *name* value)` | Define a dynamic variable |
+| `(defdynamic *name* value)` | Same as def — explicit-intent alias |
+| `(defdynamic *name*)` | Declare without initial value |
+
+### Dynamic Rebinding
+
+Use `binding` to temporarily rebind dynamic variables for the duration of a body. Unlike `bind` (which creates local lexical bindings with `let*`), `binding` uses CL `let` on special variables — bindings are parallel and dynamically scoped:
+
+| Form | Description |
+|------|-------------|
+| `(binding [*var* val ...] body ...)` | Dynamically rebind vars for body |
+
+```fol
+(defdynamic *output-level* :normal)
+
+(defn verbose-print [msg]
+  (when (= *output-level* :verbose)
+    (print msg)))
+
+;; Temporarily enable verbose output
+(binding [*output-level* :verbose]
+  (verbose-print "this will print"))
+
+;; Back to normal outside binding
+(verbose-print "this will not print")
+```
+
+**Key differences from `bind`:**
+- `bind` creates local (lexical) bindings with `let*` — sequential, visible only in body
+- `binding` rebinds dynamic (special) variables with `let` — parallel, visible to all called code
+
+## Streams
+
+FOL provides a stream class hierarchy that wraps Common Lisp streams with a FOL-friendly interface.
+
+### Class Hierarchy
+
+```
+<input-stream>          — base: wraps a CL input stream
+<output-stream>         — base: wraps a CL output stream
+<string-base>           — mixin: holds a string
+<file-base>             — mixin: holds filename + file object
+<socket-base>           — mixin: holds URL + socket
+
+<string-input-stream>   — reads from a string
+<string-output-stream>  — writes to a string
+<file-input-stream>     — reads from a file
+<file-output-stream>    — writes to a file
+<socket-input-stream>   — reads from a socket
+<socket-output-stream>  — writes to a socket
+```
+
+### Constructors
+
+| Function | Description |
+|----------|-------------|
+| `(string-input-stream str)` | Create stream reading from string |
+| `(string-output-stream)` | Create stream writing to string |
+| `(file-input-stream path)` | Create stream reading from file |
+| `(file-output-stream path &key if-exists)` | Create stream writing to file |
+| `(socket-input-stream host port)` | Create stream reading from socket |
+| `(socket-output-stream host port)` | Create stream writing to socket |
+
+### Protocol
+
+| Function | Description |
+|----------|-------------|
+| `(stream-read-char s)` | Read one character (NIL at EOF) |
+| `(stream-read-line s)` | Read a line as string |
+| `(stream-write-char s ch)` | Write one character |
+| `(stream-write-string s str)` | Write a string |
+| `(stream-write-line s str)` | Write string + newline |
+| `(stream-close s)` | Close the stream |
+| `(stream-flush s)` | Flush buffered output |
+| `(get-output-string s)` | Get accumulated string from string-output-stream |
+
+### Type Predicates
+
+Each class has a predicate: `<input-stream>?`, `<output-stream>?`, `<string-input-stream>?`, `<file-input-stream>?`, etc.
+
+### Global Variables
+
+| Variable | Description |
+|----------|-------------|
+| `*in*` | Default input stream (file-input-stream on stdin) |
+| `*out*` | Default output stream (file-output-stream on stdout) |
+
+```fol
+;; Read a line from stdin
+(stream-read-line *in*)
+
+;; Write to stdout
+(stream-write-line *out* "Hello, world!")
+
+;; String I/O
+(bind [out (string-output-stream)]
+  (stream-write-string out "hello ")
+  (stream-write-string out "world")
+  (get-output-string out))  ; => "hello world"
+
+;; File I/O
+(bind [out (file-output-stream "data.txt")]
+  (stream-write-line out "line 1")
+  (stream-write-line out "line 2")
+  (stream-close out))
+
+;; Rebind *out* to capture output
+(binding [*out* (string-output-stream)]
+  (stream-write-string *out* "captured")
+  (get-output-string *out*))  ; => "captured"
+```
+
 ## Tree Walking (fol.walk module)
 
 | Function | Description |

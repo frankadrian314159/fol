@@ -333,6 +333,31 @@
      :value (when value-p (parse-form value))
      :form form)))
 
+(defun parse-defdynamic (form)
+  "Parse a defdynamic form: (defdynamic *name* value) or (defdynamic *name*).
+   Explicit-intent alias for def — both compile to defvar."
+  (destructuring-bind (op name &optional (value nil value-p)) form
+    (declare (ignore op))
+    (fol.compiler.ast:make-defdynamic-node
+     :name name
+     :value (when value-p (parse-form value))
+     :form form)))
+
+(defun parse-binding (form)
+  "Parse a binding form: (binding [*var1* val1 *var2* val2 ...] body ...).
+   Dynamically rebinds special variables for the duration of body."
+  (destructuring-bind (op bindings &rest body) form
+    (declare (ignore op))
+    (let ((binding-list (cond
+                          ((fol-vector-p bindings) (fol-vector-to-list bindings))
+                          ((consp bindings) bindings)
+                          (t nil))))
+      (fol.compiler.ast:make-binding-node
+       :bindings (loop for (name init) on binding-list by #'cddr
+                       collect (cons name (parse-form init)))
+       :body (mapcar #'parse-form body)
+       :form form))))
+
 (defun parse-defn (form)
   "Parse a defn form into a defn-node.
    Supported syntaxes:
@@ -502,6 +527,8 @@
   (setf (gethash "ERROR" special-forms) #'parse-error-form)
   (setf (gethash "WARN" special-forms) #'parse-warn)
   (setf (gethash "INVOKE-RESTART" special-forms) #'parse-invoke-restart)
+  (setf (gethash "DEFDYNAMIC" special-forms) #'parse-defdynamic)
+  (setf (gethash "BINDING" special-forms) #'parse-binding)
   (defun special-form-p (op)
     "Check if OP is a special form operator.
      Compares by symbol name to work across packages."
@@ -907,7 +934,7 @@
        ,@(loop for (sname initarg accessor storage-key) in slot-infos
                when accessor
                collect `(defun ,accessor (object)
-                          (fset:lookup
+                          (sycamore:hash-map-find
                            (fol.compiler.persistent::%persistent-storage object)
                            ,storage-key)))
        ;; Constructor
@@ -1127,6 +1154,25 @@
         `(defvar ,name ,(emit-node value))
         `(defvar ,name))))
 
+(defun emit-defdynamic (node)
+  "Emit a defdynamic node as CL defvar.
+   Identical output to emit-def — defdynamic is an explicit-intent alias."
+  (let ((name (fol.compiler.ast:defdynamic-node-name node))
+        (value (fol.compiler.ast:defdynamic-node-value node)))
+    (if value
+        `(defvar ,name ,(emit-node value))
+        `(defvar ,name))))
+
+(defun emit-binding (node)
+  "Emit a binding node as CL let with dynamic rebinding.
+   Uses let (not let*) so bindings are parallel — matches Clojure binding semantics.
+   CL's let on special/dynamic variables does dynamic binding."
+  (let ((bindings (fol.compiler.ast:binding-node-bindings node))
+        (body (fol.compiler.ast:binding-node-body node)))
+    `(let ,(loop for (name . init-node) in bindings
+                 collect `(,name ,(emit-node init-node)))
+       ,@(mapcar #'emit-node body))))
+
 (defun emit-defn (node)
   "Emit a defn node as (defvar name (fn name ...)).
    Delegates to emit-fn to ensure identical destructuring code paths."
@@ -1267,6 +1313,8 @@
     (fol.compiler.ast:defgeneric-node     (emit-defgeneric node))
     (fol.compiler.ast:defmethod-node      (emit-defmethod node))
     (fol.compiler.ast:def-node            (emit-def node))
+    (fol.compiler.ast:defdynamic-node     (emit-defdynamic node))
+    (fol.compiler.ast:binding-node        (emit-binding node))
     (fol.compiler.ast:defn-node           (emit-defn node))
     (fol.compiler.ast:loop-node           (emit-loop node))
     (fol.compiler.ast:recur-node          (emit-recur node))

@@ -63,6 +63,13 @@
   (bindings nil :read-only t)   ; list of (pattern . init-node) pairs
   (body nil :read-only t))      ; list of AST nodes
 
+(defstruct (binding-node (:include ast-node))
+  "Dynamic rebinding: (binding [*var* value ...] body ...).
+   Rebinds special/dynamic variables for the duration of body.
+   Uses CL let (parallel binding) on special vars."
+  (bindings nil :read-only t)   ; list of (name . init-node) pairs
+  (body nil :read-only t))      ; list of AST nodes
+
 (defstruct (fn-node (:include ast-node))
   "Anonymous function: (fn name [params] body) or multi-clause (fn name ([p1] b1) ([p2] b2))."
   (name nil :read-only t)       ; optional name for self-reference
@@ -70,6 +77,12 @@
 
 (defstruct (def-node (:include ast-node))
   "Top-level definition: (def name value)."
+  (name nil :read-only t)
+  (value nil :read-only t))     ; AST node for the value
+
+(defstruct (defdynamic-node (:include ast-node))
+  "Dynamic variable definition: (defdynamic *name* value).
+   Explicit-intent alias for def — both compile to defvar."
   (name nil :read-only t)
   (value nil :read-only t))     ; AST node for the value
 

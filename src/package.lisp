@@ -82,6 +82,11 @@
    vector-node vector-node-p vector-node-elements
    dict-node dict-node-p dict-node-entries
    set-node set-node-p set-node-elements
+   ;; Dynamic variables
+   defdynamic-node defdynamic-node-p defdynamic-node-name defdynamic-node-value
+   make-defdynamic-node
+   binding-node binding-node-p binding-node-bindings binding-node-body
+   make-binding-node
    ;; Macro
    defmacro-node defmacro-node-p defmacro-node-name defmacro-node-params defmacro-node-body
    ;; Constructors
@@ -91,6 +96,7 @@
    make-handler-case-node make-handler-bind-node make-restart-case-node
    make-signal-node make-error-node make-warn-node make-invoke-restart-node
    make-defclass-node make-defgeneric-node make-defmethod-node make-defmacro-node
+   make-defdynamic-node make-binding-node
    make-vector-node make-dict-node make-set-node))
 
 (defpackage fol.compiler.destructure
@@ -267,7 +273,7 @@
    lazy-seq-realized-p
    lazy-seq-cached
    realize-lazy-seq
-   ;; Constructor function names (defined in fol.compiler.functions)
+   ;; Constructor function names (defined in fol.compiler.collection-functions)
    vector
    dict
    ordered-dict
@@ -288,7 +294,7 @@
    list
    lazy-seq))
 
-(defpackage fol.compiler.functions
+(defpackage fol.compiler.collection-functions
   (:use cl)
   (:shadowing-import-from fol.compiler.collections vector set list)
   (:import-from fol.compiler.collections
@@ -356,12 +362,39 @@
    fol-read
    fol-read-from-string))
 
+(defpackage fol.compiler.streams
+  (:use cl)
+  (:export
+   ;; Base classes
+   <input-stream> <input-stream>?
+   <output-stream> <output-stream>?
+   ;; Mixin bases
+   <string-base> <file-base> <socket-base>
+   ;; Concrete classes
+   <string-input-stream> <string-input-stream>?
+   <string-output-stream> <string-output-stream>?
+   <file-input-stream> <file-input-stream>?
+   <file-output-stream> <file-output-stream>?
+   <socket-input-stream> <socket-input-stream>?
+   <socket-output-stream> <socket-output-stream>?
+   ;; Constructors
+   string-input-stream string-output-stream
+   file-input-stream file-output-stream
+   socket-input-stream socket-output-stream
+   ;; Protocol
+   stream-read-char stream-read-line
+   stream-write-char stream-write-string stream-write-line
+   stream-close stream-flush
+   get-output-string
+   ;; Global vars
+   *in* *out*))
+
 (defpackage fol.compiler.tests
   (:use cl fiveam)
   (:import-from fol.compiler.ast
                 ast-node literal-node symbol-ref-node
-                call-node if-node do-node bind-node
-                fn-node def-node defn-node
+                call-node if-node do-node bind-node binding-node
+                fn-node def-node defdynamic-node defn-node
                 literal-node-value)
   (:import-from fol.compiler
                 compile-form compile-string)

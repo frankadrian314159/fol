@@ -33,6 +33,14 @@
   :description "Tests for mutable references (atoms)."
   :in compiler-tests)
 
+(def-suite streams-tests
+  :description "Tests for stream classes and protocol."
+  :in compiler-tests)
+
+(def-suite persistence-tests
+  :description "Tests for persistent object system (Sycamore hash-map backed)."
+  :in compiler-tests)
+
 (defun fol-form (form)
   "Recursively convert CL vectors in FORM to FOL <vector> instances.
    Allows tests to use the familiar #(...) syntax inside (fol-form '(...))."

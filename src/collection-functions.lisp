@@ -6,7 +6,7 @@
 ;;;   (dict :a 1 :b 2)   => <dict> with :a->1, :b->2
 ;;;   (set 1 2 3)         => <set> of 1, 2, 3
 
-(in-package :fol.compiler.functions)
+(in-package :fol.compiler.collection-functions)
 
 (defun vector (&rest args)
   "Create a new <vector> from ARGS.

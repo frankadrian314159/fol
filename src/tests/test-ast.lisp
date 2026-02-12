@@ -38,6 +38,43 @@
     (is (fol.compiler.ast:literal-node-p (fol.compiler.ast:if-node-then node)))
     (is (fol.compiler.ast:literal-node-p (fol.compiler.ast:if-node-else node)))))
 
+(test make-defdynamic-node
+  "Defdynamic nodes store a name and value."
+  (let* ((val-node (fol.compiler.ast:make-literal-node :value 42))
+         (node (fol.compiler.ast:make-defdynamic-node :name '*x* :value val-node)))
+    (is (fol.compiler.ast:defdynamic-node-p node))
+    (is (eq '*x* (fol.compiler.ast:defdynamic-node-name node)))
+    (is (fol.compiler.ast:literal-node-p (fol.compiler.ast:defdynamic-node-value node)))))
+
+(test make-defdynamic-node-no-value
+  "Defdynamic nodes can have nil value."
+  (let ((node (fol.compiler.ast:make-defdynamic-node :name '*y*)))
+    (is (fol.compiler.ast:defdynamic-node-p node))
+    (is (eq '*y* (fol.compiler.ast:defdynamic-node-name node)))
+    (is (null (fol.compiler.ast:defdynamic-node-value node)))))
+
+(test make-binding-node
+  "Binding nodes store bindings and body."
+  (let* ((init (fol.compiler.ast:make-literal-node :value 10))
+         (body (fol.compiler.ast:make-symbol-ref-node :name '*x*))
+         (node (fol.compiler.ast:make-binding-node
+                :bindings (list (cons '*x* init))
+                :body (list body))))
+    (is (fol.compiler.ast:binding-node-p node))
+    (is (= 1 (length (fol.compiler.ast:binding-node-bindings node))))
+    (is (= 1 (length (fol.compiler.ast:binding-node-body node))))))
+
+(test make-binding-node-multiple
+  "Binding nodes support multiple bindings."
+  (let* ((init1 (fol.compiler.ast:make-literal-node :value 1))
+         (init2 (fol.compiler.ast:make-literal-node :value 2))
+         (body (fol.compiler.ast:make-literal-node :value 3))
+         (node (fol.compiler.ast:make-binding-node
+                :bindings (list (cons '*a* init1) (cons '*b* init2))
+                :body (list body))))
+    (is (fol.compiler.ast:binding-node-p node))
+    (is (= 2 (length (fol.compiler.ast:binding-node-bindings node))))))
+
 (test ast-node-inheritance
   "All node types are also ast-nodes."
   (is (fol.compiler.ast:ast-node-p
@@ -49,4 +86,8 @@
   (is (fol.compiler.ast:ast-node-p
        (fol.compiler.ast:make-do-node :body nil)))
   (is (fol.compiler.ast:ast-node-p
-       (fol.compiler.ast:make-def-node :name nil :value nil))))
+       (fol.compiler.ast:make-def-node :name nil :value nil)))
+  (is (fol.compiler.ast:ast-node-p
+       (fol.compiler.ast:make-defdynamic-node :name nil :value nil)))
+  (is (fol.compiler.ast:ast-node-p
+       (fol.compiler.ast:make-binding-node :bindings nil :body nil))))

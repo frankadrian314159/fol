@@ -2,7 +2,7 @@
 %%% Do NOT edit. File created by BibTeX with style
 %%% ACM-Reference-Format-Journals [18-Jan-2012].
 
-\begin{thebibliography}{21}
+\begin{thebibliography}{20}
 
 %%% ====================================================================
 %%% NOTE TO THE USER: you can override these defaults by providing
@@ -219,15 +219,6 @@
 \newblock \showarticletitle{Coalton: Efficient, Statically Typed Functional
   Programming on Common Lisp}. In \bibinfo{booktitle}{\emph{Proceedings of the
   16th European Lisp Symposium}}.
-\newblock
-
-
-\bibitem[Steele~Jr(1990)]%
-        {Steele1990}
-\bibfield{author}{\bibinfo{person}{Guy~L Steele~Jr}.}
-  \bibinfo{year}{1990}\natexlab{}.
-\newblock \bibinfo{booktitle}{\emph{Common Lisp the Language, 2nd Edition}}.
-\newblock \bibinfo{publisher}{Digital Press}.
 \newblock
 
 

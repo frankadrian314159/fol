@@ -728,3 +728,117 @@
     (is (null (fol.compiler:compilation-result-errors result)))
     (is (eq 'invoke-restart (first code)))
     (is (= 3 (length code)))))
+
+;;; ---------------------------------------------------------------------------
+;;; defdynamic
+;;; ---------------------------------------------------------------------------
+
+(test compile-defdynamic-simple
+  "(defdynamic *x* 42) compiles to (defvar *x* 42)."
+  (let* ((result (fol.compiler:compile-form '(defdynamic *x* 42)))
+         (code (fol.compiler:compilation-result-code result)))
+    (is (null (fol.compiler:compilation-result-errors result)))
+    (is (eq 'defvar (first code)))
+    (is (eq '*x* (second code)))
+    (is (eql 42 (third code)))))
+
+(test compile-defdynamic-expression
+  "(defdynamic *x* (+ 1 2)) compiles to (defvar *x* (+ 1 2))."
+  (let* ((result (fol.compiler:compile-form '(defdynamic *x* (+ 1 2))))
+         (code (fol.compiler:compilation-result-code result)))
+    (is (null (fol.compiler:compilation-result-errors result)))
+    (is (eq 'defvar (first code)))
+    (is (equal '(+ 1 2) (third code)))))
+
+(test compile-defdynamic-no-value
+  "(defdynamic *x*) compiles to (defvar *x*)."
+  (let* ((result (fol.compiler:compile-form '(defdynamic *x*)))
+         (code (fol.compiler:compilation-result-code result)))
+    (is (null (fol.compiler:compilation-result-errors result)))
+    (is (eq 'defvar (first code)))
+    (is (eq '*x* (second code)))
+    (is (null (cddr code)))))
+
+(test compile-defdynamic-same-as-def
+  "defdynamic produces identical output to def."
+  (let* ((def-result (fol.compiler:compile-form '(def *x* 42)))
+         (defdynamic-result (fol.compiler:compile-form '(defdynamic *x* 42)))
+         (def-code (fol.compiler:compilation-result-code def-result))
+         (defdynamic-code (fol.compiler:compilation-result-code defdynamic-result)))
+    (is (equal def-code defdynamic-code))))
+
+;;; ---------------------------------------------------------------------------
+;;; binding
+;;; ---------------------------------------------------------------------------
+
+(test compile-binding-single-var
+  "(binding [*x* 10] *x*) compiles to (let ((*x* 10)) *x*)."
+  (let* ((result (fol.compiler:compile-form
+                  (fol-form '(binding #(*x* 10) *x*))))
+         (code (fol.compiler:compilation-result-code result)))
+    (is (null (fol.compiler:compilation-result-errors result)))
+    (is (eq 'let (first code)))
+    ;; Binding list
+    (let ((bindings (second code)))
+      (is (= 1 (length bindings)))
+      (is (eq '*x* (first (first bindings))))
+      (is (eql 10 (second (first bindings)))))
+    ;; Body
+    (is (eq '*x* (third code)))))
+
+(test compile-binding-multiple-vars
+  "(binding [*x* 1 *y* 2] (+ *x* *y*)) compiles to let with two bindings."
+  (let* ((result (fol.compiler:compile-form
+                  (fol-form '(binding #(*x* 1 *y* 2) (+ *x* *y*)))))
+         (code (fol.compiler:compilation-result-code result)))
+    (is (null (fol.compiler:compilation-result-errors result)))
+    (is (eq 'let (first code)))
+    (let ((bindings (second code)))
+      (is (= 2 (length bindings)))
+      (is (eq '*x* (first (first bindings))))
+      (is (eq '*y* (first (second bindings)))))))
+
+(test compile-binding-uses-let-not-let*
+  "binding uses let (parallel) not let* (sequential)."
+  (let* ((result (fol.compiler:compile-form
+                  (fol-form '(binding #(*x* 1) *x*))))
+         (code (fol.compiler:compilation-result-code result)))
+    (is (null (fol.compiler:compilation-result-errors result)))
+    (is (eq 'let (first code)))
+    (is (not (eq 'let* (first code))))))
+
+(test compile-binding-functional
+  "binding dynamically rebinds a special variable."
+  (let* ((result (fol.compiler:compile-form
+                  (fol-form '(do
+                    (def *test-dynvar* :original)
+                    (binding #(*test-dynvar* :rebound)
+                      *test-dynvar*)))))
+         (code (fol.compiler:compilation-result-code result))
+         (val (eval code)))
+    (is (null (fol.compiler:compilation-result-errors result)))
+    (is (eq :rebound val))))
+
+(test compile-binding-restores-after
+  "binding restores the original value after body completes."
+  (let* ((result (fol.compiler:compile-form
+                  (fol-form '(do
+                    (def *test-dynvar2* :original)
+                    (binding #(*test-dynvar2* :rebound)
+                      *test-dynvar2*)
+                    *test-dynvar2*))))
+         (code (fol.compiler:compilation-result-code result))
+         (val (eval code)))
+    (is (null (fol.compiler:compilation-result-errors result)))
+    (is (eq :original val))))
+
+(test compile-binding-with-body-expr
+  "binding with expression value in body."
+  (let* ((result (fol.compiler:compile-form
+                  (fol-form '(binding #(*x* 10 *y* 20)
+                    (+ *x* *y*)))))
+         (code (fol.compiler:compilation-result-code result)))
+    (is (null (fol.compiler:compilation-result-errors result)))
+    (is (eq 'let (first code)))
+    ;; Body should be (+ *x* *y*)
+    (is (equal '(+ *x* *y*) (third code)))))

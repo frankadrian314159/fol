@@ -2043,7 +2043,7 @@
 
 (test deque-constructor-function
   "deque constructor function works."
-  (let ((d (fol.compiler.functions:deque 10 20 30)))
+  (let ((d (fol.compiler.collection-functions:deque 10 20 30)))
     (is (eq t (fol.compiler.collections:<deque>? d)))
     (is (= 3 (fol.compiler.collections:collection-size d)))
     (is (equal '(10 20 30) (fol.compiler.collections:collection-seq d)))))
@@ -2140,7 +2140,7 @@
 
 (test list-constructor-function
   "list constructor function works."
-  (let ((l (fol.compiler.functions:list 10 20 30)))
+  (let ((l (fol.compiler.collection-functions:list 10 20 30)))
     (is (eq t (fol.compiler.collections:<list>? l)))
     (is (= 3 (fol.compiler.collections:collection-size l)))
     (is (equal '(10 20 30) (fol.compiler.collections:collection-seq l)))))
@@ -2297,7 +2297,7 @@
 
 (test lazy-seq-constructor-function
   "lazy-seq constructor function works."
-  (let ((ls (fol.compiler.functions:lazy-seq
+  (let ((ls (fol.compiler.collection-functions:lazy-seq
               (lambda ()
                 (fol.compiler.collections:make 'fol.compiler.collections:<list> 5 10)))))
     (is (eq t (fol.compiler.collections:<lazy-seq>? ls)))
