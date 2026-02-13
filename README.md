@@ -172,11 +172,10 @@ Classes use angle-bracket naming (`<point>`, `<vector>`). The module system prov
 
 ## Influences
 
-FOL draws from three primary traditions:
+FOL draws from two primary traditions:
 
 - **Common Lisp**: Implementation language; CLOS and MOP foundations
 - **Clojure**: Persistent data structures, sequence abstractions, collection literals, transducers
-- **Dylan**: Class naming conventions (`<name>`), module system design
 
 ## Documentation
 
@@ -187,3 +186,7 @@ FOL draws from three primary traditions:
 ## License
 
 MIT
+
+## Contribute
+I'm looking for funding to help pay for the LLM tools used in producing and enhancing FOL. If you'd like to help, click here:
+[GoFundMe](https://www.gofundme.com/f/support-fol-advancing-functional-object-lisp).

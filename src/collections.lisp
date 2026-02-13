@@ -1255,23 +1255,6 @@
         (collection-seq realized)
         nil)))
 
-;;; ============================================================================
-;;; Generic functions: count and empty?
-;;; ============================================================================
-
-(defgeneric count (collection)
-  (:documentation "Return the number of elements in COLLECTION."))
-
-(defmethod count ((c <collection>))
-  "Return the count of elements via collection-size."
-  (collection-size c))
-
-(defgeneric empty? (obj)
-  (:documentation "Returns T if OBJ is empty."))
-
-(defmethod empty? ((c <collection>))
-  "Delegate to collection-size to check emptiness."
-  (zerop (collection-size c)))
 
 ;;; ============================================================================
 ;;; print-object methods

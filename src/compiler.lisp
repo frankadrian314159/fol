@@ -49,7 +49,14 @@
     (number    (fol.compiler.ast:make-literal-node :value form :form form))
     (string    (fol.compiler.ast:make-literal-node :value form :form form))
     (character (fol.compiler.ast:make-literal-node :value form :form form))
-    (symbol    (fol.compiler.ast:make-symbol-ref-node :name form :form form))
+    (symbol    (cond
+                 ;; Boolean literals: false -> nil, true -> t
+                 ((string-equal (symbol-name form) "FALSE")
+                  (fol.compiler.ast:make-literal-node :value nil :form form))
+                 ((string-equal (symbol-name form) "TRUE")
+                  (fol.compiler.ast:make-literal-node :value t :form form))
+                 ;; Regular symbol reference
+                 (t (fol.compiler.ast:make-symbol-ref-node :name form :form form))))
     (cons      (parse-compound form))
     (t         (cond
                  ;; FOL vector literal [a b c]
@@ -499,6 +506,105 @@
      :args (mapcar #'parse-form args)
      :form form)))
 
+(defun parse-swap! (form)
+  "Parse (swap! atom fn & args). Special handling for function references."
+  (destructuring-bind (op atom-form fn-form &rest args) form
+    (declare (ignore op))
+    (fol.compiler.ast:make-swap-node
+     :atom-expr (parse-form atom-form)
+     :fn-expr (parse-form fn-form)
+     :args (mapcar #'parse-form args)
+     :form form)))
+
+(defun parse-cond (form)
+  "Parse (cond (test1 expr1 ...) (test2 expr2 ...) ...)."
+  (destructuring-bind (op &rest clauses) form
+    (declare (ignore op))
+    (fol.compiler.ast:make-cond-node
+     :clauses (mapcar (lambda (clause)
+                        (cons (parse-form (car clause))
+                              (mapcar #'parse-form (cdr clause))))
+                      clauses)
+     :form form)))
+
+(defun parse-cond-thread-first (form)
+  "Parse (cond-> expr (test form) ...)."
+  (destructuring-bind (op expr &rest clauses) form
+    (declare (ignore op))
+    (fol.compiler.ast:make-cond-thread-first-node
+     :expr (parse-form expr)
+     :clauses (mapcar (lambda (clause)
+                        (cons (parse-form (car clause))
+                              (parse-form (second clause))))
+                      clauses)
+     :form form)))
+
+(defun parse-cond-thread-last (form)
+  "Parse (cond->> expr (test form) ...)."
+  (destructuring-bind (op expr &rest clauses) form
+    (declare (ignore op))
+    (fol.compiler.ast:make-cond-thread-last-node
+     :expr (parse-form expr)
+     :clauses (mapcar (lambda (clause)
+                        (cons (parse-form (car clause))
+                              (parse-form (second clause))))
+                      clauses)
+     :form form)))
+
+(defun parse-syntax-quote (form)
+  "Parse (syntax-quote template). Handles nested unquote/unquote-splicing."
+  (destructuring-bind (op template) form
+    (declare (ignore op))
+    (fol.compiler.ast:make-syntax-quote-node
+     :template (parse-syntax-quote-template template)
+     :form form)))
+
+(defun parse-syntax-quote-template (template)
+  "Recursively parse template, detecting unquote/unquote-splicing."
+  (cond
+    ((and (consp template) (eq (car template) 'unquote))
+     (fol.compiler.ast:make-unquote-node
+      :expr (parse-form (second template))
+      :form template))
+    ((and (consp template) (eq (car template) 'unquote-splicing))
+     (fol.compiler.ast:make-unquote-splicing-node
+      :expr (parse-form (second template))
+      :form template))
+    ((consp template)
+     (cons (parse-syntax-quote-template (car template))
+           (parse-syntax-quote-template (cdr template))))
+    (t template)))
+
+(defun parse-unquote (form)
+  "Parse (unquote expr)."
+  (destructuring-bind (op expr) form
+    (declare (ignore op))
+    (fol.compiler.ast:make-unquote-node :expr (parse-form expr) :form form)))
+
+(defun parse-unquote-splicing (form)
+  "Parse (unquote-splicing expr)."
+  (destructuring-bind (op expr) form
+    (declare (ignore op))
+    (fol.compiler.ast:make-unquote-splicing-node :expr (parse-form expr) :form form)))
+
+(defun parse-case (form)
+  "Parse (case expr (val1 body1) ((val2 val3) body2) ...)."
+  (destructuring-bind (op expr &rest clauses) form
+    (declare (ignore op))
+    (fol.compiler.ast:make-case-node
+     :expr (parse-form expr)
+     :clauses (mapcar (lambda (clause)
+                        (let ((values (car clause))
+                              (body (cdr clause)))
+                          (cons (if (listp values) values (list values))
+                                (mapcar #'parse-form body))))
+                      clauses)
+     :form form)))
+
+(defun parse-env (form)
+  "Parse (env). No arguments."
+  (fol.compiler.ast:make-env-node :form form))
+
 ;;; --- Special form dispatch table ---
 
 (let ((special-forms (make-hash-table :test 'equal)))
@@ -507,6 +613,7 @@
   (setf (gethash "BIND" special-forms) #'parse-bind)
   (setf (gethash "QUOTE" special-forms) #'parse-quote)
   (setf (gethash "FN" special-forms) #'parse-fn)
+  (setf (gethash "Λ" special-forms) #'parse-fn)  ; Λ/λ is an alias for fn
   (setf (gethash "->" special-forms) #'parse-thread-first)
   (setf (gethash "->>" special-forms) #'parse-thread-last)
   (setf (gethash "VECTOR" special-forms) #'parse-vector)
@@ -529,6 +636,15 @@
   (setf (gethash "INVOKE-RESTART" special-forms) #'parse-invoke-restart)
   (setf (gethash "DEFDYNAMIC" special-forms) #'parse-defdynamic)
   (setf (gethash "BINDING" special-forms) #'parse-binding)
+  (setf (gethash "SWAP!" special-forms) #'parse-swap!)
+  (setf (gethash "COND" special-forms) #'parse-cond)
+  (setf (gethash "COND->" special-forms) #'parse-cond-thread-first)
+  (setf (gethash "COND->>" special-forms) #'parse-cond-thread-last)
+  (setf (gethash "SYNTAX-QUOTE" special-forms) #'parse-syntax-quote)
+  (setf (gethash "UNQUOTE" special-forms) #'parse-unquote)
+  (setf (gethash "UNQUOTE-SPLICING" special-forms) #'parse-unquote-splicing)
+  (setf (gethash "CASE" special-forms) #'parse-case)
+  (setf (gethash "ENV" special-forms) #'parse-env)
   (defun special-form-p (op)
     "Check if OP is a special form operator.
      Compares by symbol name to work across packages."
@@ -556,10 +672,24 @@
   (fol.compiler.ast:symbol-ref-node-name node))
 
 (defun emit-call (node)
-  "Emit a function call node."
+  "Emit a function call node.
+   Special case:
+   - (:keyword dict) => (get dict :keyword)  ; keyword as accessor"
   (let ((operator (fol.compiler.ast:call-node-operator node))
         (args (fol.compiler.ast:call-node-args node)))
-    `(,(emit-node operator) ,@(mapcar #'emit-node args))))
+    (cond
+      ;; Pattern: (:keyword dict) - keyword used as accessor function
+      ;; This is unambiguous since keywords are never function names
+      ((and (fol.compiler.ast:literal-node-p operator)
+            (keywordp (fol.compiler.ast:literal-node-value operator))
+            (= (length args) 1))
+       (let ((keyword (fol.compiler.ast:literal-node-value operator))
+             (dict-arg (emit-node (first args))))
+         `(get ,dict-arg ,keyword)))
+
+      ;; Default: normal function call
+      (t
+       `(,(emit-node operator) ,@(mapcar #'emit-node args))))))
 
 (defun emit-if (node)
   "Emit an if node. Wraps the test in truthy? for FOL semantics.
@@ -852,21 +982,24 @@
                 :initial-value initial))))
 
 (defun emit-vector (node)
-  "Emit a vector-node as a call to the vector constructor."
+  "Emit a vector-node as a call to make-cl-vector.
+   Creates a CL vector, not a FOL <vector>."
   (let ((elements (fol.compiler.ast:vector-node-elements node)))
-    `(fol.compiler.collections:vector ,@(mapcar #'emit-node elements))))
+    `(fol.compiler.cl-utils:make-cl-vector ,@(mapcar #'emit-node elements))))
 
 (defun emit-dict (node)
-  "Emit a dict-node as a call to the dict constructor."
+  "Emit a dict-node as a call to make-cl-dict.
+   Creates a CL hash-table, not a FOL <dict>."
   (let ((entries (fol.compiler.ast:dict-node-entries node)))
-    `(fol.compiler.collections:dict
+    `(fol.compiler.cl-utils:make-cl-dict
       ,@(loop for (k . v) in entries
               append (list (emit-node k) (emit-node v))))))
 
 (defun emit-set (node)
-  "Emit a set-node as a call to the set constructor."
+  "Emit a set-node as a call to make-cl-set.
+   Creates a CL hash-table representing a set, not a FOL <set>."
   (let ((elements (fol.compiler.ast:set-node-elements node)))
-    `(fol.compiler.collections:set ,@(mapcar #'emit-node elements))))
+    `(fol.compiler.cl-utils:make-cl-set ,@(mapcar #'emit-node elements))))
 
 (defun emit-defmacro (node)
   "Emit a defmacro node as CL defmacro with destructured parameter list.
@@ -1035,7 +1168,9 @@
   "Compile defmethod clauses into a dispatched defun.
    Uses the same arity+specificity ordering as compile-fn-multi-clause.
    When all clauses share the same arity and none have rest params,
-   emits a fixed-arity defun to avoid &rest consing overhead."
+   emits a fixed-arity defun to avoid &rest consing overhead.
+   Uses consistent parameter names across clauses when possible to avoid
+   unnecessary gensyms and LET bindings (Bug #4 fix)."
   (let* ((analyzed
            (loop for clause in clauses
                  for (param-vec . body-nodes) = clause
@@ -1070,9 +1205,21 @@
                              (apply #'= arities)
                              (first arities))))
     (if uniform-arity
-        ;; Fixed-arity path
-        (let* ((param-syms (loop for i below uniform-arity
-                                 collect (gensym (format nil "A~D-" i))))
+        ;; Fixed-arity path with smart parameter naming (Bug #4 fix)
+        (let* (;; For each parameter position, check if all clauses use same name
+               (all-stripped (mapcar (lambda (c) (getf c :stripped)) sorted))
+               (param-syms
+                (loop for i below uniform-arity
+                      for names-at-pos = (mapcar (lambda (stripped) (nth i stripped))
+                                                 all-stripped)
+                      ;; Check if all are simple symbols and all equal
+                      for all-simple = (every #'symbolp names-at-pos)
+                      for all-same = (and all-simple
+                                         (every (lambda (n) (eq n (first names-at-pos)))
+                                                names-at-pos))
+                      collect (if all-same
+                                  (first names-at-pos)  ; Use the shared name
+                                  (gensym (format nil "A~D-" i)))))  ; Use gensym
                (cond-clauses
                  (loop for c in sorted
                        for signature = (getf c :signature)
@@ -1080,12 +1227,18 @@
                        for body-nodes = (getf c :body-nodes)
                        for check = (fol.compiler.destructure:emit-fixed-arity-pattern-check
                                     signature param-syms)
-                       for bindings = (fol.compiler.destructure:emit-fixed-arity-param-bindings
-                                       stripped param-syms)
+                       ;; Only emit bindings for params that differ from function params
+                       for bindings = (loop for param in stripped
+                                           for sym in param-syms
+                                           ;; Only bind if param name differs from function param
+                                           when (not (eq param sym))
+                                             append (fol.compiler.destructure:emit-single-param-binding
+                                                     param sym))
                        for emitted-body = (mapcar #'emit-node body-nodes)
                        collect `(,check
-                                 (let ,bindings
-                                   ,@emitted-body)))))
+                                 ,@(if bindings
+                                       `((let ,bindings ,@emitted-body))
+                                       emitted-body)))))
           `(defun ,name ,param-syms
              (cond
                ,@cond-clauses
@@ -1173,16 +1326,32 @@
                  collect `(,name ,(emit-node init-node)))
        ,@(mapcar #'emit-node body))))
 
+(defun emit-swap! (node)
+  "Emit a swap! node. Adds #' if fn-expr is a bare symbol reference."
+  (let ((atom-expr (emit-node (fol.compiler.ast:swap-node-atom-expr node)))
+        (fn-expr-node (fol.compiler.ast:swap-node-fn-expr node))
+        (args (mapcar #'emit-node (fol.compiler.ast:swap-node-args node))))
+    ;; Check if fn-expr is a symbol-ref-node (bare symbol)
+    (let ((fn-expr (if (fol.compiler.ast:symbol-ref-node-p fn-expr-node)
+                       ;; It's a bare symbol - emit as function reference
+                       `(function ,(fol.compiler.ast:symbol-ref-node-name fn-expr-node))
+                       ;; It's an expression - emit as-is
+                       (emit-node fn-expr-node))))
+      `(fol.compiler.mutable:swap! ,atom-expr ,fn-expr ,@args))))
+
 (defun emit-defn (node)
-  "Emit a defn node as (defvar name (fn name ...)).
-   Delegates to emit-fn to ensure identical destructuring code paths."
+  "Emit a defn node as (defun name ...).
+   Puts the function in the function slot, not the value slot.
+   For single-clause: (defun name (params) body...)
+   For multi-clause: (defun name (&rest args) (cond ...))"
   (let* ((name (fol.compiler.ast:defn-node-name node))
          (clauses (fol.compiler.ast:defn-node-clauses node))
-         (fn-node (fol.compiler.ast:make-fn-node
-                   :name name
-                   :clauses clauses
-                   :form (fol.compiler.ast:ast-node-form node))))
-    `(defvar ,name ,(emit-fn fn-node))))
+         (lambda-form (compile-fn clauses)))
+    ;; lambda-form is (lambda params body...)
+    ;; Extract params and body to create defun
+    (let ((params (second lambda-form))
+          (body (cddr lambda-form)))
+      `(defun ,name ,params ,@body))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Loop/Recur Emission
@@ -1292,6 +1461,83 @@
         (args (mapcar #'emit-node (fol.compiler.ast:invoke-restart-node-args node))))
     `(invoke-restart ,name ,@args)))
 
+(defun emit-cond (node)
+  "Emit a cond node as CL cond."
+  (let ((clauses (fol.compiler.ast:cond-node-clauses node)))
+    `(cond
+       ,@(mapcar (lambda (clause)
+                   (let ((test (car clause))
+                         (body (cdr clause)))
+                     `((fol.compiler.primitives:truthy? ,(emit-node test))
+                       ,@(mapcar #'emit-node body))))
+                 clauses))))
+
+(defun emit-cond-thread-first (node)
+  "Emit cond-> as nested if with -> threading."
+  (let ((expr (emit-node (fol.compiler.ast:cond-thread-first-node-expr node)))
+        (clauses (fol.compiler.ast:cond-thread-first-node-clauses node)))
+    (emit-cond-thread-helper expr clauses t)))
+
+(defun emit-cond-thread-last (node)
+  "Emit cond->> as nested if with ->> threading."
+  (let ((expr (emit-node (fol.compiler.ast:cond-thread-last-node-expr node)))
+        (clauses (fol.compiler.ast:cond-thread-last-node-clauses node)))
+    (emit-cond-thread-helper expr clauses nil)))
+
+(defun emit-cond-thread-helper (expr clauses thread-first-p)
+  "Helper for conditional threading emission."
+  (if (null clauses)
+      expr
+      (let* ((clause (car clauses))
+             (test (emit-node (car clause)))
+             (form (emit-node (cdr clause)))
+             (threaded (if thread-first-p
+                           ;; Thread as first arg: (form expr ...)
+                           (if (consp form)
+                               `(,(car form) ,expr ,@(cdr form))
+                               `(,form ,expr))
+                           ;; Thread as last arg: (form ... expr)
+                           (if (consp form)
+                               `(,@form ,expr)
+                               `(,form ,expr))))
+             (rest-code (emit-cond-thread-helper threaded (cdr clauses) thread-first-p)))
+        `(if (fol.compiler.primitives:truthy? ,test)
+             ,rest-code
+             ,expr))))
+
+(defun emit-syntax-quote (node)
+  "Emit syntax-quote as nested quasiquote with unquote support."
+  (let ((template (fol.compiler.ast:syntax-quote-node-template node)))
+    `(quote ,(emit-syntax-quote-template template))))
+
+(defun emit-syntax-quote-template (template)
+  "Recursively emit template, handling unquote nodes."
+  (typecase template
+    (fol.compiler.ast:unquote-node
+     (emit-node (fol.compiler.ast:unquote-node-expr template)))
+    (fol.compiler.ast:unquote-splicing-node
+     `(,@(emit-node (fol.compiler.ast:unquote-splicing-node-expr template))))
+    (cons
+     (cons (emit-syntax-quote-template (car template))
+           (emit-syntax-quote-template (cdr template))))
+    (t template)))
+
+(defun emit-case (node)
+  "Emit a case node as CL case."
+  (let ((expr (emit-node (fol.compiler.ast:case-node-expr node)))
+        (clauses (fol.compiler.ast:case-node-clauses node)))
+    `(case ,expr
+       ,@(mapcar (lambda (clause)
+                   (let ((values (car clause))
+                         (body (cdr clause)))
+                     `(,values ,@(mapcar #'emit-node body))))
+                 clauses))))
+
+(defun emit-env (node)
+  "Emit env as nil (no CL equivalent for lexical environment capture)."
+  (declare (ignore node))
+  nil)
+
 (defun emit-node (node)
   "Emit a Common Lisp form from an AST node."
   (etypecase node
@@ -1315,6 +1561,7 @@
     (fol.compiler.ast:def-node            (emit-def node))
     (fol.compiler.ast:defdynamic-node     (emit-defdynamic node))
     (fol.compiler.ast:binding-node        (emit-binding node))
+    (fol.compiler.ast:swap-node           (emit-swap! node))
     (fol.compiler.ast:defn-node           (emit-defn node))
     (fol.compiler.ast:loop-node           (emit-loop node))
     (fol.compiler.ast:recur-node          (emit-recur node))
@@ -1324,7 +1571,15 @@
     (fol.compiler.ast:signal-node         (emit-signal node))
     (fol.compiler.ast:error-node          (emit-error node))
     (fol.compiler.ast:warn-node           (emit-warn node))
-    (fol.compiler.ast:invoke-restart-node (emit-invoke-restart node))))
+    (fol.compiler.ast:invoke-restart-node (emit-invoke-restart node))
+    (fol.compiler.ast:cond-node                  (emit-cond node))
+    (fol.compiler.ast:cond-thread-first-node     (emit-cond-thread-first node))
+    (fol.compiler.ast:cond-thread-last-node      (emit-cond-thread-last node))
+    (fol.compiler.ast:syntax-quote-node          (emit-syntax-quote node))
+    (fol.compiler.ast:unquote-node               (error "unquote outside syntax-quote"))
+    (fol.compiler.ast:unquote-splicing-node      (error "unquote-splicing outside syntax-quote"))
+    (fol.compiler.ast:case-node                  (emit-case node))
+    (fol.compiler.ast:env-node                   (emit-env node))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Main Entry Points

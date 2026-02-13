@@ -202,3 +202,48 @@
   (name nil :read-only t)
   (params nil :read-only t)
   (body nil :read-only t))
+
+;;; ---------------------------------------------------------------------------
+;;; Additional Special Forms
+;;; ---------------------------------------------------------------------------
+
+(defstruct (cond-node (:include ast-node))
+  "Multi-clause conditional: (cond (test1 body1) (test2 body2) ... (else body))."
+  (clauses nil :read-only t))  ; list of (test-node . body-nodes)
+
+(defstruct (cond-thread-first-node (:include ast-node))
+  "Conditional threading first: (cond-> expr (test form) ...)."
+  (expr nil :read-only t)      ; initial expression
+  (clauses nil :read-only t))  ; list of (test-node . form-node)
+
+(defstruct (cond-thread-last-node (:include ast-node))
+  "Conditional threading last: (cond->> expr (test form) ...)."
+  (expr nil :read-only t)
+  (clauses nil :read-only t))
+
+(defstruct (syntax-quote-node (:include ast-node))
+  "Syntax quote (backtick): `(a ~b ~@c). Template with unquote escapes."
+  (template nil :read-only t)) ; template form with unquote markers
+
+(defstruct (unquote-node (:include ast-node))
+  "Unquote: ~expr. Escape inside syntax-quote."
+  (expr nil :read-only t))
+
+(defstruct (unquote-splicing-node (:include ast-node))
+  "Unquote-splicing: ~@expr. Splice list inside syntax-quote."
+  (expr nil :read-only t))
+
+(defstruct (case-node (:include ast-node))
+  "Value dispatch: (case expr (val1 body1) ... (default body))."
+  (expr nil :read-only t)      ; expression to dispatch on
+  (clauses nil :read-only t))  ; list of (value-list . body-nodes)
+
+(defstruct (env-node (:include ast-node))
+  "Capture lexical environment: (env). Returns opaque environment object."
+  )
+
+(defstruct (swap-node (:include ast-node))
+  "Atomic swap: (swap! atom fn & args). Special form to handle function references."
+  (atom-expr nil :read-only t)     ; expression that evaluates to atom
+  (fn-expr nil :read-only t)       ; function (bare symbol gets #')
+  (args nil :read-only t))         ; additional arguments to fn

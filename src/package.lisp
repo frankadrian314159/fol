@@ -26,10 +26,24 @@
    <uuid>?
    ;; Constructor generic
    make
+   ;; Value unwrapping
+   fol-value
    ;;
    truthy? falsy?))
 
-  (defpackage fol.compiler.compareops
+(defpackage fol.compiler.primitive-functions
+  (:use cl)
+  (:export
+   ;; Nil and Boolean predicates
+   nil? some? boolean? true? false?
+   ;; Collection predicates
+   seq? coll? map? vector? list?
+   ;; Type checking
+   keyword? symbol? string? char? number? integer? float? rational? fn?
+   ;; Equality
+   identical? =?))
+
+(defpackage fol.compiler.compareops
   (:use cl)
   (:shadow < > <= >= = /= min max)
   (:export
@@ -89,6 +103,16 @@
    make-binding-node
    ;; Macro
    defmacro-node defmacro-node-p defmacro-node-name defmacro-node-params defmacro-node-body
+   ;; Additional special forms
+   cond-node cond-node-p cond-node-clauses make-cond-node
+   cond-thread-first-node cond-thread-first-node-p cond-thread-first-node-expr cond-thread-first-node-clauses make-cond-thread-first-node
+   cond-thread-last-node cond-thread-last-node-p cond-thread-last-node-expr cond-thread-last-node-clauses make-cond-thread-last-node
+   syntax-quote-node syntax-quote-node-p syntax-quote-node-template make-syntax-quote-node
+   unquote-node unquote-node-p unquote-node-expr make-unquote-node
+   unquote-splicing-node unquote-splicing-node-p unquote-splicing-node-expr make-unquote-splicing-node
+   case-node case-node-p case-node-expr case-node-clauses make-case-node
+   env-node env-node-p make-env-node
+   swap-node swap-node-p swap-node-atom-expr swap-node-fn-expr swap-node-args make-swap-node
    ;; Constructors
    make-literal-node make-symbol-ref-node make-call-node make-if-node make-do-node make-bind-node
    make-fn-node make-def-node make-defn-node make-loop-node make-recur-node
@@ -177,7 +201,7 @@
 
 (defpackage fol.compiler.collections
   (:use cl)
-  (:shadow vector set list count array-dimension)
+  (:shadow vector set list count array-dimension first rest get assoc dissoc conj size merge)
   (:import-from fol.compiler.primitives make)
   (:import-from fol.compiler.persistent persistent-class)
   (:shadowing-import-from fol.compiler.compareops < >)
@@ -196,6 +220,8 @@
    collection-seq
    count
    empty?
+   ;; High-level accessors
+   first rest get assoc dissoc conj size update merge
    ;; Abstract subclasses
    <unordered-collection>
    <unordered-collection>?
@@ -296,7 +322,7 @@
 
 (defpackage fol.compiler.collection-functions
   (:use cl)
-  (:shadowing-import-from fol.compiler.collections vector set list)
+  (:shadowing-import-from fol.compiler.collections vector set list first rest get assoc dissoc conj size empty? count update merge)
   (:import-from fol.compiler.collections
                 ;; Constructor function names
                 dict ordered-dict array-dict ordered-set sorted-set sorted-set-by
@@ -305,7 +331,8 @@
                 ;; Class name symbols (needed for make dispatch)
                 <vector> <dict> <ordered-dict> <array-dict> <set> <bag>
                 <ordered-set> <sorted-set> <sorted-dict> <int-dict> <priority-dict>
-                <int-set> <dense-int-set> <deque> <list> <lazy-seq>)
+                <int-set> <dense-int-set> <deque> <list> <lazy-seq> <array> <deque>
+                <lazy-seq> <ordered-set> <sorted-set> <int-set> <dense-int-set>)
   (:export
    vector
    dict
@@ -325,7 +352,115 @@
    bag
    deque
    list
-   lazy-seq))
+   lazy-seq
+   ;; High-level accessors
+   first rest get assoc dissoc conj size empty? count update merge))
+
+(defpackage fol.compiler.seq-functions
+  (:use cl)
+  (:shadow map reduce remove some every count)
+  (:import-from fol.compiler.collections
+                collection-seq collection-conj make
+                <vector> <collection>)
+  (:import-from fol.compiler.primitives truthy?)
+  (:export
+   ;; Core higher-order functions
+   map mapv filter filterv reduce
+   ;; Concatenation and mapping variants
+   mapcat concat into
+   ;; Filtering variants
+   remove keep
+   ;; Predicates
+   some every
+   ;; Partitioning and slicing
+   partition take drop take-while drop-while))
+
+(defpackage fol.compiler.arithmetic-functions
+  (:use cl)
+  (:shadow + - * / abs exp sqrt min max gcd lcm
+           sin cos tan asin acos atan sinh cosh tanh asinh acosh atanh
+           expt rationalize numerator denominator)
+  (:import-from fol.compiler.primitives <number> <integer> <float> <bool> fol-value)
+  (:export
+   ;; Dyadic primitives
+   %+ %- %* %/
+   ;; Variadic operators
+   + - * /
+   ;; Math functions
+   abs sin cos tan asin acos atan atan2
+   sinh cosh tanh asinh acosh atanh
+   exp ln sqrt expt
+   ;; Rational/complex
+   rationalize numerator denominator
+   real-part imag-part angle
+   ;; GCD/LCM
+   gcd lcm
+   ;; Predicates
+   odd? even? zero? positive? negative?
+   integral? nat-int? pos-int? NaN? infinite?
+   ;; Type conversion
+   <complex> <single-float> <double-float>
+   ;; Random
+   rand make-seeded-random-state call-with-seed
+   ;; Parsing
+   parse-int parse-double
+   ;; Conversion
+   int))
+
+(defpackage fol.compiler.bitwise-operation-functions
+  (:use cl)
+  (:shadow logand logior logxor lognot ash logbitp logcount
+           bit-nand bit-nor bit-andc1 bit-andc2 bit-orc1 bit-orc2)
+  (:import-from fol.compiler.primitives <integer> fol-value)
+  (:export
+   ;; Unary
+   bitnot
+   ;; Binary/variadic
+   bitand bitor bitxor
+   ;; Derived
+   bit-nand bit-nor bit-andc1 bit-andc2 bit-orc1 bit-orc2
+   ;; Bit manipulation
+   bit-test bit-set bit-clear bit-count
+   ;; Shifting/rotation
+   bit-shift bit-rotate))
+
+(defpackage fol.compiler.logical-operation-functions
+  (:use cl)
+  (:shadow and or not)
+  (:import-from fol.compiler.primitives <bool> <integer> fol-value)
+  (:export
+   ;; Dyadic primitives
+   %and %or %xor
+   ;; Unary
+   not
+   ;; Variadic
+   and or xor
+   ;; Derived
+   implies nand nor))
+
+(defpackage fol.compiler.string-functions
+  (:use cl)
+  (:export
+   ;; String concatenation and manipulation
+   str subs str-join str-split
+   ;; Trimming
+   str-trim str-trim-left str-trim-right
+   ;; Case conversion
+   str-upper-case str-lower-case str-capitalize
+   ;; Search and replace
+   str-replace str-index-of str-last-index-of
+   ;; Predicates
+   str-starts-with? str-ends-with? str-contains? str-blank?
+   ;; Other
+   str-reverse))
+
+(defpackage fol.compiler.cl-utils
+  (:use cl)
+  (:export
+   ;; CL data structure constructors for quoted forms
+   make-cl-vector
+   make-cl-dict
+   make-cl-set))
 
 (defpackage fol.compiler
   (:use cl)

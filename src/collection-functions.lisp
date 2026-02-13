@@ -132,3 +132,296 @@
   "Create a new <lazy-seq> from THUNK (a zero-argument function).
    (lazy-seq (lambda () (make '<list> 1 2 3))) => lazy sequence"
   (make '<lazy-seq> thunk))
+
+;;; ===========================================================================
+;;; High-Level Collection Accessor Functions
+;;; ===========================================================================
+
+(defun count (collection)
+  "Returns the number of elements in the collection."
+  (fol.compiler.collections:collection-size collection))
+
+(defun size (collection)
+  "Alias for count. Returns the number of elements."
+  (count collection))
+
+(defun empty? (collection)
+  "Returns true if the collection is empty."
+  (zerop (count collection)))
+
+(defun conj (collection &rest items)
+  "Add items to collection. Delegates to collection-conj.
+   For multiple items, reduces over collection-conj."
+  (if items
+      (reduce #'fol.compiler.collections:collection-conj items
+              :initial-value collection)
+      collection))
+
+;;; ---------------------------------------------------------------------------
+;;; first - Returns the first element of an ordered collection
+;;; ---------------------------------------------------------------------------
+
+(defgeneric first (collection)
+  (:documentation "Returns the first element of an ordered collection, or nil if empty."))
+
+(defmethod first ((coll fol.compiler.collections:<collection>))
+  (let ((seq (fol.compiler.collections:collection-seq coll)))
+    (when seq (cl:first seq))))
+
+(defmethod first ((coll fol.compiler.collections:<vector>))
+  (let ((items (fol.compiler.collections:storage-items coll)))
+    (when (cl:plusp (fset:size items))
+      (fset:lookup items 0))))
+
+(defmethod first ((coll fol.compiler.collections:<array>))
+  (let ((items (fol.compiler.collections:storage-items coll)))
+    (when (cl:plusp (cl:array-total-size items))
+      (cl:row-major-aref items 0))))
+
+(defmethod first ((coll fol.compiler.collections:<list>))
+  (fol.compiler.collections:list-first coll))
+
+(defmethod first ((coll fol.compiler.collections:<deque>))
+  (let ((items (fol.compiler.collections:storage-items coll)))
+    (when (cl:plusp (fset:size items))
+      (fset:lookup items 0))))
+
+(defmethod first ((coll fol.compiler.collections:<lazy-seq>))
+  (fol.compiler.collections:realize-lazy-seq coll)
+  (when (fol.compiler.collections:lazy-seq-realized-p coll)
+    (first (fol.compiler.collections:lazy-seq-cached coll))))
+
+;; Fallback for CL lists
+(defmethod first ((coll cl:list))
+  (cl:first coll))
+
+;;; ---------------------------------------------------------------------------
+;;; rest - Returns all elements except the first
+;;; ---------------------------------------------------------------------------
+
+(defgeneric rest (collection)
+  (:documentation "Returns all elements except the first. Returns empty collection if <= 1 element."))
+
+(defmethod rest ((coll fol.compiler.collections:<collection>))
+  (let ((seq (fol.compiler.collections:collection-seq coll)))
+    (if (cl:rest seq)
+        (apply #'fol.compiler.collections:make
+               (class-of coll) (cl:rest seq))
+        (fol.compiler.collections:make (class-of coll)))))
+
+(defmethod rest ((coll fol.compiler.collections:<vector>))
+  (let ((items (fol.compiler.collections:storage-items coll)))
+    (if (cl:> (fset:size items) 1)
+        (make-instance 'fol.compiler.collections:<vector>
+                       :storage-items (fset:less-first items))
+        (make-instance 'fol.compiler.collections:<vector>))))
+
+(defmethod rest ((coll fol.compiler.collections:<list>))
+  (fol.compiler.collections:list-rest coll))
+
+;; Fallback for CL lists
+(defmethod rest ((coll cl:list))
+  (cl:rest coll))
+
+;;; ---------------------------------------------------------------------------
+;;; get - Get value by key (dict) or index (seq)
+;;; ---------------------------------------------------------------------------
+
+(defgeneric get (collection key &optional default)
+  (:documentation "Get value by key (dict) or index (seq). Returns default if not found."))
+
+(defmethod get ((coll fol.compiler.collections:<dict>) key &optional default)
+  (multiple-value-bind (value found)
+      (sycamore:hash-map-find (fol.compiler.collections:storage-items coll) key)
+    (if found value default)))
+
+(defmethod get ((coll fol.compiler.collections:<ordered-dict>) key &optional default)
+  (multiple-value-bind (value found)
+      (sycamore:hash-map-find (fol.compiler.collections:storage-items coll) key)
+    (if found value default)))
+
+(defmethod get ((coll fol.compiler.collections:<sorted-dict>) key &optional default)
+  (multiple-value-bind (value found)
+      (sycamore:tree-map-find (fol.compiler.collections:storage-items coll) key)
+    (if found value default)))
+
+(defmethod get ((coll fol.compiler.collections:<int-dict>) key &optional default)
+  (multiple-value-bind (value found)
+      (sycamore:tree-map-find (fol.compiler.collections:storage-items coll) key)
+    (if found value default)))
+
+(defmethod get ((coll fol.compiler.collections:<priority-dict>) key &optional default)
+  (multiple-value-bind (value found)
+      (sycamore:hash-map-find (fol.compiler.collections:storage-items coll) key)
+    (if found value default)))
+
+(defmethod get ((coll fol.compiler.collections:<vector>) index &optional default)
+  (let ((items (fol.compiler.collections:storage-items coll)))
+    (if (and (cl:integerp index) (cl:>= index 0) (cl:< index (fset:size items)))
+        (fset:lookup items index)
+        default)))
+
+(defmethod get ((coll fol.compiler.collections:<array>) index &optional default)
+  (let ((items (fol.compiler.collections:storage-items coll)))
+    (if (and (cl:integerp index) (cl:>= index 0) (cl:< index (cl:array-total-size items)))
+        (cl:row-major-aref items index)
+        default)))
+
+(defmethod get ((coll fol.compiler.collections:<set>) element &optional default)
+  (if (sycamore:hash-set-find (fol.compiler.collections:storage-items coll) element)
+      element
+      default))
+
+(defmethod get ((coll fol.compiler.collections:<sorted-set>) element &optional default)
+  (if (sycamore:tree-set-find (fol.compiler.collections:storage-items coll) element)
+      element
+      default))
+
+;;; ---------------------------------------------------------------------------
+;;; assoc - Returns new collection with key-value pairs added/updated
+;;; ---------------------------------------------------------------------------
+
+(defgeneric assoc (collection key value &rest kvs)
+  (:documentation "Returns new collection with key-value pairs added/updated.
+                   For vectors, key is index. For dicts, key is dict key."))
+
+(defmethod assoc ((coll fol.compiler.collections:<dict>) key value &rest kvs)
+  (let ((new-coll (fol.compiler.collections:collection-conj coll (cons key value))))
+    (if kvs
+        (apply #'assoc new-coll kvs)
+        new-coll)))
+
+(defmethod assoc ((coll fol.compiler.collections:<ordered-dict>) key value &rest kvs)
+  (let ((new-coll (fol.compiler.collections:collection-conj coll (cons key value))))
+    (if kvs
+        (apply #'assoc new-coll kvs)
+        new-coll)))
+
+(defmethod assoc ((coll fol.compiler.collections:<sorted-dict>) key value &rest kvs)
+  (let ((new-coll (fol.compiler.collections:collection-conj coll (cons key value))))
+    (if kvs
+        (apply #'assoc new-coll kvs)
+        new-coll)))
+
+(defmethod assoc ((coll fol.compiler.collections:<vector>) index value &rest ivs)
+  (let* ((items (fol.compiler.collections:storage-items coll))
+         (new-items (fset:with items index value)))
+    (let ((new-coll (make-instance 'fol.compiler.collections:<vector>
+                                   :storage-items new-items)))
+      (if ivs
+          (apply #'assoc new-coll ivs)
+          new-coll))))
+
+;;; ---------------------------------------------------------------------------
+;;; dissoc - Returns new collection with specified keys removed
+;;; ---------------------------------------------------------------------------
+
+(defgeneric dissoc (collection &rest keys)
+  (:documentation "Returns new collection with specified keys removed. Dict types only."))
+
+(defmethod dissoc ((coll fol.compiler.collections:<dict>) &rest keys)
+  (let ((items (fol.compiler.collections:storage-items coll)))
+    (make-instance 'fol.compiler.collections:<dict>
+                   :storage-items (reduce #'sycamore:hash-map-remove keys
+                                          :initial-value items))))
+
+(defmethod dissoc ((coll fol.compiler.collections:<ordered-dict>) &rest keys)
+  (let* ((items (fol.compiler.collections:storage-items coll))
+         (key-order (fol.compiler.collections:ordered-dict-key-order coll))
+         (new-items (reduce #'sycamore:hash-map-remove keys :initial-value items))
+         (key-set (loop with hset = (sycamore:make-hash-set)
+                        for k in keys
+                        do (setf hset (sycamore:hash-set-insert hset k))
+                        finally (return hset)))
+         (new-order (fset:filter (lambda (k) (not (sycamore:hash-set-find key-set k)))
+                                 key-order)))
+    (make-instance 'fol.compiler.collections:<ordered-dict>
+                   :storage-items new-items
+                   :key-order new-order)))
+
+(defmethod dissoc ((coll fol.compiler.collections:<sorted-dict>) &rest keys)
+  (let ((items (fol.compiler.collections:storage-items coll)))
+    (make-instance 'fol.compiler.collections:<sorted-dict>
+                   :storage-items (reduce #'sycamore:tree-map-remove keys
+                                          :initial-value items)
+                   :comparator (slot-value coll 'fol.compiler.collections::comparator))))
+
+
+;;; ---------------------------------------------------------------------------
+;;; UPDATE - Functional update via function
+;;; ---------------------------------------------------------------------------
+
+(defgeneric update (collection key updater-fn)
+  (:documentation "Update a key by applying updater-fn to its current value (returns new collection)."))
+
+(defmethod update ((coll fol.compiler.collections:<dict>) key updater-fn)
+  (let* ((items (fol.compiler.collections:storage-items coll))
+         (current-val (sycamore:hash-map-find items key))
+         (new-val (funcall updater-fn current-val)))
+    (make-instance 'fol.compiler.collections:<dict>
+                   :storage-items (sycamore:hash-map-insert items key new-val))))
+
+(defmethod update ((coll fol.compiler.collections:<ordered-dict>) key updater-fn)
+  (let* ((items (fol.compiler.collections:storage-items coll))
+         (key-order (fol.compiler.collections:ordered-dict-key-order coll))
+         (current-val (sycamore:hash-map-find items key))
+         (new-val (funcall updater-fn current-val))
+         (new-items (sycamore:hash-map-insert items key new-val))
+         ;; Add key to order if it's new
+         (new-order (if (sycamore:hash-map-find items key)
+                        key-order
+                        (fset:with-last key-order key))))
+    (make-instance 'fol.compiler.collections:<ordered-dict>
+                   :storage-items new-items
+                   :key-order new-order)))
+
+(defmethod update ((coll fol.compiler.collections:<sorted-dict>) key updater-fn)
+  (let* ((items (fol.compiler.collections:storage-items coll))
+         (current-val (sycamore:tree-map-find items key))
+         (new-val (funcall updater-fn current-val)))
+    (make-instance 'fol.compiler.collections:<sorted-dict>
+                   :storage-items (sycamore:tree-map-insert items key new-val)
+                   :comparator (slot-value coll 'fol.compiler.collections::comparator))))
+
+;;; ---------------------------------------------------------------------------
+;;; MERGE - Merge dict collections
+;;; ---------------------------------------------------------------------------
+
+(defgeneric merge (coll &rest colls)
+  (:documentation "Merge collections (later values win on key conflicts)."))
+
+(defmethod merge ((coll fol.compiler.collections:<dict>) &rest colls)
+  (if (null colls)
+      coll
+      (let ((result-items (fol.compiler.collections:storage-items coll)))
+        (dolist (other colls)
+          (sycamore:do-hash-map ((k v) (fol.compiler.collections:storage-items other))
+            (setf result-items (sycamore:hash-map-insert result-items k v))))
+        (make-instance 'fol.compiler.collections:<dict>
+                       :storage-items result-items))))
+
+(defmethod merge ((coll fol.compiler.collections:<ordered-dict>) &rest colls)
+  (if (null colls)
+      coll
+      (let ((result-items (fol.compiler.collections:storage-items coll))
+            (result-order (fol.compiler.collections:ordered-dict-key-order coll)))
+        (dolist (other colls)
+          (sycamore:do-hash-map ((k v) (fol.compiler.collections:storage-items other))
+            (setf result-items (sycamore:hash-map-insert result-items k v))
+            ;; Add to order if new key
+            (unless (sycamore:hash-map-find result-items k)
+              (setf result-order (fset:with-last result-order k)))))
+        (make-instance 'fol.compiler.collections:<ordered-dict>
+                       :storage-items result-items
+                       :key-order result-order))))
+
+(defmethod merge ((coll fol.compiler.collections:<sorted-dict>) &rest colls)
+  (if (null colls)
+      coll
+      (let ((result-items (fol.compiler.collections:storage-items coll)))
+        (dolist (other colls)
+          (sycamore:do-tree-map ((k v) (fol.compiler.collections:storage-items other))
+            (setf result-items (sycamore:tree-map-insert result-items k v))))
+        (make-instance 'fol.compiler.collections:<sorted-dict>
+                       :storage-items result-items
+                       :comparator (slot-value coll 'fol.compiler.collections::comparator)))))

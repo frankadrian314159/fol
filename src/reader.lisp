@@ -8,6 +8,7 @@
 ;;;   #M{...}   - bag (multiset) literal
 ;;;   #"..."    - regex pattern literal
 ;;;   #_        - ignore next form
+;;;   @expr     - deref (expands to (deref expr))
 ;;;
 ;;; Usage:
 ;;;   (let ((*readtable* fol.compiler.reader:*fol-readtable*))
@@ -92,6 +93,11 @@
   (read stream t nil t)
   (values))
 
+(defun read-fol-deref (stream char)
+  "Read a FOL deref: @expr => (fol.compiler.mutable:deref expr)"
+  (declare (ignore char))
+  (list 'fol.compiler.mutable:deref (read stream t nil t)))
+
 ;;; ============================================================================
 ;;; Install Reader Macros
 ;;; ============================================================================
@@ -115,6 +121,9 @@
 
 ;;; #_ for ignore-next-form
 (set-dispatch-macro-character #\# #\_ #'read-fol-ignore *fol-readtable*)
+
+;;; @ for deref
+(set-macro-character #\@ #'read-fol-deref nil *fol-readtable*)
 
 ;;; ============================================================================
 ;;; Reader Entry Points

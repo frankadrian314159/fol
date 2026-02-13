@@ -1,0 +1,132 @@
+;; 8-bit Data Register with Clocked D-Latches
+;; Requires lsim.fol to be loaded first for the base DSL
+
+;; -----------------------------------------------------------------------------
+;; D-Latch Primitive
+;; -----------------------------------------------------------------------------
+;; A D-latch is a level-sensitive storage element:
+;; - When CLK is high (1), output Q follows input D
+;; - When CLK is low (0), output Q holds its previous value
+;; - Delay from D to Q is 4 time units
+;; - Delay from CLK to Q is 3 time units
+
+(register-primitive 'd-latch
+  (fn [name param conns]
+    (make <logic-component>
+      :name name
+      :type 'd-latch
+      :connections conns
+      :inputs #{:d :clk}
+      :outputs #{:q}
+      :delays {:d {:q 4} :clk {:q 3}}
+      :logic-fn (fn [s]
+                  (bind [d (get s :d)
+                         clk (get s :clk)
+                         ;; Get previous Q value from state (defaults to false)
+                         prev-q (get s :prev-q false)]
+                    ;; When clock is high, Q follows D
+                    ;; When clock is low, Q holds previous value
+                    {:q (if clk d prev-q)
+                     :prev-q (if clk d prev-q)})))))
+
+;; -----------------------------------------------------------------------------
+;; 8-bit Register Module
+;; -----------------------------------------------------------------------------
+;; An 8-bit register with:
+;; - 8 data inputs: D0-D7
+;; - 1 clock input: CLK (shared by all latches)
+;; - 8 data outputs: Q0-Q7
+;;
+;; All D-latches share the same clock signal, so they update synchronously.
+
+(defpart register-8bit
+  [d0 d1 d2 d3 d4 d5 d6 d7 clk q0 q1 q2 q3 q4 q5 q6 q7]
+
+  ;; Bit 0
+  (d-latch latch0 :d d0 :clk clk :q q0)
+
+  ;; Bit 1
+  (d-latch latch1 :d d1 :clk clk :q q1)
+
+  ;; Bit 2
+  (d-latch latch2 :d d2 :clk clk :q q2)
+
+  ;; Bit 3
+  (d-latch latch3 :d d3 :clk clk :q q3)
+
+  ;; Bit 4
+  (d-latch latch4 :d d4 :clk clk :q q4)
+
+  ;; Bit 5
+  (d-latch latch5 :d d5 :clk clk :q q5)
+
+  ;; Bit 6
+  (d-latch latch6 :d d6 :clk clk :q q6)
+
+  ;; Bit 7 (MSB)
+  (d-latch latch7 :d d7 :clk clk :q q7))
+
+;; -----------------------------------------------------------------------------
+;; Example Usage / Test Circuit
+;; -----------------------------------------------------------------------------
+;; This demonstrates how to use the 8-bit register in a simulation
+
+(defpart test-register-8bit
+  [clk in0 in1 in2 in3 in4 in5 in6 in7]
+
+  ;; Instantiate the 8-bit register
+  ;; Map input ports to data lines, clock to clk, outputs to internal nodes
+  (register-8bit reg
+    :d0 in0 :d1 in1 :d2 in2 :d3 in3
+    :d4 in4 :d5 in5 :d6 in6 :d7 in7
+    :clk clk
+    :q0 out0 :q1 out1 :q2 out2 :q3 out3
+    :q4 out4 :q5 out5 :q6 out6 :q7 out7))
+
+;; -----------------------------------------------------------------------------
+;; Simulation Setup Example
+;; -----------------------------------------------------------------------------
+;; Uncomment and modify these to run a simulation:
+;;
+;; ;; Monitor all outputs
+;; (Monitor 'out0 'out1 'out2 'out3 'out4 'out5 'out6 'out7)
+;;
+;; ;; Set up test events:
+;; ;; At T=0: Set data inputs to binary 10101010 (0xAA)
+;; (Events
+;;   {:time 0 :node 'in0 :value false}   ; bit 0 = 0
+;;   {:time 0 :node 'in1 :value true}    ; bit 1 = 1
+;;   {:time 0 :node 'in2 :value false}   ; bit 2 = 0
+;;   {:time 0 :node 'in3 :value true}    ; bit 3 = 1
+;;   {:time 0 :node 'in4 :value false}   ; bit 4 = 0
+;;   {:time 0 :node 'in5 :value true}    ; bit 5 = 1
+;;   {:time 0 :node 'in6 :value false}   ; bit 6 = 0
+;;   {:time 0 :node 'in7 :value true}    ; bit 7 = 1
+;;
+;;   ;; At T=5: Pulse clock high
+;;   {:time 5 :node 'clk :value true}
+;;
+;;   ;; At T=10: Clock low (latches hold value)
+;;   {:time 10 :node 'clk :value false}
+;;
+;;   ;; At T=15: Change data to binary 01010101 (0x55)
+;;   {:time 15 :node 'in0 :value true}
+;;   {:time 15 :node 'in1 :value false}
+;;   {:time 15 :node 'in2 :value true}
+;;   {:time 15 :node 'in3 :value false}
+;;   {:time 15 :node 'in4 :value true}
+;;   {:time 15 :node 'in5 :value false}
+;;   {:time 15 :node 'in6 :value true}
+;;   {:time 15 :node 'in7 :value false}
+;;
+;;   ;; At T=20: Pulse clock high again (should latch new value)
+;;   {:time 20 :node 'clk :value true}
+;;
+;;   ;; At T=25: Clock low
+;;   {:time 25 :node 'clk :value false})
+;;
+;; ;; Run simulation for 30 time units
+;; (Run 'test-register-8bit 30)
+;;
+;; ;; Display results
+;; (Display 'out0 'out1 'out2 'out3 'out4 'out5 'out6 'out7)

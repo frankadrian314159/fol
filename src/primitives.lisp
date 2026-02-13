@@ -180,6 +180,16 @@
     (defun falsy? (obj) (null obj))
 
 ;;; ---------------------------------------------------------------------------
+;;; Value unwrapping (identity function in current architecture)
+;;; ---------------------------------------------------------------------------
+    (defun fol-value (obj)
+      "Extract the underlying CL value from a FOL object.
+       In the current compiler architecture, FOL primitives ARE native CL values,
+       so this is an identity function. Provided for compatibility with
+       arithmetic/bitwise/logical function files that may wrap/unwrap values."
+      obj)
+
+;;; ---------------------------------------------------------------------------
 ;;; Constructor generic
 ;;; ---------------------------------------------------------------------------
 
@@ -244,6 +254,20 @@
 (defmethod make ((class (eql '<uuid>)) &rest args)
   (declare (ignore args))
   (uuid:make-v4-uuid))
+
+;;; --- Fallback for user-defined classes ---
+;;; When defclass creates a class, it can be found via find-class.
+;;; This method handles cases where make is called with a symbol that
+;;; refers to a user-defined class (e.g., from defclass in FOL).
+
+(defmethod make (class &rest args)
+  "Fallback: if CLASS is a symbol, look it up with find-class and instantiate."
+  (if (symbolp class)
+      (let ((found-class (find-class class nil)))
+        (if found-class
+            (apply #'make-instance found-class args)
+            (error "Class ~S not found" class)))
+      (error "Don't know how to make instance of ~S" class)))
 
 ;;; ---------------------------------------------------------------------------
 ;;; print-object methods
