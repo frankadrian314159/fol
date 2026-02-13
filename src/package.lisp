@@ -33,6 +33,7 @@
 
 (defpackage fol.compiler.primitive-functions
   (:use cl)
+  (:shadow symbol)
   (:export
    ;; Nil and Boolean predicates
    nil? some? boolean? true? false?
@@ -40,6 +41,8 @@
    seq? coll? map? vector? list?
    ;; Type checking
    keyword? symbol? string? char? number? integer? float? rational? fn?
+   ;; Symbol construction
+   symbol
    ;; Equality
    identical? =?))
 
@@ -361,7 +364,10 @@
   (:shadow map reduce remove some every count)
   (:import-from fol.compiler.collections
                 collection-seq collection-conj make
-                <vector> <collection>)
+                <vector> <collection> <dict> <ordered-dict> <sorted-dict> <priority-dict>
+                storage-items ordered-dict-key-order)
+  (:shadowing-import-from fol.compiler.collection-functions
+                get)
   (:import-from fol.compiler.primitives truthy?)
   (:export
    ;; Core higher-order functions
@@ -373,7 +379,11 @@
    ;; Predicates
    some every
    ;; Partitioning and slicing
-   partition take drop take-while drop-while))
+   partition take drop take-while drop-while
+   ;; Dict operations
+   keys
+   ;; Sorting
+   sort-by))
 
 (defpackage fol.compiler.arithmetic-functions
   (:use cl)

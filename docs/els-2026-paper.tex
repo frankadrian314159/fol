@@ -621,14 +621,13 @@ FOL's implementation \textit{is} Common Lisp, this isolates abstraction cost. A 
 
 \subsection{Threats to Validity}
 
-All measurements except the transpiler benchmark (Section~6.6) compare FOL's interpreter against SBCL's native compiler, so reported ratios reflect interpretation overhead, not inherent design costs; the transpiler benchmark
-compares three SBCL-compiled programs (hand-written, unoptimized transpiled, and optimized transpiled). We do not benchmark against Clojure (see Section~6.2). Memory measurements via \texttt{sb-ext:dynamic-space-usage} may
-include GC artifacts. Code density comparisons use three small, purpose-built examples (38--52 lines); results may differ for larger programs where cross-cutting concerns interact. As a single-author project, FOL has not yet
+All measurements  compare FOL's transpiled code against SBCL's native compiler, so reported ratios are comparable. As a single-author project, FOL has not yet
 undergone independent code review; the full source is publicly available to facilitate external evaluation.
 
 \section{Limitations and Future Work}
 
-FOL is transpiled to Common Lisp. No static analysis exists---type errors and unreachable clauses are detected at runtime. Memory overhead
+FOL is transpiled to Common Lisp. No static analysis exists---type errors and unreachable clauses are detected at runtime; some type-dependent code may be resolved at run-time, degrading transpiled code's performance.
+Memory overhead
 grows with object size (1.1x for 2 slots, 4x for 100 slots). Random updates incur 21x overhead versus $O(1)$ mutation. Class redefinition does not migrate existing instances (Section~5.4); old objects retain their original slot
 data, with new slots resolved lazily via initforms.
 

@@ -5,91 +5,140 @@
 (push (truename "src/") asdf:*central-registry*)
 (asdf:load-system :fol-compiler)
 
-;; Create simulator package with hybrid helper functions
+;; Create simulator package with FOL collection functions
 (defpackage :fol-sim
   (:use :cl)
-  (:shadow assoc map reduce)  ; Will define CL-compatible versions
-  (:import-from :fol.compiler.cl-utils
-                make-cl-vector make-cl-dict make-cl-set)
+  (:shadow *modules* *primitives* *sim-context* first rest empty?)  ; Shadow CL and simulator vars
   (:shadowing-import-from :fol.compiler.mutable
                 atom)
+  (:shadowing-import-from :fol.compiler.collection-functions
+                get assoc dissoc update conj)
+  (:shadowing-import-from :fol.compiler.seq-functions
+                map reduce filter concat into some every
+                take-while drop-while mapcat keys sort-by)
+  (:shadowing-import-from :fol.compiler.primitive-functions
+                symbol)
   (:import-from :fol.compiler.mutable
                 deref reset! swap! compare-and-set!
                 <atom> <atom>? ref <ref> <ref>?)
   (:import-from :fol.compiler.primitives
-                truthy? falsy? make))
+                truthy? falsy? make)
+  (:import-from :fol.compiler.primitive-functions
+                nil? some? boolean? true? false? seq? coll? map? vector? list?
+                keyword? symbol? string? char? number? integer? float? rational?
+                fn? identical? =?)
+  (:import-from :fol.compiler.string-functions
+                str subs str-join str-split))
 
 (in-package :fol-sim)
 (sb-ext:unlock-package :cl)
 
-;; Local CL-compatible helper functions for transpiled code
-(defun get (dict key &optional default)
-  "Get value from hash-table."
-  (gethash key dict default))
+;; Define wrappers for functions that need to handle both FOL collections and CL lists
+;; These MUST be defined before loading the transpiled code
+;; IMPORTANT: Declare as notinline to prevent SBCL from inlining them during compilation
+;; (inlining breaks the lexical context of block/tagbody in loop/recur forms)
 
-(defun assoc (dict key value &rest kvs)
-  "Add/update key-value pairs in hash-table (returns new hash-table)."
-  (let ((new-ht (make-hash-table :test 'eql)))
-    (maphash (lambda (k v) (setf (gethash k new-ht) v)) dict)
-    (setf (gethash key new-ht) value)
-    (loop for (k v) on kvs by #'cddr do
-      (setf (gethash k new-ht) v))
-    new-ht))
-
-(defun update (dict key updater-fn)
-  "Update a key by applying updater-fn to its current value."
-  (let ((current-val (gethash key dict))
-        (new-ht (make-hash-table :test 'eql)))
-    (maphash (lambda (k v) (setf (gethash k new-ht) v)) dict)
-    (setf (gethash key new-ht) (funcall updater-fn current-val))
-    new-ht))
-
-(defun map (fn seq)
-  "Map function over sequence."
-  (cl:map 'vector fn seq))
-
-(defun reduce (fn initial-value seq)
-  "Reduce sequence with function and initial value."
-  (cl:reduce fn seq :initial-value initial-value))
-
-(defun filter (pred seq)
-  "Filter sequence by predicate."
-  (cl:remove-if-not pred seq))
-
-(defun concat (vec1 vec2)
-  "Concatenate two vectors."
-  (concatenate 'vector vec1 vec2))
+(declaim (notinline empty? first rest))
 
 (defun empty? (coll)
-  "Check if collection is empty."
-  (zerop (length coll)))
+  "Check if collection is empty. Handles both FOL collections and CL lists."
+  (if (listp coll)
+      (null coll)
+      (fol.compiler.collection-functions:empty? coll)))
 
-(defun first (seq)
-  "Get first element of sequence."
-  (when (cl:plusp (length seq))
-    (elt seq 0)))
+(defun first (coll)
+  "Get first element. Handles both FOL collections and CL lists."
+  (if (listp coll)
+      (cl:first coll)
+      (fol.compiler.collection-functions:first coll)))
 
-(defun rest (seq)
-  "Get all but first element of sequence."
-  (when (> (length seq) 1)
-    (subseq seq 1)))
+(defun rest (coll)
+  "Get rest of elements. Handles both FOL collections and CL lists."
+  (if (listp coll)
+      (cl:rest coll)
+      (fol.compiler.collection-functions:rest coll)))
+
+;; Wrapper for contains? - check if collection contains element
+(defun contains? (coll element)
+  "Check if collection contains element. For sets, checks membership.
+   For dicts, checks if key exists. For sequences, searches for element."
+  (typecase coll
+    (fol.compiler.collections:<set>
+     ;; For sets, use get which returns element if found, nil otherwise
+     (not (null (get coll element))))
+    (fol.compiler.collections:<dict>
+     ;; For dicts, check if key exists
+     (multiple-value-bind (value found)
+         (get coll element)
+       (declare (ignore value))
+       found))
+    (t
+     ;; For other collections, convert to seq and search
+     (let ((seq (fol.compiler.collections:collection-seq coll)))
+       (not (null (cl:find element seq)))))))
+
+;; Wrapper for into that handles CL lists
+(defun into-wrapper (to from)
+  "Add all elements from FROM into TO. Handles both FOL collections and CL lists."
+  (if (listp from)
+      ;; FROM is a CL list - reduce over it directly
+      (cl:reduce #'fol.compiler.collections:collection-conj from :initial-value to)
+      ;; FROM is a FOL collection - use the standard into
+      (fol.compiler.seq-functions:into to from)))
+
+;; Shadow the imported into with our wrapper
+(setf (fdefinition 'into) #'into-wrapper)
+
+;; Wrapper for concat that handles CL lists
+(defun concat-wrapper (&rest colls)
+  "Concatenate collections. Handles both FOL collections and CL lists."
+  (let* ((seqs (mapcar (lambda (coll)
+                         (if (listp coll)
+                             coll  ; CL list - use as-is
+                             (fol.compiler.collections:collection-seq coll)))  ; FOL collection - convert
+                       colls))
+         (combined (apply #'cl:append seqs)))
+    (apply #'fol.compiler.collections:make 'fol.compiler.collections:<vector> combined)))
+
+;; Shadow the imported concat with our wrapper
+(setf (fdefinition 'concat) #'concat-wrapper)
+
+;; Wrapper for reduce that handles CL lists
+(defun reduce-wrapper (fn init coll)
+  "Reduce collection with function and initial value. Handles both FOL collections and CL lists."
+  (if (listp coll)
+      ;; CL list - use directly
+      (cl:reduce fn coll :initial-value init)
+      ;; FOL collection - use the standard reduce
+      (fol.compiler.seq-functions:reduce fn init coll)))
+
+;; Shadow the imported reduce with our wrapper
+(setf (fdefinition 'reduce) #'reduce-wrapper)
 
 ;; Load the transpiled simulator
 (load "fol-code/lsim.lisp")
+
+;; Workaround for defmacro transpilation bug:
+;; The DEFPART macro has <MODULE-DEF> unquoted, so it's evaluated as a variable.
+;; Define it as a constant holding the class symbol.
+(defconstant <module-def> '<module-def>)
+(defconstant <logic-component> '<logic-component>)
+(defconstant <component> '<component>)
+
 (load "fol-code/register-8bit.lisp")
 
-;; Helper to create event (native CL hash-table)
+;; Helper to create event (FOL dict)
 (defun make-event (time node value)
-  (make-cl-dict :time time :node node :value value))
+  (fol.compiler.collection-functions:dict :time time :node node :value value))
 
 (defun run-one-simulation ()
   "Run one instance of the 8-bit register simulation."
-  ;; Reset simulation context (native CL data structures)
+  ;; Reset simulation context (FOL data structures)
   (setf *sim-context*
-        (atom (make-cl-dict
-               :monitored (make-cl-set)
-               :events (make-cl-vector)
-               :history (make-cl-dict))))
+        (atom (fol.compiler.collection-functions:dict
+               :monitored (fol.compiler.collection-functions:set)
+               :events (fol.compiler.collection-functions:vector)
+               :history (fol.compiler.collection-functions:dict))))
 
   ;; Monitor output bits
   (funcall #'monitor 'out0 'out1 'out2 'out3 'out4 'out5 'out6 'out7)

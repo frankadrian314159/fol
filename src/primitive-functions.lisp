@@ -132,6 +132,14 @@
      (symbol? \"foo\")  => NIL"
   (symbolp obj))
 
+(defun symbol (name)
+  "Create a symbol from a string name. Interns in the current package.
+
+   Examples:
+     (symbol \"foo\")  => FOO
+     (symbol \"BAR\")  => BAR"
+  (intern (string name)))
+
 (defun string? (obj)
   "Returns true if OBJ is a string.
 

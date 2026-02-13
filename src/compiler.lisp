@@ -662,6 +662,10 @@
 ;;; Phase 2: Emit (AST -> Common Lisp forms)
 ;;; ---------------------------------------------------------------------------
 
+;;; Lexical variable tracking for Lisp-2 funcall detection
+(defvar *lexical-vars* nil
+  "Set of lexically bound variable names. Used to detect when a function call
+   needs funcall (Lisp-2 semantics). Bound dynamically during code emission.")
 
 (defun emit-literal (node)
   "Emit a literal value. Self-evaluating forms compile to themselves."
@@ -673,8 +677,9 @@
 
 (defun emit-call (node)
   "Emit a function call node.
-   Special case:
-   - (:keyword dict) => (get dict :keyword)  ; keyword as accessor"
+   Special cases:
+   - (:keyword dict) => (get dict :keyword)  ; keyword as accessor
+   - (var-name ...) where var-name is lexically bound => (funcall var-name ...)  ; Lisp-2"
   (let ((operator (fol.compiler.ast:call-node-operator node))
         (args (fol.compiler.ast:call-node-args node)))
     (cond
@@ -687,9 +692,27 @@
              (dict-arg (emit-node (first args))))
          `(get ,dict-arg ,keyword)))
 
-      ;; Default: normal function call
+      ;; Pattern: (lexical-var ...) - variable holding a function value
+      ;; Emit funcall for Lisp-2 semantics
+      ((and (fol.compiler.ast:symbol-ref-node-p operator)
+            (member (fol.compiler.ast:symbol-ref-node-name operator) *lexical-vars*))
+       `(funcall ,(emit-node operator) ,@(mapcar #'emit-node args)))
+
+      ;; Normal function call - operator must be callable
+      ;; Allow: symbols, lambdas, function calls, and literals/collections (for edge cases)
+      ((or (fol.compiler.ast:symbol-ref-node-p operator)
+           (fol.compiler.ast:fn-node-p operator)
+           (fol.compiler.ast:call-node-p operator)
+           (fol.compiler.ast:literal-node-p operator)
+           (fol.compiler.ast:vector-node-p operator)
+           (fol.compiler.ast:dict-node-p operator)
+           (fol.compiler.ast:set-node-p operator))
+       `(,(emit-node operator) ,@(mapcar #'emit-node args)))
+
+      ;; Invalid function call - operator is not callable
       (t
-       `(,(emit-node operator) ,@(mapcar #'emit-node args))))))
+       (error "Illegal function call form: operator ~S is not callable"
+              (fol.compiler.ast:ast-node-form operator))))))
 
 (defun emit-if (node)
   "Emit an if node. Wraps the test in truthy? for FOL semantics.
@@ -720,31 +743,42 @@
      [#(a b) (values 1 2)] -> capture multiple values into a, b."
   (let ((bindings (fol.compiler.ast:bind-node-bindings node))
         (body (fol.compiler.ast:bind-node-body node)))
-    (emit-bind-chain bindings (mapcar #'emit-node body))))
+    ;; Pass body AST nodes, not emitted forms, so they're emitted with correct *lexical-vars*
+    (emit-bind-chain bindings body)))
 
-(defun emit-bind-chain (bindings body-forms)
+(defun emit-bind-chain (bindings body-nodes)
   "Emit nested let/destructuring forms for bind bindings.
-   Each binding is sequential (visible to subsequent bindings)."
+   Each binding is sequential (visible to subsequent bindings).
+   Tracks bound variables in *lexical-vars* for Lisp-2 funcall detection.
+   Body-nodes are AST nodes that will be emitted after all bindings are processed."
   (if (null bindings)
-      (if (= (length body-forms) 1)
-          (first body-forms)
-          `(progn ,@body-forms))
+      ;; Emit body with all bindings in scope
+      (let ((body-forms (mapcar #'emit-node body-nodes)))
+        (if (= (length body-forms) 1)
+            (first body-forms)
+            `(progn ,@body-forms)))
       (destructuring-bind (pattern . init-node) (first bindings)
-        (let ((init-code (emit-node init-node))
-              (rest-code (emit-bind-chain (rest bindings) body-forms)))
+        (let ((init-code (emit-node init-node)))
           (if (fol-vector-p pattern)
               ;; Destructuring pattern - capture multiple values
               (let* ((mv-sym (gensym "MV"))
                      (val-sym (gensym "VAL"))
                      (param-bindings
-                       (fol.compiler.destructure:emit-single-param-binding pattern val-sym)))
+                       (fol.compiler.destructure:emit-single-param-binding pattern val-sym))
+                     ;; Extract all bound symbols from param-bindings
+                     (bound-syms (mapcar #'car param-bindings))
+                     ;; Add to *lexical-vars* for nested scope
+                     (*lexical-vars* (append bound-syms *lexical-vars*))
+                     (rest-code (emit-bind-chain (rest bindings) body-nodes)))
                 `(let* ((,mv-sym (multiple-value-list ,init-code))
                         (,val-sym (if (> (length ,mv-sym) 1) ,mv-sym (car ,mv-sym)))
                         ,@param-bindings)
                    ,rest-code))
               ;; Simple symbol binding
-              `(let ((,pattern ,init-code))
-                 ,rest-code))))))
+              (let* ((*lexical-vars* (cons pattern *lexical-vars*))
+                     (rest-code (emit-bind-chain (rest bindings) body-nodes)))
+                `(let ((,pattern ,init-code))
+                   ,rest-code)))))))
 
 (defun emit-quote (node)
   "Emit a quote node."
@@ -807,6 +841,12 @@
                                       (list '&rest clean-rest))
                                     (when key-with-defaults
                                       (cons '&key key-with-defaults))))
+               ;; Track all params as lexical vars for Lisp-2 funcall detection
+               (*lexical-vars* (append clean-stripped
+                                      (when clean-rest (list clean-rest))
+                                      (when stripped-keys stripped-keys)
+                                      (when as-param (list as-param))
+                                      *lexical-vars*))
                (emitted-body (mapcar #'emit-node body-nodes))
                (body-with-as (if as-param
                                  ;; Wrap body in let binding the whole arg list
@@ -870,6 +910,8 @@
    Uses direct parameter symbols instead of &rest + nth."
   (let* ((param-syms (loop for i below arity
                            collect (gensym (format nil "A~D-" i))))
+         ;; Track param-syms as lexical vars for all clauses
+         (*lexical-vars* (append param-syms *lexical-vars*))
          (cond-clauses
            (loop for c in sorted-clauses
                  for signature = (getf c :signature)
@@ -879,6 +921,9 @@
                               signature param-syms)
                  for bindings = (fol.compiler.destructure:emit-fixed-arity-param-bindings
                                  stripped param-syms)
+                 ;; Track bound vars from destructuring
+                 for bound-vars = (mapcar #'car bindings)
+                 for *lexical-vars* = (append bound-vars *lexical-vars*)
                  for emitted-body = (mapcar #'emit-node body-nodes)
                  collect `(,check
                            (let ,bindings
@@ -892,6 +937,8 @@
 (defun compile-fn-rest-args (sorted-clauses)
   "Emit a &rest lambda for mixed-arity multi-clause fn."
   (let* ((args-sym (gensym "ARGS"))
+         ;; Track args-sym as lexical var
+         (*lexical-vars* (cons args-sym *lexical-vars*))
          (cond-clauses
            (loop for c in sorted-clauses
                  for arity = (getf c :arity)
@@ -907,6 +954,9 @@
                                   stripped args-sym)
                                  (fol.compiler.destructure:emit-rest-param-binding
                                   rest-param arity args-sym))
+                 ;; Track bound vars from destructuring
+                 for bound-vars = (mapcar #'car bindings)
+                 for *lexical-vars* = (append bound-vars *lexical-vars*)
                  for emitted-body = (mapcar #'emit-node body-nodes)
                  collect `(,check
                            (let ,bindings
@@ -982,24 +1032,24 @@
                 :initial-value initial))))
 
 (defun emit-vector (node)
-  "Emit a vector-node as a call to make-cl-vector.
-   Creates a CL vector, not a FOL <vector>."
+  "Emit a vector-node as a call to vector.
+   Creates a FOL <vector>."
   (let ((elements (fol.compiler.ast:vector-node-elements node)))
-    `(fol.compiler.cl-utils:make-cl-vector ,@(mapcar #'emit-node elements))))
+    `(fol.compiler.collection-functions:vector ,@(mapcar #'emit-node elements))))
 
 (defun emit-dict (node)
-  "Emit a dict-node as a call to make-cl-dict.
-   Creates a CL hash-table, not a FOL <dict>."
+  "Emit a dict-node as a call to dict.
+   Creates a FOL <dict>."
   (let ((entries (fol.compiler.ast:dict-node-entries node)))
-    `(fol.compiler.cl-utils:make-cl-dict
+    `(fol.compiler.collection-functions:dict
       ,@(loop for (k . v) in entries
               append (list (emit-node k) (emit-node v))))))
 
 (defun emit-set (node)
-  "Emit a set-node as a call to make-cl-set.
-   Creates a CL hash-table representing a set, not a FOL <set>."
+  "Emit a set-node as a call to set.
+   Creates a FOL <set>."
   (let ((elements (fol.compiler.ast:set-node-elements node)))
-    `(fol.compiler.cl-utils:make-cl-set ,@(mapcar #'emit-node elements))))
+    `(fol.compiler.collection-functions:set ,@(mapcar #'emit-node elements))))
 
 (defun emit-defmacro (node)
   "Emit a defmacro node as CL defmacro with destructured parameter list.
@@ -1320,8 +1370,10 @@
   "Emit a binding node as CL let with dynamic rebinding.
    Uses let (not let*) so bindings are parallel — matches Clojure binding semantics.
    CL's let on special/dynamic variables does dynamic binding."
-  (let ((bindings (fol.compiler.ast:binding-node-bindings node))
-        (body (fol.compiler.ast:binding-node-body node)))
+  (let* ((bindings (fol.compiler.ast:binding-node-bindings node))
+         (body (fol.compiler.ast:binding-node-body node))
+         ;; Track bound vars for funcall detection (even though they're dynamic)
+         (*lexical-vars* (append (mapcar #'car bindings) *lexical-vars*)))
     `(let ,(loop for (name . init-node) in bindings
                  collect `(,name ,(emit-node init-node)))
        ,@(mapcar #'emit-node body))))
@@ -1360,18 +1412,25 @@
 (defvar *current-loop-context* nil
   "List of (block-name tag binding-names) for the innermost loop, or nil.")
 
+(defvar *loop-counter* 0
+  "Counter for generating unique loop block/tag names.")
+
 (defun emit-loop (node)
   "Emit a loop node using block/tagbody/go for optimized iteration.
    The block provides the exit mechanism (return-from).
    tagbody/go provides the loop mechanism.
-   recur updates bindings with psetq then jumps back."
+   recur updates bindings with psetq then jumps back.
+   NOTE: Uses interned symbols (not gensyms) so code can be serialized to files."
   (let* ((bindings (fol.compiler.ast:loop-node-bindings node))
          (body (fol.compiler.ast:loop-node-body node))
-         (block-name (gensym "LOOP-BLOCK-"))
-         (tag (gensym "LOOP-"))
-         (result-sym (gensym "RESULT-"))
+         (loop-id (incf *loop-counter*))
+         (block-name (intern (format nil "LOOP-BLOCK-~D" loop-id)))
+         (tag (intern (format nil "LOOP-~D" loop-id)))
+         (result-sym (intern (format nil "RESULT-~D" loop-id)))
          (binding-names (mapcar #'car bindings))
-         (*current-loop-context* (list block-name tag binding-names)))
+         (*current-loop-context* (list block-name tag binding-names))
+         ;; Track loop bindings as lexical vars
+         (*lexical-vars* (append binding-names (list result-sym) *lexical-vars*)))
     `(block ,block-name
        (let ,(loop for (name . init-node) in bindings
                    collect `(,name ,(emit-node init-node)))
@@ -1410,7 +1469,9 @@
                          (var (second clause))
                          (body-nodes (cddr clause)))
                      (if var
-                         `(,type (,var) ,@(mapcar #'emit-node body-nodes))
+                         ;; Track var as lexical for handler body
+                         (let ((*lexical-vars* (cons var *lexical-vars*)))
+                           `(,type (,var) ,@(mapcar #'emit-node body-nodes)))
                          `(,type () ,@(mapcar #'emit-node body-nodes)))))
                  clauses))))
 
@@ -1431,9 +1492,12 @@
         (clauses (fol.compiler.ast:restart-case-node-clauses node)))
     `(restart-case ,expr
        ,@(mapcar (lambda (clause)
-                   (let ((name (first clause))
-                         (params (second clause))
-                         (body-nodes (cddr clause)))
+                   (let* ((name (first clause))
+                          (params (second clause))
+                          (body-nodes (cddr clause))
+                          ;; Track params as lexical vars for restart body
+                          (*lexical-vars* (append (if (listp params) params (list params))
+                                                 *lexical-vars*)))
                      `(,name ,params ,@(mapcar #'emit-node body-nodes))))
                  clauses))))
 

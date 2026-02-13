@@ -359,7 +359,7 @@
          (current-val (sycamore:hash-map-find items key))
          (new-val (funcall updater-fn current-val)))
     (make-instance 'fol.compiler.collections:<dict>
-                   :storage-items (sycamore:hash-map-insert items key new-val))))
+                   :items (sycamore:hash-map-insert items key new-val))))
 
 (defmethod update ((coll fol.compiler.collections:<ordered-dict>) key updater-fn)
   (let* ((items (fol.compiler.collections:storage-items coll))
@@ -372,7 +372,7 @@
                         key-order
                         (fset:with-last key-order key))))
     (make-instance 'fol.compiler.collections:<ordered-dict>
-                   :storage-items new-items
+                   :items new-items
                    :key-order new-order)))
 
 (defmethod update ((coll fol.compiler.collections:<sorted-dict>) key updater-fn)
@@ -380,7 +380,7 @@
          (current-val (sycamore:tree-map-find items key))
          (new-val (funcall updater-fn current-val)))
     (make-instance 'fol.compiler.collections:<sorted-dict>
-                   :storage-items (sycamore:tree-map-insert items key new-val)
+                   :items (sycamore:tree-map-insert items key new-val)
                    :comparator (slot-value coll 'fol.compiler.collections::comparator))))
 
 ;;; ---------------------------------------------------------------------------

@@ -282,3 +282,71 @@
   (let* ((seqs (cl:mapcar #'fol.compiler.collections:collection-seq colls))
          (combined (apply #'cl:append seqs)))
     (apply #'fol.compiler.collections:make 'fol.compiler.collections:<vector> combined)))
+
+;;; ---------------------------------------------------------------------------
+;;; keys - Get all keys from a dict
+;;; ---------------------------------------------------------------------------
+
+(defun keys (dict)
+  "Return a vector of all keys in DICT.
+
+   Examples:
+     (keys {:a 1 :b 2 :c 3})  => [:a :b :c]  ; order may vary"
+  (let ((result '()))
+    (typecase dict
+      (fol.compiler.collections:<dict>
+       (sycamore:do-hash-map ((k v) (fol.compiler.collections:storage-items dict))
+         (declare (ignore v))
+         (push k result)))
+      (fol.compiler.collections:<ordered-dict>
+       ;; Use key-order for ordered dict
+       (let ((seq (fol.compiler.collections:ordered-dict-key-order dict)))
+         (return-from keys
+           (apply #'fol.compiler.collections:make
+                  'fol.compiler.collections:<vector>
+                  (fol.compiler.collections:collection-seq seq)))))
+      (fol.compiler.collections:<sorted-dict>
+       (sycamore:do-tree-map ((k v) (fol.compiler.collections:storage-items dict))
+         (declare (ignore v))
+         (push k result)))
+      (fol.compiler.collections:<priority-dict>
+       (sycamore:do-hash-map ((k v) (fol.compiler.collections:storage-items dict))
+         (declare (ignore v))
+         (push k result)))
+      (t
+       (error "keys requires a dict, got ~S" dict)))
+    (apply #'fol.compiler.collections:make
+           'fol.compiler.collections:<vector>
+           (nreverse result))))
+
+;;; ---------------------------------------------------------------------------
+;;; sort-by - Sort collection by key function
+;;; ---------------------------------------------------------------------------
+
+(defun sort-by (keyfn coll)
+  "Sort COLL by applying KEYFN to each element.
+   KEYFN can be a function or a keyword (for dict lookup).
+   Returns a vector.
+
+   Examples:
+     (sort-by :age [{:name \"Alice\" :age 30} {:name \"Bob\" :age 25}])
+       => [{:name \"Bob\" :age 25} {:name \"Alice\" :age 30}]
+     (sort-by (fn [x] (- x)) [3 1 4 1 5])  => [5 4 3 1 1]"
+  (let* ((seq (fol.compiler.collections:collection-seq coll))
+         (key-fn (if (keywordp keyfn)
+                     ;; Keyword - use as dict accessor
+                     (lambda (x) (get x keyfn))
+                     ;; Function - use directly
+                     keyfn))
+         (sorted (cl:sort (copy-list seq) #'<
+                          :key (lambda (x)
+                                 (let ((k (funcall key-fn x)))
+                                   ;; Handle various key types
+                                   (typecase k
+                                     (number k)
+                                     (string (string k))
+                                     (symbol (symbol-name k))
+                                     (t k)))))))
+    (apply #'fol.compiler.collections:make
+           'fol.compiler.collections:<vector>
+           sorted)))

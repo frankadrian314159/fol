@@ -187,21 +187,21 @@
          primitive-factory (get-primitive type)]
     
     (cond
-      module-def
-      ;; It is a composite module: Expand recursively
-      (reduce (fn [acc child-spec]
-                (concat acc (expand-spec child-spec full-name resolved-conns)))
-              []
-              (module-body module-def))
-      
-      primitive-factory
-      [(primitive-factory full-name param resolved-conns)]
-      
-      :else
-      [(make <component>
-             :name full-name
-             :type type
-             :connections resolved-conns)])))
+      (module-def
+       ;; It is a composite module: Expand recursively
+       (reduce (fn [acc child-spec]
+                 (concat acc (expand-spec child-spec full-name resolved-conns)))
+               []
+               (module-body module-def)))
+
+      (primitive-factory
+       [(primitive-factory full-name param resolved-conns)])
+
+      (:else
+       [(make <component>
+              :name full-name
+              :type type
+              :connections resolved-conns)]))))
 
 (defn expand-netlist [top-module-name]
   (bind [def (get-module top-module-name)]
@@ -263,8 +263,8 @@
       (if (or (empty? queue) (> current-time max-time))
         event-history
         (bind [event-time (:time (first queue))
-               batch (take-while #(= (:time %) event-time) queue)
-               remaining (drop-while #(= (:time %) event-time) queue)
+               batch (take-while (fn [x] (= (:time x) event-time)) queue)
+               remaining (drop-while (fn [x] (= (:time x) event-time)) queue)
                
                ;; Update state
                updates (reduce (fn [acc evt] (assoc acc (:node evt) (:value evt))) {} batch)
