@@ -1,6 +1,6 @@
 # FOL: Functional Object Lisp
 
-FOL is a Lisp dialect that combines Clojure's persistent data structures and sequence abstractions with CLOS-style class-based object orientation and a Dylan-inspired module system. Written in Common Lisp, FOL features a unified object system where every value is an object, backed by persistent data structures with structural sharing.
+FOL is a Lisp dialect that combines Clojure's persistent data structures and sequence abstractions with CLOS-style class-based object orientation. Written in Common Lisp, FOL features a unified object system where every object is an value, backed by persistent data structures with structural sharing.
 
 For a detailed discussion of the language design and its motivations, see the submitted paper:
 
@@ -91,13 +91,23 @@ FOL> (-> {:name "Alice" :scores [95 87 92]}
 
 ### Persistent Data Structures
 
-All collections are persistent and immutable. Updates return new values that share structure with the original, providing efficient O(log n) modifications.
+All objects and collections are persistent and immutable. Updates return new values that share structure with the original, providing efficient O(log n) modifications. Classes use angle-bracket naming (`<point>`, `<vector>`).
 
 ```fol
 (def v [1 2 3])
 (def v2 (conj v 4))     ;; v is still [1 2 3], v2 is [1 2 3 4]
-```
 
+(defclass <point> []
+   [[x :initform 0]
+    [y :initform 0]])
+
+(def pt (make '<point> :x 5 :y 10))
+(:x pt)   ;; -> 5
+(:y pt)   ;; -> 10
+(def pt2 (assoc pt :x 2))   ;; -> new pt2 sharing structure with pt
+(:x pt)   ;; -> 5 (pt is still the same)
+(:x pt2)  ;; -> 2
+```
 Collection literals follow Clojure conventions:
 
 | Syntax | Type | Example |
@@ -158,16 +168,6 @@ FOL provides `defclass`, `defgeneric`, and `defmethod` with persistent slot stor
      (filter even?)
      (map (fn [x] (* x x)))
      (take 5))
-```
-
-### Dylan-Style Naming and Modules
-
-Classes use angle-bracket naming (`<point>`, `<vector>`). The module system provides namespace management:
-
-```fol
-(module my-module
-  (use-module fol.core)
-  (export my-function))
 ```
 
 ## Influences
