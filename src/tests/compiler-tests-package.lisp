@@ -41,12 +41,16 @@
   :description "Tests for persistent object system (Sycamore hash-map backed)."
   :in compiler-tests)
 
+(def-suite string-tests
+  :description "Tests for string manipulation functions."
+  :in compiler-tests)
+
 (defun fol-form (form)
   "Recursively convert CL vectors in FORM to FOL <vector> instances.
    Allows tests to use the familiar #(...) syntax inside (fol-form '(...))."
   (cond
     ((and (cl:vectorp form) (not (stringp form)))
-     (apply #'fol.compiler.collections:vector
+     (apply #'fol.compiler.collection-functions:vector
             (map 'list #'fol-form form)))
     ((consp form)
      (cons (fol-form (car form)) (fol-form (cdr form))))

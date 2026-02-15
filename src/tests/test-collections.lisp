@@ -304,7 +304,7 @@
 
 (test ordered-dict-is-collection
   "<ordered-dict> satisfies <collection>?, <dict>?, <ordered-dict>?."
-  (let ((d (fol.compiler.collections:ordered-dict :a 1 :b 2)))
+  (let ((d (fol.compiler.collection-functions:ordered-dict :a 1 :b 2)))
     (is (eq t (fol.compiler.collections:<collection>? d)))
     (is (eq t (fol.compiler.collections:<dict>? d)))
     (is (eq t (fol.compiler.collections:<ordered-dict>? d)))))
@@ -315,46 +315,46 @@
   (is (null (fol.compiler.collections:<ordered-dict>? nil)))
   ;; A plain <dict> is NOT an <ordered-dict>
   (is (null (fol.compiler.collections:<ordered-dict>?
-             (fol.compiler.collections:dict :a 1)))))
+             (fol.compiler.collection-functions:dict :a 1)))))
 
 (test ordered-dict-predicate-true
   "<ordered-dict>? returns T for an <ordered-dict> instance."
-  (let ((d (fol.compiler.collections:ordered-dict :a 1 :b 2)))
+  (let ((d (fol.compiler.collection-functions:ordered-dict :a 1 :b 2)))
     (is (eq t (fol.compiler.collections:<ordered-dict>? d)))))
 
 (test ordered-dict-is-also-dict
   "<ordered-dict> satisfies <dict>? (it is a subclass of dict)."
-  (let ((d (fol.compiler.collections:ordered-dict :a 1)))
+  (let ((d (fol.compiler.collection-functions:ordered-dict :a 1)))
     (is (eq t (fol.compiler.collections:<dict>? d)))))
 
 (test ordered-dict-make-empty
   "(ordered-dict) creates an empty ordered dict."
-  (let ((d (fol.compiler.collections:ordered-dict)))
+  (let ((d (fol.compiler.collection-functions:ordered-dict)))
     (is (= 0 (fol.compiler.collections:collection-size d)))
     (is (eq t (fol.compiler.collections:collection-empty-p d)))
     (is (null (fol.compiler.collections:collection-seq d)))))
 
 (test ordered-dict-make-with-entries
   "(ordered-dict :a 1 :b 2 :c 3) creates a populated ordered dict with 3 entries."
-  (let ((d (fol.compiler.collections:ordered-dict :a 1 :b 2 :c 3)))
+  (let ((d (fol.compiler.collection-functions:ordered-dict :a 1 :b 2 :c 3)))
     (is (= 3 (fol.compiler.collections:collection-size d)))))
 
 (test ordered-dict-preserves-insertion-order
   "collection-seq returns entries in insertion order."
-  (let ((d (fol.compiler.collections:ordered-dict :c 3 :a 1 :b 2)))
+  (let ((d (fol.compiler.collection-functions:ordered-dict :c 3 :a 1 :b 2)))
     (is (equal '((:c . 3) (:a . 1) (:b . 2))
                (fol.compiler.collections:collection-seq d)))))
 
 (test ordered-dict-duplicate-keys
   "Duplicate keys keep the last value but the first insertion position."
-  (let ((d (fol.compiler.collections:ordered-dict :a 1 :b 2 :a 99)))
+  (let ((d (fol.compiler.collection-functions:ordered-dict :a 1 :b 2 :a 99)))
     (is (= 2 (fol.compiler.collections:collection-size d)))
     (is (equal '((:a . 99) (:b . 2))
                (fol.compiler.collections:collection-seq d)))))
 
 (test ordered-dict-conj-adds-pair
   "collection-conj adds a key-value pair at the end."
-  (let* ((d (fol.compiler.collections:ordered-dict :a 1 :b 2))
+  (let* ((d (fol.compiler.collection-functions:ordered-dict :a 1 :b 2))
          (d2 (fol.compiler.collections:collection-conj d (cons :c 3))))
     (is (= 3 (fol.compiler.collections:collection-size d2)))
     (is (equal '((:a . 1) (:b . 2) (:c . 3))
@@ -364,7 +364,7 @@
 
 (test ordered-dict-conj-overwrites-key
   "collection-conj overwrites the value for an existing key, keeping position."
-  (let* ((d (fol.compiler.collections:ordered-dict :a 1 :b 2))
+  (let* ((d (fol.compiler.collection-functions:ordered-dict :a 1 :b 2))
          (d2 (fol.compiler.collections:collection-conj d (cons :a 99))))
     (is (= 2 (fol.compiler.collections:collection-size d2)))
     (is (equal '((:a . 99) (:b . 2))
@@ -372,14 +372,14 @@
 
 (test ordered-dict-conj-on-empty
   "collection-conj on an empty ordered dict produces a single-entry dict."
-  (let* ((d (fol.compiler.collections:ordered-dict))
+  (let* ((d (fol.compiler.collection-functions:ordered-dict))
          (d2 (fol.compiler.collections:collection-conj d (cons :x 42))))
     (is (= 1 (fol.compiler.collections:collection-size d2)))
     (is (equal '((:x . 42)) (fol.compiler.collections:collection-seq d2)))))
 
 (test ordered-dict-storage-is-hash-map
   "<ordered-dict> storage-items returns a Sycamore hash-map with correct values."
-  (let ((d (fol.compiler.collections:ordered-dict :a 1 :b 2)))
+  (let ((d (fol.compiler.collection-functions:ordered-dict :a 1 :b 2)))
     (is (eq 1 (sycamore:hash-map-find
                 (fol.compiler.collections:storage-items d) :a)))
     (is (eq 2 (sycamore:hash-map-find
@@ -387,7 +387,7 @@
 
 (test ordered-dict-key-order-slot
   "ordered-dict-key-order returns an FSet seq of keys in insertion order."
-  (let ((d (fol.compiler.collections:ordered-dict :c 3 :a 1 :b 2)))
+  (let ((d (fol.compiler.collection-functions:ordered-dict :c 3 :a 1 :b 2)))
     (is (equal '(:c :a :b)
                (fset:convert 'cl:list
                  (fol.compiler.collections:ordered-dict-key-order d))))))
@@ -395,25 +395,25 @@
 (test ordered-dict-count
   "count returns entry count for an <ordered-dict>."
   (is (= 0 (fol.compiler.collections:count
-             (fol.compiler.collections:ordered-dict))))
+             (fol.compiler.collection-functions:ordered-dict))))
   (is (= 3 (fol.compiler.collections:count
-             (fol.compiler.collections:ordered-dict :a 1 :b 2 :c 3)))))
+             (fol.compiler.collection-functions:ordered-dict :a 1 :b 2 :c 3)))))
 
 (test ordered-dict-empty?
   "empty? works for <ordered-dict>."
   (is (eq t (fol.compiler.collections:empty?
-             (fol.compiler.collections:ordered-dict))))
+             (fol.compiler.collection-functions:ordered-dict))))
   (is (null (fol.compiler.collections:empty?
-             (fol.compiler.collections:ordered-dict :a 1)))))
+             (fol.compiler.collection-functions:ordered-dict :a 1)))))
 
 (test ordered-dict-print-object
   "Printing an <ordered-dict> produces FOL dict syntax in insertion order."
-  (let ((d (fol.compiler.collections:ordered-dict :c 3 :a 1 :b 2)))
+  (let ((d (fol.compiler.collection-functions:ordered-dict :c 3 :a 1 :b 2)))
     (is (string= "{:C 3 :A 1 :B 2}" (write-to-string d)))))
 
 (test ordered-dict-print-object-empty
   "Printing an empty <ordered-dict> produces {}."
-  (let ((d (fol.compiler.collections:ordered-dict)))
+  (let ((d (fol.compiler.collection-functions:ordered-dict)))
     (is (string= "{}" (write-to-string d)))))
 
 ;;; ---------------------------------------------------------------------------
@@ -446,7 +446,7 @@
 
 (test array-dict-is-collection
   "<array-dict> satisfies <collection>?, <dict>?, <ordered-collection>?, <array-dict>?."
-  (let ((d (fol.compiler.collections:array-dict :a 1 :b 2)))
+  (let ((d (fol.compiler.collection-functions:array-dict :a 1 :b 2)))
     (is (eq t (fol.compiler.collections:<collection>? d)))
     (is (eq t (fol.compiler.collections:<dict>? d)))
     (is (eq t (fol.compiler.collections:<ordered-collection>? d)))
@@ -458,46 +458,46 @@
   (is (null (fol.compiler.collections:<array-dict>? nil)))
   ;; A plain <dict> is NOT an <array-dict>
   (is (null (fol.compiler.collections:<array-dict>?
-             (fol.compiler.collections:dict :a 1)))))
+             (fol.compiler.collection-functions:dict :a 1)))))
 
 (test array-dict-predicate-true
   "<array-dict>? returns T for an <array-dict> instance."
-  (let ((d (fol.compiler.collections:array-dict :a 1 :b 2)))
+  (let ((d (fol.compiler.collection-functions:array-dict :a 1 :b 2)))
     (is (eq t (fol.compiler.collections:<array-dict>? d)))))
 
 (test array-dict-is-also-dict
   "<array-dict> satisfies <dict>? (it is a subclass of dict)."
-  (let ((d (fol.compiler.collections:array-dict :a 1)))
+  (let ((d (fol.compiler.collection-functions:array-dict :a 1)))
     (is (eq t (fol.compiler.collections:<dict>? d)))))
 
 (test array-dict-make-empty
   "(array-dict) creates an empty array dict."
-  (let ((d (fol.compiler.collections:array-dict)))
+  (let ((d (fol.compiler.collection-functions:array-dict)))
     (is (= 0 (fol.compiler.collections:collection-size d)))
     (is (eq t (fol.compiler.collections:collection-empty-p d)))
     (is (null (fol.compiler.collections:collection-seq d)))))
 
 (test array-dict-make-with-entries
   "(array-dict :a 1 :b 2 :c 3) creates a populated array dict with 3 entries."
-  (let ((d (fol.compiler.collections:array-dict :a 1 :b 2 :c 3)))
+  (let ((d (fol.compiler.collection-functions:array-dict :a 1 :b 2 :c 3)))
     (is (= 3 (fol.compiler.collections:collection-size d)))))
 
 (test array-dict-preserves-insertion-order
   "collection-seq returns entries in insertion order."
-  (let ((d (fol.compiler.collections:array-dict :c 3 :a 1 :b 2)))
+  (let ((d (fol.compiler.collection-functions:array-dict :c 3 :a 1 :b 2)))
     (is (equal '((:c . 3) (:a . 1) (:b . 2))
                (fol.compiler.collections:collection-seq d)))))
 
 (test array-dict-duplicate-keys
   "Duplicate keys keep the last value but the first insertion position."
-  (let ((d (fol.compiler.collections:array-dict :a 1 :b 2 :a 99)))
+  (let ((d (fol.compiler.collection-functions:array-dict :a 1 :b 2 :a 99)))
     (is (= 2 (fol.compiler.collections:collection-size d)))
     (is (equal '((:a . 99) (:b . 2))
                (fol.compiler.collections:collection-seq d)))))
 
 (test array-dict-conj-adds-pair
   "collection-conj adds a key-value pair at the end."
-  (let* ((d (fol.compiler.collections:array-dict :a 1 :b 2))
+  (let* ((d (fol.compiler.collection-functions:array-dict :a 1 :b 2))
          (d2 (fol.compiler.collections:collection-conj d (cons :c 3))))
     (is (= 3 (fol.compiler.collections:collection-size d2)))
     (is (equal '((:a . 1) (:b . 2) (:c . 3))
@@ -507,7 +507,7 @@
 
 (test array-dict-conj-overwrites-key
   "collection-conj overwrites the value for an existing key, keeping position."
-  (let* ((d (fol.compiler.collections:array-dict :a 1 :b 2))
+  (let* ((d (fol.compiler.collection-functions:array-dict :a 1 :b 2))
          (d2 (fol.compiler.collections:collection-conj d (cons :a 99))))
     (is (= 2 (fol.compiler.collections:collection-size d2)))
     (is (equal '((:a . 99) (:b . 2))
@@ -515,14 +515,14 @@
 
 (test array-dict-conj-on-empty
   "collection-conj on an empty array dict produces a single-entry dict."
-  (let* ((d (fol.compiler.collections:array-dict))
+  (let* ((d (fol.compiler.collection-functions:array-dict))
          (d2 (fol.compiler.collections:collection-conj d (cons :x 42))))
     (is (= 1 (fol.compiler.collections:collection-size d2)))
     (is (equal '((:x . 42)) (fol.compiler.collections:collection-seq d2)))))
 
 (test array-dict-storage-is-hash-map
   "<array-dict> storage-items returns a Sycamore hash-map with correct values."
-  (let ((d (fol.compiler.collections:array-dict :a 1 :b 2)))
+  (let ((d (fol.compiler.collection-functions:array-dict :a 1 :b 2)))
     (is (eq 1 (sycamore:hash-map-find
                 (fol.compiler.collections:storage-items d) :a)))
     (is (eq 2 (sycamore:hash-map-find
@@ -530,7 +530,7 @@
 
 (test array-dict-key-order-slot
   "array-dict-key-order returns an FSet seq of keys in insertion order."
-  (let ((d (fol.compiler.collections:array-dict :c 3 :a 1 :b 2)))
+  (let ((d (fol.compiler.collection-functions:array-dict :c 3 :a 1 :b 2)))
     (is (equal '(:c :a :b)
                (fset:convert 'cl:list
                  (fol.compiler.collections:array-dict-key-order d))))))
@@ -538,25 +538,25 @@
 (test array-dict-count
   "count returns entry count for an <array-dict>."
   (is (= 0 (fol.compiler.collections:count
-             (fol.compiler.collections:array-dict))))
+             (fol.compiler.collection-functions:array-dict))))
   (is (= 3 (fol.compiler.collections:count
-             (fol.compiler.collections:array-dict :a 1 :b 2 :c 3)))))
+             (fol.compiler.collection-functions:array-dict :a 1 :b 2 :c 3)))))
 
 (test array-dict-empty?
   "empty? works for <array-dict>."
   (is (eq t (fol.compiler.collections:empty?
-             (fol.compiler.collections:array-dict))))
+             (fol.compiler.collection-functions:array-dict))))
   (is (null (fol.compiler.collections:empty?
-             (fol.compiler.collections:array-dict :a 1)))))
+             (fol.compiler.collection-functions:array-dict :a 1)))))
 
 (test array-dict-print-object
   "Printing an <array-dict> produces FOL dict syntax in insertion order."
-  (let ((d (fol.compiler.collections:array-dict :c 3 :a 1 :b 2)))
+  (let ((d (fol.compiler.collection-functions:array-dict :c 3 :a 1 :b 2)))
     (is (string= "{:C 3 :A 1 :B 2}" (write-to-string d)))))
 
 (test array-dict-print-object-empty
   "Printing an empty <array-dict> produces {}."
-  (let ((d (fol.compiler.collections:array-dict)))
+  (let ((d (fol.compiler.collection-functions:array-dict)))
     (is (string= "{}" (write-to-string d)))))
 
 ;;; ---------------------------------------------------------------------------
@@ -594,7 +594,7 @@
 
 (test sorted-dict-is-collection
   "<sorted-dict> satisfies <collection>?, <ordered-collection>?, <dict>?, <sorted-dict>?."
-  (let ((d (fol.compiler.collections:sorted-dict nil 1 :a 2 :b)))
+  (let ((d (fol.compiler.collection-functions:sorted-dict nil 1 :a 2 :b)))
     (is (eq t (fol.compiler.collections:<collection>? d)))
     (is (eq t (fol.compiler.collections:<ordered-collection>? d)))
     (is (eq t (fol.compiler.collections:<dict>? d)))
@@ -606,46 +606,46 @@
   (is (null (fol.compiler.collections:<sorted-dict>? nil)))
   ;; A plain <dict> is NOT a <sorted-dict>
   (is (null (fol.compiler.collections:<sorted-dict>?
-             (fol.compiler.collections:dict :a 1)))))
+             (fol.compiler.collection-functions:dict :a 1)))))
 
 (test sorted-dict-predicate-true
   "<sorted-dict>? returns T for a <sorted-dict> instance."
-  (let ((d (fol.compiler.collections:sorted-dict nil 1 :a 2 :b)))
+  (let ((d (fol.compiler.collection-functions:sorted-dict nil 1 :a 2 :b)))
     (is (eq t (fol.compiler.collections:<sorted-dict>? d)))))
 
 (test sorted-dict-is-also-dict
   "<sorted-dict> satisfies <dict>? (it is a subclass of dict)."
-  (let ((d (fol.compiler.collections:sorted-dict nil 1 :a)))
+  (let ((d (fol.compiler.collection-functions:sorted-dict nil 1 :a)))
     (is (eq t (fol.compiler.collections:<dict>? d)))))
 
 (test sorted-dict-make-empty
   "(sorted-dict nil) creates an empty sorted dict."
-  (let ((d (fol.compiler.collections:sorted-dict nil)))
+  (let ((d (fol.compiler.collection-functions:sorted-dict nil)))
     (is (= 0 (fol.compiler.collections:collection-size d)))
     (is (eq t (fol.compiler.collections:collection-empty-p d)))
     (is (null (fol.compiler.collections:collection-seq d)))))
 
 (test sorted-dict-make-with-entries
   "(sorted-dict nil 2 :b 1 :a 3 :c) creates a populated sorted dict with 3 entries."
-  (let ((d (fol.compiler.collections:sorted-dict nil 2 :b 1 :a 3 :c)))
+  (let ((d (fol.compiler.collection-functions:sorted-dict nil 2 :b 1 :a 3 :c)))
     (is (= 3 (fol.compiler.collections:collection-size d)))))
 
 (test sorted-dict-sorted-seq
   "collection-seq returns entries in comparator key order."
-  (let ((d (fol.compiler.collections:sorted-dict nil 3 :c 1 :a 2 :b)))
+  (let ((d (fol.compiler.collection-functions:sorted-dict nil 3 :c 1 :a 2 :b)))
     (is (equal '((1 . :a) (2 . :b) (3 . :c))
                (fol.compiler.collections:collection-seq d)))))
 
 (test sorted-dict-duplicate-keys
   "Duplicate keys keep the last value."
-  (let ((d (fol.compiler.collections:sorted-dict nil 1 :first 2 :x 1 :second)))
+  (let ((d (fol.compiler.collection-functions:sorted-dict nil 1 :first 2 :x 1 :second)))
     (is (= 2 (fol.compiler.collections:collection-size d)))
     (is (equal '((1 . :second) (2 . :x))
                (fol.compiler.collections:collection-seq d)))))
 
 (test sorted-dict-conj-adds-pair
   "collection-conj adds a key-value pair in order."
-  (let* ((d (fol.compiler.collections:sorted-dict nil 1 :a 3 :c))
+  (let* ((d (fol.compiler.collection-functions:sorted-dict nil 1 :a 3 :c))
          (d2 (fol.compiler.collections:collection-conj d (cons 2 :b))))
     (is (= 3 (fol.compiler.collections:collection-size d2)))
     (is (equal '((1 . :a) (2 . :b) (3 . :c))
@@ -655,7 +655,7 @@
 
 (test sorted-dict-conj-overwrites-key
   "collection-conj overwrites the value for an existing key."
-  (let* ((d (fol.compiler.collections:sorted-dict nil 1 :a 2 :b))
+  (let* ((d (fol.compiler.collection-functions:sorted-dict nil 1 :a 2 :b))
          (d2 (fol.compiler.collections:collection-conj d (cons 1 :z))))
     (is (= 2 (fol.compiler.collections:collection-size d2)))
     (is (equal '((1 . :z) (2 . :b))
@@ -663,7 +663,7 @@
 
 (test sorted-dict-conj-on-empty
   "collection-conj on an empty sorted dict produces a single-entry dict."
-  (let* ((d (fol.compiler.collections:sorted-dict nil))
+  (let* ((d (fol.compiler.collection-functions:sorted-dict nil))
          (d2 (fol.compiler.collections:collection-conj d (cons 42 :x))))
     (is (= 1 (fol.compiler.collections:collection-size d2)))
     (is (equal '((42 . :x)) (fol.compiler.collections:collection-seq d2)))))
@@ -674,7 +674,7 @@
                     (cond ((> a b) -1)
                           ((< a b)  1)
                           (t        0))))
-         (d (fol.compiler.collections:sorted-dict rev-cmp 1 :a 2 :b 3 :c)))
+         (d (fol.compiler.collection-functions:sorted-dict rev-cmp 1 :a 2 :b 3 :c)))
     (is (equal '((3 . :c) (2 . :b) (1 . :a))
                (fol.compiler.collections:collection-seq d)))))
 
@@ -684,7 +684,7 @@
                     (cond ((> a b) -1)
                           ((< a b)  1)
                           (t        0))))
-         (d (fol.compiler.collections:sorted-dict rev-cmp 3 :c 1 :a))
+         (d (fol.compiler.collection-functions:sorted-dict rev-cmp 3 :c 1 :a))
          (d2 (fol.compiler.collections:collection-conj d (cons 2 :b))))
     (is (equal '((3 . :c) (2 . :b) (1 . :a))
                (fol.compiler.collections:collection-seq d2)))
@@ -692,7 +692,7 @@
 
 (test sorted-dict-storage-is-tree-map
   "<sorted-dict> storage-items returns a Sycamore tree-map with correct values."
-  (let ((d (fol.compiler.collections:sorted-dict nil 1 :a 2 :b)))
+  (let ((d (fol.compiler.collection-functions:sorted-dict nil 1 :a 2 :b)))
     (is (eq :a (sycamore:tree-map-find
                 (fol.compiler.collections:storage-items d) 1)))
     (is (eq :b (sycamore:tree-map-find
@@ -701,25 +701,25 @@
 (test sorted-dict-count
   "count returns entry count for a <sorted-dict>."
   (is (= 0 (fol.compiler.collections:count
-             (fol.compiler.collections:sorted-dict nil))))
+             (fol.compiler.collection-functions:sorted-dict nil))))
   (is (= 3 (fol.compiler.collections:count
-             (fol.compiler.collections:sorted-dict nil 1 :a 2 :b 3 :c)))))
+             (fol.compiler.collection-functions:sorted-dict nil 1 :a 2 :b 3 :c)))))
 
 (test sorted-dict-empty?
   "empty? works for <sorted-dict>."
   (is (eq t (fol.compiler.collections:empty?
-             (fol.compiler.collections:sorted-dict nil))))
+             (fol.compiler.collection-functions:sorted-dict nil))))
   (is (null (fol.compiler.collections:empty?
-             (fol.compiler.collections:sorted-dict nil 1 :a)))))
+             (fol.compiler.collection-functions:sorted-dict nil 1 :a)))))
 
 (test sorted-dict-print-object
   "Printing a <sorted-dict> produces FOL dict syntax with sorted keys."
-  (let ((d (fol.compiler.collections:sorted-dict nil 2 :b 1 :a)))
+  (let ((d (fol.compiler.collection-functions:sorted-dict nil 2 :b 1 :a)))
     (is (string= "{1 :A 2 :B}" (write-to-string d)))))
 
 (test sorted-dict-print-object-empty
   "Printing an empty <sorted-dict> produces {}."
-  (let ((d (fol.compiler.collections:sorted-dict nil)))
+  (let ((d (fol.compiler.collection-functions:sorted-dict nil)))
     (is (string= "{}" (write-to-string d)))))
 
 ;;; ---------------------------------------------------------------------------
@@ -763,7 +763,7 @@
 (test int-dict-is-collection
   "<int-dict> satisfies <collection>?, <ordered-collection>?, <dict>?,
    <sorted-dict>?, and <int-dict>?."
-  (let ((d (fol.compiler.collections:int-dict 1 :a 2 :b)))
+  (let ((d (fol.compiler.collection-functions:int-dict 1 :a 2 :b)))
     (is (eq t (fol.compiler.collections:<collection>? d)))
     (is (eq t (fol.compiler.collections:<ordered-collection>? d)))
     (is (eq t (fol.compiler.collections:<dict>? d)))
@@ -776,46 +776,46 @@
   (is (null (fol.compiler.collections:<int-dict>? nil)))
   ;; A plain <sorted-dict> is NOT an <int-dict>
   (is (null (fol.compiler.collections:<int-dict>?
-             (fol.compiler.collections:sorted-dict nil 1 :a)))))
+             (fol.compiler.collection-functions:sorted-dict nil 1 :a)))))
 
 (test int-dict-predicate-true
   "<int-dict>? returns T for an <int-dict> instance."
-  (let ((d (fol.compiler.collections:int-dict 1 :a 2 :b)))
+  (let ((d (fol.compiler.collection-functions:int-dict 1 :a 2 :b)))
     (is (eq t (fol.compiler.collections:<int-dict>? d)))))
 
 (test int-dict-is-also-dict
   "<int-dict> satisfies <dict>? (it is a subclass of dict)."
-  (let ((d (fol.compiler.collections:int-dict 1 :a)))
+  (let ((d (fol.compiler.collection-functions:int-dict 1 :a)))
     (is (eq t (fol.compiler.collections:<dict>? d)))))
 
 (test int-dict-make-empty
   "(int-dict) creates an empty int dict."
-  (let ((d (fol.compiler.collections:int-dict)))
+  (let ((d (fol.compiler.collection-functions:int-dict)))
     (is (= 0 (fol.compiler.collections:collection-size d)))
     (is (eq t (fol.compiler.collections:collection-empty-p d)))
     (is (null (fol.compiler.collections:collection-seq d)))))
 
 (test int-dict-make-with-entries
   "(int-dict 2 :b 1 :a 3 :c) creates a populated int dict with 3 entries."
-  (let ((d (fol.compiler.collections:int-dict 2 :b 1 :a 3 :c)))
+  (let ((d (fol.compiler.collection-functions:int-dict 2 :b 1 :a 3 :c)))
     (is (= 3 (fol.compiler.collections:collection-size d)))))
 
 (test int-dict-sorted-seq
   "collection-seq returns entries in ascending integer key order."
-  (let ((d (fol.compiler.collections:int-dict 3 :c 1 :a 2 :b)))
+  (let ((d (fol.compiler.collection-functions:int-dict 3 :c 1 :a 2 :b)))
     (is (equal '((1 . :a) (2 . :b) (3 . :c))
                (fol.compiler.collections:collection-seq d)))))
 
 (test int-dict-duplicate-keys
   "Duplicate integer keys keep the last value."
-  (let ((d (fol.compiler.collections:int-dict 1 :first 2 :x 1 :second)))
+  (let ((d (fol.compiler.collection-functions:int-dict 1 :first 2 :x 1 :second)))
     (is (= 2 (fol.compiler.collections:collection-size d)))
     (is (equal '((1 . :second) (2 . :x))
                (fol.compiler.collections:collection-seq d)))))
 
 (test int-dict-conj-adds-pair
   "collection-conj adds a key-value pair in integer order."
-  (let* ((d (fol.compiler.collections:int-dict 1 :a 3 :c))
+  (let* ((d (fol.compiler.collection-functions:int-dict 1 :a 3 :c))
          (d2 (fol.compiler.collections:collection-conj d (cons 2 :b))))
     (is (= 3 (fol.compiler.collections:collection-size d2)))
     (is (equal '((1 . :a) (2 . :b) (3 . :c))
@@ -825,7 +825,7 @@
 
 (test int-dict-conj-overwrites-key
   "collection-conj overwrites the value for an existing integer key."
-  (let* ((d (fol.compiler.collections:int-dict 1 :a 2 :b))
+  (let* ((d (fol.compiler.collection-functions:int-dict 1 :a 2 :b))
          (d2 (fol.compiler.collections:collection-conj d (cons 1 :z))))
     (is (= 2 (fol.compiler.collections:collection-size d2)))
     (is (equal '((1 . :z) (2 . :b))
@@ -833,20 +833,20 @@
 
 (test int-dict-conj-on-empty
   "collection-conj on an empty int dict produces a single-entry dict."
-  (let* ((d (fol.compiler.collections:int-dict))
+  (let* ((d (fol.compiler.collection-functions:int-dict))
          (d2 (fol.compiler.collections:collection-conj d (cons 42 :x))))
     (is (= 1 (fol.compiler.collections:collection-size d2)))
     (is (equal '((42 . :x)) (fol.compiler.collections:collection-seq d2)))))
 
 (test int-dict-conj-preserves-type
   "collection-conj on an <int-dict> returns another <int-dict>."
-  (let* ((d (fol.compiler.collections:int-dict 1 :a))
+  (let* ((d (fol.compiler.collection-functions:int-dict 1 :a))
          (d2 (fol.compiler.collections:collection-conj d (cons 2 :b))))
     (is (eq t (fol.compiler.collections:<int-dict>? d2)))))
 
 (test int-dict-storage-is-tree-map
   "<int-dict> storage-items returns a Sycamore tree-map with correct values."
-  (let ((d (fol.compiler.collections:int-dict 1 :a 2 :b)))
+  (let ((d (fol.compiler.collection-functions:int-dict 1 :a 2 :b)))
     (is (eq :a (sycamore:tree-map-find
                 (fol.compiler.collections:storage-items d) 1)))
     (is (eq :b (sycamore:tree-map-find
@@ -855,25 +855,25 @@
 (test int-dict-count
   "count returns entry count for an <int-dict>."
   (is (= 0 (fol.compiler.collections:count
-             (fol.compiler.collections:int-dict))))
+             (fol.compiler.collection-functions:int-dict))))
   (is (= 3 (fol.compiler.collections:count
-             (fol.compiler.collections:int-dict 1 :a 2 :b 3 :c)))))
+             (fol.compiler.collection-functions:int-dict 1 :a 2 :b 3 :c)))))
 
 (test int-dict-empty?
   "empty? works for <int-dict>."
   (is (eq t (fol.compiler.collections:empty?
-             (fol.compiler.collections:int-dict))))
+             (fol.compiler.collection-functions:int-dict))))
   (is (null (fol.compiler.collections:empty?
-             (fol.compiler.collections:int-dict 1 :a)))))
+             (fol.compiler.collection-functions:int-dict 1 :a)))))
 
 (test int-dict-print-object
   "Printing an <int-dict> produces FOL dict syntax with sorted integer keys."
-  (let ((d (fol.compiler.collections:int-dict 2 :b 1 :a)))
+  (let ((d (fol.compiler.collection-functions:int-dict 2 :b 1 :a)))
     (is (string= "{1 :A 2 :B}" (write-to-string d)))))
 
 (test int-dict-print-object-empty
   "Printing an empty <int-dict> produces {}."
-  (let ((d (fol.compiler.collections:int-dict)))
+  (let ((d (fol.compiler.collection-functions:int-dict)))
     (is (string= "{}" (write-to-string d)))))
 
 (test int-dict-by-custom-comparator
@@ -882,14 +882,14 @@
                      (cond ((> a b) -1)
                            ((< a b)  1)
                            (t        0))))
-         (d (fol.compiler.collections:int-dict-by desc-cmp 1 :a 2 :b 3 :c)))
+         (d (fol.compiler.collection-functions:int-dict-by desc-cmp 1 :a 2 :b 3 :c)))
     (is (equal '((3 . :c) (2 . :b) (1 . :a))
                (fol.compiler.collections:collection-seq d)))
     (is (eq t (fol.compiler.collections:<int-dict>? d)))))
 
 (test int-dict-by-nil-uses-default
   "int-dict-by with NIL comparator uses the default ascending fixnum order."
-  (let ((d (fol.compiler.collections:int-dict-by nil 3 :c 1 :a 2 :b)))
+  (let ((d (fol.compiler.collection-functions:int-dict-by nil 3 :c 1 :a 2 :b)))
     (is (equal '((1 . :a) (2 . :b) (3 . :c))
                (fol.compiler.collections:collection-seq d)))
     (is (eq t (fol.compiler.collections:<int-dict>? d)))))
@@ -900,7 +900,7 @@
                      (cond ((> a b) -1)
                            ((< a b)  1)
                            (t        0))))
-         (d (fol.compiler.collections:int-dict-by desc-cmp 3 :c 1 :a))
+         (d (fol.compiler.collection-functions:int-dict-by desc-cmp 3 :c 1 :a))
          (d2 (fol.compiler.collections:collection-conj d (cons 2 :b))))
     (is (equal '((3 . :c) (2 . :b) (1 . :a))
                (fol.compiler.collections:collection-seq d2)))
@@ -936,7 +936,7 @@
 
 (test priority-dict-is-collection
   "<priority-dict> satisfies <collection>?, <dict>?, <ordered-collection>?, <priority-dict>?."
-  (let ((d (fol.compiler.collections:priority-dict :a 1 :b 2)))
+  (let ((d (fol.compiler.collection-functions:priority-dict :a 1 :b 2)))
     (is (eq t (fol.compiler.collections:<collection>? d)))
     (is (eq t (fol.compiler.collections:<dict>? d)))
     (is (eq t (fol.compiler.collections:<ordered-collection>? d)))
@@ -948,39 +948,39 @@
   (is (null (fol.compiler.collections:<priority-dict>? nil)))
   ;; A plain <dict> is NOT a <priority-dict>
   (is (null (fol.compiler.collections:<priority-dict>?
-             (fol.compiler.collections:dict :a 1)))))
+             (fol.compiler.collection-functions:dict :a 1)))))
 
 (test priority-dict-predicate-true
   "<priority-dict>? returns T for a <priority-dict> instance."
-  (let ((d (fol.compiler.collections:priority-dict :a 1 :b 2)))
+  (let ((d (fol.compiler.collection-functions:priority-dict :a 1 :b 2)))
     (is (eq t (fol.compiler.collections:<priority-dict>? d)))))
 
 (test priority-dict-is-also-dict
   "<priority-dict> satisfies <dict>? (it is a subclass of dict)."
-  (let ((d (fol.compiler.collections:priority-dict :a 1)))
+  (let ((d (fol.compiler.collection-functions:priority-dict :a 1)))
     (is (eq t (fol.compiler.collections:<dict>? d)))))
 
 (test priority-dict-make-empty
   "(priority-dict) creates an empty priority dict."
-  (let ((d (fol.compiler.collections:priority-dict)))
+  (let ((d (fol.compiler.collection-functions:priority-dict)))
     (is (= 0 (fol.compiler.collections:collection-size d)))
     (is (eq t (fol.compiler.collections:collection-empty-p d)))
     (is (null (fol.compiler.collections:collection-seq d)))))
 
 (test priority-dict-make-with-entries
   "(priority-dict :a 1 :b 3 :c 2) creates a populated priority dict with 3 entries."
-  (let ((d (fol.compiler.collections:priority-dict :a 1 :b 3 :c 2)))
+  (let ((d (fol.compiler.collection-functions:priority-dict :a 1 :b 3 :c 2)))
     (is (= 3 (fol.compiler.collections:collection-size d)))))
 
 (test priority-dict-orders-by-priority
   "collection-seq returns entries in ascending priority order."
-  (let ((d (fol.compiler.collections:priority-dict :x 30 :y 10 :z 20)))
+  (let ((d (fol.compiler.collection-functions:priority-dict :x 30 :y 10 :z 20)))
     (is (equal '((:y . 10) (:z . 20) (:x . 30))
                (fol.compiler.collections:collection-seq d)))))
 
 (test priority-dict-duplicate-keys
   "Duplicate keys keep the last priority."
-  (let ((d (fol.compiler.collections:priority-dict :a 1 :b 2 :a 99)))
+  (let ((d (fol.compiler.collection-functions:priority-dict :a 1 :b 2 :a 99)))
     (is (= 2 (fol.compiler.collections:collection-size d)))
     ;; :a has priority 99 now, :b has 2 → order is :b(2), :a(99)
     (is (equal '((:b . 2) (:a . 99))
@@ -988,7 +988,7 @@
 
 (test priority-dict-conj-adds-pair
   "collection-conj adds a new key-priority pair in priority order."
-  (let* ((d (fol.compiler.collections:priority-dict :a 10 :b 30))
+  (let* ((d (fol.compiler.collection-functions:priority-dict :a 10 :b 30))
          (d2 (fol.compiler.collections:collection-conj d (cons :c 20))))
     (is (= 3 (fol.compiler.collections:collection-size d2)))
     (is (equal '((:a . 10) (:c . 20) (:b . 30))
@@ -998,7 +998,7 @@
 
 (test priority-dict-conj-updates-priority
   "collection-conj on existing key updates its priority and re-orders."
-  (let* ((d (fol.compiler.collections:priority-dict :a 10 :b 20 :c 30))
+  (let* ((d (fol.compiler.collection-functions:priority-dict :a 10 :b 20 :c 30))
          ;; Move :c from priority 30 to priority 5 (now the minimum)
          (d2 (fol.compiler.collections:collection-conj d (cons :c 5))))
     (is (= 3 (fol.compiler.collections:collection-size d2)))
@@ -1007,14 +1007,14 @@
 
 (test priority-dict-conj-on-empty
   "collection-conj on an empty priority dict produces a single-entry dict."
-  (let* ((d (fol.compiler.collections:priority-dict))
+  (let* ((d (fol.compiler.collection-functions:priority-dict))
          (d2 (fol.compiler.collections:collection-conj d (cons :x 42))))
     (is (= 1 (fol.compiler.collections:collection-size d2)))
     (is (equal '((:x . 42)) (fol.compiler.collections:collection-seq d2)))))
 
 (test priority-dict-storage-is-hash-map
   "<priority-dict> storage-items returns a Sycamore hash-map with key→priority."
-  (let ((d (fol.compiler.collections:priority-dict :a 10 :b 20)))
+  (let ((d (fol.compiler.collection-functions:priority-dict :a 10 :b 20)))
     (is (eq 10 (sycamore:hash-map-find
                  (fol.compiler.collections:storage-items d) :a)))
     (is (eq 20 (sycamore:hash-map-find
@@ -1022,23 +1022,23 @@
 
 (test priority-dict-tree-slot
   "priority-dict-tree returns the Sycamore tree-map for priority ordering."
-  (let ((d (fol.compiler.collections:priority-dict :a 10 :b 20)))
+  (let ((d (fol.compiler.collection-functions:priority-dict :a 10 :b 20)))
     (is (not (null (fol.compiler.collections:priority-dict-tree d))))))
 
 (test priority-dict-peek-min
   "priority-dict-peek-min returns the entry with the lowest priority."
-  (let ((d (fol.compiler.collections:priority-dict :x 30 :y 10 :z 20)))
+  (let ((d (fol.compiler.collection-functions:priority-dict :x 30 :y 10 :z 20)))
     (is (equal '(:y . 10)
                (fol.compiler.collections:priority-dict-peek-min d)))))
 
 (test priority-dict-peek-min-empty
   "priority-dict-peek-min returns NIL for an empty dict."
-  (let ((d (fol.compiler.collections:priority-dict)))
+  (let ((d (fol.compiler.collection-functions:priority-dict)))
     (is (null (fol.compiler.collections:priority-dict-peek-min d)))))
 
 (test priority-dict-pop-min
   "priority-dict-pop-min removes the minimum-priority entry."
-  (let* ((d (fol.compiler.collections:priority-dict :x 30 :y 10 :z 20))
+  (let* ((d (fol.compiler.collection-functions:priority-dict :x 30 :y 10 :z 20))
          (d2 (fol.compiler.collections:priority-dict-pop-min d)))
     (is (= 2 (fol.compiler.collections:collection-size d2)))
     (is (equal '((:z . 20) (:x . 30))
@@ -1048,32 +1048,32 @@
 
 (test priority-dict-pop-min-empty
   "priority-dict-pop-min on empty dict returns the same empty dict."
-  (let* ((d (fol.compiler.collections:priority-dict))
+  (let* ((d (fol.compiler.collection-functions:priority-dict))
          (d2 (fol.compiler.collections:priority-dict-pop-min d)))
     (is (= 0 (fol.compiler.collections:collection-size d2)))))
 
 (test priority-dict-count
   "count returns entry count for a <priority-dict>."
   (is (= 0 (fol.compiler.collections:count
-             (fol.compiler.collections:priority-dict))))
+             (fol.compiler.collection-functions:priority-dict))))
   (is (= 3 (fol.compiler.collections:count
-             (fol.compiler.collections:priority-dict :a 1 :b 2 :c 3)))))
+             (fol.compiler.collection-functions:priority-dict :a 1 :b 2 :c 3)))))
 
 (test priority-dict-empty?
   "empty? works for <priority-dict>."
   (is (eq t (fol.compiler.collections:empty?
-             (fol.compiler.collections:priority-dict))))
+             (fol.compiler.collection-functions:priority-dict))))
   (is (null (fol.compiler.collections:empty?
-             (fol.compiler.collections:priority-dict :a 1)))))
+             (fol.compiler.collection-functions:priority-dict :a 1)))))
 
 (test priority-dict-print-object
   "Printing a <priority-dict> produces FOL dict syntax in priority order."
-  (let ((d (fol.compiler.collections:priority-dict :x 30 :y 10 :z 20)))
+  (let ((d (fol.compiler.collection-functions:priority-dict :x 30 :y 10 :z 20)))
     (is (string= "{:Y 10 :Z 20 :X 30}" (write-to-string d)))))
 
 (test priority-dict-print-object-empty
   "Printing an empty <priority-dict> produces {}."
-  (let ((d (fol.compiler.collections:priority-dict)))
+  (let ((d (fol.compiler.collection-functions:priority-dict)))
     (is (string= "{}" (write-to-string d)))))
 
 ;;; ---------------------------------------------------------------------------
@@ -1155,38 +1155,38 @@
 
 (test vector-function-empty
   "(vector) creates an empty <vector>."
-  (let ((v (fol.compiler.collections:vector)))
+  (let ((v (fol.compiler.collection-functions:vector)))
     (is (eq t (fol.compiler.collections:<vector>? v)))
     (is (= 0 (fol.compiler.collections:collection-size v)))))
 
 (test vector-function-with-elements
   "(vector 1 2 3) creates a populated <vector>."
-  (let ((v (fol.compiler.collections:vector 1 2 3)))
+  (let ((v (fol.compiler.collection-functions:vector 1 2 3)))
     (is (eq t (fol.compiler.collections:<vector>? v)))
     (is (= 3 (fol.compiler.collections:collection-size v)))
     (is (equal '(1 2 3) (fol.compiler.collections:collection-seq v)))))
 
 (test dict-function-empty
   "(dict) creates an empty <dict>."
-  (let ((d (fol.compiler.collections:dict)))
+  (let ((d (fol.compiler.collection-functions:dict)))
     (is (eq t (fol.compiler.collections:<dict>? d)))
     (is (= 0 (fol.compiler.collections:collection-size d)))))
 
 (test dict-function-with-entries
   "(dict :a 1 :b 2) creates a populated <dict>."
-  (let ((d (fol.compiler.collections:dict :a 1 :b 2)))
+  (let ((d (fol.compiler.collection-functions:dict :a 1 :b 2)))
     (is (eq t (fol.compiler.collections:<dict>? d)))
     (is (= 2 (fol.compiler.collections:collection-size d)))))
 
 (test set-function-empty
   "(set) creates an empty <set>."
-  (let ((s (fol.compiler.collections:set)))
+  (let ((s (fol.compiler.collection-functions:set)))
     (is (eq t (fol.compiler.collections:<set>? s)))
     (is (= 0 (fol.compiler.collections:collection-size s)))))
 
 (test set-function-with-elements
   "(set 1 2 3) creates a populated <set>."
-  (let ((s (fol.compiler.collections:set 1 2 3)))
+  (let ((s (fol.compiler.collection-functions:set 1 2 3)))
     (is (eq t (fol.compiler.collections:<set>? s)))
     (is (= 3 (fol.compiler.collections:collection-size s)))))
 
@@ -1284,24 +1284,24 @@
 
 (test bag-predicate-true
   "<bag>? returns T for a <bag> instance."
-  (let ((b (fol.compiler.collections:bag 1 2 3)))
+  (let ((b (fol.compiler.collection-functions:bag 1 2 3)))
     (is (eq t (fol.compiler.collections:<bag>? b)))))
 
 (test bag-make-empty
   "(bag) creates an empty bag."
-  (let ((b (fol.compiler.collections:bag)))
+  (let ((b (fol.compiler.collection-functions:bag)))
     (is (= 0 (fol.compiler.collections:collection-size b)))
     (is (eq t (fol.compiler.collections:collection-empty-p b)))
     (is (null (fol.compiler.collections:collection-seq b)))))
 
 (test bag-make-with-elements
   "(bag 1 1 2) creates a bag with counts."
-  (let ((b (fol.compiler.collections:bag 1 1 2)))
+  (let ((b (fol.compiler.collection-functions:bag 1 1 2)))
     (is (= 3 (fol.compiler.collections:collection-size b)))))
 
 (test bag-conj-adds-element
   "collection-conj on a bag adds one occurrence."
-  (let* ((b (fol.compiler.collections:bag 1 2))
+  (let* ((b (fol.compiler.collection-functions:bag 1 2))
          (b2 (fol.compiler.collections:collection-conj b 1)))
     (is (= 3 (fol.compiler.collections:collection-size b2)))
     ;; Original unchanged
@@ -1309,7 +1309,7 @@
 
 (test bag-seq-expands-counts
   "collection-seq on a bag returns elements repeated by count."
-  (let* ((b (fol.compiler.collections:bag 1 1 2))
+  (let* ((b (fol.compiler.collection-functions:bag 1 1 2))
          (seq (fol.compiler.collections:collection-seq b)))
     (is (= 3 (length seq)))))
 
@@ -1319,39 +1319,39 @@
 
 (test vector-print-object
   "Printing a <vector> produces FOL vector syntax."
-  (let ((v (fol.compiler.collections:vector 1 2 3)))
+  (let ((v (fol.compiler.collection-functions:vector 1 2 3)))
     (is (string= "[1 2 3]" (write-to-string v)))))
 
 (test vector-print-object-empty
   "Printing an empty <vector> produces []."
-  (let ((v (fol.compiler.collections:vector)))
+  (let ((v (fol.compiler.collection-functions:vector)))
     (is (string= "[]" (write-to-string v)))))
 
 (test vector-print-object-nested
   "Printing nested vectors produces nested brackets."
-  (let ((v (fol.compiler.collections:vector
+  (let ((v (fol.compiler.collection-functions:vector
              1
-             (fol.compiler.collections:vector 2 3))))
+             (fol.compiler.collection-functions:vector 2 3))))
     (is (string= "[1 [2 3]]" (write-to-string v)))))
 
 (test dict-print-object-empty
   "Printing an empty <dict> produces {}."
-  (let ((d (fol.compiler.collections:dict)))
+  (let ((d (fol.compiler.collection-functions:dict)))
     (is (string= "{}" (write-to-string d)))))
 
 (test dict-print-object-single
   "Printing a single-entry <dict> produces {key value}."
-  (let ((d (fol.compiler.collections:dict :a 1)))
+  (let ((d (fol.compiler.collection-functions:dict :a 1)))
     (is (string= "{:A 1}" (write-to-string d)))))
 
 (test set-print-object-empty
   "Printing an empty <set> produces #{}."
-  (let ((s (fol.compiler.collections:set)))
+  (let ((s (fol.compiler.collection-functions:set)))
     (is (string= "#{}" (write-to-string s)))))
 
 (test bag-print-object-empty
   "Printing an empty <bag> produces #M{}."
-  (let ((b (fol.compiler.collections:bag)))
+  (let ((b (fol.compiler.collection-functions:bag)))
     (is (string= "#M{}" (write-to-string b)))))
 
 ;;; ---------------------------------------------------------------------------
@@ -1378,7 +1378,7 @@
   (is (null (fol.compiler.collections:<array>? nil)))
   ;; A plain <vector> is NOT an <array>
   (is (null (fol.compiler.collections:<array>?
-             (fol.compiler.collections:vector 1 2 3)))))
+             (fol.compiler.collection-functions:vector 1 2 3)))))
 
 (test array-predicate-true
   "<array>? returns T for an <array> instance."
@@ -1433,9 +1433,9 @@
 (test count-vector
   "count returns element count for a <vector>."
   (is (= 0 (fol.compiler.collections:count
-             (fol.compiler.collections:vector))))
+             (fol.compiler.collection-functions:vector))))
   (is (= 3 (fol.compiler.collections:count
-             (fol.compiler.collections:vector 1 2 3)))))
+             (fol.compiler.collection-functions:vector 1 2 3)))))
 
 (test count-array
   "count returns element count for an <array>."
@@ -1447,23 +1447,23 @@
 (test count-dict
   "count returns entry count for a <dict>."
   (is (= 0 (fol.compiler.collections:count
-             (fol.compiler.collections:dict))))
+             (fol.compiler.collection-functions:dict))))
   (is (= 2 (fol.compiler.collections:count
-             (fol.compiler.collections:dict :a 1 :b 2)))))
+             (fol.compiler.collection-functions:dict :a 1 :b 2)))))
 
 (test count-set
   "count returns element count for a <set>."
   (is (= 0 (fol.compiler.collections:count
-             (fol.compiler.collections:set))))
+             (fol.compiler.collection-functions:set))))
   (is (= 3 (fol.compiler.collections:count
-             (fol.compiler.collections:set 1 2 3)))))
+             (fol.compiler.collection-functions:set 1 2 3)))))
 
 (test count-bag
   "count returns total element count for a <bag>."
   (is (= 0 (fol.compiler.collections:count
-             (fol.compiler.collections:bag))))
+             (fol.compiler.collection-functions:bag))))
   (is (= 3 (fol.compiler.collections:count
-             (fol.compiler.collections:bag 1 1 2)))))
+             (fol.compiler.collection-functions:bag 1 1 2)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; empty? generic function
@@ -1477,12 +1477,12 @@
 (test empty?-empty-vector
   "empty? returns T for an empty <vector>."
   (is (eq t (fol.compiler.collections:empty?
-             (fol.compiler.collections:vector)))))
+             (fol.compiler.collection-functions:vector)))))
 
 (test empty?-nonempty-vector
   "empty? returns NIL for a non-empty <vector>."
   (is (null (fol.compiler.collections:empty?
-             (fol.compiler.collections:vector 1 2 3)))))
+             (fol.compiler.collection-functions:vector 1 2 3)))))
 
 (test empty?-empty-array
   "empty? returns T for an empty <array>."
@@ -1497,32 +1497,32 @@
 (test empty?-empty-dict
   "empty? returns T for an empty <dict>."
   (is (eq t (fol.compiler.collections:empty?
-             (fol.compiler.collections:dict)))))
+             (fol.compiler.collection-functions:dict)))))
 
 (test empty?-nonempty-dict
   "empty? returns NIL for a non-empty <dict>."
   (is (null (fol.compiler.collections:empty?
-             (fol.compiler.collections:dict :a 1)))))
+             (fol.compiler.collection-functions:dict :a 1)))))
 
 (test empty?-empty-set
   "empty? returns T for an empty <set>."
   (is (eq t (fol.compiler.collections:empty?
-             (fol.compiler.collections:set)))))
+             (fol.compiler.collection-functions:set)))))
 
 (test empty?-nonempty-set
   "empty? returns NIL for a non-empty <set>."
   (is (null (fol.compiler.collections:empty?
-             (fol.compiler.collections:set 1 2)))))
+             (fol.compiler.collection-functions:set 1 2)))))
 
 (test empty?-empty-bag
   "empty? returns T for an empty <bag>."
   (is (eq t (fol.compiler.collections:empty?
-             (fol.compiler.collections:bag)))))
+             (fol.compiler.collection-functions:bag)))))
 
 (test empty?-nonempty-bag
   "empty? returns NIL for a non-empty <bag>."
   (is (null (fol.compiler.collections:empty?
-             (fol.compiler.collections:bag 1 1 2)))))
+             (fol.compiler.collection-functions:bag 1 1 2)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; <ordered-set> class, predicate, constructor, and protocol
@@ -1544,7 +1544,7 @@
 
 (test ordered-set-is-collection
   "<ordered-set> satisfies <collection>? and <set>?."
-  (let ((s (fol.compiler.collections:ordered-set 1 2 3)))
+  (let ((s (fol.compiler.collection-functions:ordered-set 1 2 3)))
     (is (eq t (fol.compiler.collections:<collection>? s)))
     (is (eq t (fol.compiler.collections:<set>? s)))
     (is (eq t (fol.compiler.collections:<ordered-collection>? s)))
@@ -1556,40 +1556,40 @@
   (is (null (fol.compiler.collections:<ordered-set>? nil)))
   ;; A plain <set> is NOT an <ordered-set>
   (is (null (fol.compiler.collections:<ordered-set>?
-             (fol.compiler.collections:set 1 2 3)))))
+             (fol.compiler.collection-functions:set 1 2 3)))))
 
 (test ordered-set-predicate-true
   "<ordered-set>? returns T for an <ordered-set> instance."
-  (let ((s (fol.compiler.collections:ordered-set 1 2 3)))
+  (let ((s (fol.compiler.collection-functions:ordered-set 1 2 3)))
     (is (eq t (fol.compiler.collections:<ordered-set>? s)))))
 
 (test ordered-set-make-empty
   "(ordered-set) creates an empty ordered set."
-  (let ((s (fol.compiler.collections:ordered-set)))
+  (let ((s (fol.compiler.collection-functions:ordered-set)))
     (is (= 0 (fol.compiler.collections:collection-size s)))
     (is (eq t (fol.compiler.collections:collection-empty-p s)))
     (is (null (fol.compiler.collections:collection-seq s)))))
 
 (test ordered-set-make-with-elements
   "(ordered-set 1 2 3) creates a populated ordered set."
-  (let ((s (fol.compiler.collections:ordered-set 1 2 3)))
+  (let ((s (fol.compiler.collection-functions:ordered-set 1 2 3)))
     (is (= 3 (fol.compiler.collections:collection-size s)))))
 
 (test ordered-set-preserves-insertion-order
   "collection-seq returns elements in insertion order."
-  (let ((s (fol.compiler.collections:ordered-set 3 1 4 1 5 9 2 6)))
+  (let ((s (fol.compiler.collection-functions:ordered-set 3 1 4 1 5 9 2 6)))
     ;; Duplicates dropped, order preserved
     (is (equal '(3 1 4 5 9 2 6) (fol.compiler.collections:collection-seq s)))))
 
 (test ordered-set-deduplicates
   "Duplicate elements are silently dropped during construction."
-  (let ((s (fol.compiler.collections:ordered-set 1 2 2 3 3 3)))
+  (let ((s (fol.compiler.collection-functions:ordered-set 1 2 2 3 3 3)))
     (is (= 3 (fol.compiler.collections:collection-size s)))
     (is (equal '(1 2 3) (fol.compiler.collections:collection-seq s)))))
 
 (test ordered-set-conj-appends
   "collection-conj adds a new element at the end."
-  (let* ((s (fol.compiler.collections:ordered-set 1 2))
+  (let* ((s (fol.compiler.collection-functions:ordered-set 1 2))
          (s2 (fol.compiler.collections:collection-conj s 3)))
     (is (= 3 (fol.compiler.collections:collection-size s2)))
     (is (equal '(1 2 3) (fol.compiler.collections:collection-seq s2)))
@@ -1598,7 +1598,7 @@
 
 (test ordered-set-conj-deduplicates
   "collection-conj does not add duplicate elements."
-  (let* ((s (fol.compiler.collections:ordered-set 1 2 3))
+  (let* ((s (fol.compiler.collection-functions:ordered-set 1 2 3))
          (s2 (fol.compiler.collections:collection-conj s 2)))
     (is (= 3 (fol.compiler.collections:collection-size s2)))
     (is (equal '(1 2 3) (fol.compiler.collections:collection-seq s2)))
@@ -1607,7 +1607,7 @@
 
 (test ordered-set-conj-on-empty
   "collection-conj on an empty ordered set produces a single-element set."
-  (let* ((s (fol.compiler.collections:ordered-set))
+  (let* ((s (fol.compiler.collection-functions:ordered-set))
          (s2 (fol.compiler.collections:collection-conj s 42)))
     (is (= 1 (fol.compiler.collections:collection-size s2)))
     (is (equal '(42) (fol.compiler.collections:collection-seq s2)))))
@@ -1615,16 +1615,16 @@
 (test ordered-set-count
   "count returns element count for an <ordered-set>."
   (is (= 0 (fol.compiler.collections:count
-             (fol.compiler.collections:ordered-set))))
+             (fol.compiler.collection-functions:ordered-set))))
   (is (= 3 (fol.compiler.collections:count
-             (fol.compiler.collections:ordered-set 1 2 3)))))
+             (fol.compiler.collection-functions:ordered-set 1 2 3)))))
 
 (test ordered-set-empty?
   "empty? works for <ordered-set>."
   (is (eq t (fol.compiler.collections:empty?
-             (fol.compiler.collections:ordered-set))))
+             (fol.compiler.collection-functions:ordered-set))))
   (is (null (fol.compiler.collections:empty?
-             (fol.compiler.collections:ordered-set 1 2)))))
+             (fol.compiler.collection-functions:ordered-set 1 2)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; <sorted-set> class, predicate, constructor, and protocol
@@ -1651,7 +1651,7 @@
 
 (test sorted-set-is-collection
   "<sorted-set> satisfies <collection>?, <set>?, <ordered-collection>?, <sorted-set>?."
-  (let ((s (fol.compiler.collections:sorted-set nil 3 1 2)))
+  (let ((s (fol.compiler.collection-functions:sorted-set nil 3 1 2)))
     (is (eq t (fol.compiler.collections:<collection>? s)))
     (is (eq t (fol.compiler.collections:<set>? s)))
     (is (eq t (fol.compiler.collections:<ordered-collection>? s)))
@@ -1663,39 +1663,39 @@
   (is (null (fol.compiler.collections:<sorted-set>? nil)))
   ;; A plain <set> is NOT a <sorted-set>
   (is (null (fol.compiler.collections:<sorted-set>?
-             (fol.compiler.collections:set 1 2 3)))))
+             (fol.compiler.collection-functions:set 1 2 3)))))
 
 (test sorted-set-predicate-true
   "<sorted-set>? returns T for a <sorted-set> instance."
-  (let ((s (fol.compiler.collections:sorted-set nil 1 2 3)))
+  (let ((s (fol.compiler.collection-functions:sorted-set nil 1 2 3)))
     (is (eq t (fol.compiler.collections:<sorted-set>? s)))))
 
 (test sorted-set-make-empty
   "(sorted-set nil) creates an empty sorted set."
-  (let ((s (fol.compiler.collections:sorted-set nil)))
+  (let ((s (fol.compiler.collection-functions:sorted-set nil)))
     (is (= 0 (fol.compiler.collections:collection-size s)))
     (is (eq t (fol.compiler.collections:collection-empty-p s)))
     (is (null (fol.compiler.collections:collection-seq s)))))
 
 (test sorted-set-make-with-elements
   "(sorted-set nil 5 3 1) creates a populated sorted set."
-  (let ((s (fol.compiler.collections:sorted-set nil 5 3 1)))
+  (let ((s (fol.compiler.collection-functions:sorted-set nil 5 3 1)))
     (is (= 3 (fol.compiler.collections:collection-size s)))))
 
 (test sorted-set-sorts-elements
   "collection-seq returns elements in comparator order."
-  (let ((s (fol.compiler.collections:sorted-set nil 5 3 1 4 2)))
+  (let ((s (fol.compiler.collection-functions:sorted-set nil 5 3 1 4 2)))
     (is (equal '(1 2 3 4 5) (fol.compiler.collections:collection-seq s)))))
 
 (test sorted-set-deduplicates
   "Duplicate elements are silently dropped."
-  (let ((s (fol.compiler.collections:sorted-set nil 3 1 2 2 3 1)))
+  (let ((s (fol.compiler.collection-functions:sorted-set nil 3 1 2 2 3 1)))
     (is (= 3 (fol.compiler.collections:collection-size s)))
     (is (equal '(1 2 3) (fol.compiler.collections:collection-seq s)))))
 
 (test sorted-set-conj-inserts-in-order
   "collection-conj inserts in comparator order."
-  (let* ((s (fol.compiler.collections:sorted-set nil 1 3 5))
+  (let* ((s (fol.compiler.collection-functions:sorted-set nil 1 3 5))
          (s2 (fol.compiler.collections:collection-conj s 2)))
     (is (= 4 (fol.compiler.collections:collection-size s2)))
     (is (equal '(1 2 3 5) (fol.compiler.collections:collection-seq s2)))
@@ -1704,7 +1704,7 @@
 
 (test sorted-set-conj-deduplicates
   "collection-conj does not add duplicate elements."
-  (let* ((s (fol.compiler.collections:sorted-set nil 1 2 3))
+  (let* ((s (fol.compiler.collection-functions:sorted-set nil 1 2 3))
          (s2 (fol.compiler.collections:collection-conj s 2)))
     (is (= 3 (fol.compiler.collections:collection-size s2)))
     ;; Returns the same object when element already present
@@ -1712,7 +1712,7 @@
 
 (test sorted-set-conj-on-empty
   "collection-conj on an empty sorted set produces a single-element set."
-  (let* ((s (fol.compiler.collections:sorted-set nil))
+  (let* ((s (fol.compiler.collection-functions:sorted-set nil))
          (s2 (fol.compiler.collections:collection-conj s 42)))
     (is (= 1 (fol.compiler.collections:collection-size s2)))
     (is (equal '(42) (fol.compiler.collections:collection-seq s2)))))
@@ -1723,7 +1723,7 @@
                     (cond ((> a b) -1)
                           ((< a b)  1)
                           (t        0))))
-         (s (fol.compiler.collections:sorted-set rev-cmp 1 2 3 4 5)))
+         (s (fol.compiler.collection-functions:sorted-set rev-cmp 1 2 3 4 5)))
     (is (equal '(5 4 3 2 1) (fol.compiler.collections:collection-seq s)))))
 
 (test sorted-set-comparator-preserved-on-conj
@@ -1732,7 +1732,7 @@
                     (cond ((> a b) -1)
                           ((< a b)  1)
                           (t        0))))
-         (s (fol.compiler.collections:sorted-set rev-cmp 5 3 1))
+         (s (fol.compiler.collection-functions:sorted-set rev-cmp 5 3 1))
          (s2 (fol.compiler.collections:collection-conj s 4)))
     (is (equal '(5 4 3 1) (fol.compiler.collections:collection-seq s2)))
     ;; Comparator is the same function
@@ -1741,16 +1741,16 @@
 (test sorted-set-count
   "count returns element count for a <sorted-set>."
   (is (= 0 (fol.compiler.collections:count
-             (fol.compiler.collections:sorted-set nil))))
+             (fol.compiler.collection-functions:sorted-set nil))))
   (is (= 3 (fol.compiler.collections:count
-             (fol.compiler.collections:sorted-set nil 1 2 3)))))
+             (fol.compiler.collection-functions:sorted-set nil 1 2 3)))))
 
 (test sorted-set-empty?
   "empty? works for <sorted-set>."
   (is (eq t (fol.compiler.collections:empty?
-             (fol.compiler.collections:sorted-set nil))))
+             (fol.compiler.collection-functions:sorted-set nil))))
   (is (null (fol.compiler.collections:empty?
-             (fol.compiler.collections:sorted-set nil 1 2)))))
+             (fol.compiler.collection-functions:sorted-set nil 1 2)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; <int-set> class, predicate, constructor, and protocol
@@ -1777,7 +1777,7 @@
 
 (test int-set-is-collection
   "<int-set> satisfies <collection>?, <set>?, <ordered-collection>?, <sorted-set>?, <int-set>?."
-  (let ((s (fol.compiler.collections:int-set 3 1 2)))
+  (let ((s (fol.compiler.collection-functions:int-set 3 1 2)))
     (is (eq t (fol.compiler.collections:<collection>? s)))
     (is (eq t (fol.compiler.collections:<set>? s)))
     (is (eq t (fol.compiler.collections:<ordered-collection>? s)))
@@ -1790,39 +1790,39 @@
   (is (null (fol.compiler.collections:<int-set>? nil)))
   ;; A plain <sorted-set> is NOT an <int-set>
   (is (null (fol.compiler.collections:<int-set>?
-             (fol.compiler.collections:sorted-set nil 1 2 3)))))
+             (fol.compiler.collection-functions:sorted-set nil 1 2 3)))))
 
 (test int-set-predicate-true
   "<int-set>? returns T for an <int-set> instance."
-  (let ((s (fol.compiler.collections:int-set 1 2 3)))
+  (let ((s (fol.compiler.collection-functions:int-set 1 2 3)))
     (is (eq t (fol.compiler.collections:<int-set>? s)))))
 
 (test int-set-make-empty
   "(int-set) creates an empty int set."
-  (let ((s (fol.compiler.collections:int-set)))
+  (let ((s (fol.compiler.collection-functions:int-set)))
     (is (= 0 (fol.compiler.collections:collection-size s)))
     (is (eq t (fol.compiler.collections:collection-empty-p s)))
     (is (null (fol.compiler.collections:collection-seq s)))))
 
 (test int-set-make-with-elements
   "(int-set 5 3 1) creates a populated int set."
-  (let ((s (fol.compiler.collections:int-set 5 3 1)))
+  (let ((s (fol.compiler.collection-functions:int-set 5 3 1)))
     (is (= 3 (fol.compiler.collections:collection-size s)))))
 
 (test int-set-sorts-elements
   "collection-seq returns elements in numeric order."
-  (let ((s (fol.compiler.collections:int-set 5 3 1 4 2)))
+  (let ((s (fol.compiler.collection-functions:int-set 5 3 1 4 2)))
     (is (equal '(1 2 3 4 5) (fol.compiler.collections:collection-seq s)))))
 
 (test int-set-deduplicates
   "Duplicate elements are silently dropped."
-  (let ((s (fol.compiler.collections:int-set 3 1 2 2 3 1)))
+  (let ((s (fol.compiler.collection-functions:int-set 3 1 2 2 3 1)))
     (is (= 3 (fol.compiler.collections:collection-size s)))
     (is (equal '(1 2 3) (fol.compiler.collections:collection-seq s)))))
 
 (test int-set-conj-inserts-in-order
   "collection-conj inserts in numeric order."
-  (let* ((s (fol.compiler.collections:int-set 1 3 5))
+  (let* ((s (fol.compiler.collection-functions:int-set 1 3 5))
          (s2 (fol.compiler.collections:collection-conj s 2)))
     (is (= 4 (fol.compiler.collections:collection-size s2)))
     (is (equal '(1 2 3 5) (fol.compiler.collections:collection-seq s2)))
@@ -1831,7 +1831,7 @@
 
 (test int-set-conj-deduplicates
   "collection-conj does not add duplicate elements."
-  (let* ((s (fol.compiler.collections:int-set 1 2 3))
+  (let* ((s (fol.compiler.collection-functions:int-set 1 2 3))
          (s2 (fol.compiler.collections:collection-conj s 2)))
     (is (= 3 (fol.compiler.collections:collection-size s2)))
     ;; Returns the same object when element already present
@@ -1839,30 +1839,30 @@
 
 (test int-set-conj-on-empty
   "collection-conj on an empty int set produces a single-element set."
-  (let* ((s (fol.compiler.collections:int-set))
+  (let* ((s (fol.compiler.collection-functions:int-set))
          (s2 (fol.compiler.collections:collection-conj s 42)))
     (is (= 1 (fol.compiler.collections:collection-size s2)))
     (is (equal '(42) (fol.compiler.collections:collection-seq s2)))))
 
 (test int-set-conj-preserves-type
   "collection-conj on an <int-set> returns an <int-set>, not a <sorted-set>."
-  (let* ((s (fol.compiler.collections:int-set 1 2))
+  (let* ((s (fol.compiler.collection-functions:int-set 1 2))
          (s2 (fol.compiler.collections:collection-conj s 3)))
     (is (eq t (fol.compiler.collections:<int-set>? s2)))))
 
 (test int-set-count
   "count returns element count for an <int-set>."
   (is (= 0 (fol.compiler.collections:count
-             (fol.compiler.collections:int-set))))
+             (fol.compiler.collection-functions:int-set))))
   (is (= 3 (fol.compiler.collections:count
-             (fol.compiler.collections:int-set 1 2 3)))))
+             (fol.compiler.collection-functions:int-set 1 2 3)))))
 
 (test int-set-empty?
   "empty? works for <int-set>."
   (is (eq t (fol.compiler.collections:empty?
-             (fol.compiler.collections:int-set))))
+             (fol.compiler.collection-functions:int-set))))
   (is (null (fol.compiler.collections:empty?
-             (fol.compiler.collections:int-set 1 2)))))
+             (fol.compiler.collection-functions:int-set 1 2)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; <dense-int-set> class, predicate, constructor, and protocol
@@ -1889,7 +1889,7 @@
 
 (test dense-int-set-is-collection
   "<dense-int-set> satisfies <collection>?, <ordered-collection>?, <dense-int-set>?."
-  (let ((s (fol.compiler.collections:dense-int-set 3 1 2)))
+  (let ((s (fol.compiler.collection-functions:dense-int-set 3 1 2)))
     (is (eq t (fol.compiler.collections:<collection>? s)))
     (is (eq t (fol.compiler.collections:<ordered-collection>? s)))
     (is (eq t (fol.compiler.collections:<dense-int-set>? s)))))
@@ -1900,39 +1900,39 @@
   (is (null (fol.compiler.collections:<dense-int-set>? nil)))
   ;; A plain <int-set> is NOT a <dense-int-set>
   (is (null (fol.compiler.collections:<dense-int-set>?
-             (fol.compiler.collections:int-set 1 2 3)))))
+             (fol.compiler.collection-functions:int-set 1 2 3)))))
 
 (test dense-int-set-predicate-true
   "<dense-int-set>? returns T for a <dense-int-set> instance."
-  (let ((s (fol.compiler.collections:dense-int-set 1 2 3)))
+  (let ((s (fol.compiler.collection-functions:dense-int-set 1 2 3)))
     (is (eq t (fol.compiler.collections:<dense-int-set>? s)))))
 
 (test dense-int-set-make-empty
   "(dense-int-set) creates an empty dense int set."
-  (let ((s (fol.compiler.collections:dense-int-set)))
+  (let ((s (fol.compiler.collection-functions:dense-int-set)))
     (is (= 0 (fol.compiler.collections:collection-size s)))
     (is (eq t (fol.compiler.collections:collection-empty-p s)))
     (is (null (fol.compiler.collections:collection-seq s)))))
 
 (test dense-int-set-make-with-elements
   "(dense-int-set 5 3 1) creates a populated dense int set."
-  (let ((s (fol.compiler.collections:dense-int-set 5 3 1)))
+  (let ((s (fol.compiler.collection-functions:dense-int-set 5 3 1)))
     (is (= 3 (fol.compiler.collections:collection-size s)))))
 
 (test dense-int-set-sorted-seq
   "collection-seq returns elements in numeric order."
-  (let ((s (fol.compiler.collections:dense-int-set 5 3 1 4 2)))
+  (let ((s (fol.compiler.collection-functions:dense-int-set 5 3 1 4 2)))
     (is (equal '(1 2 3 4 5) (fol.compiler.collections:collection-seq s)))))
 
 (test dense-int-set-deduplicates
   "Duplicate elements are silently dropped."
-  (let ((s (fol.compiler.collections:dense-int-set 3 1 2 2 3 1)))
+  (let ((s (fol.compiler.collection-functions:dense-int-set 3 1 2 2 3 1)))
     (is (= 3 (fol.compiler.collections:collection-size s)))
     (is (equal '(1 2 3) (fol.compiler.collections:collection-seq s)))))
 
 (test dense-int-set-conj-within-range
   "collection-conj adds an element within the existing range."
-  (let* ((s (fol.compiler.collections:dense-int-set 1 3 5))
+  (let* ((s (fol.compiler.collection-functions:dense-int-set 1 3 5))
          (s2 (fol.compiler.collections:collection-conj s 2)))
     (is (= 4 (fol.compiler.collections:collection-size s2)))
     (is (equal '(1 2 3 5) (fol.compiler.collections:collection-seq s2)))
@@ -1941,21 +1941,21 @@
 
 (test dense-int-set-conj-extends-right
   "collection-conj extends the bit-vector when element is above range."
-  (let* ((s (fol.compiler.collections:dense-int-set 1 2 3))
+  (let* ((s (fol.compiler.collection-functions:dense-int-set 1 2 3))
          (s2 (fol.compiler.collections:collection-conj s 10)))
     (is (= 4 (fol.compiler.collections:collection-size s2)))
     (is (equal '(1 2 3 10) (fol.compiler.collections:collection-seq s2)))))
 
 (test dense-int-set-conj-extends-left
   "collection-conj extends the bit-vector when element is below range."
-  (let* ((s (fol.compiler.collections:dense-int-set 5 6 7))
+  (let* ((s (fol.compiler.collection-functions:dense-int-set 5 6 7))
          (s2 (fol.compiler.collections:collection-conj s 2)))
     (is (= 4 (fol.compiler.collections:collection-size s2)))
     (is (equal '(2 5 6 7) (fol.compiler.collections:collection-seq s2)))))
 
 (test dense-int-set-conj-deduplicates
   "collection-conj does not add duplicate elements."
-  (let* ((s (fol.compiler.collections:dense-int-set 1 2 3))
+  (let* ((s (fol.compiler.collection-functions:dense-int-set 1 2 3))
          (s2 (fol.compiler.collections:collection-conj s 2)))
     (is (= 3 (fol.compiler.collections:collection-size s2)))
     ;; Returns the same object when element already present
@@ -1963,34 +1963,34 @@
 
 (test dense-int-set-conj-on-empty
   "collection-conj on an empty dense int set produces a single-element set."
-  (let* ((s (fol.compiler.collections:dense-int-set))
+  (let* ((s (fol.compiler.collection-functions:dense-int-set))
          (s2 (fol.compiler.collections:collection-conj s 42)))
     (is (= 1 (fol.compiler.collections:collection-size s2)))
     (is (equal '(42) (fol.compiler.collections:collection-seq s2)))))
 
 (test dense-int-set-offset-tracking
   "dense-int-set-offset tracks the minimum element."
-  (let ((s (fol.compiler.collections:dense-int-set 10 20 15)))
+  (let ((s (fol.compiler.collection-functions:dense-int-set 10 20 15)))
     (is (= 10 (fol.compiler.collections:dense-int-set-offset s)))))
 
 (test dense-int-set-storage-is-bit-vector
   "storage-items returns a CL bit-vector."
-  (let ((s (fol.compiler.collections:dense-int-set 1 2 3)))
+  (let ((s (fol.compiler.collection-functions:dense-int-set 1 2 3)))
     (is (typep (fol.compiler.collections:storage-items s) 'bit-vector))))
 
 (test dense-int-set-count
   "count returns element count for a <dense-int-set>."
   (is (= 0 (fol.compiler.collections:count
-             (fol.compiler.collections:dense-int-set))))
+             (fol.compiler.collection-functions:dense-int-set))))
   (is (= 3 (fol.compiler.collections:count
-             (fol.compiler.collections:dense-int-set 1 2 3)))))
+             (fol.compiler.collection-functions:dense-int-set 1 2 3)))))
 
 (test dense-int-set-empty?
   "empty? works for <dense-int-set>."
   (is (eq t (fol.compiler.collections:empty?
-             (fol.compiler.collections:dense-int-set))))
+             (fol.compiler.collection-functions:dense-int-set))))
   (is (null (fol.compiler.collections:empty?
-             (fol.compiler.collections:dense-int-set 1 2)))))
+             (fol.compiler.collection-functions:dense-int-set 1 2)))))
 
 ;;; ===========================================================================
 ;;; <deque> tests
@@ -2323,3 +2323,223 @@
                 (fol.compiler.collections:make 'fol.compiler.collections:<list> 1 2 3)))))
     (fol.compiler.collections:realize-lazy-seq ls)
     (is (string= "(1 2 3)" (princ-to-string ls)))))
+
+;;; ===========================================================================
+;;; Collection Type Predicates
+;;; ===========================================================================
+
+(test collection-predicate-on-vector
+  "<collection>? returns T for vectors."
+  (let ((v (fol.compiler.collection-functions:vector 1 2 3)))
+    (is (eq t (fol.compiler.primitive-functions:<collection>? v)))))
+
+(test collection-predicate-on-dict
+  "<collection>? returns T for dicts."
+  (let ((d (fol.compiler.collection-functions:dict :a 1)))
+    (is (eq t (fol.compiler.primitive-functions:<collection>? d)))))
+
+(test collection-predicate-on-set
+  "<collection>? returns T for sets."
+  (let ((s (fol.compiler.collection-functions:set 1 2 3)))
+    (is (eq t (fol.compiler.primitive-functions:<collection>? s)))))
+
+(test collection-predicate-on-non-collection
+  "<collection>? returns NIL for non-collections."
+  (is (null (fol.compiler.primitive-functions:<collection>? 42)))
+  (is (null (fol.compiler.primitive-functions:<collection>? "string")))
+  (is (null (fol.compiler.primitive-functions:<collection>? '(1 2 3)))))
+
+(test unordered-collection-predicate-on-set
+  "<unordered-collection>? returns T for sets."
+  (let ((s (fol.compiler.collection-functions:set 1 2 3)))
+    (is (eq t (fol.compiler.primitive-functions:<unordered-collection>? s)))))
+
+(test unordered-collection-predicate-on-dict
+  "<unordered-collection>? returns T for dicts."
+  (let ((d (fol.compiler.collection-functions:dict :a 1)))
+    (is (eq t (fol.compiler.primitive-functions:<unordered-collection>? d)))))
+
+(test unordered-collection-predicate-on-vector
+  "<unordered-collection>? returns NIL for vectors."
+  (let ((v (fol.compiler.collection-functions:vector 1 2 3)))
+    (is (null (fol.compiler.primitive-functions:<unordered-collection>? v)))))
+
+(test ordered-collection-predicate-on-vector
+  "<ordered-collection>? returns T for vectors."
+  (let ((v (fol.compiler.collection-functions:vector 1 2 3)))
+    (is (eq t (fol.compiler.primitive-functions:<ordered-collection>? v)))))
+
+(test ordered-collection-predicate-on-dict
+  "<ordered-collection>? returns NIL for dicts."
+  (let ((d (fol.compiler.collection-functions:dict :a 1)))
+    (is (null (fol.compiler.primitive-functions:<ordered-collection>? d)))))
+
+(test dict-predicate-on-dict
+  "<dict>? returns T for dict."
+  (let ((d (fol.compiler.collection-functions:dict :a 1)))
+    (is (eq t (fol.compiler.primitive-functions:<dict>? d)))))
+
+(test dict-predicate-on-ordered-dict
+  "<dict>? returns T for ordered-dict (subclass)."
+  (let ((d (fol.compiler.collection-functions:ordered-dict :a 1)))
+    (is (eq t (fol.compiler.primitive-functions:<dict>? d)))))
+
+(test dict-predicate-on-vector
+  "<dict>? returns NIL for vector."
+  (let ((v (fol.compiler.collection-functions:vector 1 2 3)))
+    (is (null (fol.compiler.primitive-functions:<dict>? v)))))
+
+(test ordered-dict-predicate-on-ordered-dict
+  "<ordered-dict>? returns T for ordered-dict."
+  (let ((d (fol.compiler.collection-functions:ordered-dict :a 1 :b 2)))
+    (is (eq t (fol.compiler.primitive-functions:<ordered-dict>? d)))))
+
+(test ordered-dict-predicate-on-dict
+  "<ordered-dict>? returns NIL for plain dict."
+  (let ((d (fol.compiler.collection-functions:dict :a 1)))
+    (is (null (fol.compiler.primitive-functions:<ordered-dict>? d)))))
+
+(test array-dict-predicate-on-array-dict
+  "<array-dict>? returns T for array-dict."
+  (let ((d (fol.compiler.collection-functions:array-dict :a 1 :b 2)))
+    (is (eq t (fol.compiler.primitive-functions:<array-dict>? d)))))
+
+(test array-dict-predicate-on-dict
+  "<array-dict>? returns NIL for plain dict."
+  (let ((d (fol.compiler.collection-functions:dict :a 1)))
+    (is (null (fol.compiler.primitive-functions:<array-dict>? d)))))
+
+(test sorted-dict-predicate-on-sorted-dict
+  "<sorted-dict>? returns T for sorted-dict."
+  (let ((d (fol.compiler.collection-functions:sorted-dict nil 1 :a 2 :b)))
+    (is (eq t (fol.compiler.primitive-functions:<sorted-dict>? d)))))
+
+(test sorted-dict-predicate-on-dict
+  "<sorted-dict>? returns NIL for plain dict."
+  (let ((d (fol.compiler.collection-functions:dict :a 1)))
+    (is (null (fol.compiler.primitive-functions:<sorted-dict>? d)))))
+
+(test int-dict-predicate-on-int-dict
+  "<int-dict>? returns T for int-dict."
+  (let ((d (fol.compiler.collection-functions:int-dict 1 :a 2 :b)))
+    (is (eq t (fol.compiler.primitive-functions:<int-dict>? d)))))
+
+(test int-dict-predicate-on-dict
+  "<int-dict>? returns NIL for plain dict."
+  (let ((d (fol.compiler.collection-functions:dict :a 1)))
+    (is (null (fol.compiler.primitive-functions:<int-dict>? d)))))
+
+(test priority-dict-predicate-on-priority-dict
+  "<priority-dict>? returns T for priority-dict."
+  (let ((d (fol.compiler.collection-functions:priority-dict :a 10 :b 20)))
+    (is (eq t (fol.compiler.primitive-functions:<priority-dict>? d)))))
+
+(test priority-dict-predicate-on-dict
+  "<priority-dict>? returns NIL for plain dict."
+  (let ((d (fol.compiler.collection-functions:dict :a 1)))
+    (is (null (fol.compiler.primitive-functions:<priority-dict>? d)))))
+
+(test set-predicate-on-set
+  "<set>? returns T for set."
+  (let ((s (fol.compiler.collection-functions:set 1 2 3)))
+    (is (eq t (fol.compiler.primitive-functions:<set>? s)))))
+
+(test set-predicate-on-ordered-set
+  "<set>? returns T for ordered-set (subclass)."
+  (let ((s (fol.compiler.collection-functions:ordered-set 1 2 3)))
+    (is (eq t (fol.compiler.primitive-functions:<set>? s)))))
+
+(test set-predicate-on-vector
+  "<set>? returns NIL for vector."
+  (let ((v (fol.compiler.collection-functions:vector 1 2 3)))
+    (is (null (fol.compiler.primitive-functions:<set>? v)))))
+
+(test ordered-set-predicate-on-ordered-set
+  "<ordered-set>? returns T for ordered-set."
+  (let ((s (fol.compiler.collection-functions:ordered-set 1 2 3)))
+    (is (eq t (fol.compiler.primitive-functions:<ordered-set>? s)))))
+
+(test ordered-set-predicate-on-set
+  "<ordered-set>? returns NIL for plain set."
+  (let ((s (fol.compiler.collection-functions:set 1 2 3)))
+    (is (null (fol.compiler.primitive-functions:<ordered-set>? s)))))
+
+(test sorted-set-predicate-on-sorted-set
+  "<sorted-set>? returns T for sorted-set."
+  (let ((s (fol.compiler.collection-functions:sorted-set nil 1 2 3)))
+    (is (eq t (fol.compiler.primitive-functions:<sorted-set>? s)))))
+
+(test sorted-set-predicate-on-set
+  "<sorted-set>? returns NIL for plain set."
+  (let ((s (fol.compiler.collection-functions:set 1 2 3)))
+    (is (null (fol.compiler.primitive-functions:<sorted-set>? s)))))
+
+(test int-set-predicate-on-int-set
+  "<int-set>? returns T for int-set."
+  (let ((s (fol.compiler.collection-functions:int-set 1 2 3)))
+    (is (eq t (fol.compiler.primitive-functions:<int-set>? s)))))
+
+(test int-set-predicate-on-set
+  "<int-set>? returns NIL for plain set."
+  (let ((s (fol.compiler.collection-functions:set 1 2 3)))
+    (is (null (fol.compiler.primitive-functions:<int-set>? s)))))
+
+(test dense-int-set-predicate-on-dense-int-set
+  "<dense-int-set>? returns T for dense-int-set."
+  (let ((s (fol.compiler.collection-functions:dense-int-set 1 2 3)))
+    (is (eq t (fol.compiler.primitive-functions:<dense-int-set>? s)))))
+
+(test dense-int-set-predicate-on-set
+  "<dense-int-set>? returns NIL for plain set."
+  (let ((s (fol.compiler.collection-functions:set 1 2 3)))
+    (is (null (fol.compiler.primitive-functions:<dense-int-set>? s)))))
+
+(test vector-predicate-on-vector
+  "<vector>? returns T for vector."
+  (let ((v (fol.compiler.collection-functions:vector 1 2 3)))
+    (is (eq t (fol.compiler.primitive-functions:<vector>? v)))))
+
+(test vector-predicate-on-dict
+  "<vector>? returns NIL for dict."
+  (let ((d (fol.compiler.collection-functions:dict :a 1)))
+    (is (null (fol.compiler.primitive-functions:<vector>? d)))))
+
+(test list-predicate-on-list
+  "<list>? returns T for list."
+  (let ((l (fol.compiler.collections:make 'fol.compiler.collections:<list> 1 2 3)))
+    (is (eq t (fol.compiler.primitive-functions:<list>? l)))))
+
+(test list-predicate-on-vector
+  "<list>? returns NIL for vector."
+  (let ((v (fol.compiler.collection-functions:vector 1 2 3)))
+    (is (null (fol.compiler.primitive-functions:<list>? v)))))
+
+(test lazy-seq-predicate-on-lazy-seq
+  "<lazy-seq>? returns T for lazy-seq."
+  (let ((ls (fol.compiler.collections:make 'fol.compiler.collections:<lazy-seq> (lambda () nil))))
+    (is (eq t (fol.compiler.primitive-functions:<lazy-seq>? ls)))))
+
+(test lazy-seq-predicate-on-vector
+  "<lazy-seq>? returns NIL for vector."
+  (let ((v (fol.compiler.collection-functions:vector 1 2 3)))
+    (is (null (fol.compiler.primitive-functions:<lazy-seq>? v)))))
+
+(test deque-predicate-on-deque
+  "<deque>? returns T for deque."
+  (let ((dq (fol.compiler.collections:make 'fol.compiler.collections:<deque>)))
+    (is (eq t (fol.compiler.primitive-functions:<deque>? dq)))))
+
+(test deque-predicate-on-vector
+  "<deque>? returns NIL for vector."
+  (let ((v (fol.compiler.collection-functions:vector 1 2 3)))
+    (is (null (fol.compiler.primitive-functions:<deque>? v)))))
+
+(test bag-predicate-on-bag
+  "<bag>? returns T for bag."
+  (let ((b (fol.compiler.collection-functions:bag 1 1 2 3)))
+    (is (eq t (fol.compiler.primitive-functions:<bag>? b)))))
+
+(test bag-predicate-on-set
+  "<bag>? returns NIL for set."
+  (let ((s (fol.compiler.collection-functions:set 1 2 3)))
+    (is (null (fol.compiler.primitive-functions:<bag>? s)))))

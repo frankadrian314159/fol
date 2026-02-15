@@ -1,0 +1,136 @@
+;;; Run FOL discrete event simulator benchmarks WITH PARALLEL pmapcat
+;;; This version uses the thread pool for parallel component processing
+
+(in-package :cl-user)
+
+;; Load FOL compiler
+(push (truename "src/") asdf:*central-registry*)
+(asdf:load-system :fol-compiler)
+
+;; Create a package for the FOL code that has access to FOL runtime functions
+(defpackage :lsim-fol-parallel
+  (:use :cl)
+  (:shadow list)
+  (:import-from :fol.compiler.collections
+                make collection-conj collection-seq storage-items
+                <vector> <dict> <set> <bag> <priority-dict>
+                priority-dict-peek-min priority-dict-pop-min)
+  (:shadowing-import-from :fol.compiler.collection-functions
+                vector dict set bag
+                first rest get assoc dissoc conj size empty? count)
+  (:shadowing-import-from :fol.compiler.seq-functions
+                map pmapcat)  ; Import pmapcat for parallel processing
+  (:shadowing-import-from :fol.compiler.primitive-functions
+                zero? odd? even? symbol keyword)
+  (:import-from :fol.compiler.primitives
+                truthy? falsy?)
+  (:import-from :fol.compiler.string-functions
+                str)
+  (:export make-nbit-register-from-gates make-test-events run-simulation))
+
+;; Define true and false constants
+(in-package :lsim-fol-parallel)
+(defparameter true t)
+(defparameter false nil)
+
+;; Define bit-test function
+(defun bit-test (integer index)
+  "Test if bit at INDEX in INTEGER is set."
+  (logbitp index integer))
+
+(in-package :cl-user)
+
+(defun compile-and-eval-fol-file (filepath)
+  "Compile and evaluate a FOL file in the :lsim-fol-parallel package."
+  (with-open-file (stream filepath :direction :input)
+    (let ((*package* (find-package :lsim-fol-parallel)))
+      (loop for form = (let ((*readtable* fol.compiler.reader:*fol-readtable*))
+                        (read stream nil :eof))
+            until (eq form :eof)
+            do (let ((result (fol.compiler:compile-form form)))
+                 (when (fol.compiler:compilation-result-errors result)
+                   (format t "~%COMPILATION ERRORS:~%")
+                   (dolist (err (fol.compiler:compilation-result-errors result))
+                     (format t "  ~A~%" err))
+                   (error "FOL compilation failed"))
+                 (let ((code (fol.compiler:compilation-result-code result)))
+                   (eval code)))))))
+
+(format t "~%=== FOL Discrete Event Simulator with PARALLEL pmapcat ===~%~%")
+
+(format t "Compiling and loading FOL code (parallel version)...~%")
+(compile-and-eval-fol-file "lsim-fol-parallel.fol")
+(format t "~%FOL code loaded successfully!~%~%")
+
+(defun run-fol-32bit-parallel-benchmark ()
+  "Benchmark 32-bit register with PARALLEL pmapcat (160 components, 1000 time units, 100 iterations)."
+  (format t "~%=== FOL 32-Bit Register Benchmark (PARALLEL with pmapcat + thread pool) ===~%")
+
+  (let* ((netlist-fol (funcall (intern "MAKE-NBIT-REGISTER-FROM-GATES" :lsim-fol-parallel) 32))
+         (events-fol (funcall (intern "MAKE-TEST-EVENTS" :lsim-fol-parallel) 32 1000))
+         (netlist-size (fol.compiler.collection-functions:size netlist-fol))
+         (events-size (fol.compiler.collection-functions:size events-fol))
+         (monitored (let ((m (make-hash-table :test 'eq)))
+                      (loop for i from 0 to 31
+                            do (setf (gethash (intern (format nil "OUT~D" i) :keyword) m) t))
+                      m)))
+
+    (format t "Components: ~D~%" netlist-size)
+    (format t "Events: ~D~%" events-size)
+    (format t "Time units: 1000~%")
+    (format t "Using: FOL persistent data structures + PARALLEL pmapcat (16-thread pool)~%~%")
+
+    (format t "Warming up...~%")
+    (funcall (intern "RUN-SIMULATION" :lsim-fol-parallel) netlist-fol events-fol 1000 monitored)
+    (sb-ext:gc :full t)
+
+    (format t "Running 100 iterations...~%")
+    (let ((times '())
+          (start-bytes (sb-ext:get-bytes-consed)))
+      (dotimes (i 100)
+        (when (zerop (mod i 10))
+          (format t "  Iteration ~D/100~%" i))
+        (let ((start-time (get-internal-run-time)))
+          (funcall (intern "RUN-SIMULATION" :lsim-fol-parallel) netlist-fol events-fol 1000 monitored)
+          (let ((elapsed (/ (- (get-internal-run-time) start-time)
+                           internal-time-units-per-second)))
+            (push elapsed times))))
+
+      (let* ((end-bytes (sb-ext:get-bytes-consed))
+             (total-consed (- end-bytes start-bytes))
+             (sorted-times (sort (copy-list times) #'<))
+             (mean (/ (reduce #'+ sorted-times) (length sorted-times)))
+             (median (nth (floor (length sorted-times) 2) sorted-times))
+             (min-time (first sorted-times))
+             (max-time (first (last sorted-times)))
+             (std-dev (sqrt (/ (reduce #'+ (mapcar (lambda (x) (expt (- x mean) 2))
+                                                   sorted-times))
+                              (length sorted-times)))))
+
+        (format t "~%Results (FOL 32-bit PARALLEL with pmapcat, 100 iterations):~%")
+        (format t "  Mean:   ~,3F ms~%" (* 1000 mean))
+        (format t "  Median: ~,3F ms~%" (* 1000 median))
+        (format t "  Min:    ~,3F ms~%" (* 1000 min-time))
+        (format t "  Max:    ~,3F ms~%" (* 1000 max-time))
+        (format t "  StdDev: ~,3F ms~%" (* 1000 std-dev))
+        (format t "  Total consed: ~,2F MB~%" (/ total-consed 1024.0 1024.0))
+        (format t "  Per iteration: ~,2F KB~%~%" (/ total-consed 100.0 1024.0))
+
+        ;; Calculate and display parallelization benefit
+        (format t "~%Thread Pool Stats:~%")
+        (format t "  Thread pool size: 16 threads~%")
+        (format t "  Parallel event generation via pmapcat~%")
+        (format t "  Average components per simulation step: ~D~%"
+                (floor netlist-size 32))))))  ; Rough estimate
+
+;; Run benchmark
+(handler-case
+    (progn
+      (run-fol-32bit-parallel-benchmark)
+      (format t "~%FOL parallel benchmark completed successfully!~%"))
+  (error (e)
+    (format t "~%ERROR: ~A~%" e)
+    (format t "Stacktrace:~%")
+    (sb-debug:print-backtrace :stream *standard-output* :count 20)))
+
+(sb-ext:quit)

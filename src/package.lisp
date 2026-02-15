@@ -33,16 +33,24 @@
 
 (defpackage fol.compiler.primitive-functions
   (:use cl)
-  (:shadow symbol)
+  (:shadow symbol keyword)
   (:export
    ;; Nil and Boolean predicates
-   nil? some? boolean? true? false?
+   nil? some? <bool>? true? false?
    ;; Collection predicates
-   seq? coll? map? vector? list?
+   <seq>? <collection>? <unordered-collection>? <ordered-collection>?
+   <dict>? <ordered-dict>? <array-dict>? <sorted-dict>? <int-dict>? <priority-dict>?
+   <set>? <ordered-set>? <sorted-set>? <int-set>? <dense-int-set>?
+   <vector>? <list>? <lazy-seq>? <deque>? <bag>?
    ;; Type checking
-   keyword? symbol? string? char? number? integer? float? rational? fn?
+   <keyword>? <symbol>? <string>? <char>?
+   <number>? <integer>? <float>? <rational>? <real>? <ratio>? <complex>?
+   <single-float>? <double-float>? <fixnum>? <bignum>?
+   <fn>?
+   ;; Numeric predicates
+   zero? odd? even?
    ;; Symbol construction
-   symbol
+   symbol keyword
    ;; Equality
    identical? =?))
 
@@ -301,36 +309,17 @@
    lazy-seq-thunk
    lazy-seq-realized-p
    lazy-seq-cached
-   realize-lazy-seq
-   ;; Constructor function names (defined in fol.compiler.collection-functions)
-   vector
-   dict
-   ordered-dict
-   array-dict
-   set
-   ordered-set
-   sorted-set
-   sorted-set-by
-   sorted-dict
-   sorted-dict-by
-   int-dict
-   int-dict-by
-   priority-dict
-   int-set
-   dense-int-set
-   bag
-   deque
-   list
-   lazy-seq))
+   realize-lazy-seq))
 
 (defpackage fol.compiler.collection-functions
   (:use cl)
-  (:shadowing-import-from fol.compiler.collections vector set list first rest get assoc dissoc conj size empty? count update merge)
+  (:shadow vector set list)
+  (:shadowing-import-from fol.compiler.collections
+                          ;; Import high-level accessors that are defined in collections
+                          first rest get assoc dissoc conj size empty? count update merge)
   (:import-from fol.compiler.collections
-                ;; Constructor function names
-                dict ordered-dict array-dict ordered-set sorted-set sorted-set-by
-                sorted-dict sorted-dict-by int-dict int-dict-by priority-dict
-                int-set dense-int-set bag deque lazy-seq make
+                ;; Constructor generic
+                make
                 ;; Class name symbols (needed for make dispatch)
                 <vector> <dict> <ordered-dict> <array-dict> <set> <bag>
                 <ordered-set> <sorted-set> <sorted-dict> <int-dict> <priority-dict>
@@ -371,9 +360,9 @@
   (:import-from fol.compiler.primitives truthy?)
   (:export
    ;; Core higher-order functions
-   map mapv filter filterv reduce
+   map mapv filter filterv reduce pmap
    ;; Concatenation and mapping variants
-   mapcat concat into
+   mapcat pmapcat concat into
    ;; Filtering variants
    remove keep
    ;; Predicates
@@ -390,12 +379,14 @@
   (:shadow + - * / abs exp sqrt min max gcd lcm
            sin cos tan asin acos atan sinh cosh tanh asinh acosh atanh
            expt rationalize numerator denominator)
-  (:import-from fol.compiler.primitives <number> <integer> <float> <bool> fol-value)
+  (:import-from fol.compiler.primitives <number> <integer> <float> <ratio> <bool> fol-value)
   (:export
    ;; Dyadic primitives
    %+ %- %* %/
    ;; Variadic operators
    + - * /
+   ;; Increment/Decrement
+   inc dec
    ;; Math functions
    abs sin cos tan asin acos atan atan2
    sinh cosh tanh asinh acosh atanh
@@ -407,13 +398,13 @@
    gcd lcm
    ;; Predicates
    odd? even? zero? positive? negative?
-   integral? nat-int? pos-int? NaN? infinite?
+   integral? nat-int? pos-int? neg-int? NaN? infinite? Inf? -Inf?
    ;; Type conversion
    <complex> <single-float> <double-float>
    ;; Random
    rand make-seeded-random-state call-with-seed
    ;; Parsing
-   parse-int parse-double
+   parse-int parse-long parse-double
    ;; Conversion
    int))
 
@@ -430,7 +421,7 @@
    ;; Derived
    bit-nand bit-nor bit-andc1 bit-andc2 bit-orc1 bit-orc2
    ;; Bit manipulation
-   bit-test bit-set bit-clear bit-count
+   bit-test bit-set bit-clear bit-flip bit-count
    ;; Shifting/rotation
    bit-shift bit-rotate))
 
@@ -450,17 +441,31 @@
 
 (defpackage fol.compiler.string-functions
   (:use cl)
+  (:shadow format reverse replace char)
+  (:import-from cl-ppcre)
   (:export
    ;; String concatenation and manipulation
-   str subs str-join str-split
-   ;; Trimming
-   str-trim str-trim-left str-trim-right
-   ;; Case conversion
-   str-upper-case str-lower-case str-capitalize
-   ;; Search and replace
+   str subs join split split-lines
+   ;; Trimming (Clojure-style)
+   trim triml trimr trim-newline
+   ;; Case conversion (Clojure-style)
+   upper-case lower-case capitalize
+   ;; Search and replace (old-style)
    str-replace str-index-of str-last-index-of
-   ;; Predicates
-   str-starts-with? str-ends-with? str-contains? str-blank?
+   ;; Predicates (Clojure-style)
+   starts-with? ends-with? includes? blank?
+   ;; Comparison and formatting
+   compare size format
+   ;; Character functions (Clojure-style)
+   char char-name-string char-escape-string
+   ;; Escaping
+   escape
+   ;; Generic Clojure-style functions (with regex support)
+   replace replace-first reverse index-of last-index-of
+   ;; Parsing
+   parse-boolean parse-uuid
+   ;; Regular expressions (Clojure-style)
+   re-pattern re-find re-seq re-matches re-matcher re-quote-replacement
    ;; Other
    str-reverse))
 

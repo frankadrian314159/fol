@@ -49,14 +49,7 @@
     (number    (fol.compiler.ast:make-literal-node :value form :form form))
     (string    (fol.compiler.ast:make-literal-node :value form :form form))
     (character (fol.compiler.ast:make-literal-node :value form :form form))
-    (symbol    (cond
-                 ;; Boolean literals: false -> nil, true -> t
-                 ((string-equal (symbol-name form) "FALSE")
-                  (fol.compiler.ast:make-literal-node :value nil :form form))
-                 ((string-equal (symbol-name form) "TRUE")
-                  (fol.compiler.ast:make-literal-node :value t :form form))
-                 ;; Regular symbol reference
-                 (t (fol.compiler.ast:make-symbol-ref-node :name form :form form))))
+    (symbol    (fol.compiler.ast:make-symbol-ref-node :name form :form form))
     (cons      (parse-compound form))
     (t         (cond
                  ;; FOL vector literal [a b c]
@@ -690,7 +683,7 @@
             (= (length args) 1))
        (let ((keyword (fol.compiler.ast:literal-node-value operator))
              (dict-arg (emit-node (first args))))
-         `(get ,dict-arg ,keyword)))
+         `(fol.compiler.collection-functions:get ,dict-arg ,keyword)))
 
       ;; Pattern: (lexical-var ...) - variable holding a function value
       ;; Emit funcall for Lisp-2 semantics

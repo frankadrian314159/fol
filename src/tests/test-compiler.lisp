@@ -243,14 +243,14 @@
   (let* ((result (fol.compiler:compile-form (fol-form #())))
          (code (fol.compiler:compilation-result-code result)))
     (is (null (fol.compiler:compilation-result-errors result)))
-    (is (eq 'fol.compiler.cl-utils:make-cl-vector (first code)))))
+    (is (eq 'fol.compiler.collection-functions:vector (first code)))))
 
 (test compile-vector-literals
   "#(1 2 3) compiles to (vector 1 2 3)."
   (let* ((result (fol.compiler:compile-form (fol-form #(1 2 3))))
          (code (fol.compiler:compilation-result-code result)))
     (is (null (fol.compiler:compilation-result-errors result)))
-    (is (eq 'fol.compiler.cl-utils:make-cl-vector (first code)))
+    (is (eq 'fol.compiler.collection-functions:vector (first code)))
     (is (equal '(1 2 3) (rest code)))))
 
 (test compile-vector-with-expressions
@@ -258,19 +258,19 @@
   (let* ((result (fol.compiler:compile-form (fol-form #(1 (+ 2 3)))))
          (code (fol.compiler:compilation-result-code result)))
     (is (null (fol.compiler:compilation-result-errors result)))
-    (is (eq 'fol.compiler.cl-utils:make-cl-vector (first code)))
+    (is (eq 'fol.compiler.collection-functions:vector (first code)))
     (is (eql 1 (second code)))
     (is (equal '(+ 2 3) (third code)))))
 
 (test compile-vector-functional
-  "Compiled #(1 2 3) evaluates to a CL vector with 3 elements."
+  "Compiled #(1 2 3) evaluates to a FOL <vector> with 3 elements."
   (let* ((result (fol.compiler:compile-form (fol-form #(1 2 3))))
          (code (fol.compiler:compilation-result-code result))
          (val (eval code)))
     (is (null (fol.compiler:compilation-result-errors result)))
-    (is (eq t (vectorp val)))
-    (is (= 3 (length val)))
-    (is (equalp #(1 2 3) val))))
+    (is (eq t (fol.compiler.primitive-functions:<vector>? val)))
+    (is (= 3 (fol.compiler.collections:collection-size val)))
+    (is (equal '(1 2 3) (fol.compiler.collections:collection-seq val)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Dict compilation (via function call)
@@ -278,21 +278,21 @@
 
 (test compile-dict-special-form
   "(dict :a 1 :b 2) compiles via dict-node to a dict constructor call."
-  (let* ((result (fol.compiler:compile-form '(fol.compiler.cl-utils:make-cl-dict :a 1 :b 2)))
+  (let* ((result (fol.compiler:compile-form '(fol.compiler.collection-functions:dict :a 1 :b 2)))
          (code (fol.compiler:compilation-result-code result)))
     (is (null (fol.compiler:compilation-result-errors result)))
-    (is (eq 'fol.compiler.cl-utils:make-cl-dict (first code)))))
+    (is (eq 'fol.compiler.collection-functions:dict (first code)))))
 
 (test compile-dict-functional
-  "Compiled (dict :a 1 :b 2) evaluates to a CL hash-table."
-  (let* ((result (fol.compiler:compile-form '(fol.compiler.cl-utils:make-cl-dict :a 1 :b 2)))
+  "Compiled (dict :a 1 :b 2) evaluates to a FOL <dict>."
+  (let* ((result (fol.compiler:compile-form '(fol.compiler.collection-functions:dict :a 1 :b 2)))
          (code (fol.compiler:compilation-result-code result))
          (val (eval code)))
     (is (null (fol.compiler:compilation-result-errors result)))
-    (is (eq t (hash-table-p val)))
-    (is (= 2 (hash-table-count val)))
-    (is (= 1 (gethash :a val)))
-    (is (= 2 (gethash :b val)))))
+    (is (eq t (fol.compiler.primitive-functions:<dict>? val)))
+    (is (= 2 (fol.compiler.collections:collection-size val)))
+    (is (= 1 (fol.compiler.collection-functions:get val :a)))
+    (is (= 2 (fol.compiler.collection-functions:get val :b)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Set compilation (via function call)
@@ -300,22 +300,22 @@
 
 (test compile-set-special-form
   "(set 1 2 3) compiles via set-node to a set constructor call."
-  (let* ((result (fol.compiler:compile-form '(fol.compiler.cl-utils:make-cl-set 1 2 3)))
+  (let* ((result (fol.compiler:compile-form '(fol.compiler.collection-functions:set 1 2 3)))
          (code (fol.compiler:compilation-result-code result)))
     (is (null (fol.compiler:compilation-result-errors result)))
-    (is (eq 'fol.compiler.cl-utils:make-cl-set (first code)))))
+    (is (eq 'fol.compiler.collection-functions:set (first code)))))
 
 (test compile-set-functional
-  "Compiled (set 1 2 3) evaluates to a CL hash-table representing a set."
-  (let* ((result (fol.compiler:compile-form '(fol.compiler.cl-utils:make-cl-set 1 2 3)))
+  "Compiled (set 1 2 3) evaluates to a FOL <set>."
+  (let* ((result (fol.compiler:compile-form '(fol.compiler.collection-functions:set 1 2 3)))
          (code (fol.compiler:compilation-result-code result))
          (val (eval code)))
     (is (null (fol.compiler:compilation-result-errors result)))
-    (is (eq t (hash-table-p val)))
-    (is (= 3 (hash-table-count val)))
-    (is (eq t (gethash 1 val)))
-    (is (eq t (gethash 2 val)))
-    (is (eq t (gethash 3 val)))))
+    (is (eq t (fol.compiler.primitive-functions:<set>? val)))
+    (is (= 3 (fol.compiler.collections:collection-size val)))
+    (is (eq 1 (fol.compiler.collection-functions:get val 1)))
+    (is (eq 2 (fol.compiler.collection-functions:get val 2)))
+    (is (eq 3 (fol.compiler.collection-functions:get val 3)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Thread-last (->>)
@@ -384,7 +384,7 @@
          (result (fol.compiler:compile-form vec))
          (code (fol.compiler:compilation-result-code result)))
     (is (null (fol.compiler:compilation-result-errors result)))
-    (is (eq 'fol.compiler.cl-utils:make-cl-vector (first code)))
+    (is (eq 'fol.compiler.collection-functions:vector (first code)))
     (is (equal '(1 2 3) (rest code)))))
 
 ;;; ---------------------------------------------------------------------------
@@ -398,7 +398,7 @@
          (result (fol.compiler:compile-form d))
          (code (fol.compiler:compilation-result-code result)))
     (is (null (fol.compiler:compilation-result-errors result)))
-    (is (eq 'fol.compiler.cl-utils:make-cl-dict (first code)))))
+    (is (eq 'fol.compiler.collection-functions:dict (first code)))))
 
 (test compile-dict-from-reader-functional
   "Dict from reader syntax evaluates to a <dict>."
@@ -408,8 +408,8 @@
          (code (fol.compiler:compilation-result-code result))
          (val (eval code)))
     (is (null (fol.compiler:compilation-result-errors result)))
-    (is (eq t (hash-table-p val)))
-    (is (= 2 (hash-table-count val)))))
+    (is (eq t (fol.compiler.primitive-functions:<dict>? val)))
+    (is (= 2 (fol.compiler.collections:collection-size val)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Set node via reader syntax
@@ -422,18 +422,18 @@
          (result (fol.compiler:compile-form s))
          (code (fol.compiler:compilation-result-code result)))
     (is (null (fol.compiler:compilation-result-errors result)))
-    (is (eq 'fol.compiler.cl-utils:make-cl-set (first code)))))
+    (is (eq 'fol.compiler.collection-functions:set (first code)))))
 
 (test compile-set-from-reader-functional
-  "Set from reader syntax evaluates to a CL hash-table."
+  "Set from reader syntax evaluates to a FOL <set>."
   (let* ((s (let ((*readtable* fol.compiler.reader:*fol-readtable*))
               (read-from-string "#{1 2 3}")))
          (result (fol.compiler:compile-form s))
          (code (fol.compiler:compilation-result-code result))
          (val (eval code)))
     (is (null (fol.compiler:compilation-result-errors result)))
-    (is (eq t (hash-table-p val)))
-    (is (= 3 (hash-table-count val)))))
+    (is (eq t (fol.compiler.primitive-functions:<set>? val)))
+    (is (= 3 (fol.compiler.collections:collection-size val)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; defmacro

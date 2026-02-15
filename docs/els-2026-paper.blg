@@ -14,6 +14,7 @@ Reallocating 'glb_str_end' (item size: 4) to 20 items.
 Reallocating 'glb_str_ptr' (item size: 4) to 20 items.
 Reallocating 'global_strs' (item size: 1) to 4000000 items.
 Reallocating 'singl_function' (item size: 4) to 100 items.
+Warning--empty address in Apple1992
 Warning--empty publisher in Chambers1999
 Warning--empty address in Chambers1999
 Warning--empty address in Emir2007
@@ -28,7 +29,6 @@ Warning--empty address in Kiczales1991
 Warning--empty address in Okasaki1998
 Warning--empty publisher in Orleans2002
 Warning--empty address in Orleans2002
-Warning--empty address in Shalit1996
 Warning--empty publisher in Smith2023
 Warning--empty address in Smith2023
 Warning--page numbers missing in both pages and numpages fields in Smith2023
@@ -37,12 +37,12 @@ Warning--empty publisher in TobinHochstadt2008
 Warning--empty address in TobinHochstadt2008
 You've used 20 entries,
             6273 wiz_defined-function locations,
-            1645 strings with 21066 characters,
-and the built_in function-call counts, 19608 in all, are:
+            1644 strings with 21056 characters,
+and the built_in function-call counts, 19604 in all, are:
 = -- 2191
 > -- 520
 < -- 0
-+ -- 168
++ -- 166
 - -- 190
 * -- 1239
 := -- 1915
@@ -66,7 +66,7 @@ purify$ -- 282
 quote$ -- 0
 skip$ -- 719
 stack$ -- 0
-substring$ -- 1440
+substring$ -- 1438
 swap$ -- 164
 text.length$ -- 0
 text.prefix$ -- 0

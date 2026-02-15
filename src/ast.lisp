@@ -13,7 +13,8 @@
 (defstruct ast-node
   "Base structure for all AST nodes."
   (form nil :read-only t)       ; original FOL form (for error reporting)
-  (position nil :read-only t))  ; source position (line, column) if available
+  (position nil :read-only t)   ; source position (line, column) if available
+  (%type nil :read-only t))     ; type of AST node (e.g., 'literal, 'call, etc.)
 
 ;;; ---------------------------------------------------------------------------
 ;;; Literals

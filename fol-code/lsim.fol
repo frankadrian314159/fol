@@ -286,17 +286,17 @@
                                       #{}
                                       changed-nodes)
                
-               ;; Compute new events
-               new-events (mapcat (fn [comp]
-                                    (bind [input-states (get-input-states comp new-node-values)
-                                           changed-ports (get-changed-ports comp (set changed-nodes))
-                                           results (compute-next-state comp input-states changed-ports)]
-                                      (map (fn [res]
-                                             {:time (+ event-time (:delay res))
-                                              :node (get (component-connections comp) (:port res))
-                                              :value (:value res)})
-                                           results)))
-                                  affected-comps)]
+               ;; Compute new events (parallel processing)
+               new-events (pmapcat (fn [comp]
+                                     (bind [input-states (get-input-states comp new-node-values)
+                                            changed-ports (get-changed-ports comp (set changed-nodes))
+                                            results (compute-next-state comp input-states changed-ports)]
+                                       (map (fn [res]
+                                              {:time (+ event-time (:delay res))
+                                               :node (get (component-connections comp) (:port res))
+                                               :value (:value res)})
+                                            results)))
+                                   affected-comps)]
           (recur (merge-events remaining new-events)
                  new-node-values
                  new-event-history

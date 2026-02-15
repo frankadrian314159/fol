@@ -22,6 +22,7 @@
 ;;; - bit-test: test if bit at position is set
 ;;; - bit-set:  set bit at position
 ;;; - bit-clear: clear bit at position
+;;; - bit-flip: flip bit at position
 ;;; - bit-count: count 1 bits
 
 ;;; ============================================================================
@@ -207,6 +208,22 @@
 
 (defmethod bit-clear ((integer <integer>) (position <integer>))
   (cl:logand (fol-value integer) (cl:lognot (cl:ash 1 (fol-value position)))))
+
+
+(defgeneric bit-flip (integer position)
+  (:documentation "Returns INTEGER with the bit at POSITION flipped (0->1 or 1->0)."))
+
+(defmethod bit-flip ((integer integer) (position integer))
+  (cl:logxor integer (cl:ash 1 position)))
+
+(defmethod bit-flip ((integer <integer>) (position integer))
+  (cl:logxor (fol-value integer) (cl:ash 1 position)))
+
+(defmethod bit-flip ((integer integer) (position <integer>))
+  (cl:logxor integer (cl:ash 1 (fol-value position))))
+
+(defmethod bit-flip ((integer <integer>) (position <integer>))
+  (cl:logxor (fol-value integer) (cl:ash 1 (fol-value position))))
 
 
 (defgeneric bit-count (integer)

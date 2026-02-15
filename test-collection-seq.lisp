@@ -1,0 +1,20 @@
+(push (truename "src/") asdf:*central-registry*)
+(asdf:load-system :fol-compiler)
+
+(let ((v (fol.compiler.collection-functions:vector 1 2 3)))
+  (format t "Vector: ~A~%" v)
+  (format t "Type: ~A~%" (type-of v))
+  (let ((seq (fol.compiler.collections:collection-seq v)))
+    (format t "Seq: ~A~%" seq)
+    (format t "Seq type: ~A~%" (type-of seq))
+    (format t "Listp: ~A~%" (listp seq))))
+
+(let ((s (fol.compiler.collection-functions:set 1 2 3)))
+  (format t "~%Set: ~A~%" s)
+  (format t "Type: ~A~%" (type-of s))
+  (let ((seq (fol.compiler.collections:collection-seq s)))
+    (format t "Seq: ~A~%" seq)
+    (format t "Seq type: ~A~%" (type-of seq))
+    (format t "Listp: ~A~%" (listp seq))))
+
+(sb-ext:quit)

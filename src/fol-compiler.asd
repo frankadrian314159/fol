@@ -16,7 +16,7 @@
   :version "0.1.0"
   :author "Frank Adrian"
   :license "MIT"
-  :depends-on ("fset" "sycamore" "closer-mop" "uuid" "bordeaux-threads" "usocket")
+  :depends-on ("fset" "sycamore" "closer-mop" "uuid" "bordeaux-threads" "usocket" "cl-ppcre")
   :components ((:file "package")
                (:file "compareops" :depends-on ("package"))
                (:file "primitives" :depends-on ("package"))
@@ -51,5 +51,6 @@
                   (:file "test-reader" :depends-on ("compiler-tests-package"))
                   (:file "test-mutable" :depends-on ("compiler-tests-package"))
                   (:file "test-streams" :depends-on ("compiler-tests-package"))
-                  (:file "test-persistence" :depends-on ("compiler-tests-package")))))
+                  (:file "test-persistence" :depends-on ("compiler-tests-package"))
+                  (:file "test-string-functions" :depends-on ("compiler-tests-package")))))
   :perform (test-op (o s) (symbol-call :fol.compiler.tests :run-compiler-tests)))

@@ -1,10 +1,11 @@
-\documentclass[sigconf,nonacm]{acmart}
+\documentclass[sigconf,nonacm,review]{acmart}
 
 \usepackage{listings}
 \usepackage{booktabs}
 \usepackage{balance}
 \usepackage{mathpartir}
 \usepackage{threeparttable}
+\usepackage{tabularx}
 
 \lstset{
   basicstyle=\ttfamily\footnotesize,
@@ -312,7 +313,7 @@ FOL orders patterns by \textit{constraint strength}---how narrowly a pattern con
 \begin{table}[htbp]
 \caption{Predicate Specificity Levels}
 \label{tab:specificity}
-\begin{tabular}{clll}
+\begin{tabularx}{\columnwidth}{clXl}
 \toprule
 \textbf{Level} & \textbf{Pattern Type} & \textbf{Constraint} & \textbf{Example} \\
 \midrule
@@ -321,7 +322,7 @@ FOL orders patterns by \textit{constraint strength}---how narrowly a pattern con
 1 & Destructuring & Structural shape only & \texttt{[a b c]} \\
 0 & Any & Universal match & \texttt{x}, \texttt{\_} \\
 \bottomrule
-\end{tabular}
+\end{tabularx}
 \end{table}
 
 This ordering is a deliberate heuristic chosen for predictability rather than full logical subsumption, which is undecidable in general \cite{Ernst1998}. The intuition is that a predicate like \texttt{(= 5)}
@@ -334,8 +335,9 @@ first element has higher specificity.
 
 \subsubsection{Formal Specificity Ordering}
 
-We formalize the specificity relation $\prec$ using inference rules. Let $\mathcal{L}(p) \in \{0, 1, 2, 3\}$ be the specificity level of pattern $p$.
-
+We formalize the specificity relation $\prec$ using inference rules, shown in Figure~\ref{fig:specrules}. Let $\mathcal{L}(p) \in \{0, 1, 2, 3\}$ be the specificity level of pattern $p$.
+\begin{figure*}[htbp]
+\centering
 \begin{mathpar}
   \inferrule[Spec-Level]
     { \mathcal{L}(p_1) > \mathcal{L}(p_2) }
@@ -349,6 +351,9 @@ We formalize the specificity relation $\prec$ using inference rules. Let $\mathc
     { \mathcal{L}(p_1) = \mathcal{L}(q_1) \\ [p_2 \dots] \prec [q_2 \dots] }
     { [p_1 \dots p_n] \prec [q_1 \dots q_n] }
 \end{mathpar}
+\caption{FOL Predicate Specificity Inference Rules}
+\label{fig:specrules}
+\end{figure*}
 
 The operational dispatch order $\prec_{\text{disp}}$ is a total order that resolves ties (where neither $p_1 \prec p_2$ nor $p_2 \prec p_1$) using definition order. Let $\textit{idx}(p)$ denote the definition index of the 
 method clause containing $p$.
@@ -378,8 +383,12 @@ unavailable in either parent language. Full source for all examples is available
 
 \subsection{Declarative Dispatch: Trade Compliance}
 
-We implement a trade compliance validator in FOL and plain Common Lisp (repository files \texttt{compliance.fol}, \texttt{compliance.lisp}). The FOL version uses predicate dispatch with automatic
-specificity ordering; the CL version uses a manual \texttt{cond} cascade with hand-ordered predicates. Table~\ref{tab:density} compares the implementations (non-blank, non-comment lines).
+We implement a trade compliance validator in FOL and plain
+Common Lisp (repository files \texttt{compliance.fol}, \texttt{compliance.lisp}).
+The FOL version uses predicate dispatch with automatic
+specificity ordering; the CL version uses a manual \texttt{cond} cascade
+with hand-ordered predicates. Table~\ref{tab:density} compares the i
+implementations (non-blank, non-comment lines).
 \begin{lstlisting}
 ;;    Inherits from <persistent-object> for immutability
 (defclass <trade> [<>]
@@ -387,19 +396,7 @@ specificity ordering; the CL version uses a manual \texttt{cond} cascade with ha
     [amount :initarg :amount :accessor trade-amount]
     [price  :initarg :price  :accessor trade-price]
     [side   :initarg :side   :accessor trade-side]]) ; :buy or :sell
-
-(defn trade-total-price [trade]
-  (* (trade-price trade) (trade-amount trade)))
-
-;;    These functions return true/false based on the trade object
-(defn restricted-symbol?
-    ([(trade (-> (trade-symbol) (#{AMZN GOOG META MSFT})))] t)
-    ([trade] nil))
-
-(defn high-value?
-    ([(trade (-> (trade-total-price) (> 1000000.00)))] t)
-    ([trade] nil))
-
+;; ...
 (defn is-buy-side-trade?
     ([(trade (-> (trade-side) (= :buy)))] t)
     ([trade] nil))
@@ -412,17 +409,14 @@ specificity ordering; the CL version uses a manual \texttt{cond} cascade with ha
   (and (is-buy-side-trade? trade) (is-penny-stock? trade)))
 
 (defgeneric validate-trade [trade])
-
 ;;    Syntax: (var predicate-fn)
 (defmethod validate-trade
     ;; Rule 1: Block restricted symbols immediately
     ([(trd (restricted-symbol?))]
-        {:status :rejected
-          :reason (str "Symbol " (trade-symbol trd) " is on the restricted list")})
+    ;; ...
     ;; Rule 2: Flag high value trades for manual review
     ([(trd (high-value?))]
-        {:status :manual-review
-          :reason "Trade value exceeds $1M limit"})
+    ;; ...
     ;; Rule 3: Warn on penny stock purchases
     ([(trd (penny-stock-buy?))]
         {:status :warning
@@ -450,7 +444,7 @@ Module boilerplate & 2 & 10 & 80\% \\
 \end{tabular}
 \end{table}
 
-Table~\ref{tab:density} shows that savings in LOC are modest (17\%) because this example exercises predicate dispatch and module syntax but not persistence or method combinations---it demonstrates a single-feature advantage (predicate dispatch)
+Table~\ref{tab:density} shows that savings in LOC are modest (17\%) because this example exercises predicate dispatch but not persistence or method combinations---it demonstrates a single-feature advantage (predicate dispatch)
 rather than multi-feature synergy. The predicate category is \textit{larger} in FOL because predicate-dispatch patterns require explicit true/nil branches. The advantage here is \textit{correctness}, not
 brevity: FOL's specificity ordering guarantees that more-constrained rules fire first regardless of definition order. Reordering or adding rules cannot silently change which clause matches---a class of
 maintenance bug that plagues \texttt{cond} cascades in production.
@@ -591,9 +585,9 @@ a novel adaptation of the MOP for immutable object systems---it trades explicit 
     Persistent objects & $\checkmark$ & $\checkmark$ & $\times$ \\
     CLOS/MOP & $\checkmark$ & $\times$ & $\checkmark$ \\
     Method combinations & $\checkmark$ & $\times$ & $\checkmark$ \\
+    Predicate dispatch & $\checkmark$ & $\sim$\tnote{a} & $\times$\tnote{b} \\ % Use \tnote
     Transducers & $\checkmark$ & $\checkmark$ & $\times$ \\
     Lazy seqs & $\checkmark$ & $\checkmark$ & $\times$ \\
-    Predicate dispatch & $\checkmark$ & $\sim$\tnote{a} & $\times$\tnote{b} \\ % Use \tnote
     Macros & $\checkmark$ & $\checkmark$ & $\checkmark$ \\
     \bottomrule
     \end{tabular}

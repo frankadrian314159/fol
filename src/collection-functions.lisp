@@ -207,17 +207,22 @@
     (if (cl:rest seq)
         (apply #'fol.compiler.collections:make
                (class-of coll) (cl:rest seq))
-        (fol.compiler.collections:make (class-of coll)))))
+        (make-instance (class-of coll)))))
 
 (defmethod rest ((coll fol.compiler.collections:<vector>))
   (let ((items (fol.compiler.collections:storage-items coll)))
-    (if (cl:> (fset:size items) 1)
+    (if (cl:> (fset:size items) 0)
         (make-instance 'fol.compiler.collections:<vector>
-                       :storage-items (fset:less-first items))
+                       :items (fset:subseq items 1))
         (make-instance 'fol.compiler.collections:<vector>))))
 
 (defmethod rest ((coll fol.compiler.collections:<list>))
   (fol.compiler.collections:list-rest coll))
+
+;; Sets don't really support rest (unordered), so just return empty set
+(defmethod rest ((coll fol.compiler.collections:<set>))
+  (make-instance 'fol.compiler.collections:<set>
+                 :items (sycamore:make-hash-set)))
 
 ;; Fallback for CL lists
 (defmethod rest ((coll cl:list))
@@ -277,6 +282,10 @@
       element
       default))
 
+;; CL hash-table: use gethash
+(defmethod get ((coll cl:hash-table) key &optional default)
+  (cl:gethash key coll default))
+
 ;;; ---------------------------------------------------------------------------
 ;;; assoc - Returns new collection with key-value pairs added/updated
 ;;; ---------------------------------------------------------------------------
@@ -307,7 +316,7 @@
   (let* ((items (fol.compiler.collections:storage-items coll))
          (new-items (fset:with items index value)))
     (let ((new-coll (make-instance 'fol.compiler.collections:<vector>
-                                   :storage-items new-items)))
+                                   :items new-items)))
       (if ivs
           (apply #'assoc new-coll ivs)
           new-coll))))
@@ -322,7 +331,7 @@
 (defmethod dissoc ((coll fol.compiler.collections:<dict>) &rest keys)
   (let ((items (fol.compiler.collections:storage-items coll)))
     (make-instance 'fol.compiler.collections:<dict>
-                   :storage-items (reduce #'sycamore:hash-map-remove keys
+                   :items (reduce #'sycamore:hash-map-remove keys
                                           :initial-value items))))
 
 (defmethod dissoc ((coll fol.compiler.collections:<ordered-dict>) &rest keys)
@@ -336,13 +345,13 @@
          (new-order (fset:filter (lambda (k) (not (sycamore:hash-set-find key-set k)))
                                  key-order)))
     (make-instance 'fol.compiler.collections:<ordered-dict>
-                   :storage-items new-items
+                   :items new-items
                    :key-order new-order)))
 
 (defmethod dissoc ((coll fol.compiler.collections:<sorted-dict>) &rest keys)
   (let ((items (fol.compiler.collections:storage-items coll)))
     (make-instance 'fol.compiler.collections:<sorted-dict>
-                   :storage-items (reduce #'sycamore:tree-map-remove keys
+                   :items (reduce #'sycamore:tree-map-remove keys
                                           :initial-value items)
                    :comparator (slot-value coll 'fol.compiler.collections::comparator))))
 
@@ -398,7 +407,7 @@
           (sycamore:do-hash-map ((k v) (fol.compiler.collections:storage-items other))
             (setf result-items (sycamore:hash-map-insert result-items k v))))
         (make-instance 'fol.compiler.collections:<dict>
-                       :storage-items result-items))))
+                       :items result-items))))
 
 (defmethod merge ((coll fol.compiler.collections:<ordered-dict>) &rest colls)
   (if (null colls)
@@ -412,7 +421,7 @@
             (unless (sycamore:hash-map-find result-items k)
               (setf result-order (fset:with-last result-order k)))))
         (make-instance 'fol.compiler.collections:<ordered-dict>
-                       :storage-items result-items
+                       :items result-items
                        :key-order result-order))))
 
 (defmethod merge ((coll fol.compiler.collections:<sorted-dict>) &rest colls)
@@ -423,5 +432,5 @@
           (sycamore:do-tree-map ((k v) (fol.compiler.collections:storage-items other))
             (setf result-items (sycamore:tree-map-insert result-items k v))))
         (make-instance 'fol.compiler.collections:<sorted-dict>
-                       :storage-items result-items
+                       :items result-items
                        :comparator (slot-value coll 'fol.compiler.collections::comparator)))))

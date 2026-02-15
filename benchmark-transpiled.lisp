@@ -12,7 +12,7 @@
   (:shadowing-import-from :fol.compiler.mutable
                 atom)
   (:shadowing-import-from :fol.compiler.collection-functions
-                get assoc dissoc update conj)
+                get assoc dissoc update conj merge)
   (:shadowing-import-from :fol.compiler.seq-functions
                 map reduce filter concat into some every
                 take-while drop-while mapcat keys sort-by)
@@ -116,7 +116,9 @@
 (setf (fdefinition 'reduce) #'reduce-wrapper)
 
 ;; Load the transpiled simulator
+(format t "Loading lsim.lisp...~%") (force-output)
 (load "fol-code/lsim.lisp")
+(format t "✓ lsim.lisp loaded~%") (force-output)
 
 ;; Workaround for defmacro transpilation bug:
 ;; The DEFPART macro has <MODULE-DEF> unquoted, so it's evaluated as a variable.
@@ -125,7 +127,9 @@
 (defconstant <logic-component> '<logic-component>)
 (defconstant <component> '<component>)
 
+(format t "Loading register-8bit.lisp...~%") (force-output)
 (load "fol-code/register-8bit.lisp")
+(format t "✓ register-8bit.lisp loaded~%") (force-output)
 
 ;; Helper to create event (FOL dict)
 (defun make-event (time node value)
@@ -133,17 +137,22 @@
 
 (defun run-one-simulation ()
   "Run one instance of the 8-bit register simulation."
+  (format t "    [1] Resetting sim context...~%") (force-output)
   ;; Reset simulation context (FOL data structures)
   (setf *sim-context*
         (atom (fol.compiler.collection-functions:dict
                :monitored (fol.compiler.collection-functions:set)
                :events (fol.compiler.collection-functions:vector)
                :history (fol.compiler.collection-functions:dict))))
+  (format t "    [2] Context reset~%") (force-output)
 
   ;; Monitor output bits
+  (format t "    [3] Monitoring outputs...~%") (force-output)
   (funcall #'monitor 'out0 'out1 'out2 'out3 'out4 'out5 'out6 'out7)
+  (format t "    [4] Outputs monitored~%") (force-output)
 
   ;; Set up test events
+  (format t "    [5] Setting up events...~%") (force-output)
   (funcall #'events
     (make-event 0 'in0 nil) (make-event 0 'in1 t)
     (make-event 0 'in2 nil) (make-event 0 'in3 t)
@@ -157,18 +166,23 @@
     (make-event 15 'in6 t) (make-event 15 'in7 nil)
     (make-event 20 'clk t)
     (make-event 25 'clk nil))
+  (format t "    [6] Events set up~%") (force-output)
 
   ;; Run simulation
-  (funcall #'run 'test-register-8bit 30))
+  (format t "    [7] Running simulation...~%") (force-output)
+  (funcall #'run 'test-register-8bit 30)
+  (format t "    [8] Simulation complete~%") (force-output))
 
 (format t "~%=== Benchmarking Transpiled FOL Simulator ===~%")
-(format t "Running 1000 simulations...~%~%")
+(format t "Running 10 simulations...~%~%")
 
 ;; Warm-up runs
-(dotimes (i 10)
-  (run-one-simulation))
+(dotimes (i 3)
+  (format t "Warm-up run ~A/3...~%" (1+ i)) (force-output)
+  (run-one-simulation)
+  (format t "  ✓ Complete~%") (force-output))
 
-(format t "Warm-up complete. Starting timed runs...~%~%")
+(format t "Warm-up complete. Starting timed runs...~%~%") (force-output)
 
 ;; Force GC before benchmark
 (sb-ext:gc :full t)
@@ -177,11 +191,11 @@
       (start-run-time (get-internal-run-time))
       (initial-bytes (sb-ext:dynamic-space-size)))
 
-  ;; Run 1000 simulations
-  (dotimes (i 1000)
-    (when (zerop (mod i 100))
-      (format t "Progress: ~A/1000~%" i))
-    (run-one-simulation))
+  ;; Run 10 simulations
+  (dotimes (i 10)
+    (format t "Run ~A/10...~%" (1+ i)) (force-output)
+    (run-one-simulation)
+    (format t "  ✓ Complete~%") (force-output))
 
   (let* ((end-time (get-internal-real-time))
          (end-run-time (get-internal-run-time))
@@ -197,12 +211,12 @@
     (format t "Total real time:     ~,3F seconds~%" real-seconds)
     (format t "Total CPU time:      ~,3F seconds~%" run-seconds)
     (format t "Average per run:     ~,3F ms (real time)~%"
-            (* 1000 (/ real-seconds 1000)))
+            (* 1000 (/ real-seconds 10)))
     (format t "Average per run:     ~,3F ms (CPU time)~%"
-            (* 1000 (/ run-seconds 1000)))
+            (* 1000 (/ run-seconds 10)))
     (format t "Memory allocated:    ~,2F MB~%" mb-allocated)
     (format t "Memory per run:      ~,2F KB~%"
-            (/ mb-allocated 1000.0 1024))
+            (/ mb-allocated 10.0 1024))
     (format t "~%")))
 
 (sb-ext:quit)

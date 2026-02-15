@@ -6,6 +6,97 @@
 (in-package :fol.compiler.seq-functions)
 
 ;;; ===========================================================================
+;;; Thread Pool for Parallel Operations
+;;; ===========================================================================
+
+(defvar *thread-pool-size* 16
+  "Number of worker threads in the global thread pool.")
+
+(defvar *work-queue* nil
+  "Queue of work items to be processed by worker threads.")
+
+(defvar *work-queue-lock* nil
+  "Lock protecting the work queue.")
+
+(defvar *work-queue-condvar* nil
+  "Condition variable for signaling work availability.")
+
+(defvar *worker-threads* nil
+  "Vector of worker threads.")
+
+(defvar *thread-pool-shutdown* nil
+  "Flag indicating thread pool should shut down.")
+
+(defstruct work-item
+  "A unit of work for the thread pool."
+  (fn nil :type function)
+  (args nil :type list)
+  (result-box nil :type cons)  ; cons cell to store result
+  (done-lock nil)
+  (done-condvar nil))
+
+(defun %worker-thread-loop ()
+  "Main loop for worker threads. Pulls work from queue and executes it."
+  (loop
+    (let ((work nil))
+      ;; Get work from queue
+      (bt:with-lock-held (*work-queue-lock*)
+        (loop while (and (null *work-queue*) (not *thread-pool-shutdown*))
+              do (bt:condition-wait *work-queue-condvar* *work-queue-lock*))
+        (when *thread-pool-shutdown*
+          (return-from %worker-thread-loop))
+        (when *work-queue*
+          (setf work (pop *work-queue*))))
+
+      ;; Execute work
+      (when work
+        (let ((result (handler-case
+                          (apply (work-item-fn work) (work-item-args work))
+                        (error (e)
+                          (format *error-output* "~&Worker thread error: ~A~%" e)
+                          :error))))
+          ;; Store result and signal completion
+          (setf (car (work-item-result-box work)) result)
+          (bt:with-lock-held ((work-item-done-lock work))
+            (bt:condition-notify (work-item-done-condvar work))))))))
+
+(defun %initialize-thread-pool ()
+  "Initialize the global thread pool with worker threads."
+  (unless *worker-threads*
+    (setf *work-queue* nil)
+    (setf *work-queue-lock* (bt:make-lock "work-queue-lock"))
+    (setf *work-queue-condvar* (bt:make-condition-variable :name "work-queue-condvar"))
+    (setf *thread-pool-shutdown* nil)
+    (setf *worker-threads*
+          (make-array *thread-pool-size*
+                      :initial-contents
+                      (loop for i from 0 below *thread-pool-size*
+                            collect (bt:make-thread #'%worker-thread-loop
+                                                     :name (format nil "worker-~D" i)))))))
+
+(defun %submit-work (fn args)
+  "Submit work to the thread pool. Returns a work-item that can be waited on."
+  (%initialize-thread-pool)  ; Ensure pool is initialized
+  (let ((work (make-work-item
+               :fn fn
+               :args args
+               :result-box (cons nil nil)
+               :done-lock (bt:make-lock)
+               :done-condvar (bt:make-condition-variable))))
+    (bt:with-lock-held (*work-queue-lock*)
+      (setf *work-queue* (nconc *work-queue* (list work)))
+      (bt:condition-notify *work-queue-condvar*))
+    work))
+
+(defun %wait-for-work (work-item)
+  "Wait for a work item to complete and return its result."
+  (bt:with-lock-held ((work-item-done-lock work-item))
+    (loop while (null (car (work-item-result-box work-item)))
+          do (bt:condition-wait (work-item-done-condvar work-item)
+                                (work-item-done-lock work-item))))
+  (car (work-item-result-box work-item)))
+
+;;; ===========================================================================
 ;;; Higher-Order Collection Functions
 ;;; ===========================================================================
 
@@ -26,11 +117,11 @@
       (let* ((seqs (cons (fol.compiler.collections:collection-seq coll)
                          (cl:mapcar #'fol.compiler.collections:collection-seq colls)))
              (results (apply #'cl:mapcar fn seqs)))
-        (apply #'fol.compiler.collections:make (class-of coll) results))
+        (apply #'fol.compiler.collections:make (class-name (class-of coll)) results))
       ;; Single collection
       (let* ((seq (fol.compiler.collections:collection-seq coll))
              (results (cl:mapcar fn seq)))
-        (apply #'fol.compiler.collections:make (class-of coll) results))))
+        (apply #'fol.compiler.collections:make (class-name (class-of coll)) results))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; mapv - map returning vector
@@ -52,6 +143,34 @@
         (apply #'fol.compiler.collections:make 'fol.compiler.collections:<vector> results))))
 
 ;;; ---------------------------------------------------------------------------
+;;; pmap - parallel map using thread pool
+;;; ---------------------------------------------------------------------------
+
+(defun pmap (fn coll &rest colls)
+  "Parallel version of map. Applies FN to elements in parallel using a thread pool.
+   Returns a new collection of the same type as COLL.
+
+   Examples:
+     (pmap expensive-fn [1 2 3 4])  ; processes in parallel"
+  (if colls
+      ;; Multiple collections - zip them and process in parallel
+      (let* ((seqs (cons (fol.compiler.collections:collection-seq coll)
+                         (cl:mapcar #'fol.compiler.collections:collection-seq colls)))
+             (zipped (apply #'cl:mapcar #'list seqs))
+             (work-items (cl:mapcar (lambda (args)
+                                      (%submit-work fn args))
+                                    zipped))
+             (results (cl:mapcar #'%wait-for-work work-items)))
+        (apply #'fol.compiler.collections:make (class-name (class-of coll)) results))
+      ;; Single collection - process in parallel
+      (let* ((seq (fol.compiler.collections:collection-seq coll))
+             (work-items (cl:mapcar (lambda (elem)
+                                      (%submit-work fn (list elem)))
+                                    seq))
+             (results (cl:mapcar #'%wait-for-work work-items)))
+        (apply #'fol.compiler.collections:make (class-name (class-of coll)) results))))
+
+;;; ---------------------------------------------------------------------------
 ;;; filter - Keep elements that satisfy predicate
 ;;; ---------------------------------------------------------------------------
 
@@ -65,7 +184,7 @@
          (filtered (cl:remove-if-not (lambda (x)
                                        (fol.compiler.primitives:truthy? (funcall pred x)))
                                      seq)))
-    (apply #'fol.compiler.collections:make (class-of coll) filtered)))
+    (apply #'fol.compiler.collections:make (class-name (class-of coll)) filtered)))
 
 ;;; ---------------------------------------------------------------------------
 ;;; filterv - filter returning vector
@@ -111,7 +230,26 @@
          (mapped (cl:mapcar fn seq))
          (seqs (cl:mapcar #'fol.compiler.collections:collection-seq mapped))
          (flattened (apply #'cl:append seqs)))
-    (apply #'fol.compiler.collections:make (class-of coll) flattened)))
+    (apply #'fol.compiler.collections:make (class-name (class-of coll)) flattened)))
+
+;;; ---------------------------------------------------------------------------
+;;; pmapcat - parallel map followed by concatenation using thread pool
+;;; ---------------------------------------------------------------------------
+
+(defun pmapcat (fn coll)
+  "Parallel version of mapcat. Apply FN to each element in parallel using a thread pool, then concatenate.
+   FN should return a collection. Results are concatenated into same type as COLL.
+
+   Examples:
+     (pmapcat (fn [x] [x (* x 2)]) [1 2 3]) => [1 2 2 4 3 6]"
+  (let* ((seq (fol.compiler.collections:collection-seq coll))
+         (work-items (cl:mapcar (lambda (elem)
+                                  (%submit-work fn (list elem)))
+                                seq))
+         (mapped (cl:mapcar #'%wait-for-work work-items))
+         (seqs (cl:mapcar #'fol.compiler.collections:collection-seq mapped))
+         (flattened (apply #'cl:append seqs)))
+    (apply #'fol.compiler.collections:make (class-name (class-of coll)) flattened)))
 
 ;;; ---------------------------------------------------------------------------
 ;;; remove - Inverse of filter
@@ -128,7 +266,7 @@
          (kept (cl:remove-if (lambda (x)
                                (fol.compiler.primitives:truthy? (funcall pred x)))
                              seq)))
-    (apply #'fol.compiler.collections:make (class-of coll) kept)))
+    (apply #'fol.compiler.collections:make (class-name (class-of coll)) kept)))
 
 ;;; ---------------------------------------------------------------------------
 ;;; keep - map but remove nil results
@@ -142,7 +280,7 @@
   (let* ((seq (fol.compiler.collections:collection-seq coll))
          (results (cl:mapcar fn seq))
          (kept (cl:remove-if #'null results)))
-    (apply #'fol.compiler.collections:make (class-of coll) kept)))
+    (apply #'fol.compiler.collections:make (class-name (class-of coll)) kept)))
 
 ;;; ---------------------------------------------------------------------------
 ;;; some - Test if any element satisfies predicate
@@ -208,7 +346,7 @@
      (take 10 [1 2 3])     => [1 2 3]"
   (let* ((seq (fol.compiler.collections:collection-seq coll))
          (taken (cl:subseq seq 0 (min n (length seq)))))
-    (apply #'fol.compiler.collections:make (class-of coll) taken)))
+    (apply #'fol.compiler.collections:make (class-name (class-of coll)) taken)))
 
 ;;; ---------------------------------------------------------------------------
 ;;; drop - Drop first n elements
@@ -222,7 +360,7 @@
      (drop 10 [1 2 3])     => []"
   (let* ((seq (fol.compiler.collections:collection-seq coll))
          (dropped (cl:nthcdr n seq)))
-    (apply #'fol.compiler.collections:make (class-of coll) dropped)))
+    (apply #'fol.compiler.collections:make (class-name (class-of coll)) dropped)))
 
 ;;; ---------------------------------------------------------------------------
 ;;; take-while - Take elements while predicate is true
@@ -238,7 +376,7 @@
     (loop for elem in seq
           while (fol.compiler.primitives:truthy? (funcall pred elem))
           do (push elem result))
-    (apply #'fol.compiler.collections:make (class-of coll) (nreverse result))))
+    (apply #'fol.compiler.collections:make (class-name (class-of coll)) (nreverse result))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; drop-while - Drop elements while predicate is true
@@ -252,8 +390,8 @@
   (let ((seq (fol.compiler.collections:collection-seq coll)))
     (loop for tail on seq
           when (not (fol.compiler.primitives:truthy? (funcall pred (car tail))))
-          return (apply #'fol.compiler.collections:make (class-of coll) tail)
-          finally (return (fol.compiler.collections:make (class-of coll))))))
+          return (apply #'fol.compiler.collections:make (class-name (class-of coll)) tail)
+          finally (return (fol.compiler.collections:make (class-name (class-of coll)))))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; into - Add all elements from one collection into another

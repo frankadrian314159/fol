@@ -2,7 +2,7 @@
 
 ;;; This file was automatically generated. Do not edit directly.
 
-(DEFVAR *MODULES* (ATOM (FOL.COMPILER.COLLECTIONS:DICT)))
+(DEFVAR *MODULES* (ATOM (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT)))
 
 (DEFUN REGISTER-MODULE (NAME DEF)
   (FOL.COMPILER.MUTABLE:SWAP! *MODULES* #'ASSOC NAME DEF))
@@ -94,14 +94,17 @@
                              D
                              MAX-D)))
                      0 CHANGED-INPUTS)))
-               (FOL.COMPILER.COLLECTIONS:DICT :VALUE (GET NEW-STATES OUT-PORT)
-                                              :DELAY DELAY :PORT OUT-PORT)))
+               (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT :VALUE
+                                                       (GET NEW-STATES
+                                                            OUT-PORT)
+                                                       :DELAY DELAY :PORT
+                                                       OUT-PORT)))
            (COMPONENT-OUTPUTS COMP))))))
    (T
     (ERROR "No matching method clause for ~A with arguments: ~S"
            'COMPUTE-NEXT-STATE (LIST COMP INPUT-STATES CHANGED-INPUTS)))))
 
-(DEFVAR *PRIMITIVES* (ATOM (FOL.COMPILER.COLLECTIONS:DICT)))
+(DEFVAR *PRIMITIVES* (ATOM (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT)))
 
 (DEFUN REGISTER-PRIMITIVE (NAME FACTORY)
   (FOL.COMPILER.MUTABLE:SWAP! *PRIMITIVES* #'ASSOC NAME FACTORY))
@@ -112,99 +115,135 @@
 (REGISTER-PRIMITIVE 'NOT
  (LAMBDA (NAME PARAM CONNS)
    (MAKE <LOGIC-COMPONENT> :NAME NAME :TYPE 'NOT :CONNECTIONS CONNS :INPUTS
-    (FOL.COMPILER.COLLECTIONS:SET :IN) :OUTPUTS
-    (FOL.COMPILER.COLLECTIONS:SET :OUT) :DELAYS
-    (FOL.COMPILER.COLLECTIONS:DICT :IN (FOL.COMPILER.COLLECTIONS:DICT :OUT 1))
+    (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :IN) :OUTPUTS
+    (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :OUT) :DELAYS
+    (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT :IN
+                                            (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT
+                                             :OUT 1))
     :LOGIC-FN
-    (LAMBDA (S) (FOL.COMPILER.COLLECTIONS:DICT :OUT (NOT (GET S :IN)))))))
+    (LAMBDA (S)
+      (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT :OUT (NOT (GET S :IN)))))))
 
 (REGISTER-PRIMITIVE 'NAND
  (LAMBDA (NAME PARAM CONNS)
    (MAKE <LOGIC-COMPONENT> :NAME NAME :TYPE 'NAND :CONNECTIONS CONNS :INPUTS
-    (FOL.COMPILER.COLLECTIONS:SET :IN2 :IN1) :OUTPUTS
-    (FOL.COMPILER.COLLECTIONS:SET :OUT) :DELAYS
-    (FOL.COMPILER.COLLECTIONS:DICT :IN2 (FOL.COMPILER.COLLECTIONS:DICT :OUT 2)
-                                   :IN1 (FOL.COMPILER.COLLECTIONS:DICT :OUT 2))
+    (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :IN2 :IN1) :OUTPUTS
+    (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :OUT) :DELAYS
+    (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT :IN2
+                                            (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT
+                                             :OUT 2)
+                                            :IN1
+                                            (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT
+                                             :OUT 2))
     :LOGIC-FN
     (LAMBDA (S)
-      (FOL.COMPILER.COLLECTIONS:DICT :OUT
-                                     (NOT (AND (GET S :IN1) (GET S :IN2))))))))
+      (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT :OUT
+                                              (NOT
+                                               (AND (GET S :IN1)
+                                                    (GET S :IN2))))))))
 
 (REGISTER-PRIMITIVE 'NOR
  (LAMBDA (NAME PARAM CONNS)
    (MAKE <LOGIC-COMPONENT> :NAME NAME :TYPE 'NOR :CONNECTIONS CONNS :INPUTS
-    (FOL.COMPILER.COLLECTIONS:SET :IN2 :IN1) :OUTPUTS
-    (FOL.COMPILER.COLLECTIONS:SET :OUT) :DELAYS
-    (FOL.COMPILER.COLLECTIONS:DICT :IN2 (FOL.COMPILER.COLLECTIONS:DICT :OUT 2)
-                                   :IN1 (FOL.COMPILER.COLLECTIONS:DICT :OUT 2))
+    (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :IN2 :IN1) :OUTPUTS
+    (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :OUT) :DELAYS
+    (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT :IN2
+                                            (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT
+                                             :OUT 2)
+                                            :IN1
+                                            (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT
+                                             :OUT 2))
     :LOGIC-FN
     (LAMBDA (S)
-      (FOL.COMPILER.COLLECTIONS:DICT :OUT
-                                     (NOT (OR (GET S :IN1) (GET S :IN2))))))))
+      (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT :OUT
+                                              (NOT
+                                               (OR (GET S :IN1)
+                                                   (GET S :IN2))))))))
 
 (REGISTER-PRIMITIVE 'AND
  (LAMBDA (NAME PARAM CONNS)
    (MAKE <LOGIC-COMPONENT> :NAME NAME :TYPE 'AND :CONNECTIONS CONNS :INPUTS
-    (FOL.COMPILER.COLLECTIONS:SET :IN2 :IN1) :OUTPUTS
-    (FOL.COMPILER.COLLECTIONS:SET :OUT) :DELAYS
-    (FOL.COMPILER.COLLECTIONS:DICT :IN2 (FOL.COMPILER.COLLECTIONS:DICT :OUT 3)
-                                   :IN1 (FOL.COMPILER.COLLECTIONS:DICT :OUT 3))
+    (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :IN2 :IN1) :OUTPUTS
+    (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :OUT) :DELAYS
+    (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT :IN2
+                                            (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT
+                                             :OUT 3)
+                                            :IN1
+                                            (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT
+                                             :OUT 3))
     :LOGIC-FN
     (LAMBDA (S)
-      (FOL.COMPILER.COLLECTIONS:DICT :OUT (AND (GET S :IN1) (GET S :IN2)))))))
+      (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT :OUT
+                                              (AND (GET S :IN1)
+                                                   (GET S :IN2)))))))
 
 (REGISTER-PRIMITIVE 'OR
  (LAMBDA (NAME PARAM CONNS)
    (MAKE <LOGIC-COMPONENT> :NAME NAME :TYPE 'OR :CONNECTIONS CONNS :INPUTS
-    (FOL.COMPILER.COLLECTIONS:SET :IN2 :IN1) :OUTPUTS
-    (FOL.COMPILER.COLLECTIONS:SET :OUT) :DELAYS
-    (FOL.COMPILER.COLLECTIONS:DICT :IN2 (FOL.COMPILER.COLLECTIONS:DICT :OUT 3)
-                                   :IN1 (FOL.COMPILER.COLLECTIONS:DICT :OUT 3))
+    (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :IN2 :IN1) :OUTPUTS
+    (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :OUT) :DELAYS
+    (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT :IN2
+                                            (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT
+                                             :OUT 3)
+                                            :IN1
+                                            (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT
+                                             :OUT 3))
     :LOGIC-FN
     (LAMBDA (S)
-      (FOL.COMPILER.COLLECTIONS:DICT :OUT (OR (GET S :IN1) (GET S :IN2)))))))
+      (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT :OUT
+                                              (OR (GET S :IN1)
+                                                  (GET S :IN2)))))))
 
 (REGISTER-PRIMITIVE 'XOR
  (LAMBDA (NAME PARAM CONNS)
    (MAKE <LOGIC-COMPONENT> :NAME NAME :TYPE 'XOR :CONNECTIONS CONNS :INPUTS
-    (FOL.COMPILER.COLLECTIONS:SET :IN2 :IN1) :OUTPUTS
-    (FOL.COMPILER.COLLECTIONS:SET :OUT) :DELAYS
-    (FOL.COMPILER.COLLECTIONS:DICT :IN2 (FOL.COMPILER.COLLECTIONS:DICT :OUT 3)
-                                   :IN1 (FOL.COMPILER.COLLECTIONS:DICT :OUT 3))
+    (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :IN2 :IN1) :OUTPUTS
+    (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :OUT) :DELAYS
+    (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT :IN2
+                                            (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT
+                                             :OUT 3)
+                                            :IN1
+                                            (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT
+                                             :OUT 3))
     :LOGIC-FN
     (LAMBDA (S)
       (LET ((A (GET S :IN1)))
         (LET ((B (GET S :IN2)))
-          (FOL.COMPILER.COLLECTIONS:DICT :OUT
-                                         (OR (AND A (NOT B))
-                                             (AND (NOT A) B)))))))))
+          (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT :OUT
+                                                  (OR (AND A (NOT B))
+                                                      (AND (NOT A) B)))))))))
 
 (REGISTER-PRIMITIVE 'XNOR
  (LAMBDA (NAME PARAM CONNS)
    (MAKE <LOGIC-COMPONENT> :NAME NAME :TYPE 'XNOR :CONNECTIONS CONNS :INPUTS
-    (FOL.COMPILER.COLLECTIONS:SET :IN2 :IN1) :OUTPUTS
-    (FOL.COMPILER.COLLECTIONS:SET :OUT) :DELAYS
-    (FOL.COMPILER.COLLECTIONS:DICT :IN2 (FOL.COMPILER.COLLECTIONS:DICT :OUT 4)
-                                   :IN1 (FOL.COMPILER.COLLECTIONS:DICT :OUT 4))
+    (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :IN2 :IN1) :OUTPUTS
+    (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :OUT) :DELAYS
+    (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT :IN2
+                                            (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT
+                                             :OUT 4)
+                                            :IN1
+                                            (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT
+                                             :OUT 4))
     :LOGIC-FN
     (LAMBDA (S)
       (LET ((A (GET S :IN1)))
         (LET ((B (GET S :IN2)))
-          (FOL.COMPILER.COLLECTIONS:DICT :OUT
-                                         (NOT
-                                          (OR (AND A (NOT B))
-                                              (AND (NOT A) B))))))))))
+          (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT :OUT
+                                                  (NOT
+                                                   (OR (AND A (NOT B))
+                                                       (AND (NOT A) B))))))))))
 
 (REGISTER-PRIMITIVE 'DELAY
  (LAMBDA (NAME PARAM CONNS)
    (LET ((D (OR PARAM 0)))
      (MAKE <LOGIC-COMPONENT> :NAME NAME :TYPE 'DELAY :CONNECTIONS CONNS :INPUTS
-      (FOL.COMPILER.COLLECTIONS:SET :IN) :OUTPUTS
-      (FOL.COMPILER.COLLECTIONS:SET :OUT) :DELAYS
-      (FOL.COMPILER.COLLECTIONS:DICT :IN
-                                     (FOL.COMPILER.COLLECTIONS:DICT :OUT D))
+      (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :IN) :OUTPUTS
+      (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :OUT) :DELAYS
+      (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT :IN
+                                              (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT
+                                               :OUT D))
       :LOGIC-FN
-      (LAMBDA (S) (FOL.COMPILER.COLLECTIONS:DICT :OUT (GET S :IN)))))))
+      (LAMBDA (S) (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT :OUT (GET S :IN)))))))
 
 (DEFMACRO DEFPART (NAME PORTS &BODY BODY)
   `(REGISTER-MODULE ',NAME
@@ -222,7 +261,7 @@
 
 (DEFUN PARSE-CONNECTIONS (ARGS PREFIX BINDINGS)
   (BLOCK LOOP-BLOCK-1
-    (LET ((REM ARGS) (ACC (FOL.COMPILER.COLLECTIONS:DICT)))
+    (LET ((REM ARGS) (ACC (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT)))
       (TAGBODY
        LOOP-1
         (LET ((RESULT-1
@@ -263,14 +302,14 @@
                          (LAMBDA (ACC CHILD-SPEC)
                            (CONCAT ACC
                             (EXPAND-SPEC CHILD-SPEC FULL-NAME RESOLVED-CONNS)))
-                         (FOL.COMPILER.COLLECTIONS:VECTOR)
+                         (FOL.COMPILER.COLLECTION-FUNCTIONS:VECTOR)
                          (MODULE-BODY MODULE-DEF)))
                        ((FOL.COMPILER.PRIMITIVES:TRUTHY? PRIMITIVE-FACTORY)
-                        (FOL.COMPILER.COLLECTIONS:VECTOR
+                        (FOL.COMPILER.COLLECTION-FUNCTIONS:VECTOR
                          (FUNCALL PRIMITIVE-FACTORY FULL-NAME PARAM
                                   RESOLVED-CONNS)))
                        ((FOL.COMPILER.PRIMITIVES:TRUTHY? :ELSE)
-                        (FOL.COMPILER.COLLECTIONS:VECTOR
+                        (FOL.COMPILER.COLLECTION-FUNCTIONS:VECTOR
                          (MAKE <COMPONENT> :NAME FULL-NAME :TYPE TYPE
                           :CONNECTIONS RESOLVED-CONNS)))))))))))))))
 
@@ -280,10 +319,11 @@
         (ERROR (STR "Module " TOP-MODULE-NAME " not found"))
         (LET ((TOP-BINDINGS
                (REDUCE (LAMBDA (ACC P) (ASSOC ACC P P))
-                       (FOL.COMPILER.COLLECTIONS:DICT) (MODULE-PORTS DEF))))
+                       (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT)
+                       (MODULE-PORTS DEF))))
           (REDUCE
            (LAMBDA (ACC SPEC) (CONCAT ACC (EXPAND-SPEC SPEC NIL TOP-BINDINGS)))
-           (FOL.COMPILER.COLLECTIONS:VECTOR) (MODULE-BODY DEF))))))
+           (FOL.COMPILER.COLLECTION-FUNCTIONS:VECTOR) (MODULE-BODY DEF))))))
 
 (DEFGENERIC REGISTER-CONNECTIVITY
     (COMP MAP))
@@ -298,7 +338,8 @@
        (LET ((NODE (GET (COMPONENT-CONNECTIONS COMP) PORT)))
          (UPDATE ACC NODE
           (LAMBDA (COMPS)
-            (CONJ (OR COMPS (FOL.COMPILER.COLLECTIONS:VECTOR)) COMP)))))
+            (CONJ (OR COMPS (FOL.COMPILER.COLLECTION-FUNCTIONS:VECTOR))
+             COMP)))))
      MAP (COMPONENT-INPUTS COMP)))
    (T
     (ERROR "No matching method clause for ~A with arguments: ~S"
@@ -306,7 +347,7 @@
 
 (DEFUN INSERT-EVENT (QUEUE EVENT)
   (IF (FOL.COMPILER.PRIMITIVES:TRUTHY? (EMPTY? QUEUE))
-      (FOL.COMPILER.COLLECTIONS:VECTOR EVENT)
+      (FOL.COMPILER.COLLECTION-FUNCTIONS:VECTOR EVENT)
       (LET ((HEAD (FIRST QUEUE)))
         (IF (FOL.COMPILER.PRIMITIVES:TRUTHY?
              (< (GET EVENT :TIME) (GET HEAD :TIME)))
@@ -320,7 +361,7 @@
    (LAMBDA (ACC PORT)
      (LET ((NODE (GET (COMPONENT-CONNECTIONS COMP) PORT)))
        (ASSOC ACC PORT (GET NODE-VALUES NODE))))
-   (FOL.COMPILER.COLLECTIONS:DICT) (COMPONENT-INPUTS COMP)))
+   (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT) (COMPONENT-INPUTS COMP)))
 
 (DEFUN GET-CHANGED-PORTS (COMP CHANGED-NODES)
   (FILTER
@@ -332,11 +373,11 @@
 (DEFUN RUN-SIMULATION (NETLIST INITIAL-EVENTS MAX-TIME MONITORED-NODES)
   (LET ((CONNECTIVITY
          (REDUCE (LAMBDA (ACC C) (REGISTER-CONNECTIVITY C ACC))
-                 (FOL.COMPILER.COLLECTIONS:DICT) NETLIST)))
+                 (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT) NETLIST)))
     (BLOCK LOOP-BLOCK-2
       (LET ((QUEUE (SORT-BY :TIME INITIAL-EVENTS))
-            (NODE-VALUES (FOL.COMPILER.COLLECTIONS:DICT))
-            (EVENT-HISTORY (FOL.COMPILER.COLLECTIONS:DICT))
+            (NODE-VALUES (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT))
+            (EVENT-HISTORY (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT))
             (CURRENT-TIME 0))
         (TAGBODY
          LOOP-2
@@ -359,7 +400,8 @@
                                     (LAMBDA (ACC EVT)
                                       (ASSOC ACC (GET EVT :NODE)
                                              (GET EVT :VALUE)))
-                                    (FOL.COMPILER.COLLECTIONS:DICT) BATCH)))
+                                    (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT)
+                                    BATCH)))
                               (LET ((NEW-NODE-VALUES
                                      (MERGE NODE-VALUES UPDATES)))
                                 (LET ((NEW-EVENT-HISTORY
@@ -372,7 +414,7 @@
                                                (LAMBDA (EVTS)
                                                  (CONJ
                                                   (OR EVTS
-                                                      (FOL.COMPILER.COLLECTIONS:VECTOR))
+                                                      (FOL.COMPILER.COLLECTION-FUNCTIONS:VECTOR))
                                                   EVT)))
                                               ACC))
                                         EVENT-HISTORY BATCH)))
@@ -382,10 +424,10 @@
                                             (LAMBDA (ACC NODE)
                                               (REDUCE CONJ ACC
                                                       (GET CONNECTIVITY NODE)))
-                                            (FOL.COMPILER.COLLECTIONS:SET)
+                                            (FOL.COMPILER.COLLECTION-FUNCTIONS:SET)
                                             CHANGED-NODES)))
                                       (LET ((NEW-EVENTS
-                                             (MAPCAT
+                                             (PMAPCAT
                                               (LAMBDA (COMP)
                                                 (LET ((INPUT-STATES
                                                        (GET-INPUT-STATES COMP
@@ -393,7 +435,7 @@
                                                   (LET ((CHANGED-PORTS
                                                          (GET-CHANGED-PORTS
                                                           COMP
-                                                          (FOL.COMPILER.COLLECTIONS:SET
+                                                          (FOL.COMPILER.COLLECTION-FUNCTIONS:SET
                                                            CHANGED-NODES))))
                                                     (LET ((RESULTS
                                                            (COMPUTE-NEXT-STATE
@@ -401,7 +443,7 @@
                                                             CHANGED-PORTS)))
                                                       (MAP
                                                        (LAMBDA (RES)
-                                                         (FOL.COMPILER.COLLECTIONS:DICT
+                                                         (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT
                                                           :NODE
                                                           (GET
                                                            (COMPONENT-CONNECTIONS
@@ -427,14 +469,18 @@
 
 (DEFVAR *SIM-CONTEXT*
   (ATOM
-   (FOL.COMPILER.COLLECTIONS:DICT :EVENTS (FOL.COMPILER.COLLECTIONS:VECTOR)
-                                  :MONITORED (FOL.COMPILER.COLLECTIONS:SET)
-                                  :HISTORY (FOL.COMPILER.COLLECTIONS:DICT))))
+   (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT :EVENTS
+                                           (FOL.COMPILER.COLLECTION-FUNCTIONS:VECTOR)
+                                           :MONITORED
+                                           (FOL.COMPILER.COLLECTION-FUNCTIONS:SET)
+                                           :HISTORY
+                                           (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT))))
 
 (DEFUN MONITOR (&REST NODES)
   (FOL.COMPILER.MUTABLE:SWAP! *SIM-CONTEXT* #'UPDATE :MONITORED
                               (LAMBDA (S)
-                                (INTO (OR S (FOL.COMPILER.COLLECTIONS:SET))
+                                (INTO
+                                 (OR S (FOL.COMPILER.COLLECTION-FUNCTIONS:SET))
                                  NODES))))
 
 (DEFUN EVENTS (&REST EVENTS)

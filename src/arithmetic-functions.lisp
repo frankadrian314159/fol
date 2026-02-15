@@ -110,6 +110,36 @@
 
 
 ;;; ============================================================================
+;;; Increment and Decrement
+;;; ============================================================================
+
+(defgeneric inc (num)
+  (:documentation "Returns NUM + 1."))
+
+(defmethod inc ((num number))
+  (cl:+ num 1))
+
+(defmethod inc ((num <number>))
+  (cl:+ (fol-value num) 1))
+
+(defmethod inc (obj)
+  (error "INC requires a number, got ~A" obj))
+
+
+(defgeneric dec (num)
+  (:documentation "Returns NUM - 1."))
+
+(defmethod dec ((num number))
+  (cl:- num 1))
+
+(defmethod dec ((num <number>))
+  (cl:- (fol-value num) 1))
+
+(defmethod dec (obj)
+  (error "DEC requires a number, got ~A" obj))
+
+
+;;; ============================================================================
 ;;; Trigonometric Functions
 ;;; ============================================================================
 
@@ -604,6 +634,19 @@
   nil)
 
 
+(defgeneric neg-int? (num)
+  (:documentation "Returns T if NUM is a negative integer (< 0), NIL otherwise."))
+
+(defmethod neg-int? ((num integer))
+  (cl:< num 0))
+
+(defmethod neg-int? ((num number))
+  nil)
+
+(defmethod neg-int? (obj)
+  nil)
+
+
 (defgeneric NaN? (num)
   (:documentation "Returns T if NUM is a floating-point NaN (Not a Number), NIL otherwise."))
 
@@ -645,6 +688,44 @@
 
 (defmethod infinite? (obj)
   (error "INFINITE? requires a number, got ~A of type ~A" obj (type-of obj)))
+
+
+(defgeneric Inf? (num)
+  (:documentation "Returns T if NUM is positive infinity, NIL otherwise."))
+
+(defmethod Inf? ((num float))
+  ;; Check for positive infinity
+  (and (not (zerop num))
+       (cl:plusp num)
+       (= num (/ num 2))))
+
+(defmethod Inf? ((num <float>))
+  (Inf? (fol-value num)))
+
+(defmethod Inf? ((num number))
+  nil)
+
+(defmethod Inf? (obj)
+  (error "INF? requires a number, got ~A of type ~A" obj (type-of obj)))
+
+
+(defgeneric -Inf? (num)
+  (:documentation "Returns T if NUM is negative infinity, NIL otherwise."))
+
+(defmethod -Inf? ((num float))
+  ;; Check for negative infinity
+  (and (not (zerop num))
+       (cl:minusp num)
+       (= num (/ num 2))))
+
+(defmethod -Inf? ((num <float>))
+  (-Inf? (fol-value num)))
+
+(defmethod -Inf? ((num number))
+  nil)
+
+(defmethod -Inf? (obj)
+  (error "-INF? requires a number, got ~A of type ~A" obj (type-of obj)))
 
 
 ;;; Type conversion functions
@@ -754,37 +835,43 @@ This is the underlying implementation for the with-seed macro."
 ;;; Parsing functions
 
 (defun parse-int (int-string)
-  "Parses an integer string and returns a FOL <integer> instance.
+  "Parses an integer string and returns an integer.
    INT-STRING should contain a valid integer representation.
    Example: (parse-int \"42\") => 42
             (parse-int \"-17\") => -17
             (parse-int \"3.14\") => ERROR"
-  (let ((str (typecase int-string
-               (string int-string)
-               (<string> (fol-value int-string))
-               (t (error "Expected a string for parse-int, got ~A" (type-of int-string))))))
-    (let ((form (let ((*read-eval* nil))  ; Safety: disable #. reader macro
-                  (read-from-string str))))
-      (if (integerp form)
-          (wrap-number form)
-          (error "Expected an integer, got ~S" form)))))
+  (unless (stringp int-string)
+    (error "Expected a string for parse-int, got ~A" (type-of int-string)))
+  (let ((form (let ((*read-eval* nil))  ; Safety: disable #. reader macro
+                (read-from-string int-string))))
+    (if (integerp form)
+        form
+        (error "Expected an integer, got ~S" form))))
 
 (defun parse-double (double-string)
-  "Parses a floating-point string and returns a FOL <double-float> instance.
+  "Parses a floating-point string and returns a double-float.
    DOUBLE-STRING should contain a valid floating-point representation.
    Integers are automatically converted to double-float.
    Example: (parse-double \"3.14\") => 3.14d0
             (parse-double \"42\") => 42.0d0
             (parse-double \"-1.5e10\") => -1.5d10"
-  (let ((str (typecase double-string
-               (string double-string)
-               (<string> (fol-value double-string))
-               (t (error "Expected a string for parse-double, got ~A" (type-of double-string))))))
-    (let ((form (let ((*read-eval* nil))  ; Safety: disable #. reader macro
-                  (read-from-string str))))
-      (if (realp form)
-          (wrap-number (coerce form 'double-float))
-          (error "Expected a real number, got ~S" form)))))
+  (unless (stringp double-string)
+    (error "Expected a string for parse-double, got ~A" (type-of double-string)))
+  (let ((form (let ((*read-eval* nil))  ; Safety: disable #. reader macro
+                (read-from-string double-string))))
+    (if (realp form)
+        (coerce form 'double-float)
+        (error "Expected a real number, got ~S" form))))
+
+(defun parse-long (long-string)
+  "Parses an integer string and returns an integer (alias for parse-int).
+   In Common Lisp, integers can be arbitrary size, so parse-long is
+   equivalent to parse-int.
+   LONG-STRING should contain a valid integer representation.
+   Example: (parse-long \"42\") => 42
+            (parse-long \"-17\") => -17
+            (parse-long \"9223372036854775807\") => 9223372036854775807"
+  (parse-int long-string))
 
 
 ;;; Integer conversion function
@@ -793,7 +880,9 @@ This is the underlying implementation for the with-seed macro."
   (:documentation "Converts an object to an integer.
    - Characters are converted to their character code.
    - Booleans are converted to 1 (true) or 0 (false/nil).
-   - Integers are returned unchanged."))
+   - Integers are returned unchanged.
+   - Floats are truncated to their integer part (towards zero).
+   - Ratios are truncated to their integer part (towards zero)."))
 
 (defmethod int ((obj character))
   "Convert a character to its character code."
@@ -815,5 +904,75 @@ This is the underlying implementation for the with-seed macro."
   "Integers are returned unchanged."
   obj)
 
+(defmethod int ((obj float))
+  "Convert a float to its integer part (truncate towards zero)."
+  (cl:truncate obj))
+
+(defmethod int ((obj <float>))
+  "Convert a wrapped float to its integer part (truncate towards zero)."
+  (cl:truncate (fol-value obj)))
+
+(defmethod int ((obj ratio))
+  "Convert a ratio to its integer part (truncate towards zero)."
+  (cl:truncate obj))
+
+(defmethod int ((obj <ratio>))
+  "Convert a wrapped ratio to its integer part (truncate towards zero)."
+  (cl:truncate (fol-value obj)))
+
 (defmethod int (obj)
-  (error "INT requires a character, boolean, or integer, got ~A of type ~A" obj (type-of obj)))
+  (error "INT requires a character, boolean, number, or integer, got ~A of type ~A" obj (type-of obj)))
+
+
+;;; ============================================================================
+;;; Float Type Conversions
+;;; ============================================================================
+
+(defgeneric <single-float> (num)
+  (:documentation "Converts a non-complex number to single-float precision.
+   If the number is out of range, returns positive or negative infinity."))
+
+(defmethod <single-float> ((num real))
+  "Convert a real number to single-float, handling overflow."
+  (handler-case
+      (cl:coerce num 'single-float)
+    (floating-point-overflow ()
+      #+sbcl (if (cl:minusp num)
+                 sb-ext:single-float-negative-infinity
+                 sb-ext:single-float-positive-infinity)
+      #-sbcl (ignore-errors
+               (if (cl:minusp num)
+                   (cl:/ -1.0f0 0.0f0)
+                   (cl:/ 1.0f0 0.0f0))))))
+
+(defmethod <single-float> ((num <number>))
+  "Convert a wrapped number to single-float."
+  (<single-float> (fol-value num)))
+
+(defmethod <single-float> (obj)
+  (error "<SINGLE-FLOAT> requires a non-complex number, got ~A of type ~A" obj (type-of obj)))
+
+
+(defgeneric <double-float> (num)
+  (:documentation "Converts a non-complex number to double-float precision.
+   If the number is out of range, returns positive or negative infinity."))
+
+(defmethod <double-float> ((num real))
+  "Convert a real number to double-float, handling overflow."
+  (handler-case
+      (cl:coerce num 'double-float)
+    (floating-point-overflow ()
+      #+sbcl (if (cl:minusp num)
+                 sb-ext:double-float-negative-infinity
+                 sb-ext:double-float-positive-infinity)
+      #-sbcl (ignore-errors
+               (if (cl:minusp num)
+                   (cl:/ -1.0d0 0.0d0)
+                   (cl:/ 1.0d0 0.0d0))))))
+
+(defmethod <double-float> ((num <number>))
+  "Convert a wrapped number to double-float."
+  (<double-float> (fol-value num)))
+
+(defmethod <double-float> (obj)
+  (error "<DOUBLE-FLOAT> requires a non-complex number, got ~A of type ~A" obj (type-of obj)))

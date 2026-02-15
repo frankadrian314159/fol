@@ -284,7 +284,7 @@
 (test compile-fn-with-key-and-or
   "fn with :key and :or produces &key with defaults."
   (let* ((result (fol.compiler:compile-form
-                  (list 'fn (fol.compiler.collections:vector 'a :key 'verbose :or (fol.compiler.collections:vector nil)) '(list a verbose))))
+                  (list 'fn (fol.compiler.collection-functions:vector 'a :key 'verbose :or (fol.compiler.collection-functions:vector nil)) '(list a verbose))))
          (code (fol.compiler:compilation-result-code result)))
     (is (null (fol.compiler:compilation-result-errors result)))
     (is (eq 'lambda (first code)))
