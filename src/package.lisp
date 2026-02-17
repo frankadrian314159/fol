@@ -738,6 +738,31 @@
    ;; Symbol interning
    intern))
 
+(defpackage fol.compiler.mutable-functions
+  (:use cl)
+  (:shadowing-import-from fol.compiler.mutable atom)
+  (:import-from fol.compiler.mutable
+                <atom> deref reset! swap! compare-and-set!
+                <ref> ref ref-set alter commute ensure dosync
+                <agent> agent send send-off await agent-error restart-agent
+                set-error-handler! set-error-mode!)
+  (:export
+   ;; Re-export primitives
+   atom deref reset! swap! compare-and-set!
+   ref ref-set alter commute ensure dosync
+   agent send send-off await agent-error restart-agent
+   set-error-handler! set-error-mode!
+   ;; Atom extensions
+   swap-vals! reset-vals!
+   ;; Futures
+   future future-call future-done? future-cancel future-cancelled? future?
+   ;; Promises
+   promise deliver
+   ;; Parallel processing
+   pcalls pvalues pmap seque
+   ;; Thread bindings
+   bound-fn bound-fn* get-thread-bindings push-thread-bindings pop-thread-bindings thread-bound?))
+
 (defpackage fol.compiler.tests
   (:use cl fiveam)
   (:import-from fol.compiler.ast

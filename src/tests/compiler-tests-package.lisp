@@ -81,6 +81,10 @@
   :description "Tests for miscellaneous functions (defonce, intern)."
   :in compiler-tests)
 
+(def-suite mutable-functions-tests
+  :description "Tests for mutable functions (futures, promises, atom extensions)."
+  :in compiler-tests)
+
 (defun fol-form (form)
   "Recursively convert CL vectors in FORM to FOL <vector> instances.
    Allows tests to use the familiar #(...) syntax inside (fol-form '(...))."
