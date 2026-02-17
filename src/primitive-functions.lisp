@@ -524,17 +524,34 @@
      (let ((x '(1 2)))
        (identical? x x))     => T
      (identical? '(1 2) '(1 2))  => NIL  ; different cons cells"
-  (eq x y))
+   (eq x y))
+
+(defgeneric equal? (a b)
+  (:documentation "Returns true if A and B are equal in value.
+  Supports custom equality for FOL collections."))
+
+(defmethod equal? (a b)
+  (equal a b))
+
+(defmethod equal? ((a fol.compiler.collections:<collection>) (b fol.compiler.collections:<collection>))
+  (and (= (fol.compiler.collections:collection-size a)
+          (fol.compiler.collections:collection-size b))
+       (equal? (fol.compiler.collections:collection-seq a)
+               (fol.compiler.collections:collection-seq b))))
+    
+(defmethod equal? ((a cons) (b cons))
+   (and (equal? (car a) (car b))
+        (equal? (cdr a) (cdr b))))
 
 (defun =? (x y)
   "Returns true if X and Y are equal in value.
-   Uses EQUAL for comparison (works for strings, lists, etc.).
+   Uses equal? generic function for extensible equality.
 
    Examples:
      (=? \"hello\" \"hello\")    => T
      (=? '(1 2) '(1 2))       => T
      (=? 42 42)               => T"
-  (equal x y))
+  (equal? x y))
 
 (defun zero? (x)
   "Returns true if X is zero.

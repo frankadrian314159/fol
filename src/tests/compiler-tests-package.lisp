@@ -65,6 +65,10 @@
   :description "Tests for relational algebra functions (join, select, project, etc.)."
   :in compiler-tests)
 
+(def-suite transducers-tests
+  :description "Tests for transducers (map, filter, transduce, etc.)."
+  :in compiler-tests)
+
 (def-suite seq-functions-tests
   :description "Tests for seq-functions (seq, sequence, range, repeat, iterate, etc.)."
   :in compiler-tests)

@@ -692,6 +692,16 @@
                 reduce filter map keys)
   (:export
    join select project union difference intersection index rename diff))
+ 
+ (defpackage fol.compiler.transducers
+   (:use cl)
+   (:shadow map mapcat filter remove replace)
+   (:import-from fol.compiler.primitives truthy?)
+   (:export
+    map mapcat filter remove take take-while take-nth drop drop-while replace
+    partition-by partition-all keep keep-indexed map-indexed distinct
+    interpose cat dedupe random-sample halt-when
+    transduce))
 
 (defpackage fol.compiler.tests
   (:use cl fiveam)
