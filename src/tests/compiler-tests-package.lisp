@@ -73,6 +73,14 @@
   :description "Tests for seq-functions (seq, sequence, range, repeat, iterate, etc.)."
   :in compiler-tests)
 
+(def-suite io-tests
+  :description "Tests for I/O functions (spit, slurp, pr, print, format, etc.)."
+  :in compiler-tests)
+
+(def-suite misc-functions-tests
+  :description "Tests for miscellaneous functions (defonce, intern)."
+  :in compiler-tests)
+
 (defun fol-form (form)
   "Recursively convert CL vectors in FORM to FOL <vector> instances.
    Allows tests to use the familiar #(...) syntax inside (fol-form '(...))."

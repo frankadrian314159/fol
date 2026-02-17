@@ -71,6 +71,12 @@
   (bindings nil :read-only t)   ; list of (name . init-node) pairs
   (body nil :read-only t))      ; list of AST nodes
 
+(defstruct (letfn-node (:include ast-node))
+  "Local function definitions: (letfn [(name [params] body...) ...] body...).
+   Enables mutually recursive local functions; compiles to CL labels."
+  (bindings nil :read-only t)   ; list of (name params-vec body-nodes...) lists
+  (body nil :read-only t))      ; list of AST nodes
+
 (defstruct (fn-node (:include ast-node))
   "Anonymous function: (fn name [params] body) or multi-clause (fn name ([p1] b1) ([p2] b2))."
   (name nil :read-only t)       ; optional name for self-reference

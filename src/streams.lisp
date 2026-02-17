@@ -334,3 +334,10 @@
                  :filename "stdout"
                  :file-object *standard-output*)
   "The default output stream, bound to standard output.")
+
+(defvar *err*
+  (make-instance '<file-output-stream>
+                 :stream *error-output*
+                 :filename "stderr"
+                 :file-object *error-output*)
+  "The default error stream, bound to standard error.")

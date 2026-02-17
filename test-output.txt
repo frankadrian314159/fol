@@ -44,6 +44,25 @@ To load "sycamore":
 ; Loading "sycamore"
 
 WARNING: redefining IRONCLAD:BLOCK-LENGTH in DEFGENERIC
+; in: ALEXANDRIA:NAMED-LAMBDA %TEST-RESOURCE-MANAGEMENT
+;     (FOL.COMPILER.IO:WITH-OPEN ((FOL.COMPILER.TESTS::S
+;                                  (MAKE-INSTANCE
+;                                   'FOL.COMPILER.STREAMS:<STRING-INPUT-STREAM>
+;                                   :STRING "test")))
+;       (IT.BESE.FIVEAM:IS (NOT (NULL FOL.COMPILER.TESTS::S))))
+; 
+; caught ERROR:
+;   (S (MAKE-INSTANCE 'FOL.COMPILER.STREAMS:<STRING-INPUT-STREAM> :STRING "test"))
+;   is not a symbol and cannot be used as a local variable.
+
+;     (FOL.COMPILER.TESTS::CLOSED NIL)
+; 
+; caught STYLE-WARNING:
+;   The variable CLOSED is defined but never used.
+; 
+; compilation unit finished
+;   caught 1 ERROR condition
+;   caught 1 STYLE-WARNING condition
 
 Running test suite COMPILER-TESTS
  Running test suite AST-TESTS
@@ -142,6 +161,14 @@ Running test suite COMPILER-TESTS
   Running test COMPILE-COLLECTION-AS-FUNCTION-SET ..
   Running test COMPILE-COLLECTION-AS-FUNCTION-SET-MISSING ..
   Running test COMPILE-COLLECTION-AS-FUNCTION-LEXICAL-SET ..
+  Running test LETFN-COMPILES-TO-LABELS ..
+  Running test LETFN-SINGLE-FN-EVALUATES ..
+  Running test LETFN-MULTIPLE-FNS ..
+  Running test LETFN-MUTUAL-RECURSION ..
+  Running test LETFN-BODY-SEES-OUTER-SCOPE ..
+  Running test LETFN-NO-BINDINGS ..
+  Running test LETFN-FN-CALLS-SIBLING ..
+  Running test LETFN-WITH-REST-PARAMS ..
  Running test suite DESTRUCTURE-TESTS
   Running test PARSE-PARAMS-SIMPLE ..
   Running test PARSE-PARAMS-WITH-REST ..
@@ -1514,6 +1541,32 @@ Running test suite COMPILER-TESTS
   Running test DIFF-SETS .......
   Running test DIFF-SETS-IDENTICAL ...
   Running test DIFF-RESULT-IS-FOL-VECTOR ..
+ Running test suite TRANSDUCERS-TESTS
+  Running test TRANSDUCER-MAP .
+  Running test TRANSDUCER-FILTER .
+  Running test TRANSDUCER-TAKE .
+  Running test TRANSDUCER-MAPCAT .
+  Running test TRANSDUCER-COMPOSE .
+  Running test TRANSDUCER-HALT-WHEN .
+  Running test TRANSDUCER-HALT-WHEN-BEHAVIOR .
+  Running test TRANSDUCER-TAKE-WHILE .
+  Running test TRANSDUCER-DROP .
+  Running test TRANSDUCER-DROP-WHILE .
+  Running test TRANSDUCER-REPLACE .
+  Running test TRANSDUCER-KEEP .
+  Running test TRANSDUCER-DISTINCT .
+  Running test TRANSDUCER-INTERPOSE .
+  Running test TRANSDUCER-DEDUPE .
+  Running test TRANSDUCER-PARTITION-ALL .
+  Running test TRANSDUCER-PARTITION-BY .
+  Running test TRANSDUCER-REMOVE .
+  Running test TRANSDUCER-TAKE-NTH .
+  Running test TRANSDUCER-CAT .
+  Running test TRANSDUCER-MAP-INDEXED .
+  Running test TRANSDUCER-KEEP-INDEXED .
+  Running test TRANSDUCER-INTO .
+  Running test TRANSDUCER-SEQUENCE ..
+  Running test TRANSDUCER-EDUCTION ..
  Running test suite SEQ-FUNCTIONS-TESTS
   Running test SEQ-NIL .
   Running test SEQ-EMPTY-VECTOR .
@@ -1552,8 +1605,132 @@ Running test suite COMPILER-TESTS
   Running test ENUMERATION-SEQ-EMPTY .
   Running test LINE-SEQ-FROM-STRING-STREAM ...
   Running test LINE-SEQ-EMPTY-STREAM .
- Did 2596 checks.
-    Pass: 2596 (100%)
+  Running test SORT-ASCENDING ...
+  Running test SORT-WITH-COMPARATOR ...
+  Running test SORT-EMPTY .
+  Running test REVERSE-BASIC ...
+  Running test REVERSE-EMPTY .
+  Running test REVERSE-SINGLE ..
+  Running test MAP-INDEXED-BASIC ....
+  Running test MAP-INDEXED-EMPTY .
+  Running test DISTINCT-REMOVES-DUPLICATES .....
+  Running test DISTINCT-NO-DUPLICATES .
+  Running test DISTINCT-EMPTY .
+  Running test DEDUPE-REMOVES-CONSECUTIVE .....
+  Running test DEDUPE-NO-CONSECUTIVE .
+  Running test FLATTEN-NESTED ...
+  Running test FLATTEN-ALREADY-FLAT .
+  Running test FLATTEN-EMPTY .
+  Running test GROUP-BY-EVEN-ODD ..
+  Running test GROUP-BY-IDENTITY ..
+  Running test PARTITION-ALL-EXACT ..
+  Running test PARTITION-ALL-PARTIAL-LAST ...
+  Running test PARTITION-ALL-EMPTY .
+  Running test PARTITION-BY-EVENP ....
+  Running test PARTITION-BY-NO-CONSECUTIVE .
+  Running test SPLIT-AT-BASIC .....
+  Running test SPLIT-AT-ZERO ..
+  Running test SPLIT-WITH-BASIC ....
+  Running test SHUFFLE-PRESERVES-SIZE .
+  Running test SHUFFLE-PRESERVES-ELEMENTS ..
+  Running test BUTLAST-BASIC ...
+  Running test BUTLAST-SINGLE .
+  Running test DROP-LAST-DEFAULT ..
+  Running test DROP-LAST-N ...
+  Running test TAKE-LAST-BASIC ...
+  Running test TAKE-LAST-MORE-THAN-SIZE .
+  Running test NTHREST-BASIC ..
+  Running test NTHREST-ZERO .
+  Running test THIRD-BASIC .
+  Running test THIRD-EXACTLY-THREE .
+  Running test THIRD-TOO-SHORT .
+  Running test THIRD-EMPTY .
+  Running test NEXT-BASIC .
+  Running test NEXT-SINGLE .
+  Running test NEXT-EMPTY .
+  Running test FNEXT-BASIC .
+  Running test FNEXT-SINGLE .
+  Running test NNEXT-BASIC .
+  Running test CONS-PREPEND ...
+  Running test CONS-NIL .
+  Running test CYCLE-BASIC ......
+  Running test CYCLE-IS-LAZY-SEQ .
+  Running test INTERLEAVE-EQUAL-LENGTH .....
+  Running test INTERLEAVE-STOPS-AT-SHORTEST .
+  Running test INTERPOSE-BASIC ......
+  Running test INTERPOSE-SINGLE ..
+  Running test INTERPOSE-EMPTY .
+  Running test TAKE-NTH-EVERY-OTHER ....
+  Running test TAKE-NTH-EVERY-ONE .
+  Running test RANDOM-SAMPLE-ALL .
+  Running test RANDOM-SAMPLE-NONE .
+  Running test RANDOM-SAMPLE-RETURNS-VECTOR .
+  Running test SEQUE-BASIC ...
+  Running test SEQUE-WITH-BUFFER-SIZE ..
+  Running test SECOND-BASIC .
+  Running test SECOND-TOO-SHORT .
+  Running test SECOND-EMPTY .
+  Running test LAST-BASIC .
+  Running test LAST-SINGLE .
+  Running test LAST-EMPTY .
+  Running test FFIRST-BASIC .
+  Running test FFIRST-NIL-WHEN-EMPTY-OUTER .
+  Running test NFIRST-BASIC .
+  Running test NFIRST-NIL-WHEN-EMPTY-INNER .
+  Running test NTHNEXT-ZERO .
+  Running test NTHNEXT-TWO .
+  Running test NTHNEXT-PAST-END .
+  Running test REALIZED-EAGER-IS-TRUE .
+  Running test REALIZED-UNREALIZED-LAZY-SEQ .
+  Running test REALIZED-AFTER-TAKE .
+  Running test DORUN-RETURNS-NIL .
+  Running test DORUN-FORCES-LAZY-SEQ .
+  Running test DOALL-EAGER-RETURNS-SAME .
+  Running test DOALL-LAZY-RETURNS-VECTOR ...
+  Running test RUN!-APPLIES-PROC .
+  Running test RUN!-RETURNS-NIL .
+  Running test RAND-NTH-RETURNS-ELEMENT .
+  Running test RAND-NTH-NIL-ON-EMPTY .
+  Running test MAX-KEY-SINGLE .
+  Running test MAX-KEY-TWO-ARGS .
+  Running test MAX-KEY-MULTIPLE .
+  Running test MIN-KEY-SINGLE .
+  Running test MIN-KEY-TWO-ARGS .
+  Running test MIN-KEY-MULTIPLE .
+  Running test ZIPMAP-BASIC ...
+  Running test ZIPMAP-STOPS-AT-SHORTER-KEYS .
+  Running test ZIPMAP-EMPTY .
+  Running test REDUCTIONS-WITH-INIT .....
+  Running test REDUCTIONS-WITHOUT-INIT .....
+  Running test REDUCTIONS-EMPTY-COLL .
+  Running test REDUCTIONS-SINGLE-WITH-INIT ...
+ Running test suite IO-TESTS
+  Running test SPIT-AND-SLURP .
+  Running test PR-STR-TEST ...
+  Running test PRINT-STR-TEST ...
+  Running test PRINT-TABLE-TEST ....
+  Running test FORMAT-TEST ..
+  Running test PRINTF-TEST .
+  Running test PRINTLN-STR-TEST .
+  Running test READ-LINE-TEST ..
+  Running test RESOURCE-MANAGEMENT .
+ Running test suite MISC-FUNCTIONS-TESTS
+  Running test DEFONCE-DEFINES-WHEN-UNBOUND ..
+  Running test DEFONCE-NO-OVERWRITE-WHEN-BOUND .
+  Running test DEFONCE-RETURNS-SYMBOL-NAME .
+  Running test DEFONCE-DECLARES-SPECIAL ..
+  Running test DEFONCE-WITH-NIL-VALUE ..
+  Running test DEFONCE-IDEMPOTENT-MULTIPLE-CALLS .
+  Running test INTERN-STRING-RETURNS-SYMBOL ..
+  Running test INTERN-STRING-UPCASES .
+  Running test INTERN-SYMBOL-ARGUMENT ..
+  Running test INTERN-WITH-KEYWORD-PACKAGE ..
+  Running test INTERN-WITH-CL-USER-PACKAGE ..
+  Running test INTERN-WITH-PACKAGE-OBJECT ..
+  Running test INTERN-DEFAULT-PACKAGE-IS-CURRENT .
+  Running test INTERN-IDEMPOTENT .
+ Did 2860 checks.
+    Pass: 2860 (100%)
     Skip: 0 ( 0%)
     Fail: 0 ( 0%)
 

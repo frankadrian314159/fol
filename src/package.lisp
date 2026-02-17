@@ -134,6 +134,8 @@
    as-thread-node as-thread-node-p as-thread-node-expr as-thread-node-name as-thread-node-forms make-as-thread-node
    some-thread-first-node some-thread-first-node-p some-thread-first-node-forms make-some-thread-first-node
    some-thread-last-node some-thread-last-node-p some-thread-last-node-forms make-some-thread-last-node
+   ;; Local function definitions
+   letfn-node letfn-node-p letfn-node-bindings letfn-node-body make-letfn-node
    ;; Constructors
    make-literal-node make-symbol-ref-node make-call-node make-if-node make-do-node make-bind-node
    make-fn-node make-def-node make-defn-node make-loop-node make-recur-node
@@ -667,7 +669,29 @@
    stream-close stream-flush
    get-output-string
    ;; Global vars
-   *in* *out*))
+   *in* *out* *err*))
+
+(defpackage fol.compiler.io
+  (:use cl)
+  (:shadow read read-line print format close delete-file pprint)
+  (:export
+    ;; Core IO
+    spit slurp
+    ;; Printing
+    pr prn print printf println newline print-table
+    pprint cl-format format
+    ;; String IO
+    with-out-str pr-str prn-str print-str println-str
+    with-in-str
+    ;; Reading
+    read-line read line-seq
+    ;; Resource management
+    with-open flush close
+    ;; File system
+    file copy delete-file resource
+    as-file as-url as-relative-path
+    ;; Tap system
+    tap> add-tap remove-tap))
 
 (defpackage fol.walk
   (:use cl)
@@ -704,6 +728,15 @@
     transduce
     reduced reduced? ensure-reduced unreduced completing
     into sequence eduction))
+
+(defpackage fol.compiler.misc-functions
+  (:use cl)
+  (:shadow intern)
+  (:export
+   ;; Definition once
+   defonce
+   ;; Symbol interning
+   intern))
 
 (defpackage fol.compiler.tests
   (:use cl fiveam)

@@ -400,6 +400,46 @@
        :body (mapcar #'parse-form body)
        :form form))))
 
+(defun parse-letfn (form)
+  "Parse a letfn form: (letfn [(name [params] body...) ...] body...).
+   The bindings vector contains fn-specs in one of two formats:
+     Single-arity:  (name [params] body...)
+     Multi-arity:   (name ([params1] body1...) ([params2] body2...))
+   Each binding is stored as (name . clauses) where each clause is
+   (params-vec . body-nodes), matching the format expected by compile-fn."
+  (destructuring-bind (op bindings-vec &rest body) form
+    (declare (ignore op))
+    (unless (fol-vector-p bindings-vec)
+      (error "letfn bindings must be a vector: ~S" form))
+    (let ((fn-specs (fol-vector-to-list bindings-vec)))
+      (fol.compiler.ast:make-letfn-node
+       :bindings (mapcar (lambda (spec)
+                           (unless (and (listp spec) (>= (length spec) 2))
+                             (error "letfn fn-spec must be (name [params] body...): ~S" spec))
+                           (destructuring-bind (name &rest args) spec
+                             (unless (symbolp name)
+                               (error "letfn fn name must be a symbol: ~S" name))
+                             (let ((clauses
+                                     (cond
+                                       ;; Single-arity: (name [params] body...)
+                                       ((fol-vector-p (first args))
+                                        (list (cons (first args)
+                                                    (mapcar #'parse-form (rest args)))))
+                                       ;; Multi-arity: (name ([p1] b1...) ([p2] b2...))
+                                       ((and (>= (length args) 1)
+                                             (listp (first args))
+                                             (not (null (first args)))
+                                             (fol-vector-p (first (first args))))
+                                        (mapcar (lambda (clause)
+                                                  (destructuring-bind (params &rest body-forms) clause
+                                                    (cons params (mapcar #'parse-form body-forms))))
+                                                args))
+                                       (t (error "Invalid letfn fn-spec: ~S" spec)))))
+                               (cons name clauses))))
+                         fn-specs)
+       :body (mapcar #'parse-form body)
+       :form form))))
+
 (defun parse-defn (form)
   "Parse a defn form into a defn-node.
    Supported syntaxes:
@@ -738,6 +778,7 @@
   ;; Functional special forms
   (setf (gethash "DEFN-" special-forms) #'parse-defn-private)
   (setf (gethash "DEFINLINE" special-forms) #'parse-definline)
+  (setf (gethash "LETFN" special-forms) #'parse-letfn)
   ;; Now macros: (setf (gethash "SOME->" special-forms) #'parse-some-thread-first)
   ;; Now macros: (setf (gethash "SOME->>" special-forms) #'parse-some-thread-last)
   ;; Now a macro: (setf (gethash "AS->" special-forms) #'parse-as-thread)
@@ -822,6 +863,11 @@
   "Set of lexically bound variable names. Used to detect when a function call
    needs funcall (Lisp-2 semantics). Bound dynamically during code emission.")
 
+(defvar *letfn-fns* nil
+  "Set of function names bound in an enclosing letfn (CL labels) form.
+   Calls to these names are emitted as direct function calls since labels
+   puts them in the function slot, not the value slot.")
+
 (defun emit-literal (node)
   "Emit a literal value. Self-evaluating forms compile to themselves."
   (fol.compiler.ast:literal-node-value node))
@@ -847,6 +893,12 @@
        (let ((keyword (fol.compiler.ast:literal-node-value operator))
              (dict-arg (emit-node (first args))))
          `(fol.compiler.collection-functions:get ,dict-arg ,keyword)))
+
+      ;; Pattern: (letfn-fn ...) - function bound by an enclosing letfn (labels)
+      ;; These are in the function slot, so emit a direct function call.
+      ((and (fol.compiler.ast:symbol-ref-node-p operator)
+            (member (fol.compiler.ast:symbol-ref-node-name operator) *letfn-fns*))
+       `(,(fol.compiler.ast:symbol-ref-node-name operator) ,@(mapcar #'emit-node args)))
 
       ;; Pattern: (lexical-var ...) - variable holding a function or collection
       ;; Runtime dispatch: funcall if function, get/nth if dict/vector/set
@@ -1679,6 +1731,23 @@
           (body (cddr lambda-form)))
       `(defun ,name ,params ,@body))))
 
+(defun emit-letfn (node)
+  "Emit a letfn node as CL labels.
+   Each binding is (name . clauses) where clauses match compile-fn's input format.
+   Single-arity and multi-arity fn-specs are both supported via compile-fn.
+   Names are tracked in *letfn-fns* so call sites emit direct function calls
+   rather than value-slot dispatch (which would fail for labels bindings)."
+  (let* ((bindings (fol.compiler.ast:letfn-node-bindings node))
+         (body (fol.compiler.ast:letfn-node-body node))
+         (fn-names (mapcar #'car bindings))
+         (*letfn-fns* (append fn-names *letfn-fns*)))
+    `(labels ,(mapcar (lambda (binding)
+                        (destructuring-bind (name . clauses) binding
+                          (let ((lambda-form (compile-fn clauses)))
+                            `(,name ,(second lambda-form) ,@(cddr lambda-form)))))
+                      bindings)
+       ,@(mapcar #'emit-node body))))
+
 ;;; ---------------------------------------------------------------------------
 ;;; Loop/Recur Emission
 ;;; ---------------------------------------------------------------------------
@@ -1923,7 +1992,9 @@
     (fol.compiler.ast:definline-node             (emit-definline node))
     (fol.compiler.ast:some-thread-first-node     (emit-some-thread-first node))
     (fol.compiler.ast:some-thread-last-node      (emit-some-thread-last node))
-    (fol.compiler.ast:as-thread-node             (emit-as-thread node))))
+    (fol.compiler.ast:as-thread-node             (emit-as-thread node))
+    ;; Local function definitions
+    (fol.compiler.ast:letfn-node                 (emit-letfn node))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Main Entry Points

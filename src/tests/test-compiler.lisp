@@ -918,3 +918,128 @@
          (val (eval code)))
     (is (null (fol.compiler:compilation-result-errors result)))
     (is (eq :b val))))
+
+;;; ---------------------------------------------------------------------------
+;;; letfn
+;;; ---------------------------------------------------------------------------
+
+(test letfn-compiles-to-labels
+  "letfn compiles to CL labels."
+  (let* ((result (fol.compiler:compile-form
+                  (fol-form '(letfn #((double #(x) (* x 2)))
+                               (double 5)))))
+         (code (fol.compiler:compilation-result-code result)))
+    (is (null (fol.compiler:compilation-result-errors result)))
+    (is (eq 'labels (first code)))))
+
+(test letfn-single-fn-evaluates
+  "A single letfn function executes correctly."
+  (let* ((result (fol.compiler:compile-form
+                  (fol-form '(letfn #((square #(x) (* x x)))
+                               (square 7)))))
+         (code (fol.compiler:compilation-result-code result))
+         (val (eval code)))
+    (is (null (fol.compiler:compilation-result-errors result)))
+    (is (eql 49 val))))
+
+(test letfn-multiple-fns
+  "Multiple letfn functions are all defined and callable."
+  (let* ((result (fol.compiler:compile-form
+                  (fol-form '(letfn #((add1 #(x) (+ x 1))
+                                      (mul2 #(x) (* x 2)))
+                               (add1 (mul2 3))))))
+         (code (fol.compiler:compilation-result-code result))
+         (val (eval code)))
+    (is (null (fol.compiler:compilation-result-errors result)))
+    (is (eql 7 val))))
+
+(test letfn-mutual-recursion
+  "letfn supports mutually recursive functions."
+  (let* ((result (fol.compiler:compile-form
+                  (fol-form '(letfn #((is-even? #(n)
+                                        (if (= n 0)
+                                            t
+                                            (is-odd? (- n 1))))
+                                      (is-odd? #(n)
+                                        (if (= n 0)
+                                            nil
+                                            (is-even? (- n 1)))))
+                               (list (is-even? 4) (is-odd? 3))))))
+         (code (fol.compiler:compilation-result-code result))
+         (val (eval code)))
+    (is (null (fol.compiler:compilation-result-errors result)))
+    (is (equal '(t t) val))))
+
+(test letfn-body-sees-outer-scope
+  "letfn body and functions can reference outer bindings."
+  (let* ((result (fol.compiler:compile-form
+                  (fol-form '(bind (n 10)
+                    (letfn #((add-n #(x) (+ x n)))
+                      (add-n 5))))))
+         (code (fol.compiler:compilation-result-code result))
+         (val (eval code)))
+    (is (null (fol.compiler:compilation-result-errors result)))
+    (is (eql 15 val))))
+
+(test letfn-no-bindings
+  "letfn with empty bindings vector just evaluates the body."
+  (let* ((result (fol.compiler:compile-form
+                  (fol-form '(letfn #() 42))))
+         (code (fol.compiler:compilation-result-code result))
+         (val (eval code)))
+    (is (null (fol.compiler:compilation-result-errors result)))
+    (is (eql 42 val))))
+
+(test letfn-fn-calls-sibling
+  "A letfn function can call another function defined in the same letfn."
+  (let* ((result (fol.compiler:compile-form
+                  (fol-form '(letfn #((double #(x) (* x 2))
+                                      (quadruple #(x) (double (double x))))
+                               (quadruple 3)))))
+         (code (fol.compiler:compilation-result-code result))
+         (val (eval code)))
+    (is (null (fol.compiler:compilation-result-errors result)))
+    (is (eql 12 val))))
+
+(test letfn-with-rest-params
+  "letfn supports rest parameters in fn-specs."
+  (let* ((result (fol.compiler:compile-form
+                  (fol-form '(letfn #((my-list #(& xs) xs))
+                               (my-list 1 2 3)))))
+         (code (fol.compiler:compilation-result-code result))
+         (val (eval code)))
+    (is (null (fol.compiler:compilation-result-errors result)))
+    (is (equal '(1 2 3) val))))
+
+(test letfn-multiple-params
+  "letfn fn-spec with multiple parameters receives all args correctly."
+  (let* ((result (fol.compiler:compile-form
+                  (fol-form '(letfn #((weighted #(x w) (* x w)))
+                               (+ (weighted 3 10) (weighted 4 100))))))
+         (code (fol.compiler:compilation-result-code result))
+         (val (eval code)))
+    (is (null (fol.compiler:compilation-result-errors result)))
+    (is (eql 430 val))))
+
+(test letfn-multi-arity
+  "letfn supports multiple arity clauses in a single fn-spec."
+  (let* ((result (fol.compiler:compile-form
+                  (fol-form '(letfn #((greet (#(name) (list :hello name))
+                                             (#(name greeting) (list greeting name))))
+                               (list (greet :alice)
+                                     (greet :bob :hi))))))
+         (code (fol.compiler:compilation-result-code result))
+         (val (eval code)))
+    (is (null (fol.compiler:compilation-result-errors result)))
+    (is (equal '((:hello :alice) (:hi :bob)) val))))
+
+(test letfn-multi-arity-cross-call
+  "letfn multi-arity fn-spec: 1-arity clause calls 0-arity clause."
+  (let* ((result (fol.compiler:compile-form
+                  (fol-form '(letfn #((f (#() 0)
+                                        (#(x) (+ x (f)))))
+                               (f 42)))))
+         (code (fol.compiler:compilation-result-code result))
+         (val (eval code)))
+    (is (null (fol.compiler:compilation-result-errors result)))
+    (is (eql 42 val))))
