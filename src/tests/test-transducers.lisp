@@ -168,3 +168,21 @@
     (is (fol.compiler.primitive-functions:=? 
           (run-transducer (fol.compiler.transducers:keep-indexed (lambda (i x) (if (evenp i) x nil))) data)
           (fol.compiler.collection-functions:vector :a :c)))))
+
+(test transducer-into
+  (let ((data (fol.compiler.collection-functions:vector 1 2 3)))
+    (is (fol.compiler.primitive-functions:=? 
+          (fol.compiler.transducers:into (fol.compiler.collection-functions:vector) (fol.compiler.transducers:map #'1+) data)
+          (fol.compiler.collection-functions:vector 2 3 4)))))
+
+(test transducer-sequence
+  (let ((data (fol.compiler.collection-functions:vector 1 2 3)))
+    (let ((seq (fol.compiler.transducers:sequence (fol.compiler.transducers:map #'1+) data)))
+      (is (fol.compiler.primitive-functions:<lazy-seq>? seq))
+      (is (equal (fol.compiler.collections:collection-seq seq) '(2 3 4))))))
+
+(test transducer-eduction
+  (let ((data (fol.compiler.collection-functions:vector 1 2 3)))
+    (let ((ed (fol.compiler.transducers:eduction (fol.compiler.transducers:map #'1+) data)))
+      (is (= (fol.compiler.collections:collection-size ed) 3))
+      (is (equal (fol.compiler.collections:collection-seq ed) '(2 3 4))))))

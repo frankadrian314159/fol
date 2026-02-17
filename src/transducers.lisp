@@ -336,3 +336,48 @@
                    (return (unreduced res))
                    (setf acc res)))
           finally (return (funcall rf acc)))))
+
+;;; ===========================================================================
+;;; Eduction
+;;; ===========================================================================
+
+(defclass eduction (fol.compiler.collections:<collection>)
+  ((xform :initarg :xform :reader eduction-xform)
+   (coll :initarg :coll :reader eduction-coll)))
+
+(defmethod fol.compiler.collections:collection-seq ((e eduction))
+  (let ((v (transduce (eduction-xform e) #'fol.compiler.collection-functions:conj (fol.compiler.collection-functions:vector) (eduction-coll e))))
+    (fol.compiler.collections:collection-seq v)))
+
+(defun eduction (xform coll)
+  (make-instance 'eduction :xform xform :coll coll))
+
+(defmethod fol.compiler.collections:collection-size ((e eduction))
+  (length (fol.compiler.collections:collection-seq e)))
+
+;;; ===========================================================================
+;;; Sequence
+;;; ===========================================================================
+
+(defun sequence (xform coll)
+  "Returns a lazy sequence of the application of xform to coll.
+   Note: Current implementation utilizes a lazy-seq that realizes eagerly upon access."
+  (make-instance 'fol.compiler.collections:<lazy-seq>
+    :thunk (lambda ()
+             (transduce xform #'fol.compiler.collection-functions:conj (fol.compiler.collection-functions:vector) coll))))
+
+;;; ===========================================================================
+;;; Into
+;;; ===========================================================================
+
+(defun into (to xform &optional from)
+  "Returns a new collection consisting of to with all of the items of from
+   conjoined. If xform is supplied, from is transduced."
+  (if from
+      (transduce xform #'fol.compiler.collection-functions:conj to from)
+      ;; 2-arity: (into to from) -> reduce conj over from (which is xform arg)
+      (let ((iter (fol.compiler.collections:collection-seq xform)) ;; xform is the source
+            (acc to))
+        (dolist (item iter)
+          (setf acc (fol.compiler.collection-functions:conj acc item)))
+        acc)))

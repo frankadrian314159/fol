@@ -695,13 +695,15 @@
  
  (defpackage fol.compiler.transducers
    (:use cl)
-   (:shadow map mapcat filter remove replace)
+   (:shadow map mapcat filter remove replace sequence)
    (:import-from fol.compiler.primitives truthy?)
    (:export
     map mapcat filter remove take take-while take-nth drop drop-while replace
     partition-by partition-all keep keep-indexed map-indexed distinct
     interpose cat dedupe random-sample halt-when
-    transduce))
+    transduce
+    reduced reduced? ensure-reduced unreduced completing
+    into sequence eduction))
 
 (defpackage fol.compiler.tests
   (:use cl fiveam)
