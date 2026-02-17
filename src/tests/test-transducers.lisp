@@ -131,3 +131,40 @@
            (fol.compiler.collection-functions:vector 2 2)
            (fol.compiler.collection-functions:vector 3)
            (fol.compiler.collection-functions:vector 1))))))
+
+(test transducer-remove
+  (let ((data (fol.compiler.collection-functions:vector 1 2 3 4)))
+    (is (fol.compiler.primitive-functions:=? 
+          (run-transducer (fol.compiler.transducers:remove #'evenp) data)
+          (fol.compiler.collection-functions:vector 1 3)))))
+
+(test transducer-take-nth
+  (let ((data (fol.compiler.collection-functions:vector 1 2 3 4 5)))
+    (is (fol.compiler.primitive-functions:=? 
+          (run-transducer (fol.compiler.transducers:take-nth 2) data)
+          (fol.compiler.collection-functions:vector 1 3 5)))))
+
+(test transducer-cat
+  (let ((data (fol.compiler.collection-functions:vector 
+               (fol.compiler.collection-functions:vector 1 2)
+               (fol.compiler.collection-functions:vector 3)
+               (fol.compiler.collection-functions:vector)
+               (fol.compiler.collection-functions:vector 4 5))))
+    (is (fol.compiler.primitive-functions:=? 
+          (run-transducer (fol.compiler.transducers:cat) data)
+          (fol.compiler.collection-functions:vector 1 2 3 4 5)))))
+
+(test transducer-map-indexed
+  (let ((data (fol.compiler.collection-functions:vector :a :b :c)))
+    (is (fol.compiler.primitive-functions:=? 
+          (run-transducer (fol.compiler.transducers:map-indexed (lambda (i x) (fol.compiler.collection-functions:vector i x))) data)
+          (fol.compiler.collection-functions:vector 
+           (fol.compiler.collection-functions:vector 0 :a)
+           (fol.compiler.collection-functions:vector 1 :b)
+           (fol.compiler.collection-functions:vector 2 :c))))))
+
+(test transducer-keep-indexed
+  (let ((data (fol.compiler.collection-functions:vector :a :b :c :d)))
+    (is (fol.compiler.primitive-functions:=? 
+          (run-transducer (fol.compiler.transducers:keep-indexed (lambda (i x) (if (evenp i) x nil))) data)
+          (fol.compiler.collection-functions:vector :a :c)))))
