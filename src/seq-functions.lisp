@@ -1126,6 +1126,18 @@
   (cl:rest (collection-seq coll)))
 
 ;;; ---------------------------------------------------------------------------
+;;; third - third element of a collection
+;;; ---------------------------------------------------------------------------
+
+(defun third (coll)
+  "Returns the third element of COLL, or nil if COLL has fewer than 3 elements.
+
+   Examples:
+     (third [1 2 3 4])  => 3
+     (third [1 2])      => nil"
+  (cl:third (collection-seq coll)))
+
+;;; ---------------------------------------------------------------------------
 ;;; fnext - first of next
 ;;; ---------------------------------------------------------------------------
 
@@ -1276,3 +1288,264 @@
      (seque [1 2 3])     => [1 2 3]
      (seque 16 [1 2 3])  => [1 2 3]"
   (sequence (if coll-p coll n-or-coll)))
+
+;;; ===========================================================================
+;;; Element Accessors
+;;; ===========================================================================
+
+;;; ---------------------------------------------------------------------------
+;;; second - second element of a collection
+;;; ---------------------------------------------------------------------------
+
+(defun second (coll)
+  "Returns the second element of COLL, or nil if COLL has fewer than 2 elements.
+
+   Examples:
+     (second [1 2 3])  => 2
+     (second [1])      => nil"
+  (cl:second (collection-seq coll)))
+
+;;; ---------------------------------------------------------------------------
+;;; last - last element of a collection
+;;; ---------------------------------------------------------------------------
+
+(defun last (coll)
+  "Returns the last element of COLL, or nil if COLL is empty.
+
+   Examples:
+     (last [1 2 3])  => 3
+     (last [42])     => 42
+     (last [])       => nil"
+  (cl:first (cl:last (collection-seq coll))))
+
+;;; ---------------------------------------------------------------------------
+;;; ffirst - first of first
+;;; ---------------------------------------------------------------------------
+
+(defun ffirst (coll)
+  "Returns (first (first coll)), i.e. the first element of the first element.
+
+   Examples:
+     (ffirst [[1 2] [3 4]])  => 1"
+  (let ((inner (cl:first (collection-seq coll))))
+    (when inner
+      (cl:first (collection-seq inner)))))
+
+;;; ---------------------------------------------------------------------------
+;;; nfirst - next of first (rest of first element's seq)
+;;; ---------------------------------------------------------------------------
+
+(defun nfirst (coll)
+  "Returns (next (first coll)), i.e. the seq of the first element minus its first item.
+
+   Examples:
+     (nfirst [[1 2 3] [4 5]])  => (2 3)"
+  (let ((inner (cl:first (collection-seq coll))))
+    (when inner
+      (cl:rest (collection-seq inner)))))
+
+;;; ---------------------------------------------------------------------------
+;;; nthnext - nth application of next
+;;; ---------------------------------------------------------------------------
+
+(defun nthnext (coll n)
+  "Returns the nth next of COLL as a CL list. (nthnext coll 0) = (seq coll).
+
+   Examples:
+     (nthnext [1 2 3 4] 2)  => (3 4)
+     (nthnext [1 2 3] 0)    => (1 2 3)
+     (nthnext [1] 2)        => nil"
+  (let ((s (collection-seq coll)))
+    (loop repeat n
+          while s
+          do (setf s (cl:rest s)))
+    s))
+
+;;; ===========================================================================
+;;; Lazy-Seq Utilities
+;;; ===========================================================================
+
+;;; ---------------------------------------------------------------------------
+;;; realized? - test whether a lazy-seq has been realized
+;;; ---------------------------------------------------------------------------
+
+(defun realized? (x)
+  "Returns true if X is not a lazy-seq or if the lazy-seq has been realized.
+
+   Examples:
+     (realized? [1 2 3])          => t   ; eager collection
+     (realized? (repeat 0))       => nil ; unrealized lazy-seq
+     (take 1 (repeat 0))
+     (realized? (repeat 0))       => nil ; each call to repeat makes a new one"
+  (if (typep x 'fol.compiler.collections:<lazy-seq>)
+      (lazy-seq-realized-p x)
+      t))
+
+;;; ---------------------------------------------------------------------------
+;;; dorun - force lazy seq for side effects, return nil
+;;; ---------------------------------------------------------------------------
+
+(defun dorun (coll)
+  "Forces realization of a lazy sequence for side effects. Returns nil.
+   Unlike doall, does not retain the head.
+
+   Examples:
+     (dorun (map println [1 2 3]))  ; prints 1 2 3, returns nil"
+  (if (typep coll 'fol.compiler.collections:<lazy-seq>)
+      (let ((current coll))
+        (loop while (typep current 'fol.compiler.collections:<lazy-seq>)
+              do (let ((realized (realize-lazy-seq current)))
+                   (if (typep realized 'fol.compiler.collections:<list>)
+                       (setf current (fol.compiler.collections:list-rest realized))
+                       (setf current nil)))))
+      ;; Eager: just force evaluation of the seq
+      (collection-seq coll))
+  nil)
+
+;;; ---------------------------------------------------------------------------
+;;; doall - force lazy seq, return realized vector
+;;; ---------------------------------------------------------------------------
+
+(defun doall (coll)
+  "Forces realization of a lazy sequence and returns a vector of all elements.
+
+   Examples:
+     (doall (map inc (repeat 3 1)))  => [2 2 2]
+     (doall [1 2 3])                 => [1 2 3]"
+  (if (typep coll 'fol.compiler.collections:<lazy-seq>)
+      (let ((result '())
+            (current coll))
+        (loop while (typep current 'fol.compiler.collections:<lazy-seq>)
+              do (let ((realized (realize-lazy-seq current)))
+                   (if (typep realized 'fol.compiler.collections:<list>)
+                       (progn
+                         (push (list-first realized) result)
+                         (setf current (list-rest realized)))
+                       (setf current nil))))
+        (apply #'fol.compiler.collections:make
+               'fol.compiler.collections:<vector>
+               (nreverse result)))
+      ;; Eager: return as-is (already fully realized)
+      coll))
+
+;;; ---------------------------------------------------------------------------
+;;; run! - apply proc to each element for side effects, return nil
+;;; ---------------------------------------------------------------------------
+
+(defun run! (proc coll)
+  "Applies PROC to each element of COLL for side effects. Returns nil.
+
+   Examples:
+     (run! println [1 2 3])  ; prints 1, 2, 3"
+  (dolist (elem (collection-seq coll))
+    (funcall proc elem))
+  nil)
+
+;;; ===========================================================================
+;;; Random Selection
+;;; ===========================================================================
+
+;;; ---------------------------------------------------------------------------
+;;; rand-nth - random element from a collection
+;;; ---------------------------------------------------------------------------
+
+(defun rand-nth (coll)
+  "Returns a random element from COLL.
+
+   Examples:
+     (rand-nth [1 2 3 4 5])  => 3  ; random"
+  (let ((seq (collection-seq coll)))
+    (when seq
+      (cl:nth (random (length seq)) seq))))
+
+;;; ===========================================================================
+;;; Key-Based Min/Max
+;;; ===========================================================================
+
+;;; ---------------------------------------------------------------------------
+;;; max-key - element with maximum key value
+;;; ---------------------------------------------------------------------------
+
+(defun max-key (k x &rest more)
+  "Returns the element for which (k element) is greatest.
+
+   Examples:
+     (max-key count [1 2] [1] [1 2 3])  => [1 2 3]
+     (max-key abs -3 1 2)               => -3"
+  (cl:reduce (lambda (a b)
+               (if (cl:>= (funcall k a) (funcall k b)) a b))
+             more :initial-value x))
+
+;;; ---------------------------------------------------------------------------
+;;; min-key - element with minimum key value
+;;; ---------------------------------------------------------------------------
+
+(defun min-key (k x &rest more)
+  "Returns the element for which (k element) is least.
+
+   Examples:
+     (min-key count [1 2] [1] [1 2 3])  => [1]
+     (min-key abs -3 1 2)               => 1"
+  (cl:reduce (lambda (a b)
+               (if (cl:<= (funcall k a) (funcall k b)) a b))
+             more :initial-value x))
+
+;;; ===========================================================================
+;;; Zip and Reductions
+;;; ===========================================================================
+
+;;; ---------------------------------------------------------------------------
+;;; zipmap - create a dict from parallel key/value sequences
+;;; ---------------------------------------------------------------------------
+
+(defun zipmap (keys vals)
+  "Returns a dict with the keys mapped to the corresponding vals.
+   Stops at the shorter of the two sequences.
+
+   Examples:
+     (zipmap [:a :b :c] [1 2 3])  => {:a 1 :b 2 :c 3}
+     (zipmap [:a :b] [1 2 3])     => {:a 1 :b 2}"
+  (let ((ks (collection-seq keys))
+        (vs (collection-seq vals))
+        (d (fol.compiler.collections:make 'fol.compiler.collections:<dict>)))
+    (loop for k in ks for v in vs
+          do (setf d (fol.compiler.collection-functions:assoc d k v)))
+    d))
+
+;;; ---------------------------------------------------------------------------
+;;; reductions - sequence of intermediate reduction values
+;;; ---------------------------------------------------------------------------
+
+(defun reductions (fn init-or-coll &optional (coll nil coll-p))
+  "Returns a vector of the intermediate values of a reduction.
+   (reductions f init coll) starts with init.
+   (reductions f coll)      uses first element of coll as init.
+
+   Examples:
+     (reductions + 0 [1 2 3])   => [0 1 3 6]
+     (reductions + [1 2 3 4])   => [1 3 6 10]"
+  (if coll-p
+      ;; (reductions fn init coll) form
+      (let* ((seq (collection-seq coll))
+             (results (list init-or-coll))
+             (acc init-or-coll))
+        (dolist (elem seq)
+          (setf acc (funcall fn acc elem))
+          (push acc results))
+        (apply #'fol.compiler.collections:make
+               'fol.compiler.collections:<vector>
+               (nreverse results)))
+      ;; (reductions fn coll) form — use first element as init
+      (let ((seq (collection-seq init-or-coll)))
+        (if (null seq)
+            (fol.compiler.collections:make 'fol.compiler.collections:<vector>)
+            (let* ((init (cl:first seq))
+                   (rest (cl:rest seq))
+                   (results (list init))
+                   (acc init))
+              (dolist (elem rest)
+                (setf acc (funcall fn acc elem))
+                (push acc results))
+              (apply #'fol.compiler.collections:make
+                     'fol.compiler.collections:<vector>
+                     (nreverse results)))))))

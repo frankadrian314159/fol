@@ -645,6 +645,26 @@
     (is (= 3 (size* result)))))
 
 ;;; ---------------------------------------------------------------------------
+;;; third
+;;; ---------------------------------------------------------------------------
+
+(test third-basic
+  "(third coll) returns the third element."
+  (is (eql 3 (fol.compiler.seq-functions:third (v 1 2 3 4)))))
+
+(test third-exactly-three
+  "(third coll) with exactly three elements returns third."
+  (is (eql 3 (fol.compiler.seq-functions:third (v 1 2 3)))))
+
+(test third-too-short
+  "(third coll) with fewer than 3 elements returns nil."
+  (is (null (fol.compiler.seq-functions:third (v 1 2)))))
+
+(test third-empty
+  "(third []) returns nil."
+  (is (null (fol.compiler.seq-functions:third (v)))))
+
+;;; ---------------------------------------------------------------------------
 ;;; next / fnext / nnext
 ;;; ---------------------------------------------------------------------------
 
@@ -809,3 +829,256 @@
   (let ((result (fol.compiler.seq-functions:seque 16 (v 4 5 6))))
     (is (= 3 (size* result)))
     (is (eql 4 (nth* result 0)))))
+
+;;; ---------------------------------------------------------------------------
+;;; second
+;;; ---------------------------------------------------------------------------
+
+(test second-basic
+  "(second coll) returns the second element."
+  (is (eql 2 (fol.compiler.seq-functions:second (v 1 2 3)))))
+
+(test second-too-short
+  "(second coll) with fewer than 2 elements returns nil."
+  (is (null (fol.compiler.seq-functions:second (v 1)))))
+
+(test second-empty
+  "(second []) returns nil."
+  (is (null (fol.compiler.seq-functions:second (v)))))
+
+;;; ---------------------------------------------------------------------------
+;;; last
+;;; ---------------------------------------------------------------------------
+
+(test last-basic
+  "(last coll) returns the last element."
+  (is (eql 3 (fol.compiler.seq-functions:last (v 1 2 3)))))
+
+(test last-single
+  "(last [x]) returns x."
+  (is (eql 42 (fol.compiler.seq-functions:last (v 42)))))
+
+(test last-empty
+  "(last []) returns nil."
+  (is (null (fol.compiler.seq-functions:last (v)))))
+
+;;; ---------------------------------------------------------------------------
+;;; ffirst
+;;; ---------------------------------------------------------------------------
+
+(test ffirst-basic
+  "(ffirst [[1 2] [3 4]]) returns 1."
+  (is (eql 1 (fol.compiler.seq-functions:ffirst (v (v 1 2) (v 3 4))))))
+
+(test ffirst-nil-when-empty-outer
+  "(ffirst []) returns nil."
+  (is (null (fol.compiler.seq-functions:ffirst (v)))))
+
+;;; ---------------------------------------------------------------------------
+;;; nfirst
+;;; ---------------------------------------------------------------------------
+
+(test nfirst-basic
+  "(nfirst [[1 2 3] [4 5]]) returns (2 3)."
+  (let ((result (fol.compiler.seq-functions:nfirst (v (v 1 2 3) (v 4 5)))))
+    (is (equal '(2 3) result))))
+
+(test nfirst-nil-when-empty-inner
+  "(nfirst [[x] ...]) returns nil when first element has only one item."
+  (let ((result (fol.compiler.seq-functions:nfirst (v (v 1) (v 2 3)))))
+    (is (null result))))
+
+;;; ---------------------------------------------------------------------------
+;;; nthnext
+;;; ---------------------------------------------------------------------------
+
+(test nthnext-zero
+  "(nthnext coll 0) returns the full seq."
+  (let ((result (fol.compiler.seq-functions:nthnext (v 1 2 3) 0)))
+    (is (equal '(1 2 3) result))))
+
+(test nthnext-two
+  "(nthnext coll 2) drops first two elements."
+  (let ((result (fol.compiler.seq-functions:nthnext (v 1 2 3 4) 2)))
+    (is (equal '(3 4) result))))
+
+(test nthnext-past-end
+  "(nthnext coll n) where n > size returns nil."
+  (let ((result (fol.compiler.seq-functions:nthnext (v 1 2) 5)))
+    (is (null result))))
+
+;;; ---------------------------------------------------------------------------
+;;; realized?
+;;; ---------------------------------------------------------------------------
+
+(test realized-eager-is-true
+  "(realized? eager-coll) returns t."
+  (is (eq t (fol.compiler.seq-functions:realized? (v 1 2 3)))))
+
+(test realized-unrealized-lazy-seq
+  "(realized? unrealized-lazy-seq) returns nil."
+  (let ((ls (fol.compiler.seq-functions:repeat 0)))
+    (is (null (fol.compiler.seq-functions:realized? ls)))))
+
+(test realized-after-take
+  "(realized? ls) returns t after the lazy-seq is forced."
+  (let ((ls (fol.compiler.seq-functions:repeat 0)))
+    (fol.compiler.seq-functions:take 1 ls)  ; forces realization
+    (is (eq t (fol.compiler.seq-functions:realized? ls)))))
+
+;;; ---------------------------------------------------------------------------
+;;; dorun
+;;; ---------------------------------------------------------------------------
+
+(test dorun-returns-nil
+  "(dorun coll) returns nil."
+  (is (null (fol.compiler.seq-functions:dorun (v 1 2 3)))))
+
+(test dorun-forces-lazy-seq
+  "(dorun lazy-seq) forces realization."
+  (let* ((count 0)
+         (ls (fol.compiler.seq-functions:repeatedly 3 (lambda () (incf count)))))
+    (fol.compiler.seq-functions:dorun ls)
+    (is (= 3 count))))
+
+;;; ---------------------------------------------------------------------------
+;;; doall
+;;; ---------------------------------------------------------------------------
+
+(test doall-eager-returns-same
+  "(doall eager-coll) returns the collection."
+  (let* ((coll (v 1 2 3))
+         (result (fol.compiler.seq-functions:doall coll)))
+    (is (eq coll result))))
+
+(test doall-lazy-returns-vector
+  "(doall lazy-seq) returns a vector of all elements."
+  (let* ((ls (fol.compiler.seq-functions:repeatedly 3 (lambda () 42)))
+         (result (fol.compiler.seq-functions:doall ls)))
+    (is (typep result 'fol.compiler.collections:<vector>))
+    (is (= 3 (size* result)))
+    (is (eql 42 (nth* result 0)))))
+
+;;; ---------------------------------------------------------------------------
+;;; run!
+;;; ---------------------------------------------------------------------------
+
+(test run!-applies-proc
+  "(run! proc coll) applies proc to each element."
+  (let ((collected '()))
+    (fol.compiler.seq-functions:run! (lambda (x) (push x collected)) (v 1 2 3))
+    (is (equal '(3 2 1) collected))))
+
+(test run!-returns-nil
+  "(run! proc coll) returns nil."
+  (is (null (fol.compiler.seq-functions:run! #'identity (v 1 2 3)))))
+
+;;; ---------------------------------------------------------------------------
+;;; rand-nth
+;;; ---------------------------------------------------------------------------
+
+(test rand-nth-returns-element
+  "(rand-nth coll) returns an element from coll."
+  (let* ((coll (v 1 2 3 4 5))
+         (elem (fol.compiler.seq-functions:rand-nth coll)))
+    (is (member elem '(1 2 3 4 5)))))
+
+(test rand-nth-nil-on-empty
+  "(rand-nth []) returns nil."
+  (is (null (fol.compiler.seq-functions:rand-nth (v)))))
+
+;;; ---------------------------------------------------------------------------
+;;; max-key
+;;; ---------------------------------------------------------------------------
+
+(test max-key-single
+  "(max-key k x) returns x."
+  (is (eql 42 (fol.compiler.seq-functions:max-key #'abs 42))))
+
+(test max-key-two-args
+  "(max-key abs -3 1) returns -3 (abs -3 = 3 > abs 1 = 1)."
+  (is (eql -3 (fol.compiler.seq-functions:max-key #'abs -3 1))))
+
+(test max-key-multiple
+  "(max-key count ...) returns element with most items."
+  (let ((result (fol.compiler.seq-functions:max-key
+                 #'fol.compiler.collection-functions:size
+                 (v 1 2) (v 1) (v 1 2 3))))
+    (is (= 3 (size* result)))))
+
+;;; ---------------------------------------------------------------------------
+;;; min-key
+;;; ---------------------------------------------------------------------------
+
+(test min-key-single
+  "(min-key k x) returns x."
+  (is (eql 42 (fol.compiler.seq-functions:min-key #'abs 42))))
+
+(test min-key-two-args
+  "(min-key abs 1 -3) returns 1 (abs 1 = 1 < abs -3 = 3)."
+  (is (eql 1 (fol.compiler.seq-functions:min-key #'abs 1 -3))))
+
+(test min-key-multiple
+  "(min-key count ...) returns element with fewest items."
+  (let ((result (fol.compiler.seq-functions:min-key
+                 #'fol.compiler.collection-functions:size
+                 (v 1 2) (v 1) (v 1 2 3))))
+    (is (= 1 (size* result)))))
+
+;;; ---------------------------------------------------------------------------
+;;; zipmap
+;;; ---------------------------------------------------------------------------
+
+(test zipmap-basic
+  "(zipmap keys vals) returns a dict with keys mapped to vals."
+  (let* ((result (fol.compiler.seq-functions:zipmap (v :a :b :c) (v 1 2 3)))
+         (a (fol.compiler.collection-functions:get result :a))
+         (b (fol.compiler.collection-functions:get result :b))
+         (c (fol.compiler.collection-functions:get result :c)))
+    (is (= 1 a))
+    (is (= 2 b))
+    (is (= 3 c))))
+
+(test zipmap-stops-at-shorter-keys
+  "(zipmap keys vals) stops at shorter sequence."
+  (let ((result (fol.compiler.seq-functions:zipmap (v :a :b) (v 1 2 3))))
+    (is (= 2 (fol.compiler.collection-functions:size result)))))
+
+(test zipmap-empty
+  "(zipmap [] []) returns empty dict."
+  (let ((result (fol.compiler.seq-functions:zipmap (v) (v))))
+    (is (= 0 (fol.compiler.collection-functions:size result)))))
+
+;;; ---------------------------------------------------------------------------
+;;; reductions
+;;; ---------------------------------------------------------------------------
+
+(test reductions-with-init
+  "(reductions f init coll) includes init as first element."
+  (let ((result (fol.compiler.seq-functions:reductions #'+ 0 (v 1 2 3))))
+    (is (= 4 (size* result)))
+    (is (eql 0 (nth* result 0)))
+    (is (eql 1 (nth* result 1)))
+    (is (eql 3 (nth* result 2)))
+    (is (eql 6 (nth* result 3)))))
+
+(test reductions-without-init
+  "(reductions f coll) uses first element as init."
+  (let ((result (fol.compiler.seq-functions:reductions #'+ (v 1 2 3 4))))
+    (is (= 4 (size* result)))
+    (is (eql 1 (nth* result 0)))
+    (is (eql 3 (nth* result 1)))
+    (is (eql 6 (nth* result 2)))
+    (is (eql 10 (nth* result 3)))))
+
+(test reductions-empty-coll
+  "(reductions f []) returns empty vector."
+  (let ((result (fol.compiler.seq-functions:reductions #'+ (v))))
+    (is (= 0 (size* result)))))
+
+(test reductions-single-with-init
+  "(reductions f init [x]) returns [init (f init x)]."
+  (let ((result (fol.compiler.seq-functions:reductions #'+ 10 (v 5))))
+    (is (= 2 (size* result)))
+    (is (eql 10 (nth* result 0)))
+    (is (eql 15 (nth* result 1)))))

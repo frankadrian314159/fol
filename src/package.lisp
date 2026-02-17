@@ -422,13 +422,13 @@
 
 (defpackage fol.compiler.seq-functions
   (:use cl)
-  (:shadow map reduce remove some every count sequence sort reverse cons butlast)
+  (:shadow map reduce remove some every count sequence sort reverse cons butlast third second last)
   (:import-from fol.compiler.collections
                 collection-seq collection-conj make
                 <vector> <list> <lazy-seq> <collection>
                 <dict> <ordered-dict> <sorted-dict> <priority-dict>
                 storage-items ordered-dict-key-order
-                list-first list-rest realize-lazy-seq)
+                list-first list-rest realize-lazy-seq lazy-seq-realized-p)
   (:shadowing-import-from fol.compiler.collection-functions
                 get into)
   (:import-from fol.compiler.primitives truthy?)
@@ -461,7 +461,13 @@
    ;; Flattening
    flatten
    ;; Traversal helpers
-   next fnext nnext nthrest
+   next fnext nnext nthrest third second last ffirst nfirst nthnext
+   ;; Collection utilities
+   realized? dorun doall run! rand-nth
+   ;; Key-based min/max
+   max-key min-key
+   ;; Zip and reductions
+   zipmap reductions
    ;; Infinite generators
    cycle interleave interpose
    ;; Random
