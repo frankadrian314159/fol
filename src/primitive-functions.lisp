@@ -55,10 +55,21 @@
 
    Examples:
      (false? nil)    => T
-     (false? false)  => T  ; nil and false are the same
      (false? 0)      => NIL
      (false? \"\")     => NIL"
   (null obj))
+
+(defun instance? (class obj)
+  "Returns true if OBJ is an instance of CLASS.
+   CLASS may be a class object or a type specifier symbol.
+
+   Examples:
+     (instance? 'number 42)                                    => T
+     (instance? 'string \"hello\")                             => T
+     (instance? 'fol.compiler.collections:<vector>
+                (vector 1 2 3))                                => T
+     (instance? 'number \"hello\")                             => NIL"
+  (typep obj class))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Collection Predicates

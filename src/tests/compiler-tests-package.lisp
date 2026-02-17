@@ -61,6 +61,14 @@
   :description "Tests for metadata system (meta, with-meta, vary-meta, alter-meta!, reset-meta!, doc, test)."
   :in compiler-tests)
 
+(def-suite relational-tests
+  :description "Tests for relational algebra functions (join, select, project, etc.)."
+  :in compiler-tests)
+
+(def-suite seq-functions-tests
+  :description "Tests for seq-functions (seq, sequence, range, repeat, iterate, etc.)."
+  :in compiler-tests)
+
 (defun fol-form (form)
   "Recursively convert CL vectors in FORM to FOL <vector> instances.
    Allows tests to use the familiar #(...) syntax inside (fol-form '(...))."

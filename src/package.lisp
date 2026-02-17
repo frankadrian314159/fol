@@ -36,7 +36,7 @@
   (:shadow symbol keyword gensym)
   (:export
    ;; Nil and Boolean predicates
-   nil? some? <bool>? true? false?
+   nil? some? <bool>? true? false? instance?
    ;; Collection predicates
    <seq>? <collection>? <unordered-collection>? <ordered-collection>?
    <dict>? <ordered-dict>? <array-dict>? <sorted-dict>? <int-dict>? <priority-dict>?
@@ -422,29 +422,58 @@
 
 (defpackage fol.compiler.seq-functions
   (:use cl)
-  (:shadow map reduce remove some every count)
+  (:shadow map reduce remove some every count sequence sort reverse cons butlast)
   (:import-from fol.compiler.collections
                 collection-seq collection-conj make
-                <vector> <collection> <dict> <ordered-dict> <sorted-dict> <priority-dict>
-                storage-items ordered-dict-key-order)
+                <vector> <list> <lazy-seq> <collection>
+                <dict> <ordered-dict> <sorted-dict> <priority-dict>
+                storage-items ordered-dict-key-order
+                list-first list-rest realize-lazy-seq)
   (:shadowing-import-from fol.compiler.collection-functions
                 get into)
   (:import-from fol.compiler.primitives truthy?)
   (:export
    ;; Core higher-order functions
    map mapv filter filterv reduce pmap
+   ;; Mapping with index
+   map-indexed
    ;; Concatenation and mapping variants
    mapcat pmapcat concat into
    ;; Filtering variants
-   remove keep
+   remove keep keep-indexed
    ;; Predicates
    some every
    ;; Partitioning and slicing
-   partition take drop take-while drop-while
+   partition partition-all partition-by
+   take drop take-while drop-while take-last take-nth
+   split-at split-with
+   butlast drop-last
+   ;; Building / prepending
+   cons
+   ;; Reordering
+   sort sort-by reverse shuffle
    ;; Dict operations
    keys
-   ;; Sorting
-   sort-by))
+   ;; Grouping and statistics
+   group-by
+   ;; Deduplication
+   distinct dedupe
+   ;; Flattening
+   flatten
+   ;; Traversal helpers
+   next fnext nnext nthrest
+   ;; Infinite generators
+   cycle interleave interpose
+   ;; Random
+   random-sample
+   ;; Buffered seq (simplified)
+   seque
+   ;; Sequence coercions
+   seq sequence
+   ;; Generative sequences
+   repeat range repeatedly iterate iteration
+   ;; I/O and tree sequences
+   file-seq line-seq tree-seq iterator-seq enumeration-seq))
 
 (defpackage fol.compiler.arithmetic-functions
   (:use cl)
@@ -643,6 +672,20 @@
    walk prewalk postwalk
    prewalk-demo prewalk-replace
    postwalk-demo postwalk-replace))
+
+(defpackage fol.compiler.relational
+  (:use cl)
+  (:shadow union intersection set)
+  (:import-from fol.compiler.collections
+                <set> <collection> <dict> <ordered-dict> <sorted-dict>
+                collection-seq collection-conj make)
+  (:shadowing-import-from fol.compiler.collection-functions
+                get assoc dissoc empty? conj into empty vec size
+                select-keys rename-keys vals merge contains? first disj)
+  (:shadowing-import-from fol.compiler.seq-functions
+                reduce filter map keys)
+  (:export
+   join select project union difference intersection index rename diff))
 
 (defpackage fol.compiler.tests
   (:use cl fiveam)

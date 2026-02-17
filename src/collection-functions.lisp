@@ -352,6 +352,11 @@
 (defmethod rest ((coll fol.compiler.collections:<list>))
   (fol.compiler.collections:list-rest coll))
 
+(defmethod rest ((coll fol.compiler.collections:<lazy-seq>))
+  (let ((realized (fol.compiler.collections:realize-lazy-seq coll)))
+    (when (typep realized 'fol.compiler.collections:<list>)
+      (fol.compiler.collections:list-rest realized))))
+
 ;; Sets don't really support rest (unordered), so just return empty set
 (defmethod rest ((coll fol.compiler.collections:<set>))
   (make-instance 'fol.compiler.collections:<set>

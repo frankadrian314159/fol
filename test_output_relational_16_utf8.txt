@@ -1,0 +1,89 @@
+﻿powershell : ;   See also:
+At line:1 char:1
++ powershell -ExecutionPolicy Bypass -File 
+run-tests.ps1 > test_output_ ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (;    
+   See also::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+;     The SBCL Manual, Node "Handling of Types"
+; 
+; compilation unit finished
+;   caught 1 WARNING condition
+  Running test SOME-THREAD-FIRST-INITIAL-NIL .
+  Running test SOME-THREAD-FIRST-SINGLE-FORM .
+  Running test SOME-THREAD-LAST-COMPILES ..
+  Running test SOME-THREAD-LAST-NON-NIL .
+  Running test SOME-THREAD-LAST-NIL-SHORT-CIRCUIT .
+; in: LET ((#:EXPR-513 NIL))
+;     (1+ #:EXPR-513)
+; 
+; caught WARNING:
+;   Derived type of #:EXPR-513 is
+;     (VALUES NULL &OPTIONAL),
+;   conflicting with its asserted type
+;     NUMBER.
+;   See also:
+;     The SBCL Manual, Node "Handling of Types"
+; 
+; compilation unit finished
+;   caught 1 WARNING condition
+  Running test SOME-THREAD-LAST-INITIAL-NIL .
+  Running test AS-THREAD-COMPILES ..
+  Running test AS-THREAD-BASIC .
+  Running test AS-THREAD-FLEXIBLE-POSITION .
+  Running test AS-THREAD-SINGLE-VALUE .
+  Running test AS-THREAD-MULTIPLE-FORMS .
+ Running test suite METADATA-TESTS
+  Running test META-SYMBOL-NO-METADATA .
+  Running test META-NIL-VALUE ...
+  Running test META-COLLECTION-NO-METADATA .
+  Running test WITH-META-SYMBOL .
+  Running test WITH-META-SYMBOL-OVERWRITES .
+  Running test WITH-META-VECTOR ...
+  Running test WITH-META-DICT ...
+  Running test WITH-META-SET ..
+  Running test WITH-META-PERSISTENT-OBJECT ....
+  Running test VARY-META-SYMBOL .
+  Running test VARY-META-COLLECTION ..
+  Running test ALTER-META!-SYMBOL .
+  Running test RESET-META!-SYMBOL .
+  Running test DOC-FROM-PLIST .
+  Running test DOC-NIL-WHEN-MISSING .
+  Running test DOC-NIL-WHEN-NO-METADATA .
+  Running test TEST-FROM-PLIST .
+  Running test DOC-FROM-DICT .
+  Running test TEST-FROM-DICT .
+  Running test READER-META-DICT ..
+  Running test READER-META-KEYWORD .....
+  Running test READER-META-TYPE ....
+  Running test FIND-DOC-RETURNS-MATCHES .
+  Running test FIND-DOC-CASE-INSENSITIVE .
+ Running test suite RELATIONAL-TESTS
+  Running test UNION-TEST ...
+  Running test DIFFERENCE-TEST ....
+  Running test INTERSECTION-TEST ...
+  Running test SELECT-TEST ...
+  Running test PROJECT-TEST ...
+  Running test RENAME-TEST ...
+  Running test INDEX-TEST X
+  Running test JOIN-TEST ....
+ Did 2467 checks.
+    Pass: 2466 (99%)
+    Skip: 0 ( 0%)
+    Fail: 1 ( 0%)
+
+ Failure Details:
+ --------------------------------
+ INDEX-TEST in RELATIONAL-TESTS []: 
+      Unexpected Error: #<SB-PCL::NO-APPLICABLE-METHOD-ERROR {1104A4A663}>
+There is no applicable method for the generic function
+  #<STANDARD-GENERIC-FUNCTION FOL.COMPILER.COLLECTIONS:COLLECTION-CONJ (17)>
+when called with arguments
+  (NIL {:VAL "a" :ID 1}).
+See also:
+  The ANSI Standard, Section 7.6.6.
+ --------------------------------
+

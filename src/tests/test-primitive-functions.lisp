@@ -320,3 +320,75 @@
   "reversible? returns NIL for non-collections."
   (is (null (fol.compiler.primitive-functions:reversible? 42)))
   (is (null (fol.compiler.primitive-functions:reversible? nil))))
+
+;;; ---------------------------------------------------------------------------
+;;; nil? Tests
+;;; ---------------------------------------------------------------------------
+
+(test nil?-nil
+  "nil? returns T for nil."
+  (is (eq t (fol.compiler.primitive-functions:nil? nil))))
+
+(test nil?-number
+  "nil? returns NIL for a number."
+  (is (null (fol.compiler.primitive-functions:nil? 42))))
+
+(test nil?-string
+  "nil? returns NIL for a string."
+  (is (null (fol.compiler.primitive-functions:nil? "hello"))))
+
+(test nil?-zero
+  "nil? returns NIL for zero (zero is not nil in FOL)."
+  (is (null (fol.compiler.primitive-functions:nil? 0))))
+
+(test nil?-empty-string
+  "nil? returns NIL for an empty string."
+  (is (null (fol.compiler.primitive-functions:nil? ""))))
+
+(test nil?-keyword
+  "nil? returns NIL for a keyword."
+  (is (null (fol.compiler.primitive-functions:nil? :foo))))
+
+;;; ---------------------------------------------------------------------------
+;;; instance? Tests
+;;; ---------------------------------------------------------------------------
+
+(test instance?-number-match
+  "instance? returns T when value matches type."
+  (is (eq t (fol.compiler.primitive-functions:instance? 'number 42)))
+  (is (eq t (fol.compiler.primitive-functions:instance? 'integer 7)))
+  (is (eq t (fol.compiler.primitive-functions:instance? 'float 3.14))))
+
+(test instance?-string-match
+  "instance? returns T for a string value and string type."
+  (is (eq t (fol.compiler.primitive-functions:instance? 'string "hello"))))
+
+(test instance?-type-mismatch
+  "instance? returns NIL when value does not match type."
+  (is (null (fol.compiler.primitive-functions:instance? 'number "hello")))
+  (is (null (fol.compiler.primitive-functions:instance? 'string 42))))
+
+(test instance?-with-class-object
+  "instance? accepts a class object as well as a type specifier."
+  (is (eq t (fol.compiler.primitive-functions:instance?
+             (find-class 'string) "hello")))
+  (is (null (fol.compiler.primitive-functions:instance?
+             (find-class 'string) 42))))
+
+(test instance?-fol-vector
+  "instance? returns T for a FOL vector."
+  (is (eq t (fol.compiler.primitive-functions:instance?
+             'fol.compiler.collections:<vector>
+             (fol.compiler.collection-functions:vector 1 2 3)))))
+
+(test instance?-fol-dict
+  "instance? returns T for a FOL dict."
+  (is (eq t (fol.compiler.primitive-functions:instance?
+             'fol.compiler.collections:<dict>
+             (fol.compiler.collection-functions:dict :a 1)))))
+
+(test instance?-fol-set
+  "instance? returns T for a FOL set."
+  (is (eq t (fol.compiler.primitive-functions:instance?
+             'fol.compiler.collections:<set>
+             (fol.compiler.collection-functions:set 1 2 3)))))

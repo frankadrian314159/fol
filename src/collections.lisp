@@ -62,9 +62,21 @@
   (:documentation "Return a new collection with ELEMENT added.
                    The position of the new element depends on the collection type."))
 
+(defmethod collection-conj ((c null) element)
+  (cl:list element))
+
+(defmethod collection-conj ((c cl:list) element)
+  (cl:cons element c))
+
 (defgeneric collection-seq (collection)
   (:documentation "Return the elements of COLLECTION as a CL list.
                    For dicts, returns a list of (key . value) cons pairs."))
+                   
+(defmethod collection-size ((c cl:list))
+  (cl:length c))
+
+(defmethod collection-seq ((c cl:list))
+  c)
 
 ;;; ============================================================================
 ;;; Collection Storage
@@ -179,6 +191,9 @@
 
 (defmethod collection-seq ((v <vector>))
   (fset:convert 'cl:list (storage-items v)))
+
+(defmethod collection-size ((c cl:vector))
+  (cl:length c))
 
 ;;; ============================================================================
 ;;; Array (subclass of Vector)
