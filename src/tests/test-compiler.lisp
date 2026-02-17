@@ -833,3 +833,81 @@
     (is (eq 'let (first code)))
     ;; Body should be (+ *x* *y*)
     (is (equal '(+ *x* *y*) (third code)))))
+
+;;; ===========================================================================
+;;; Collection-as-function tests
+;;; ===========================================================================
+
+(test compile-collection-as-function-dict
+  "A def'd dict can be called as a function to look up a key."
+  (let* ((result (fol.compiler:compile-form
+                  (fol-form '(do
+                    (def *test-coll-dict* (dict :a 1 :b 2 :c 3))
+                    (*test-coll-dict* :b)))))
+         (code (fol.compiler:compilation-result-code result))
+         (val (eval code)))
+    (is (null (fol.compiler:compilation-result-errors result)))
+    (is (= 2 val))))
+
+(test compile-collection-as-function-vector
+  "A def'd vector can be called as a function to look up an index."
+  (let* ((result (fol.compiler:compile-form
+                  (fol-form '(do
+                    (def *test-coll-vec* (vector 10 20 30))
+                    (*test-coll-vec* 1)))))
+         (code (fol.compiler:compilation-result-code result))
+         (val (eval code)))
+    (is (null (fol.compiler:compilation-result-errors result)))
+    (is (= 20 val))))
+
+(test compile-collection-as-function-lexical
+  "A lexically bound collection can be called as a function."
+  (let* ((result (fol.compiler:compile-form
+                  (fol-form '(bind (d (dict :x 99 :y 42))
+                    (d :y)))))
+         (code (fol.compiler:compilation-result-code result))
+         (val (eval code)))
+    (is (null (fol.compiler:compilation-result-errors result)))
+    (is (= 42 val))))
+
+(test compile-collection-as-function-lexical-vector
+  "A lexically bound vector can be called as a function."
+  (let* ((result (fol.compiler:compile-form
+                  (fol-form '(bind (v (vector 100 200 300))
+                    (v 2)))))
+         (code (fol.compiler:compilation-result-code result))
+         (val (eval code)))
+    (is (null (fol.compiler:compilation-result-errors result)))
+    (is (= 300 val))))
+
+(test compile-collection-as-function-set
+  "A def'd set can be called as a function to test membership."
+  (let* ((result (fol.compiler:compile-form
+                  (fol-form '(do
+                    (def *test-coll-set* (set 10 20 30))
+                    (*test-coll-set* 20)))))
+         (code (fol.compiler:compilation-result-code result))
+         (val (eval code)))
+    (is (null (fol.compiler:compilation-result-errors result)))
+    (is (= 20 val))))
+
+(test compile-collection-as-function-set-missing
+  "A def'd set called with a missing element returns nil."
+  (let* ((result (fol.compiler:compile-form
+                  (fol-form '(do
+                    (def *test-coll-set2* (set 10 20 30))
+                    (*test-coll-set2* 99)))))
+         (code (fol.compiler:compilation-result-code result))
+         (val (eval code)))
+    (is (null (fol.compiler:compilation-result-errors result)))
+    (is (null val))))
+
+(test compile-collection-as-function-lexical-set
+  "A lexically bound set can be called as a function."
+  (let* ((result (fol.compiler:compile-form
+                  (fol-form '(bind (s (set :a :b :c))
+                    (s :b)))))
+         (code (fol.compiler:compilation-result-code result))
+         (val (eval code)))
+    (is (null (fol.compiler:compilation-result-errors result)))
+    (is (eq :b val))))

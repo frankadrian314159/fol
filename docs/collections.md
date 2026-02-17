@@ -8,10 +8,10 @@ FOL provides a rich set of persistent, immutable collection types. All collectio
 <collection>
 ├── <ordered-collection>
 │   ├── <vector>
-│   ├── <deque>
+│   │   ├── <array>
+│   │   └── <deque>
 │   ├── <list>
 │   ├── <lazy-seq>
-│   ├── <array>
 │   ├── <sorted-set>
 │   ├── <ordered-set>
 │   ├── <dense-int-set>
@@ -58,9 +58,58 @@ A persistent ordered sequence with efficient random access. Vectors are the prim
 
 ---
 
+## vec                                                                    *[function]*
+
+```
+(vec coll)
+```
+
+Coerces any collection or sequence to a `<vector>`.  If `coll` is already a
+`<vector>`, returns it unchanged (identity).  Accepts FOL collections, CL lists,
+CL vectors, and `nil`.
+
+### Examples
+
+```fol
+(vec [1 2 3])              ; => [1 2 3]   (identity — same object)
+(vec (list 1 2 3))         ; => [1 2 3]
+(vec #{1 2 3})             ; => [1 2 3]   (order unspecified)
+(vec {:a 1 :b 2})          ; => [(:a . 1) (:b . 2)]
+(vec nil)                  ; => []
+(vec '(4 5 6))             ; => [4 5 6]   (CL list)
+```
+
+---
+
+## vector-of                                                             *[function]*
+
+```
+(vector-of type & args)
+```
+
+Creates a `<vector>` from `args`, validating that every element satisfies `type`.
+`type` must be a FOL type symbol (e.g. `<number>`, `<string>`, `<integer>`).
+Signals an error if any element does not match the type, or if the type is unknown.
+
+### Examples
+
+```fol
+(vector-of '<number> 1 2 3)       ; => [1 2 3]
+(vector-of '<string> "a" "b")     ; => ["a" "b"]
+(vector-of '<number> 1 "x" 3)     ; => ERROR: element "x" is not of type <number>
+(vector-of '<bogus> 1 2)           ; => ERROR: unknown type <bogus>
+(vector-of '<number>)              ; => []
+```
+
+---
+
 ## Deque - `<deque>`                                                     *[class]*
 
-A persistent double-ended queue supporting efficient O(log n) operations at both ends. Combines the benefits of vectors (end operations) and lists (front operations).
+A persistent double-ended queue supporting efficient O(log n) operations at
+both ends. Inherits from `<vector>` and uses the same FSet seq storage.
+Deques support standard queue operations (`peek`/`pop` from front,
+`push`/`conj` to back) and reverse operations (`rpeek`/`rpop` from back,
+`rpush`/`rconj` to front).
 
 ### Literal Syntax
 
@@ -72,37 +121,45 @@ A persistent double-ended queue supporting efficient O(log n) operations at both
 ### Constructor
 
 ```fol
-(<deque>)       ; => #Q[]
-(<deque> 1 2 3) ; => #Q[1 2 3]
+(deque)         ; => #Q[]
+(deque 1 2 3)   ; => #Q[1 2 3]
 ```
 
-### Operations
+### Standard Operations (front read, back write)
 
 | Function | Description |
 |----------|-------------|
-| `peek-front` | Returns the front element |
-| `pop-front` | Returns deque without front element |
-| `push-front` | Returns deque with element added at front |
-| `peek-end` | Returns the end element |
-| `pop-end` | Returns deque without end element |
-| `push-end` | Returns deque with element added at end |
+| `peek`   | Returns the front element |
+| `pop`    | Returns deque without front element |
+| `push`   | Returns deque with element added at back |
+| `conj`   | Returns deque with element added at back |
+
+### Reverse Operations (back read, front write)
+
+| Function | Description |
+|----------|-------------|
+| `rpeek`  | Returns the back element |
+| `rpop`   | Returns deque without back element |
+| `rpush`  | Returns deque with element added at front |
+| `rconj`  | Returns deque with element added at front |
 
 ### Examples
 
 ```fol
-(def dq (<deque> 1 2 3))
-(peek-front dq)       ; => 1
-(pop-front dq)        ; => #Q[2 3]
-(push-front 0 dq)     ; => #Q[0 1 2 3]
-(peek-end dq)         ; => 3
-(pop-end dq)          ; => #Q[1 2]
-(push-end 4 dq)       ; => #Q[1 2 3 4]
+(def dq (deque 1 2 3))
+(peek dq)              ; => 1
+(pop dq)               ; => #Q[2 3]
+(push dq 4)            ; => #Q[1 2 3 4]
+(rpeek dq)             ; => 3
+(rpop dq)              ; => #Q[1 2]
+(rpush dq 0)           ; => #Q[0 1 2 3]
 ```
 
 ### Predicate
 
 ```fol
-(<deque>? (<deque> 1 2)) ; => t
+(<deque>? (deque 1 2)) ; => true
+(<vector>? (deque 1))  ; => false  ; deque is not a vector for predicate purposes
 ```
 
 ---
@@ -230,6 +287,61 @@ A multi-dimensional array stored as a flat vector with dimension information. Us
 
 ```fol
 (<array>? (<array> [2 2] 1 2 3 4)) ; => t
+```
+
+### Multi-dimensional Access
+
+Arrays support access by a list of indices using column-major order
+(first index varies fastest). The `get` function accepts either a single
+linear index or a list of multi-dimensional indices.
+
+```fol
+(def a (<array> [3 2] 0 1 2 3 4 5))
+;; Column-major layout: (0,0)=>0  (1,0)=>1  (2,0)=>2  (0,1)=>3  (1,1)=>4  (2,1)=>5
+
+(get a '(1 0))     ; => 1
+(get a '(0 1))     ; => 3
+(get a '(2 1))     ; => 5
+(get a 4)          ; => 4  (linear index still works)
+```
+
+Signals an error if the number of indices doesn't match the dimensions
+or if any index is out of bounds.
+
+### Dimension Validation
+
+Array dimensions must be non-negative integers. Attempting to create an
+array with a negative or non-integer dimension signals an error.
+
+---
+
+## %index                                                               *[function]*
+
+```
+(%index dimensions indices)
+```
+
+Computes a linear index in column-major order from a list of dimension
+sizes and a list of indices. Both arguments must be lists of the same length.
+
+Column-major order means the first index varies fastest. For dimensions
+`(d0 d1 d2)` and indices `(i0 i1 i2)`:
+
+```
+linear = i0 + d0*i1 + d0*d1*i2
+```
+
+Signals an error if:
+- The lengths of dimensions and indices differ
+- Any index is negative
+- Any index is >= its corresponding dimension
+
+### Examples
+
+```fol
+(%index '(3 4) '(1 2))       ; => 7   (= 1 + 3*2)
+(%index '(3 4 5) '(2 1 3))   ; => 41  (= 2 + 3*1 + 12*3)
+(%index '(10) '(5))           ; => 5   (trivial 1D case)
 ```
 
 ---
@@ -363,21 +475,26 @@ Returns the third element of a collection.
 
 ---
 
-## nth                                                                  *[function]*
+## nth                                                                  *[generic]*
 
 ```
-(nth coll n)
+(nth coll index)
+(nth coll index not-found)
 ```
 
-Returns the element at index n (0-indexed). Returns nil if index is out of bounds.
+Returns the element at index (0-indexed) in a collection. Signals an error
+if index is out of bounds and not-found is not supplied. Returns not-found
+when index is out of bounds and not-found is given.
+
+For lists, walks the linked structure in O(n) time.
 
 ### Examples
 
 ```fol
-(nth [10 20 30] 0)    ; => 10
-(nth [10 20 30] 2)    ; => 30
-(nth "hello" 1)       ; => \e
-(nth [1 2 3] 10)      ; => nil
+(nth (list 10 20 30) 0)        ; => 10
+(nth (list 10 20 30) 2)        ; => 30
+(nth (list 10 20 30) 5 :nope)  ; => :nope
+(nth (list 10 20 30) 5)        ; => error
 ```
 
 ---
@@ -512,6 +629,439 @@ depends on the collection type:
 (conj #{1 2} 3)             ; => #{1 2 3}
 (conj {:a 1} [:b 2])        ; => {:a 1 :b 2}
 ```
+
+---
+
+## list*                                                                *[function]*
+
+```
+(list* & args)
+```
+
+Creates a list from args with the last argument used as the tail. The last
+argument should be a collection or nil; preceding arguments are prepended
+in order. With a single argument, returns that argument unchanged.
+
+### Examples
+
+```fol
+(list* 1 2 3 (list 4 5))  ; => (1 2 3 4 5)
+(list* 1 (list 2 3))      ; => (1 2 3)
+(list* (list 1 2))         ; => (1 2)
+(list* 1 2 nil)            ; => (1 2)
+(list* 1 2 3)              ; => (1 2 3)
+```
+
+---
+
+## peek                                                                 *[generic]*
+
+```
+(peek coll)
+```
+
+Returns the element that `pop` would remove, without modifying the collection.
+For lists, returns the first element. For vectors, returns the last element.
+Returns nil for empty collections.
+
+### Examples
+
+```fol
+(peek (list 1 2 3))     ; => 1
+(peek [10 20 30])        ; => 30
+(peek [42])              ; => 42
+(peek [])                ; => nil
+(peek (list))            ; => nil
+```
+
+---
+
+## push                                                                 *[generic]*
+
+```
+(push coll value)
+```
+
+Returns a new collection with value added at the natural insertion point.
+For lists, prepends to the front (stack semantics).
+
+### Examples
+
+```fol
+(push (list 2 3) 1)  ; => (1 2 3)
+(push (list) 42)     ; => (42)
+```
+
+---
+
+## pop                                                                  *[generic]*
+
+```
+(pop coll)
+```
+
+Returns a new collection without the element that `peek` would return.
+For lists, removes the first element. For vectors, removes the last element.
+Signals an error on empty collections.
+
+### Examples
+
+```fol
+(pop (list 1 2 3))  ; => (2 3)
+(pop [10 20 30])    ; => [10 20]
+(pop [42])          ; => []
+(pop (list))        ; => error
+(pop [])            ; => error
+```
+
+---
+
+## index-of                                                             *[generic]*
+
+```
+(index-of coll value)
+(index-of coll value :from-index n)
+```
+
+Finds the first index of value in a collection. Returns nil if not found.
+Works on lists, vectors, and strings. Compares with `eql`.
+
+### Examples
+
+```fol
+(index-of [10 20 30 20] 20)                     ; => 1
+(index-of [10 20 30 20] 20 :from-index 2)       ; => 3
+(index-of (list 10 20 30) 99)                    ; => nil
+(index-of [] 42)                                 ; => nil
+```
+
+---
+
+## last-index-of                                                        *[generic]*
+
+```
+(last-index-of coll value)
+```
+
+Finds the last index of value in a collection. Returns nil if not found.
+Works on lists, vectors, and strings. Compares with `eql`.
+
+### Examples
+
+```fol
+(last-index-of [10 20 30 20] 20)   ; => 3
+(last-index-of [10 20 30] 10)      ; => 0
+(last-index-of (list 10 20 30) 99) ; => nil
+```
+
+---
+
+## assoc-in                                                              *[generic]*
+
+```
+(assoc-in coll keys value)
+```
+
+Nested associative update. `keys` is a list of keys/indices forming a path into
+a nested structure. Returns a new collection with the value at the nested path
+set to `value`. Works on vectors (index-based) and dicts (key-based).
+
+### Examples
+
+```fol
+(assoc-in [10 20 30] '(1) 99)                ; => [10 99 30]
+(assoc-in [{:a 1}] '(0 :a) 42)               ; => [{:a 42}]
+(assoc-in {:a {:x 1}} '(:a :x) 99)           ; => {:a {:x 99}}
+```
+
+---
+
+## update-in                                                             *[generic]*
+
+```
+(update-in coll keys updater-fn)
+```
+
+Nested functional update. `keys` is a list of keys/indices forming a path.
+Applies `updater-fn` to the value at the nested path.
+
+### Examples
+
+```fol
+(update-in [10 20 30] '(1) inc)              ; => [10 21 30]
+(update-in [{:a 1}] '(0 :a) inc)             ; => [{:a 2}]
+(update-in {:a {:x 10}} '(:a :x) inc)        ; => {:a {:x 11}}
+```
+
+---
+
+## subvec                                                                *[function]*
+
+```
+(subvec v start)
+(subvec v start end)
+```
+
+Returns a new vector containing elements from `start` (inclusive) to `end`
+(exclusive). If `end` is not supplied, returns elements from `start` to the end
+of the vector. Signals an error if indices are out of bounds.
+
+### Examples
+
+```fol
+(subvec [1 2 3 4 5] 1 3)   ; => [2 3]
+(subvec [1 2 3 4 5] 2)     ; => [3 4 5]
+(subvec [1 2 3 4 5] 0 0)   ; => []
+```
+
+---
+
+## replace                                                               *[function]*
+
+```
+(replace smap coll)
+```
+
+Given a dict `smap` and a vector `coll`, returns a new vector with any elements
+that are keys in `smap` replaced by the corresponding values. Elements not found
+in `smap` are left unchanged.
+
+### Examples
+
+```fol
+(replace {2 :two 4 :four} [4 2 3 4 5])   ; => [:four :two 3 :four 5]
+(replace {99 :x} [1 2 3])                 ; => [1 2 3]  (no matches)
+```
+
+---
+
+## rseq                                                                  *[generic]*
+
+```
+(rseq coll)
+```
+
+Returns the elements of a reversible collection in reverse order as a CL list.
+Supported on vectors, sorted sets, and sorted dicts. Returns nil for empty collections.
+
+### Examples
+
+```fol
+(rseq [10 20 30])   ; => (30 20 10)
+(rseq [42])          ; => (42)
+(rseq [])            ; => nil
+
+;; Works on sorted sets:
+(rseq (sorted-set nil 3 1 4 1 5))  ; => (5 4 3 1)
+(rseq (int-set 10 30 20))          ; => (30 20 10)
+
+;; Works on sorted dicts:
+(rseq (<sorted-dict> :a 1 :b 2 :c 3))  ; => ((:c . 3) (:b . 2) (:a . 1))
+```
+
+---
+
+## reduce-kv                                                             *[generic]*
+
+```
+(reduce-kv fn init coll)
+```
+
+Reduces a collection with a 3-argument function `(fn acc key val)`. For vectors,
+`key` is the element index. For dicts, `key` is the dict key. Returns the
+accumulated result.
+
+### Examples
+
+```fol
+(reduce-kv (fn [acc i v] (+ acc (* i v))) 0 [10 20 30])
+  ; => 80   (0*10 + 1*20 + 2*30)
+
+(reduce-kv (fn [acc k v] (+ acc v)) 0 {:a 1 :b 2 :c 3})
+  ; => 6
+```
+
+---
+
+## bounded-size                                                        *[function]*
+
+```
+(bounded-size n coll)
+```
+
+If COLL has O(1) size (vectors, dicts, sets, FOL lists), returns its actual
+size.  Otherwise counts at most N elements by traversing the sequence.  Useful
+for checking whether a potentially lazy or expensive-to-count collection has at
+least N elements without forcing a full traversal.
+
+Based on Clojure's `bounded-count`.
+
+### Examples
+
+```fol
+;; O(1) counted collections return actual size (even if > n)
+(bounded-size 5 [1 2 3])           ; => 3
+(bounded-size 3 [1 2 3 4 5 6 7])   ; => 7
+(bounded-size 2 {:a 1 :b 2 :c 3})  ; => 3
+
+;; Lazy sequences stop counting at n
+(bounded-size 5 (lazy-seq ...))     ; => at most 5
+
+;; CL lists stop counting at n
+(bounded-size 3 '(a b c d e f g))  ; => 3
+
+;; Nil returns 0
+(bounded-size 10 nil)               ; => 0
+```
+
+---
+
+## distinct?                                                           *[function]*
+
+```
+(distinct?)
+(distinct? x)
+(distinct? x y)
+(distinct? x y & more)
+```
+
+Returns true if no two of the arguments are equal (via `equal`).  With zero or
+one argument, always returns true.
+
+### Examples
+
+```fol
+(distinct? 1 2 3)       ; => true
+(distinct? 1 2 3 1)     ; => false
+(distinct? "a" "b" "c") ; => true
+(distinct? :a :b :a)    ; => false
+(distinct? 1)            ; => true
+(distinct?)              ; => true
+```
+
+---
+
+## every?                                                              *[function]*
+
+```
+(every? pred coll)
+```
+
+Returns true if `(pred x)` is logically true for every element `x` in `coll`.
+Returns true for empty collections (vacuous truth).
+
+### Examples
+
+```fol
+(every? odd? [1 3 5])   ; => true
+(every? odd? [1 2 3])   ; => false
+(every? pos? [])         ; => true
+(every? even? #{2 4 6})  ; => true
+```
+
+---
+
+## not-every?                                                          *[function]*
+
+```
+(not-every? pred coll)
+```
+
+Returns true if `(pred x)` is logically false for at least one element `x` in
+`coll`.  Complement of `every?`.
+
+### Examples
+
+```fol
+(not-every? odd? [1 2 3])   ; => true
+(not-every? odd? [1 3 5])   ; => false
+(not-every? pos? [])          ; => false
+```
+
+---
+
+## not-any?                                                            *[function]*
+
+```
+(not-any? pred coll)
+```
+
+Returns true if `(pred x)` is logically false for every element `x` in `coll`.
+Returns false if the predicate is true for at least one element.
+
+### Examples
+
+```fol
+(not-any? odd? [2 4 6])   ; => true
+(not-any? odd? [1 2 3])   ; => false
+(not-any? pos? [])          ; => true
+```
+
+---
+
+## into                                                                *[generic function]*
+
+```
+(into to from)
+```
+
+Adds all elements from FROM into TO using conj semantics. Returns a new
+collection of the same type as TO. Dispatches on the target collection type
+with specialized methods for each collection class.
+
+For dicts, FROM elements must be (key . value) pairs (as returned by seq on a dict).
+For lists, elements are prepended one at a time (Clojure conj semantics), so the
+order of FROM elements is reversed in the result.
+
+### Examples
+
+```fol
+;; Vector targets - elements appended
+(into [1 2] [3 4 5])           ; => [1 2 3 4 5]
+(into [] #{1 2 3})             ; => [1 2 3] (order may vary)
+
+;; Dict targets - entries merged
+(into {:a 1} {:b 2 :c 3})     ; => {:a 1 :b 2 :c 3}
+(into {:a 1} {:a 99 :b 2})    ; => {:a 99 :b 2} (later values win)
+
+;; Set targets - duplicates dropped
+(into #{1 2} [2 3 4])          ; => #{1 2 3 4}
+(into #{} [1 1 2 2 3])         ; => #{1 2 3}
+
+;; List targets - elements prepended (reversed)
+(into '() [1 2 3])             ; => (3 2 1)
+
+;; Sorted collections maintain order
+(into (<sorted-set> nil) [5 3 1 4 2])  ; => #S{1 2 3 4 5}
+
+;; Bag targets - counts accumulate
+(into (<bag>) [1 1 2 3 3 3])  ; => bag with 1->2, 2->1, 3->3
+
+;; Preserves target type
+(into (<ordered-dict> :a 1) {:b 2})  ; => ordered-dict
+(into (<int-dict> 1 :a) {2 :b})     ; => int-dict
+```
+
+### Specialized Methods
+
+| Target Type | Behavior |
+|-------------|----------|
+| `<vector>` | Appends elements to end |
+| `<array>` | Appends elements to end (CL array) |
+| `<dict>` | Inserts (key . value) pairs |
+| `<ordered-dict>` | Inserts pairs, maintaining insertion order |
+| `<array-dict>` | Inserts pairs, maintaining insertion order |
+| `<sorted-dict>` | Inserts pairs in comparator order |
+| `<int-dict>` | Inserts pairs in numeric key order |
+| `<priority-dict>` | Inserts (key . priority) pairs |
+| `<set>` | Inserts elements, dropping duplicates |
+| `<ordered-set>` | Inserts elements, maintaining insertion order |
+| `<sorted-set>` | Inserts elements in comparator order |
+| `<int-set>` | Inserts integers in numeric order |
+| `<bag>` | Counts element occurrences |
+| `<list>` | Prepends elements (conj semantics) |
+| `<deque>` | Appends elements to back |
+| Other `<collection>` | Uses base reduce/conj protocol |
 
 ---
 
@@ -668,6 +1218,56 @@ Returns true if set1 contains all elements of set2.
 (superset? #{1 2 3} #{1 2})            ; => true
 (superset? #{1 2} #{1 2 3})            ; => false
 (superset? #{1 2} #{})                 ; => true (all sets are supersets of empty)
+```
+
+---
+
+### subseq                                                              *[generic]*
+
+```
+(subseq sc test key)
+(subseq sc start-test start-key end-test end-key)
+```
+
+Returns a CL list of elements from a sorted collection that satisfy the given
+range tests, in sorted order. Supported on sorted sets (`<sorted-set>`,
+`<int-set>`) and sorted dicts (`<sorted-dict>`, `<int-dict>`).
+
+TEST and END-TEST are comparison operator symbols: `>=`, `>`, `<=`, `<`.
+
+```fol
+;; Sorted sets:
+(subseq (sorted-set nil 1 2 3 4 5) >= 3)       ; => (3 4 5)
+(subseq (sorted-set nil 1 2 3 4 5) > 3)        ; => (4 5)
+(subseq (sorted-set nil 1 2 3 4 5) <= 3)       ; => (1 2 3)
+(subseq (sorted-set nil 1 2 3 4 5) >= 2 < 5)   ; => (2 3 4)
+(subseq (int-set 10 20 30 40 50) >= 30)         ; => (30 40 50)
+
+;; Sorted dicts (returns (key . value) pairs):
+(subseq (<sorted-dict> :a 1 :b 2 :c 3 :d 4) >= :b)       ; => ((:b . 2) (:c . 3) (:d . 4))
+(subseq (<sorted-dict> :a 1 :b 2 :c 3 :d 4) >= :b < :d)  ; => ((:b . 2) (:c . 3))
+```
+
+---
+
+### rsubseq                                                             *[generic]*
+
+```
+(rsubseq sc test key)
+(rsubseq sc start-test start-key end-test end-key)
+```
+
+Like `subseq`, but returns elements in reverse sorted order. Supported on
+sorted sets (`<sorted-set>`, `<int-set>`) and sorted dicts (`<sorted-dict>`,
+`<int-dict>`).
+
+```fol
+;; Sorted sets:
+(rsubseq (sorted-set nil 1 2 3 4 5) <= 3)      ; => (3 2 1)
+(rsubseq (sorted-set nil 1 2 3 4 5) >= 2 < 5)  ; => (4 3 2)
+
+;; Sorted dicts (returns (key . value) pairs in reverse order):
+(rsubseq (<sorted-dict> :a 1 :b 2 :c 3 :d 4) <= :c)  ; => ((:c . 3) (:b . 2) (:a . 1))
 ```
 
 ---
@@ -860,48 +1460,45 @@ elements are returned in reverse order. Similar to Clojure's `rsubseq`.
 ## Deque (Double-Ended Queue)
 
 The `<deque>` is a persistent double-ended queue that supports efficient O(log n)
-operations at both the front and back. It combines the benefits of both vectors
-(efficient end operations) and lists (efficient front operations).
+operations at both the front and back. Inherits from `<vector>` and uses FSet seq
+storage. Supports standard operations (`peek`/`pop` from front, `push`/`conj` to
+back) and reverse operations (`rpeek`/`rpop` from back, `rpush`/`rconj` to front).
 
 ### Creating Deques
 
 ```fol
 (deque)               ; => #Q[]
 (deque 1 2 3)         ; => #Q[1 2 3]
+#Q[1 2 3]             ; reader syntax
 ```
 
 ### Deque Operations
 
 | Function | Description |
 |----------|-------------|
-| `peek-front` | Returns the front element without removing it |
-| `pop-front` | Returns a new deque without the front element |
-| `push-front` | Returns a new deque with an element added at the front |
-| `peek-end` | Returns the end element without removing it |
-| `pop-end` | Returns a new deque without the end element |
-| `push-end` | Returns a new deque with an element added at the end |
+| `peek`   | Returns the front element |
+| `pop`    | Returns deque without front element |
+| `push`   | Returns deque with element added at back |
+| `conj`   | Returns deque with element added at back |
+| `rpeek`  | Returns the back element |
+| `rpop`   | Returns deque without back element |
+| `rpush`  | Returns deque with element added at front |
+| `rconj`  | Returns deque with element added at front |
 
 ### Examples
 
 ```fol
 (def dq (deque 1 2 3))
 
-;; Front operations
-(peek-front dq)           ; => 1
-(pop-front dq)            ; => #Q[2 3]
-(push-front 0 dq)         ; => #Q[0 1 2 3]
+;; Standard operations (front read, back write)
+(peek dq)                ; => 1
+(pop dq)                 ; => #Q[2 3]
+(push dq 4)              ; => #Q[1 2 3 4]
 
-;; End operations
-(peek-end dq)             ; => 3
-(pop-end dq)              ; => #Q[1 2]
-(push-end 4 dq)           ; => #Q[1 2 3 4]
-
-;; Standard operations work too
-(first dq)                ; => 1 (same as peek-front)
-(rest dq)                 ; => #Q[2 3] (same as pop-front)
-(peek dq)                 ; => 3 (same as peek-end, like vector)
-(pop dq)                  ; => #Q[1 2] (same as pop-end, like vector)
-(push 4 dq)               ; => #Q[1 2 3 4] (same as push-end, like vector)
+;; Reverse operations (back read, front write)
+(rpeek dq)               ; => 3
+(rpop dq)                ; => #Q[1 2]
+(rpush dq 0)             ; => #Q[0 1 2 3]
 
 ;; Other collection operations
 (size dq)                 ; => 3
@@ -1001,6 +1598,279 @@ Maintains keys in numerically sorted order.
 | `<ordered-dict>` | `<ordered-dict>` | Insertion-order map (unlimited size) |
 | `<priority-dict>` | `<priority-dict>` | Priority queue map (sorted by values) |
 | `<int-dict>` | `<int-dict>` | Integer-key sorted map |
+
+---
+
+## Dict Operations
+
+These functions work specifically on dict types (`<dict>`, `<ordered-dict>`, `<sorted-dict>`, etc.).
+
+### assoc                                                                *[generic]*
+
+```
+(assoc coll key value & kvs)
+```
+
+Returns a new collection with key-value pairs added or updated. For vectors,
+key is an index. For dicts, key is the dict key. Accepts multiple key-value
+pairs.
+
+```fol
+(assoc {:a 1 :b 2} :c 3)              ; => {:a 1 :b 2 :c 3}
+(assoc {:a 1} :a 99)                   ; => {:a 99} (overwrites)
+(assoc {:a 1} :b 2 :c 3)              ; => {:a 1 :b 2 :c 3}
+(assoc [10 20 30] 1 99)               ; => [10 99 30]
+```
+
+---
+
+### dissoc                                                               *[generic]*
+
+```
+(dissoc coll & keys)
+```
+
+Returns a new dict with the specified keys removed. Dict types only.
+
+```fol
+(dissoc {:a 1 :b 2 :c 3} :b)          ; => {:a 1 :c 3}
+(dissoc {:a 1 :b 2 :c 3} :a :c)       ; => {:b 2}
+(dissoc {:a 1} :z)                     ; => {:a 1} (no change if key absent)
+```
+
+---
+
+### find                                                                 *[generic]*
+
+```
+(find coll key)
+```
+
+Returns the map entry `(key . value)` for KEY in COLL, or NIL if not found.
+
+```fol
+(find {:a 1 :b 2} :a)                 ; => (:a . 1)
+(find {:a 1 :b 2} :c)                 ; => nil
+(find (<sorted-dict> :a 1 :b 2) :b)   ; => (:b . 2)
+```
+
+---
+
+### get-in                                                               *[generic]*
+
+```
+(get-in coll keys)
+(get-in coll keys not-found)
+```
+
+Looks up a nested path of keys in COLL. Returns NOT-FOUND if the path does
+not exist (defaults to NIL). Works on dicts and vectors.
+
+```fol
+(get-in {:a {:b 1}} '(:a :b))         ; => 1
+(get-in {:a {:b 1}} '(:a :c) :nope)   ; => :nope
+(get-in {:settings {:theme {:color "blue"}}} '(:settings :theme :color))
+                                        ; => "blue"
+(get-in [10 [20 30]] '(1 0))          ; => 20
+```
+
+---
+
+### keys                                                                 *[function]*
+
+```
+(keys dict)
+```
+
+Returns a vector of all keys in DICT. Order depends on dict type:
+ordered/sorted dicts maintain their respective order.
+
+```fol
+(keys {:a 1 :b 2 :c 3})               ; => [:a :b :c] (order may vary)
+(keys (<sorted-dict> :c 3 :a 1 :b 2)) ; => [:a :b :c]
+(keys (<ordered-dict> :z 3 :a 1))     ; => [:z :a]
+```
+
+---
+
+### vals                                                                 *[function]*
+
+```
+(vals dict)
+```
+
+Returns a vector of all values in DICT. Order matches the dict's key order.
+
+```fol
+(vals {:a 1 :b 2})                     ; => [1 2] (order may vary)
+(vals (<sorted-dict> :c 3 :a 1 :b 2)) ; => [1 2 3]
+(vals (<ordered-dict> :z 3 :a 1))     ; => [3 1]
+```
+
+---
+
+### key                                                                  *[function]*
+
+```
+(key entry)
+```
+
+Returns the key of a map entry (cons pair). Map entries are returned by
+`find` and by iterating over dicts with `seq`.
+
+```fol
+(key (find {:a 1} :a))                ; => :a
+(key (first (seq {:x 42})))           ; => :x
+```
+
+---
+
+### val                                                                  *[function]*
+
+```
+(val entry)
+```
+
+Returns the value of a map entry (cons pair).
+
+```fol
+(val (find {:a 1} :a))                ; => 1
+(val (first (seq {:x 42})))           ; => 42
+```
+
+---
+
+### merge                                                                *[generic]*
+
+```
+(merge coll & colls)
+```
+
+Merges dicts together. Later values win on key conflicts. The result type
+matches the first argument.
+
+```fol
+(merge {:a 1} {:b 2} {:c 3})          ; => {:a 1 :b 2 :c 3}
+(merge {:a 1 :b 2} {:b 99 :c 3})      ; => {:a 1 :b 99 :c 3}
+(merge (<sorted-dict> :a 1) {:b 2})   ; => sorted-dict {:a 1 :b 2}
+```
+
+---
+
+### merge-with                                                           *[generic]*
+
+```
+(merge-with f coll & colls)
+```
+
+Merges dicts together. When a key exists in both, applies F to the existing
+and new values: `(f val-in-result val-in-other)`. Keys unique to either dict
+are included as-is.
+
+```fol
+(merge-with + {:a 1 :b 2} {:a 10 :c 3})   ; => {:a 11 :b 2 :c 3}
+(merge-with str {:a "x"} {:a "y"} {:a "z"}) ; => {:a "xyz"}
+(merge-with + (<sorted-dict> :a 1) {:a 2}) ; => sorted-dict {:a 3}
+```
+
+---
+
+### update                                                               *[generic]*
+
+```
+(update coll key updater-fn)
+```
+
+Returns a new collection with the value at KEY transformed by applying
+UPDATER-FN to its current value. Works on dicts and vectors.
+
+```fol
+(update {:a 1 :b 2} :a inc)           ; => {:a 2 :b 2}
+(update [10 20 30] 1 inc)             ; => [10 21 30]
+(update {:count 0} :count inc)        ; => {:count 1}
+```
+
+---
+
+### select-keys                                                          *[function]*
+
+```
+(select-keys dict keys)
+```
+
+Returns a new dict containing only the entries whose keys are in KEYS.
+Preserves the dict type.
+
+```fol
+(select-keys {:a 1 :b 2 :c 3} '(:a :c))      ; => {:a 1 :c 3}
+(select-keys {:a 1 :b 2} '(:b :z))            ; => {:b 2}
+(select-keys (<sorted-dict> :a 1 :b 2 :c 3) '(:a :c))
+                                                ; => sorted-dict {:a 1 :c 3}
+```
+
+---
+
+### rename-keys                                                          *[function]*
+
+```
+(rename-keys dict kmap)
+```
+
+Returns a new dict with keys renamed according to KMAP (a dict mapping old
+keys to new keys). Keys not in KMAP are kept unchanged.
+
+```fol
+(rename-keys {:a 1 :b 2} {:a :x})             ; => {:x 1 :b 2}
+(rename-keys {:a 1 :b 2 :c 3} {:a :x :b :y}) ; => {:x 1 :y 2 :c 3}
+(rename-keys {:a 1} {:z :q})                  ; => {:a 1} (no matching keys)
+```
+
+---
+
+### map-invert                                                           *[function]*
+
+```
+(map-invert dict)
+```
+
+Returns a new dict with keys and values swapped. If multiple keys map to
+the same value, one will be arbitrarily chosen as the key.
+
+```fol
+(map-invert {:a 1 :b 2})              ; => {1 :a 2 :b}
+(map-invert {1 :x 2 :y 3 :z})        ; => {:x 1 :y 2 :z 3}
+```
+
+---
+
+### update-keys                                                          *[function]*
+
+```
+(update-keys dict f)
+```
+
+Returns a new dict with F applied to each key, values unchanged.
+
+```fol
+(update-keys {1 :a 2 :b} #'1+)        ; => {2 :a 3 :b}
+```
+
+---
+
+### update-vals                                                          *[function]*
+
+```
+(update-vals dict f)
+```
+
+Returns a new dict with F applied to each value, keys unchanged.
+
+```fol
+(update-vals {:a 1 :b 2} inc)         ; => {:a 2 :b 3}
+(update-vals {:a "hello" :b "world"} str-upper-case)
+                                        ; => {:a "HELLO" :b "WORLD"}
+(update-vals (<sorted-dict> :a 1 :b 2) inc) ; => sorted-dict {:a 2 :b 3}
+```
 
 ---
 

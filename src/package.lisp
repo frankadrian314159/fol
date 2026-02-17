@@ -33,7 +33,7 @@
 
 (defpackage fol.compiler.primitive-functions
   (:use cl)
-  (:shadow symbol keyword)
+  (:shadow symbol keyword gensym)
   (:export
    ;; Nil and Boolean predicates
    nil? some? <bool>? true? false?
@@ -42,6 +42,10 @@
    <dict>? <ordered-dict>? <array-dict>? <sorted-dict>? <int-dict>? <priority-dict>?
    <set>? <ordered-set>? <sorted-set>? <int-set>? <dense-int-set>?
    <vector>? <list>? <lazy-seq>? <deque>? <bag>?
+   ;; Collection category predicates
+   sequential? associative? sorted? counted? reversible?
+   ;; Map entry predicate
+   map-entry?
    ;; Type checking
    <keyword>? <symbol>? <string>? <char>?
    <number>? <integer>? <float>? <rational>? <real>? <ratio>? <complex>?
@@ -50,7 +54,7 @@
    ;; Numeric predicates
    zero? odd? even?
    ;; Symbol construction
-   symbol keyword
+   symbol keyword find-keyword gensym
    ;; Equality
    identical? =?))
 
@@ -124,6 +128,12 @@
    case-node case-node-p case-node-expr case-node-clauses make-case-node
    env-node env-node-p make-env-node
    swap-node swap-node-p swap-node-atom-expr swap-node-fn-expr swap-node-args make-swap-node
+   ;; Functional special forms
+   defn-private-node defn-private-node-p defn-private-node-name defn-private-node-clauses make-defn-private-node
+   definline-node definline-node-p definline-node-name definline-node-clauses make-definline-node
+   as-thread-node as-thread-node-p as-thread-node-expr as-thread-node-name as-thread-node-forms make-as-thread-node
+   some-thread-first-node some-thread-first-node-p some-thread-first-node-forms make-some-thread-first-node
+   some-thread-last-node some-thread-last-node-p some-thread-last-node-forms make-some-thread-last-node
    ;; Constructors
    make-literal-node make-symbol-ref-node make-call-node make-if-node make-do-node make-bind-node
    make-fn-node make-def-node make-defn-node make-loop-node make-recur-node
@@ -206,6 +216,8 @@
    persistent-class
    ;; Base class
    <persistent-object>
+   ;; Metadata
+   %persistent-metadata
    ;; Functional update API
    update-slot
    update-slots))
@@ -309,11 +321,43 @@
    lazy-seq-thunk
    lazy-seq-realized-p
    lazy-seq-cached
-   realize-lazy-seq))
+   realize-lazy-seq
+   ;; Metadata
+   collection-metadata))
+
+(defpackage fol.compiler.string-functions
+  (:use cl)
+  (:shadow format reverse replace char)
+  (:import-from cl-ppcre)
+  (:export
+   ;; String concatenation and manipulation
+   str subs join split split-lines
+   ;; Trimming (Clojure-style)
+   trim triml trimr trim-newline
+   ;; Case conversion (Clojure-style)
+   upper-case lower-case capitalize
+   ;; Search and replace (old-style)
+   str-replace str-index-of str-last-index-of
+   ;; Predicates (Clojure-style)
+   starts-with? ends-with? includes? blank?
+   ;; Comparison and formatting
+   compare size format
+   ;; Character functions (Clojure-style)
+   char char-name-string char-escape-string
+   ;; Escaping
+   escape
+   ;; Generic Clojure-style functions (with regex support)
+   replace replace-first reverse index-of last-index-of
+   ;; Parsing
+   parse-boolean parse-uuid
+   ;; Regular expressions (Clojure-style)
+   re-pattern re-find re-seq re-matches re-matcher re-quote-replacement
+   ;; Other
+   str-reverse))
 
 (defpackage fol.compiler.collection-functions
   (:use cl)
-  (:shadow vector set list)
+  (:shadow vector set list list* nth push pop replace union intersection subseq find)
   (:shadowing-import-from fol.compiler.collections
                           ;; Import high-level accessors that are defined in collections
                           first rest get assoc dissoc conj size empty? count update merge)
@@ -325,8 +369,12 @@
                 <ordered-set> <sorted-set> <sorted-dict> <int-dict> <priority-dict>
                 <int-set> <dense-int-set> <deque> <list> <lazy-seq> <array> <deque>
                 <lazy-seq> <ordered-set> <sorted-set> <int-set> <dense-int-set>)
+  (:import-from fol.compiler.string-functions
+                index-of last-index-of)
+  (:import-from fol.compiler.destructure
+                fol-type-to-cl-type)
   (:export
-   vector
+   vector vec vector-of
    dict
    ordered-dict
    array-dict
@@ -346,7 +394,31 @@
    list
    lazy-seq
    ;; High-level accessors
-   first rest get assoc dissoc conj size empty? count update merge))
+   first rest get assoc dissoc conj size empty? count update merge
+   empty not-empty bounded-size
+   ;; Array indexing
+   %index
+   ;; Collection predicates
+   distinct? every? not-every? not-any?
+   ;; Collection transfer
+   into
+   ;; List/vector operations
+   list* nth peek push pop
+   ;; Nested associative operations
+   assoc-in update-in
+   ;; Vector-specific
+   subvec replace rseq reduce-kv
+   ;; Search (re-exported from string-functions)
+   index-of last-index-of
+   ;; Set operations
+   contains? disj union difference intersection select
+   subset? superset? subseq rsubseq
+   ;; Dict operations
+   find get-in vals
+   merge-with select-keys rename-keys map-invert
+   update-keys update-vals key val
+   ;; Deque operations
+   rpeek rpop rpush rconj))
 
 (defpackage fol.compiler.seq-functions
   (:use cl)
@@ -356,7 +428,7 @@
                 <vector> <collection> <dict> <ordered-dict> <sorted-dict> <priority-dict>
                 storage-items ordered-dict-key-order)
   (:shadowing-import-from fol.compiler.collection-functions
-                get)
+                get into)
   (:import-from fol.compiler.primitives truthy?)
   (:export
    ;; Core higher-order functions
@@ -439,35 +511,30 @@
    ;; Derived
    implies nand nor))
 
-(defpackage fol.compiler.string-functions
+(defpackage fol.compiler.functional
   (:use cl)
-  (:shadow format reverse replace char)
-  (:import-from cl-ppcre)
+  (:shadow identity constantly complement apply)
   (:export
-   ;; String concatenation and manipulation
-   str subs join split split-lines
-   ;; Trimming (Clojure-style)
-   trim triml trimr trim-newline
-   ;; Case conversion (Clojure-style)
-   upper-case lower-case capitalize
-   ;; Search and replace (old-style)
-   str-replace str-index-of str-last-index-of
-   ;; Predicates (Clojure-style)
-   starts-with? ends-with? includes? blank?
-   ;; Comparison and formatting
-   compare size format
-   ;; Character functions (Clojure-style)
-   char char-name-string char-escape-string
-   ;; Escaping
-   escape
-   ;; Generic Clojure-style functions (with regex support)
-   replace replace-first reverse index-of last-index-of
-   ;; Parsing
-   parse-boolean parse-uuid
-   ;; Regular expressions (Clojure-style)
-   re-pattern re-find re-seq re-matches re-matcher re-quote-replacement
-   ;; Other
-   str-reverse))
+   ;; Core functions
+   identity constantly comp complement partial juxt
+   ;; Memoization and caching
+   memoize fnil
+   ;; Predicate combinators
+   every-pred some-fn
+   ;; Application
+   apply trampoline))
+
+(defpackage fol.compiler.metadata
+  (:use cl)
+  (:shadow test)
+  (:import-from fol.compiler.persistent
+                <persistent-object> %persistent-metadata)
+  (:import-from fol.compiler.collections
+                <collection> collection-metadata)
+  (:export
+   meta with-meta vary-meta
+   alter-meta! reset-meta!
+   doc find-doc test))
 
 (defpackage fol.compiler.cl-utils
   (:use cl)
@@ -479,6 +546,7 @@
 
 (defpackage fol.compiler
   (:use cl)
+  (:shadow macroexpand-1 macroexpand macroexpand-all)
   ; (:import-from fol.reader fol-read fol-read-from-string *fol-readtable*)
   ; (:import-from fol.wrappers wrap unwrap fol-value truthy?)
   ; (:import-from fol.classes val)
@@ -501,7 +569,34 @@
    compilation-result-p
    compilation-result-code
    compilation-result-warnings
-   compilation-result-errors))
+   compilation-result-errors
+   ;; Macro system
+   register-macro
+   unregister-macro
+   macro-p
+   macroexpand-1
+   macroexpand
+   macroexpand-all))
+
+(defpackage fol.macros
+  (:use cl)
+  (:shadow when case cond assert time do dotimes)
+  (:import-from fol.compiler register-macro)
+  (:export
+   ;; Conditional macros
+   when when-not if-not cond case condp
+   ;; Binding macros
+   when-let if-let when-some if-some when-first
+   ;; Loop macros
+   while dotimes doseq for
+   ;; Threading macros
+   -> ->> as-> cond-> cond->> some-> some->>
+   ;; Dynamic binding
+   binding with-redefs with-redefs-fn
+   ;; Resource management
+   with-open with-in-str with-out-str with-precision with-local-vars
+   ;; Utilities
+   time comment assert doc lazy-cat delay))
 
 (defpackage fol.compiler.reader
   (:use cl)
@@ -538,6 +633,16 @@
    get-output-string
    ;; Global vars
    *in* *out*))
+
+(defpackage fol.walk
+  (:use cl)
+  (:import-from fol.compiler.collections
+                <collection> <vector> <dict> <set> <list>
+                collection-seq storage-items make)
+  (:export
+   walk prewalk postwalk
+   prewalk-demo prewalk-replace
+   postwalk-demo postwalk-replace))
 
 (defpackage fol.compiler.tests
   (:use cl fiveam)

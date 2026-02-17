@@ -186,12 +186,12 @@ FOL's persistent metaclass adapts rather than replaces the MOP. Table~\ref{tab:m
 \toprule
 \textbf{Protocol} & \textbf{Status} & \textbf{Rationale} \\
 \midrule
-\texttt{slot-value-using-class} & Redirected & Reads from FSet map \\
+\texttt{slot-value-using-class} & Redirected & Reads from Sycamore hash-map \\
 \texttt{(setf slot-value-using-class)} & Guarded & Blocks post-init writes \\
-\texttt{slot-boundp-using-class} & Redirected & Checks FSet map membership \\
+\texttt{slot-boundp-using-class} & Redirected & Checks Sycamore hash-map membership \\
 \texttt{slot-makunbound-using-class} & Blocked & Immutability invariant \\
 \texttt{validate-superclass} & Extended & Cross-metaclass mixing \\
-\texttt{initialize-instance} & Extended & Populates FSet map from initargs \\
+\texttt{initialize-instance} & Extended & Populates Sycamore hash-map from initargs \\
 \texttt{update-instance-for-redefined-class} & Omitted & Instances are immutable; lazy migration instead (Sec.~5.4) \\
 \texttt{change-class} & Omitted & Violates immutability \\
 \midrule
@@ -561,7 +561,7 @@ Standard CLOS handles class redefinition by lazily updating existing instances v
 mutable instances---an assumption FOL deliberately violates.
 
 FOL's persistent metaclass resolves this tension through what amounts to \textit{lazy schema evolution}. Class definitions remain mutable (redefining a class updates the class object normally), but existing instances
-are frozen snapshots whose \texttt{\%persistent-storage} FSet maps are never modified. The MOP's \texttt{slot-value-using-class} method provides graceful degradation: when accessing a slot that was added by a redefinition
+are frozen snapshots whose \texttt{\%persistent-storage} Sycamore hash-maps are never modified. The MOP's \texttt{slot-value-using-class} method provides graceful degradation: when accessing a slot that was added by a redefinition
 but is absent from an old instance's storage map, the method falls back to evaluating the slot's \texttt{:initform} if one exists, or signals \texttt{slot-unbound} otherwise. Slots removed by redefinition remain in the
 storage map but become inaccessible (no slot definition routes to them). Crucially, functional updates perform implicit migration of already existing objects. \texttt{set-pslot-value} calls \texttt{(class-of object)} to
 obtain the \textit{current} (redefined) class, allocates a fresh instance of that class, and copies the old storage map forward. The resulting object is an instance of the new schema carrying the old data---new slots

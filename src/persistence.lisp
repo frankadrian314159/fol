@@ -45,7 +45,10 @@
 
 (defclass <persistent-object> (standard-object)
   ((%persistent-storage :accessor %persistent-storage
-                        :documentation "Sycamore hash-map storing all slot values."))
+                        :documentation "Sycamore hash-map storing all slot values.")
+   (%metadata :accessor %persistent-metadata
+              :initarg :metadata :initform nil
+              :documentation "Optional metadata dict associated with this object."))
   (:metaclass persistent-class)
   (:documentation "Base class for objects with persistent (immutable) slot storage."))
 
@@ -84,7 +87,7 @@
       (let* ((slot-name (closer-mop:slot-definition-name slot))
              (keyword (slot-key slot-name))
              (init-value (getf initargs keyword :not-found)))
-        (unless (eq slot-name '%persistent-storage)
+        (unless (member slot-name '(%persistent-storage %metadata))
           (cond
             ((not (eq init-value :not-found))
              (setf storage (sycamore:hash-map-insert storage keyword init-value)))
@@ -104,7 +107,7 @@
                                               (slot closer-mop:standard-effective-slot-definition))
   "Read slot value from Sycamore hash-map."
   (let ((slot-name (closer-mop:slot-definition-name slot)))
-    (if (eq slot-name '%persistent-storage)
+    (if (member slot-name '(%persistent-storage %metadata))
         (call-next-method)
         (if (slot-boundp object '%persistent-storage)
             (let* ((storage (%persistent-storage object))
@@ -125,7 +128,7 @@
   "Prevent slot mutation after initialization."
   (let ((slot-name (closer-mop:slot-definition-name slot)))
     (cond
-      ((eq slot-name '%persistent-storage)
+      ((member slot-name '(%persistent-storage %metadata))
        (call-next-method))
       (*initializing-persistent-object*
        (call-next-method))
@@ -137,7 +140,7 @@
                                                (slot closer-mop:standard-effective-slot-definition))
   "Check if slot exists in Sycamore hash-map."
   (let ((slot-name (closer-mop:slot-definition-name slot)))
-    (if (eq slot-name '%persistent-storage)
+    (if (member slot-name '(%persistent-storage %metadata))
         (call-next-method)
         (if (slot-boundp object '%persistent-storage)
             (nth-value 1 (sycamore:hash-map-find (%persistent-storage object)
@@ -163,7 +166,8 @@
          (old-storage (%persistent-storage object))
          (new-storage (sycamore:hash-map-insert old-storage (slot-key slot-name) new-value)))
     (let ((*initializing-persistent-object* t))
-      (setf (%persistent-storage new-obj) new-storage))
+      (setf (%persistent-storage new-obj) new-storage)
+      (setf (%persistent-metadata new-obj) (%persistent-metadata object)))
     new-obj))
 
 (defun update-slots (object &rest slot-name-value-pairs)
@@ -176,5 +180,6 @@
     (loop for (slot-name value) on slot-name-value-pairs by #'cddr
           do (setf storage (sycamore:hash-map-insert storage (slot-key slot-name) value)))
     (let ((*initializing-persistent-object* t))
-      (setf (%persistent-storage new-obj) storage))
+      (setf (%persistent-storage new-obj) storage)
+      (setf (%persistent-metadata new-obj) (%persistent-metadata object)))
     new-obj))

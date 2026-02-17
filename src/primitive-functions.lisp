@@ -233,6 +233,88 @@
      (<bag>? (set 1 2 3))          => NIL"
   (typep obj 'fol.compiler.collections:<bag>))
 
+(defun map-entry? (obj)
+  "Returns true if OBJ is a map entry (a cons cell representing a key-value pair).
+   In FOL, dict entries from collection-seq are cons pairs (key . value).
+
+   Examples:
+     (map-entry? (cons :a 1))           => T
+     (map-entry? (cons \"name\" 42))    => T
+     (map-entry? [1 2])                 => NIL
+     (map-entry? 42)                    => NIL
+     (map-entry? nil)                   => NIL"
+  (consp obj))
+
+;;; ---------------------------------------------------------------------------
+;;; Collection Category Predicates
+;;; ---------------------------------------------------------------------------
+
+(defun sequential? (obj)
+  "Returns true if OBJ is a sequential collection (list, vector, deque,
+   or lazy-seq, including subtypes such as array).
+
+   Examples:
+     (sequential? (vector 1 2 3))                       => T
+     (sequential? (make 'fol.compiler.collections:<list> 1 2))  => T
+     (sequential? (make 'fol.compiler.collections:<deque> 1))   => T
+     (sequential? (dict :a 1))                           => NIL
+     (sequential? (set 1 2 3))                           => NIL"
+  (or (typep obj 'fol.compiler.collections:<vector>)
+      (typep obj 'fol.compiler.collections:<list>)
+      (typep obj 'fol.compiler.collections:<deque>)
+      (typep obj 'fol.compiler.collections:<lazy-seq>)))
+
+(defun associative? (obj)
+  "Returns true if OBJ is an associative collection (vector or dict,
+   including all subtypes such as array, ordered-dict, sorted-dict, etc.).
+
+   Examples:
+     (associative? (vector 1 2 3))          => T
+     (associative? (dict :a 1))             => T
+     (associative? (sorted-dict nil :a 1))  => T
+     (associative? (set 1 2 3))             => NIL"
+  (or (typep obj 'fol.compiler.collections:<vector>)
+      (typep obj 'fol.compiler.collections:<dict>)))
+
+(defun sorted? (obj)
+  "Returns true if OBJ is a sorted collection (sorted-dict or sorted-set,
+   including subtypes such as int-dict and int-set).
+
+   Examples:
+     (sorted? (sorted-dict nil :a 1))       => T
+     (sorted? (int-dict 1 :a 2 :b))        => T
+     (sorted? (sorted-set nil 1 2 3))      => T
+     (sorted? (int-set 1 2 3))             => T
+     (sorted? (dict :a 1))                 => NIL
+     (sorted? (set 1 2 3))                 => NIL"
+  (or (typep obj 'fol.compiler.collections:<sorted-dict>)
+      (typep obj 'fol.compiler.collections:<sorted-set>)))
+
+(defun counted? (obj)
+  "Returns true if OBJ is a counted collection (any subtype of <collection>).
+
+   Examples:
+     (counted? (vector 1 2 3))      => T
+     (counted? (dict :a 1))         => T
+     (counted? (set 1 2 3))         => T
+     (counted? 42)                  => NIL
+     (counted? nil)                 => NIL"
+  (typep obj 'fol.compiler.collections:<collection>))
+
+(defun reversible? (obj)
+  "Returns true if OBJ is a reversible collection (vector, sorted-dict,
+   or sorted-set, including subtypes such as array, int-dict, int-set).
+
+   Examples:
+     (reversible? (vector 1 2 3))          => T
+     (reversible? (sorted-dict nil :a 1))  => T
+     (reversible? (sorted-set nil 1 2 3))  => T
+     (reversible? (dict :a 1))             => NIL
+     (reversible? (set 1 2 3))             => NIL"
+  (or (typep obj 'fol.compiler.collections:<vector>)
+      (typep obj 'fol.compiler.collections:<sorted-dict>)
+      (typep obj 'fol.compiler.collections:<sorted-set>)))
+
 ;;; ---------------------------------------------------------------------------
 ;;; Type Checking Functions
 ;;; ---------------------------------------------------------------------------
@@ -260,7 +342,7 @@
    Examples:
      (symbol \"foo\")  => FOO
      (symbol \"BAR\")  => BAR"
-  (intern (string name)))
+  (intern (string-upcase (string name))))
 
 (defun keyword (name)
   "Create a keyword symbol from a string name.
@@ -268,7 +350,30 @@
    Examples:
      (keyword \"foo\")  => :FOO
      (keyword \"bar\")  => :BAR"
-  (intern (string name) :keyword))
+  (intern (string-upcase (string name)) :keyword))
+
+(defun find-keyword (name)
+  "Find or create a keyword from a string, symbol, or keyword.
+   If given a keyword, returns it unchanged (idempotent).
+   If given a symbol or string, converts to keyword.
+
+   Examples:
+     (find-keyword \"foo\")   => :FOO
+     (find-keyword 'foo)     => :FOO
+     (find-keyword :foo)     => :FOO"
+  (etypecase name
+    (cl:keyword name)
+    ((or cl:symbol string) (intern (string-upcase (string name)) :keyword))))
+
+(defun gensym (&optional (prefix "G"))
+  "Generate a unique uninterned symbol with optional PREFIX.
+   Each call returns a new symbol that is guaranteed to be unique.
+
+   Examples:
+     (gensym)        => #:G1234
+     (gensym \"X\")   => #:X5678
+     (gensym 'temp)  => #:TEMP9012"
+  (cl:gensym (string prefix)))
 
 (defun <string>? (obj)
   "Returns true if OBJ is a string.

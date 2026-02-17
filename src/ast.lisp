@@ -129,6 +129,34 @@
   "Thread-last: (->> x form1 form2 ...)."
   (forms nil :read-only t))     ; list of AST nodes
 
+(defstruct (some-thread-first-node (:include ast-node))
+  "Nil-safe thread-first: (some-> x form1 form2 ...)."
+  (forms nil :read-only t))     ; list of AST nodes
+
+(defstruct (some-thread-last-node (:include ast-node))
+  "Nil-safe thread-last: (some->> x form1 form2 ...)."
+  (forms nil :read-only t))     ; list of AST nodes
+
+(defstruct (as-thread-node (:include ast-node))
+  "Named threading: (as-> expr name form1 form2 ...)."
+  (expr nil :read-only t)       ; initial expression AST node
+  (name nil :read-only t)       ; binding symbol
+  (forms nil :read-only t))     ; list of AST nodes
+
+;;; ---------------------------------------------------------------------------
+;;; Function Definition Variants
+;;; ---------------------------------------------------------------------------
+
+(defstruct (defn-private-node (:include ast-node))
+  "Private function: (defn- name [params] body)."
+  (name nil :read-only t)
+  (clauses nil :read-only t))   ; list of (params . body-nodes)
+
+(defstruct (definline-node (:include ast-node))
+  "Inline function: (definline name [params] body)."
+  (name nil :read-only t)
+  (clauses nil :read-only t))   ; list of (params . body-nodes)
+
 ;;; ---------------------------------------------------------------------------
 ;;; Condition Handling
 ;;; ---------------------------------------------------------------------------

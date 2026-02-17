@@ -192,6 +192,87 @@
   (declare (ignore char))
   (list 'fol.compiler.mutable:deref (read stream t nil t)))
 
+(defun read-fol-metadata (stream char)
+  "Read a FOL metadata annotation: ^{k v ...}, ^:keyword, or ^Type.
+   After reading the metadata, reads the next form and attaches it:
+   - ^{k v} form  => (fol.compiler.metadata:with-meta form {k v})
+   - ^:kw form    => (fol.compiler.metadata:with-meta form {:kw t})
+   - ^Type form   => (fol.compiler.metadata:with-meta form {:type Type})"
+  (declare (ignore char))
+  (let ((next-char (peek-char nil stream t nil t))
+        meta-expr)
+    (cond
+      ;; ^{key val ...} - dict literal
+      ((char= next-char #\{)
+       (setf meta-expr (read stream t nil t)))
+      ;; ^:keyword - shorthand for ^{:keyword t}
+      ((char= next-char #\:)
+       (let ((kw (read stream t nil t)))
+         (setf meta-expr (list 'fol.compiler.collection-functions:dict kw t))))
+      ;; ^Type - shorthand for ^{:type Type}
+      (t
+       (let ((type-sym (read stream t nil t)))
+         (setf meta-expr (list 'fol.compiler.collection-functions:dict :type type-sym)))))
+    ;; Read the target form and wrap in with-meta
+    (let ((target (read stream t nil t)))
+      (list 'fol.compiler.metadata:with-meta target meta-expr))))
+
+;;; ============================================================================
+;;; Syntax-quote and Auto-gensym Support
+;;; ============================================================================
+
+(defvar *gensym-env* nil
+  "Dynamic binding for auto-gensym tracking within syntax-quote.
+   Maps symbol names (without #) to their generated gensyms.")
+
+(defun auto-gensym-p (symbol)
+  "Check if SYMBOL is an auto-gensym symbol (ends with #)."
+  (and (symbolp symbol)
+       (let ((name (symbol-name symbol)))
+         (and (> (length name) 1)
+              (char= (char name (1- (length name))) #\#)))))
+
+(defun resolve-auto-gensym (symbol)
+  "Resolve an auto-gensym SYMBOL to its generated gensym.
+   If *gensym-env* is NIL, signals an error (auto-gensym outside syntax-quote).
+   Otherwise, looks up or creates a gensym for this symbol."
+  (unless *gensym-env*
+    (error "Auto-gensym symbol ~A used outside syntax-quote" symbol))
+  (let* ((name (symbol-name symbol))
+         (base-name (subseq name 0 (1- (length name))))  ; strip trailing #
+         (existing (gethash base-name *gensym-env*)))
+    (or existing
+        (setf (gethash base-name *gensym-env*)
+              (gensym (concatenate 'string base-name "__"))))))
+
+(defun read-syntax-quote-form (form)
+  "Recursively process FORM, resolving auto-gensyms."
+  (cond
+    ;; Auto-gensym symbol
+    ((auto-gensym-p form)
+     (resolve-auto-gensym form))
+    ;; Unquote: ~form
+    ((and (consp form) (eq (car form) 'unquote))
+     form)  ; don't process inside unquote
+    ;; Unquote-splicing: ~@form
+    ((and (consp form) (eq (car form) 'unquote-splicing))
+     form)  ; don't process inside unquote-splicing
+    ;; Cons: recursively process
+    ((consp form)
+     (cons (read-syntax-quote-form (car form))
+           (read-syntax-quote-form (cdr form))))
+    ;; Everything else: pass through
+    (t form)))
+
+(defun read-fol-syntax-quote (stream char)
+  "Read a FOL syntax-quote: `form => (syntax-quote form).
+   Handles auto-gensym symbols (foo#) within the quoted form."
+  (declare (ignore char))
+  (let* ((*gensym-env* (make-hash-table :test 'equal))  ; enable auto-gensym
+         (form (read stream t nil t))
+         (processed (read-syntax-quote-form form)))
+    (list 'syntax-quote processed)))
+
 (defun read-fol-character (stream char)
   "Read a Clojure-style character literal: \\a, \\newline, \\space, etc.
    Supported named characters: newline, space, tab, return, backspace, formfeed.
@@ -242,6 +323,24 @@
        (error "Unknown character literal: \\~A" token)))))
 
 ;;; ============================================================================
+;;; Unquote Reader Macros
+;;; ============================================================================
+
+(defun read-fol-unquote (stream char)
+  "Read a FOL unquote: ~form => (unquote form).
+   Also handles ~@form => (unquote-splicing form)."
+  (declare (ignore char))
+  (let ((next-char (peek-char nil stream nil nil t)))
+    (cond
+      ;; ~@form => (unquote-splicing form)
+      ((and next-char (char= next-char #\@))
+       (read-char stream)  ; consume @
+       (list 'unquote-splicing (read stream t nil t)))
+      ;; ~form => (unquote form)
+      (t
+       (list 'unquote (read stream t nil t))))))
+
+;;; ============================================================================
 ;;; Install Reader Macros
 ;;; ============================================================================
 
@@ -271,8 +370,17 @@
 ;;; @ for deref
 (set-macro-character #\@ #'read-fol-deref nil *fol-readtable*)
 
+;;; ^ for metadata
+(set-macro-character #\^ #'read-fol-metadata nil *fol-readtable*)
+
 ;;; \ for character literals (Clojure-style)
 (set-macro-character #\\ #'read-fol-character nil *fol-readtable*)
+
+;;; ` for syntax-quote
+(set-macro-character #\` #'read-fol-syntax-quote nil *fol-readtable*)
+
+;;; ~ for unquote and ~@ for unquote-splicing
+(set-macro-character #\~ #'read-fol-unquote nil *fol-readtable*)
 
 ;;; Digit characters (0-9) for extended numeric literals
 ;;; Install custom number reader for C-style hex/octal and Dylan-style radix

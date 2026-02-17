@@ -45,6 +45,22 @@
   :description "Tests for string manipulation functions."
   :in compiler-tests)
 
+(def-suite primitive-functions-tests
+  :description "Tests for primitive functions (symbol, keyword, find-keyword, gensym)."
+  :in compiler-tests)
+
+(def-suite walk-tests
+  :description "Tests for tree walking and transformation functions."
+  :in compiler-tests)
+
+(def-suite functional-tests
+  :description "Tests for functional operations (identity, comp, partial, etc.) and special forms (defn-, definline, some->, some->>, as->)."
+  :in compiler-tests)
+
+(def-suite metadata-tests
+  :description "Tests for metadata system (meta, with-meta, vary-meta, alter-meta!, reset-meta!, doc, test)."
+  :in compiler-tests)
+
 (defun fol-form (form)
   "Recursively convert CL vectors in FORM to FOL <vector> instances.
    Allows tests to use the familiar #(...) syntax inside (fol-form '(...))."

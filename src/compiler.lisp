@@ -76,10 +76,18 @@
 
 (defun parse-compound (form)
   "Parse a compound form (list) into an AST node.
-   Dispatches on the operator to handle special forms vs function calls."
-  (if (special-form-p (car form))
-      (parse-special-form form)
-      (parse-function-call form)))
+   Dispatches on the operator to handle macros, special forms, and function calls."
+  (cond
+    ;; Check for macros first and expand them
+    ((and (symbolp (car form)) (macro-p (car form)))
+     (let ((expanded (macroexpand-1 form)))
+       (parse-form expanded)))
+    ;; Then check for special forms
+    ((special-form-p (car form))
+     (parse-special-form form))
+    ;; Otherwise it's a function call
+    (t
+     (parse-function-call form))))
 
 (defun parse-function-call (form)
   "Parse a function call: (f arg1 arg2 ...)."
@@ -210,6 +218,41 @@
       (error "->> requires at least one argument: ~S" form))
     (fol.compiler.ast:make-thread-last-node
      :forms (mapcar #'parse-form args)
+     :form form)))
+
+(defun parse-some-thread-first (form)
+  "Parse a nil-safe thread-first form: (some-> x form1 form2 ...).
+   Short-circuits on nil at each step."
+  (destructuring-bind (op &rest args) form
+    (declare (ignore op))
+    (unless (>= (length args) 1)
+      (error "some-> requires at least one argument: ~S" form))
+    (fol.compiler.ast:make-some-thread-first-node
+     :forms (mapcar #'parse-form args)
+     :form form)))
+
+(defun parse-some-thread-last (form)
+  "Parse a nil-safe thread-last form: (some->> x form1 form2 ...).
+   Short-circuits on nil at each step."
+  (destructuring-bind (op &rest args) form
+    (declare (ignore op))
+    (unless (>= (length args) 1)
+      (error "some->> requires at least one argument: ~S" form))
+    (fol.compiler.ast:make-some-thread-last-node
+     :forms (mapcar #'parse-form args)
+     :form form)))
+
+(defun parse-as-thread (form)
+  "Parse a named threading form: (as-> expr name form1 form2 ...).
+   Binds expr to name, then threads through each form."
+  (destructuring-bind (op expr name &rest forms) form
+    (declare (ignore op))
+    (unless (symbolp name)
+      (error "as-> binding name must be a symbol: ~S" form))
+    (fol.compiler.ast:make-as-thread-node
+     :expr (parse-form expr)
+     :name name
+     :forms (mapcar #'parse-form forms)
      :form form)))
 
 (defun parse-vector (form)
@@ -388,6 +431,60 @@
           :clauses (mapcar #'parse-clause args)
           :form form))
         (t (error "Invalid defn form: ~S" form))))))
+
+(defun parse-defn-private (form)
+  "Parse a defn- form: private function definition.
+   Same syntax as defn but emits a non-exported defun."
+  (destructuring-bind (op name &rest args) form
+    (declare (ignore op))
+    (labels ((parse-clause (clause)
+               (destructuring-bind (params &rest body) clause
+                 (cons params (mapcar #'parse-form body))))
+             (multi-clause-p (forms)
+               (and (>= (length forms) 1)
+                    (listp (first forms))
+                    (not (null (first forms)))
+                    (fol-vector-p (first (first forms))))))
+      (cond
+        ((and (>= (length args) 1)
+              (fol-vector-p (first args)))
+         (fol.compiler.ast:make-defn-private-node
+          :name name
+          :clauses (list (cons (first args) (mapcar #'parse-form (rest args))))
+          :form form))
+        ((multi-clause-p args)
+         (fol.compiler.ast:make-defn-private-node
+          :name name
+          :clauses (mapcar #'parse-clause args)
+          :form form))
+        (t (error "Invalid defn- form: ~S" form))))))
+
+(defun parse-definline (form)
+  "Parse a definline form: inline function definition.
+   Same syntax as defn but emits (declaim (inline name)) + defun."
+  (destructuring-bind (op name &rest args) form
+    (declare (ignore op))
+    (labels ((parse-clause (clause)
+               (destructuring-bind (params &rest body) clause
+                 (cons params (mapcar #'parse-form body))))
+             (multi-clause-p (forms)
+               (and (>= (length forms) 1)
+                    (listp (first forms))
+                    (not (null (first forms)))
+                    (fol-vector-p (first (first forms))))))
+      (cond
+        ((and (>= (length args) 1)
+              (fol-vector-p (first args)))
+         (fol.compiler.ast:make-definline-node
+          :name name
+          :clauses (list (cons (first args) (mapcar #'parse-form (rest args))))
+          :form form))
+        ((multi-clause-p args)
+         (fol.compiler.ast:make-definline-node
+          :name name
+          :clauses (mapcar #'parse-clause args)
+          :form form))
+        (t (error "Invalid definline form: ~S" form))))))
 
 (defun parse-loop (form)
   "Parse a loop form: (loop [name init name init ...] body...).
@@ -607,8 +704,9 @@
   (setf (gethash "QUOTE" special-forms) #'parse-quote)
   (setf (gethash "FN" special-forms) #'parse-fn)
   (setf (gethash "Λ" special-forms) #'parse-fn)  ; Λ/λ is an alias for fn
-  (setf (gethash "->" special-forms) #'parse-thread-first)
-  (setf (gethash "->>" special-forms) #'parse-thread-last)
+  ;; Threading macros now handled in macros.lisp
+  ;; (setf (gethash "->" special-forms) #'parse-thread-first)
+  ;; (setf (gethash "->>" special-forms) #'parse-thread-last)
   (setf (gethash "VECTOR" special-forms) #'parse-vector)
   (setf (gethash "DICT" special-forms) #'parse-dict)
   (setf (gethash "SET" special-forms) #'parse-set)
@@ -630,14 +728,20 @@
   (setf (gethash "DEFDYNAMIC" special-forms) #'parse-defdynamic)
   (setf (gethash "BINDING" special-forms) #'parse-binding)
   (setf (gethash "SWAP!" special-forms) #'parse-swap!)
-  (setf (gethash "COND" special-forms) #'parse-cond)
-  (setf (gethash "COND->" special-forms) #'parse-cond-thread-first)
-  (setf (gethash "COND->>" special-forms) #'parse-cond-thread-last)
+  ;; Now a macro: (setf (gethash "COND" special-forms) #'parse-cond)
+  ;; Now a macro: (setf (gethash "COND->" special-forms) #'parse-cond-thread-first)
+  ;; Now a macro: (setf (gethash "COND->>" special-forms) #'parse-cond-thread-last)
   (setf (gethash "SYNTAX-QUOTE" special-forms) #'parse-syntax-quote)
   (setf (gethash "UNQUOTE" special-forms) #'parse-unquote)
   (setf (gethash "UNQUOTE-SPLICING" special-forms) #'parse-unquote-splicing)
-  (setf (gethash "CASE" special-forms) #'parse-case)
+  ;; Now a macro: (setf (gethash "CASE" special-forms) #'parse-case)
   (setf (gethash "ENV" special-forms) #'parse-env)
+  ;; Functional special forms
+  (setf (gethash "DEFN-" special-forms) #'parse-defn-private)
+  (setf (gethash "DEFINLINE" special-forms) #'parse-definline)
+  ;; Now macros: (setf (gethash "SOME->" special-forms) #'parse-some-thread-first)
+  ;; Now macros: (setf (gethash "SOME->>" special-forms) #'parse-some-thread-last)
+  ;; Now a macro: (setf (gethash "AS->" special-forms) #'parse-as-thread)
   (defun special-form-p (op)
     "Check if OP is a special form operator.
      Compares by symbol name to work across packages."
@@ -650,6 +754,65 @@
       (if parser
           (funcall parser form)
           (error "Unknown special form: ~S" (car form))))))
+
+;;; ---------------------------------------------------------------------------
+;;; Macro System
+;;; ---------------------------------------------------------------------------
+
+(let ((macros (make-hash-table :test 'equal)))
+  (defun register-macro (name expander)
+    "Register a macro with NAME and its EXPANDER function.
+     The expander function takes a form and returns the expanded form.
+     NAME can be a symbol or string; strings are used for cross-package compatibility."
+    (let ((key (if (symbolp name) (symbol-name name) name)))
+      (setf (gethash key macros) expander)))
+
+  (defun unregister-macro (name)
+    "Remove a macro registration."
+    (let ((key (if (symbolp name) (symbol-name name) name)))
+      (remhash key macros)))
+
+  (defun macro-p (symbol)
+    "Check if SYMBOL is a registered macro."
+    (and (symbolp symbol)
+         (nth-value 1 (gethash (symbol-name symbol) macros))))
+
+  (defun get-macro-expander (symbol)
+    "Get the expander function for a macro, or NIL if not a macro."
+    (when (symbolp symbol)
+      (gethash (symbol-name symbol) macros))))
+
+(defun macroexpand-1 (form)
+  "Expand FORM one level if it's a macro call. Returns two values:
+   the expanded form and T if expansion occurred, or the original form and NIL."
+  (if (and (consp form)
+           (symbolp (car form))
+           (macro-p (car form)))
+      (let ((expander (get-macro-expander (car form))))
+        (values (funcall expander form nil) t))
+      (values form nil)))
+
+(defun macroexpand (form)
+  "Recursively expand FORM until it's no longer a macro call.
+   Returns two values: the fully expanded form and T if any expansion occurred."
+  (multiple-value-bind (expanded expanded-p) (macroexpand-1 form)
+    (if expanded-p
+        (multiple-value-bind (final any-expansion) (macroexpand expanded)
+          (values final t))
+        (values form nil))))
+
+(defun macroexpand-all (form)
+  "Recursively expand all macros in FORM, including nested subforms."
+  (multiple-value-bind (expanded expanded-p) (macroexpand-1 form)
+    (if expanded-p
+        ;; After top-level expansion, recursively expand the result
+        (macroexpand-all expanded)
+        ;; Not a macro call, but recursively process subforms
+        (typecase form
+          (cons
+           (cons (macroexpand-all (car form))
+                 (macroexpand-all (cdr form))))
+          (t form)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Phase 2: Emit (AST -> Common Lisp forms)
@@ -672,7 +835,8 @@
   "Emit a function call node.
    Special cases:
    - (:keyword dict) => (get dict :keyword)  ; keyword as accessor
-   - (var-name ...) where var-name is lexically bound => (funcall var-name ...)  ; Lisp-2"
+   - (lexical-var ...) => runtime dispatch: funcall if function, get if collection
+   - (symbol ...) => normal call with runtime collection fallback"
   (let ((operator (fol.compiler.ast:call-node-operator node))
         (args (fol.compiler.ast:call-node-args node)))
     (cond
@@ -685,22 +849,53 @@
              (dict-arg (emit-node (first args))))
          `(fol.compiler.collection-functions:get ,dict-arg ,keyword)))
 
-      ;; Pattern: (lexical-var ...) - variable holding a function value
-      ;; Emit funcall for Lisp-2 semantics
+      ;; Pattern: (lexical-var ...) - variable holding a function or collection
+      ;; Runtime dispatch: funcall if function, get/nth if dict/vector/set
       ((and (fol.compiler.ast:symbol-ref-node-p operator)
             (member (fol.compiler.ast:symbol-ref-node-name operator) *lexical-vars*))
-       `(funcall ,(emit-node operator) ,@(mapcar #'emit-node args)))
+       (let ((emitted-args (mapcar #'emit-node args))
+             (gop (gensym "OP")))
+         `(let ((,gop ,(emit-node operator)))
+            (cond
+              ((functionp ,gop) (funcall ,gop ,@emitted-args))
+              ((typep ,gop 'fol.compiler.collections:<dict>)
+               (fol.compiler.collection-functions:get ,gop ,@emitted-args))
+              ((typep ,gop 'fol.compiler.collections:<vector>)
+               (fol.compiler.collection-functions:nth ,gop ,@emitted-args))
+              ((typep ,gop 'fol.compiler.collections:<set>)
+               (fol.compiler.collection-functions:get ,gop ,@emitted-args))
+              (t (error "Value ~S is not callable or a collection" ,gop))))))
 
-      ;; Normal function call - operator must be callable
-      ;; Allow: symbols, lambdas, function calls, and literals/collections (for edge cases)
-      ((or (fol.compiler.ast:symbol-ref-node-p operator)
-           (fol.compiler.ast:fn-node-p operator)
+      ;; Normal function call - operator is a lambda, nested call, or literal
+      ((or (fol.compiler.ast:fn-node-p operator)
            (fol.compiler.ast:call-node-p operator)
            (fol.compiler.ast:literal-node-p operator)
            (fol.compiler.ast:vector-node-p operator)
            (fol.compiler.ast:dict-node-p operator)
            (fol.compiler.ast:set-node-p operator))
        `(,(emit-node operator) ,@(mapcar #'emit-node args)))
+
+      ;; Symbol-ref call with runtime collection fallback
+      ;; If symbol is fboundp or a CL package symbol, emit direct call;
+      ;; otherwise emit runtime check: try as function, then as dict/vector/set
+      ((fol.compiler.ast:symbol-ref-node-p operator)
+       (let ((sym (fol.compiler.ast:symbol-ref-node-name operator))
+             (emitted-args (mapcar #'emit-node args)))
+         (if (or (fboundp sym)
+                 (eq (symbol-package sym) (find-package :cl)))
+             `(,sym ,@emitted-args)
+             (let ((gval (gensym "VAL")))
+               `(if (fboundp ',sym)
+                    (,sym ,@emitted-args)
+                    (let ((,gval ,sym))
+                      (cond
+                        ((typep ,gval 'fol.compiler.collections:<dict>)
+                         (fol.compiler.collection-functions:get ,gval ,@emitted-args))
+                        ((typep ,gval 'fol.compiler.collections:<vector>)
+                         (fol.compiler.collection-functions:nth ,gval ,@emitted-args))
+                        ((typep ,gval 'fol.compiler.collections:<set>)
+                         (fol.compiler.collection-functions:get ,gval ,@emitted-args))
+                        (t (error "~S is not a function or collection" ',sym)))))))))
 
       ;; Invalid function call - operator is not callable
       (t
@@ -1023,6 +1218,93 @@
                       (t `(funcall ,emitted ,acc)))))
                 threading-forms
                 :initial-value initial))))
+
+(defun emit-some-thread-first (node)
+  "Emit nil-safe thread-first: (some-> x f1 f2 ...)
+   Threads value as first arg, short-circuiting on nil.
+   Expands to nested (let ((g expr)) (when g (let ((g (f g))) ...)))."
+  (let* ((forms (fol.compiler.ast:some-thread-first-node-forms node))
+         (initial (emit-node (first forms)))
+         (threading-forms (rest forms)))
+    (if (null threading-forms)
+        initial
+        (let ((g (gensym "G")))
+          (reduce (lambda (inner form-node)
+                    (let ((emitted (emit-node form-node)))
+                      (let ((call (cond
+                                    ((symbolp emitted)
+                                     `(,emitted ,g))
+                                    ((listp emitted)
+                                     `(,(first emitted) ,g ,@(rest emitted)))
+                                    (t `(funcall ,emitted ,g)))))
+                        `(let ((,g ,inner))
+                           (when ,g ,call)))))
+                  threading-forms
+                  :initial-value initial
+                  :from-end nil)))))
+
+(defun emit-some-thread-last (node)
+  "Emit nil-safe thread-last: (some->> x f1 f2 ...)
+   Threads value as last arg, short-circuiting on nil.
+   Expands to nested (let ((g expr)) (when g (let ((g (f ... g))) ...)))."
+  (let* ((forms (fol.compiler.ast:some-thread-last-node-forms node))
+         (initial (emit-node (first forms)))
+         (threading-forms (rest forms)))
+    (if (null threading-forms)
+        initial
+        (let ((g (gensym "G")))
+          (reduce (lambda (inner form-node)
+                    (let ((emitted (emit-node form-node)))
+                      (let ((call (cond
+                                    ((symbolp emitted)
+                                     `(,emitted ,g))
+                                    ((listp emitted)
+                                     `(,(first emitted) ,@(rest emitted) ,g))
+                                    (t `(funcall ,emitted ,g)))))
+                        `(let ((,g ,inner))
+                           (when ,g ,call)))))
+                  threading-forms
+                  :initial-value initial
+                  :from-end nil)))))
+
+(defun emit-as-thread (node)
+  "Emit named threading: (as-> expr name form1 form2 ...)
+   Binds expr to name, then rebinds name to each form's result.
+   Expands to nested let bindings."
+  (let* ((expr (emit-node (fol.compiler.ast:as-thread-node-expr node)))
+         (name (fol.compiler.ast:as-thread-node-name node))
+         (forms (fol.compiler.ast:as-thread-node-forms node))
+         (*lexical-vars* (cons name *lexical-vars*)))
+    (if (null forms)
+        expr
+        (reduce (lambda (inner form-node)
+                  `(let ((,name ,inner))
+                     ,(emit-node form-node)))
+                forms
+                :initial-value expr
+                :from-end nil))))
+
+(defun emit-defn-private (node)
+  "Emit a defn- node as (defun name ...).
+   Same as defn; privacy is by convention only."
+  (let* ((name (fol.compiler.ast:defn-private-node-name node))
+         (clauses (fol.compiler.ast:defn-private-node-clauses node))
+         (lambda-form (compile-fn clauses)))
+    (let ((params (second lambda-form))
+          (body (cddr lambda-form)))
+      `(defun ,name ,params ,@body))))
+
+(defun emit-definline (node)
+  "Emit a definline node as (progn (declaim (inline name)) (defun name ...)).
+   Declares the function inline before defining it."
+  (let* ((name (fol.compiler.ast:definline-node-name node))
+         (clauses (fol.compiler.ast:definline-node-clauses node))
+         (lambda-form (compile-fn clauses)))
+    (let ((params (second lambda-form))
+          (body (cddr lambda-form)))
+      `(progn
+         (declaim (inline ,name))
+         (defun ,name ,params ,@body)))))
 
 (defun emit-vector (node)
   "Emit a vector-node as a call to vector.
@@ -1636,7 +1918,13 @@
     (fol.compiler.ast:unquote-node               (error "unquote outside syntax-quote"))
     (fol.compiler.ast:unquote-splicing-node      (error "unquote-splicing outside syntax-quote"))
     (fol.compiler.ast:case-node                  (emit-case node))
-    (fol.compiler.ast:env-node                   (emit-env node))))
+    (fol.compiler.ast:env-node                   (emit-env node))
+    ;; Functional special forms
+    (fol.compiler.ast:defn-private-node          (emit-defn-private node))
+    (fol.compiler.ast:definline-node             (emit-definline node))
+    (fol.compiler.ast:some-thread-first-node     (emit-some-thread-first node))
+    (fol.compiler.ast:some-thread-last-node      (emit-some-thread-last node))
+    (fol.compiler.ast:as-thread-node             (emit-as-thread node))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Main Entry Points

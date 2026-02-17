@@ -59,6 +59,7 @@ FOL (Functional Object Lisp) is a Lisp dialect combining features from Common Li
 
 ### Tree Navigation
 
+- [Walk](walk.md) - Tree traversal and transformation: walk, prewalk, postwalk, prewalk-replace, postwalk-replace
 - [Zippers](zip.md) - Functional tree editing: zipper, vector-zip, seq-zip, navigation and editing
 
 ### Miscellaneous

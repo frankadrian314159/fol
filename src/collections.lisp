@@ -18,7 +18,9 @@
 ;;; ============================================================================
 
 (defclass <collection> (standard-object)
-  ()
+  ((metadata :accessor collection-metadata
+             :initarg :metadata :initform nil
+             :documentation "Optional metadata dict associated with this collection."))
   (:documentation "Abstract base class for all FOL collections.
                    Subclasses wrap persistent backing stores (FSet, Sycamore)
                    and implement the collection protocol generics."))
@@ -184,7 +186,7 @@
 
 (defclass <array> (<vector>)
   ((dimension :initarg :dimension
-              :initform '(0)
+              :initform '(1)
               :reader array-dimension
               :documentation "List of dimension sizes, as in CL array-dimensions."))
   (:default-initargs :items (cl:make-array 0))
@@ -202,6 +204,12 @@
 (defmethod <array>? ((obj <array>))
   (declare (ignore obj))
   t)
+
+(defmethod initialize-instance :after ((a <array>) &key)
+  "Validate that all dimension entries are non-negative integers."
+  (dolist (d (array-dimension a))
+    (unless (and (integerp d) (>= d 0))
+      (error "Array dimension ~A is not a non-negative integer" d))))
 
 (defmethod make ((class (eql '<array>)) &rest elements)
   "Create a new <array> from ELEMENTS.
@@ -1069,12 +1077,10 @@
 ;;; Deque
 ;;; ============================================================================
 
-(defclass <deque> (<ordered-collection>)
-  ((items :initarg :items
-          :initform (fset:empty-seq)
-          :reader deque-items
-          :documentation "The underlying FSet sequence."))
+(defclass <deque> (<vector>)
+  ()
   (:documentation "A persistent double-ended queue implemented using FSet sequences.
+                   Inherits storage from <vector> (FSet seq).
                    Supports O(log n) operations at both ends."))
 
 (defgeneric <deque>? (obj)
@@ -1088,28 +1094,26 @@
   (declare (ignore obj))
   t)
 
+;; A deque is NOT a vector for predicate purposes
+(defmethod <vector>? ((obj <deque>))
+  (declare (ignore obj))
+  nil)
+
 (defmethod make ((class (eql '<deque>)) &rest elements)
   "Create a new <deque> from ELEMENTS.
    (make '<deque>)       => empty deque
    (make '<deque> 1 2 3) => deque with 1 at front, 3 at back"
   (make-instance '<deque>
-                 :items (loop with seq = (fset:empty-seq)
-                              for e in elements
-                              do (setf seq (fset:with-last seq e))
-                              finally (return seq))))
+                 :items (if elements
+                            (fset:convert 'fset:seq elements)
+                            (fset:empty-seq))))
 
-;; Protocol methods for <deque>
-
-(defmethod collection-size ((d <deque>))
-  (fset:size (deque-items d)))
+;; Protocol methods for <deque> — override vector's to produce <deque> instances
 
 (defmethod collection-conj ((d <deque>) element)
   "Add ELEMENT to the back of the deque."
   (make-instance '<deque>
-                 :items (fset:with-last (deque-items d) element)))
-
-(defmethod collection-seq ((d <deque>))
-  (fset:convert 'cl:list (deque-items d)))
+                 :items (fset:with-last (storage-items d) element)))
 
 ;;; ============================================================================
 ;;; List

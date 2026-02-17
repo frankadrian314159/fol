@@ -394,20 +394,6 @@
           finally (return (fol.compiler.collections:make (class-name (class-of coll)))))))
 
 ;;; ---------------------------------------------------------------------------
-;;; into - Add all elements from one collection into another
-;;; ---------------------------------------------------------------------------
-
-(defun into (to from)
-  "Add all elements from FROM into TO using conj.
-   Returns collection of same type as TO.
-
-   Examples:
-     (into [] #{1 2 3})        => [1 2 3]  ; order may vary
-     (into #{} [1 1 2 2 3])    => #{1 2 3}"
-  (let ((seq (fol.compiler.collections:collection-seq from)))
-    (cl:reduce #'fol.compiler.collections:collection-conj seq :initial-value to)))
-
-;;; ---------------------------------------------------------------------------
 ;;; concat - Concatenate multiple collections
 ;;; ---------------------------------------------------------------------------
 

@@ -447,3 +447,177 @@ This allows deep mutual recursion without stack overflow.
 ;; Simple use - function that doesn't return a function
 (trampoline + 1 2 3)          ; => 6
 ```
+
+---
+
+## every-pred                                                          *[function]*
+
+```
+(every-pred pred1 & more-preds)
+```
+
+Returns a function that returns true when all predicates return true
+for every argument passed to it.
+
+### Examples
+
+```fol
+(def positive-even? (every-pred number? positive? even?))
+(positive-even? 4)            ; => true
+(positive-even? -2)           ; => false (not positive)
+(positive-even? 3)            ; => false (not even)
+
+;; Multiple arguments: all must satisfy all predicates
+(funcall (every-pred number? positive?) 5 3 1)  ; => true
+(funcall (every-pred number? positive?) 5 -1)   ; => false
+```
+
+---
+
+## some-fn                                                             *[function]*
+
+```
+(some-fn f1 & more-fns)
+```
+
+Returns a function that returns the first truthy value produced
+by applying any of the functions to any of its arguments.
+
+### Examples
+
+```fol
+(funcall (some-fn even? odd?) 3)   ; => true (odd? returns true)
+(funcall (some-fn even? odd?) 2)   ; => true (even? returns true)
+(funcall (some-fn even?) 3)        ; => nil  (no function returns truthy)
+```
+
+---
+
+## apply                                                               *[function]*
+
+```
+(apply f args)
+(apply f x y & more-args)
+```
+
+Applies function f to the arguments. The last argument must be a sequence
+that is spread as individual arguments. Like CL apply.
+
+### Examples
+
+```fol
+(apply + [1 2 3])             ; => 6
+(apply + 1 2 [3 4])           ; => 10
+(apply str ["a" "b" "c"])    ; => "abc"
+```
+
+---
+
+## defn-                                                               *[special form]*
+
+```
+(defn- name [params] body)
+```
+
+Defines a private function. Same semantics as `defn`, but signals by
+convention that the function is internal/private. Compiles to `defun`.
+
+### Examples
+
+```fol
+(defn- helper [x] (* x x))
+(helper 5)                    ; => 25
+```
+
+---
+
+## definline                                                           *[special form]*
+
+```
+(definline name [params] body)
+```
+
+Defines an inline function. Emits a `(declaim (inline name))` followed
+by a standard `defun`. The compiler may inline calls to this function
+at the call site for better performance.
+
+### Examples
+
+```fol
+(definline fast-add [x y] (+ x y))
+(fast-add 3 4)                ; => 7 (may be inlined by the compiler)
+```
+
+---
+
+## some->                                                              *[special form]*
+
+```
+(some-> expr form1 form2 ...)
+```
+
+Nil-safe thread-first macro. Like `->`, but short-circuits and returns
+nil as soon as any intermediate result is nil.
+
+### Examples
+
+```fol
+;; Normal threading when non-nil
+(some-> 5 inc inc)            ; => 7
+
+;; Short-circuits on nil
+(some-> nil inc)              ; => nil
+(some-> {:a 1} (:b) inc)     ; => nil (:b returns nil, stops)
+
+;; Useful for safe navigation
+(some-> user (:address) (:city))  ; => nil if user or address is nil
+```
+
+---
+
+## some->>                                                             *[special form]*
+
+```
+(some->> expr form1 form2 ...)
+```
+
+Nil-safe thread-last macro. Like `->>`, but short-circuits and returns
+nil as soon as any intermediate result is nil.
+
+### Examples
+
+```fol
+;; Normal threading when non-nil
+(some->> 5 inc inc)           ; => 7
+
+;; Short-circuits on nil
+(some->> nil inc)             ; => nil
+```
+
+---
+
+## as->                                                                *[special form]*
+
+```
+(as-> expr name form1 form2 ...)
+```
+
+Named threading macro. Binds expr to name, then threads through each
+form by rebinding name to the result. Unlike `->` and `->>`, the
+binding name can appear in any position within the forms.
+
+### Examples
+
+```fol
+;; Flexible position threading
+(as-> 5 x (+ x 1) (* x 2))   ; => 12
+
+;; Name can appear anywhere
+(as-> 5 x (- 10 x) (- x 1))  ; => 4
+
+;; Useful when threading position varies
+(as-> {:a 1} m
+  (assoc m :b 2)
+  (vals m)
+  (apply + m))                 ; adds all values
+```
