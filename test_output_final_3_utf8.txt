@@ -1,0 +1,80 @@
+﻿  Running test VARY-META-SYMBOL .
+  Running test VARY-META-COLLECTION ..
+  Running test ALTER-META!-SYMBOL .
+  Running test RESET-META!-SYMBOL .
+  Running test DOC-FROM-PLIST .
+  Running test DOC-NIL-WHEN-MISSING .
+  Running test DOC-NIL-WHEN-NO-METADATA .
+  Running test TEST-FROM-PLIST .
+  Running test DOC-FROM-DICT .
+  Running test TEST-FROM-DICT .
+  Running test READER-META-DICT ..
+  Running test READER-META-KEYWORD .....
+  Running test READER-META-TYPE ....
+  Running test FIND-DOC-RETURNS-MATCHES .
+  Running test FIND-DOC-CASE-INSENSITIVE .
+ Did 2443 checks.
+    Pass: 2440 (99%)
+    Skip: 0 ( 0%)
+    Fail: 3 ( 0%)
+
+ Failure Details:
+ --------------------------------
+ COMPILE-BINDING-WITH-BODY-EXPR in CODEGEN-TESTS [binding with expression value in body.]: 
+      
+(THIRD CODE)
+
+ evaluated to 
+
+(LET ((*Y* 20))
+  (+ *X* *Y*))
+
+ which is not 
+
+EQUAL
+
+ to 
+
+(+ *X* *Y*)
+
+
+ --------------------------------
+ --------------------------------
+ COMPILE-BINDING-MULTIPLE-VARS in CODEGEN-TESTS [(binding [*x* 1 *y* 2] (+ *x* *y*)) compiles to let with two bindings.]: 
+      
+(LENGTH BINDINGS)
+
+ evaluated to 
+
+1
+
+ which is not 
+
+=
+
+ to 
+
+2
+
+
+ --------------------------------
+ --------------------------------
+ COMPILE-BINDING-MULTIPLE-VARS in CODEGEN-TESTS [(binding [*x* 1 *y* 2] (+ *x* *y*)) compiles to let with two bindings.]: 
+      
+(FIRST (SECOND BINDINGS))
+
+ evaluated to 
+
+NIL
+
+ which is not 
+
+EQ
+
+ to 
+
+*Y*
+
+
+ --------------------------------
+

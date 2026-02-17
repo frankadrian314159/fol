@@ -79,41 +79,41 @@
 
 (defmacro when-let (bindings &body body)
   "Evaluates test. If logical true, binds it to binding and evaluates body in implicit do."
-  (destructuring-bind (binding test) bindings
-    `(bind ,(vector binding test)
+  (destructuring-bind (binding test) (ensure-list bindings)
+    `(bind ,(list binding test)
            (when ,binding ,@body))))
 
 (defmacro if-let (bindings then &optional else)
   "Evaluates test. If logical true, binds it to binding and evaluates then;
    otherwise evaluates else."
-  (destructuring-bind (binding test) bindings
-    `(bind ,(vector binding test)
+  (destructuring-bind (binding test) (ensure-list bindings)
+    `(bind ,(list binding test)
            (if ,binding ,then ,else))))
 
 (defmacro when-some (bindings &body body)
   "Like when-let, but specifically checks that binding is not nil (using some?)."
-  (destructuring-bind (binding test) bindings
+  (destructuring-bind (binding test) (ensure-list bindings)
     (let ((g (gensym "SOME-")))
-      `(bind ,(vector g test)
-             (when (some? ,g)
-               (bind ,(vector binding g) ,@body))))))
+      `(bind ,(list g test)
+             (when (fol.compiler.primitive-functions:some? ,g)
+               (bind ,(list binding g) ,@body))))))
 
 (defmacro if-some (bindings then &optional else)
   "Like if-let, but specifically checks that binding is not nil (using some?)."
-  (destructuring-bind (binding test) bindings
+  (destructuring-bind (binding test) (ensure-list bindings)
     (let ((g (gensym "SOME-")))
-      `(bind ,(vector g test)
-             (if (some? ,g)
-                 (bind ,(vector binding g) ,then)
+      `(bind ,(list g test)
+             (if (fol.compiler.primitive-functions:some? ,g)
+                 (bind ,(list binding g) ,then)
                  ,else)))))
 
 (defmacro when-first (bindings &body body)
   "Binds the first element of a sequence to binding and evaluates body if sequence is non-empty."
-  (destructuring-bind (binding seq-expr) bindings
+  (destructuring-bind (binding seq-expr) (ensure-list bindings)
     (let ((s (gensym "SEQ-")))
-      `(bind ,(vector s `(seq ,seq-expr))
+      `(bind ,(list s `(seq ,seq-expr))
              (when ,s
-               (bind ,(vector binding `(first ,s))
+               (bind ,(list binding `(first ,s))
                  ,@body))))))
 
 ;;; ===========================================================================
@@ -129,7 +129,7 @@
 (defmacro dotimes (bindings &body body)
   "Executes body n times where n is an integer expression.
    bindings is [name n], where name is bound to integers from 0 to n-1."
-  (destructuring-bind (name n) bindings
+  (destructuring-bind (name n) (ensure-list bindings)
     (let ((max (gensym "MAX-"))
           (i (gensym "I-")))
       `(bind ,(vector max n)
@@ -142,7 +142,7 @@
 (defmacro doseq (bindings &body body)
   "Executes body for each element in a sequence.
    bindings is [name seq-expr], where name is bound to each element."
-  (destructuring-bind (name seq-expr) bindings
+  (destructuring-bind (name seq-expr) (ensure-list bindings)
     (let ((s (gensym "SEQ-")))
       `(loop ,(vector s `(seq ,seq-expr))
              (when ,s
@@ -154,7 +154,7 @@
   "List comprehension. Takes a binding form [name seq-expr] and a body.
    Returns a lazy sequence of the results of evaluating body for each element.
    Currently returns an eager vector (lazy-seq not yet implemented)."
-  (destructuring-bind (name seq-expr) bindings
+  (destructuring-bind (name seq-expr) (ensure-list bindings)
     (let ((result (gensym "RESULT-"))
           (s (gensym "SEQ-"))
           (item (gensym "ITEM-")))
@@ -205,7 +205,7 @@
       expr
       (let ((result expr))
         (dolist (form forms)
-          (setf result `(bind ,(vector name result) ,form)))
+          (setf result `(bind ,(list name result) ,form)))
         result)))
 
 (defmacro cond-> (expr &rest clauses)
@@ -218,7 +218,7 @@
                                  `(,(first form) ,g ,@(rest form))
                                  `(,form ,g))))
                (setf result
-                     `(bind ,(vector g result)
+                     `(bind ,(list g result)
                             (if ,test ,threaded ,g)))))
     result))
 
@@ -232,7 +232,7 @@
                                  `(,(first form) ,@(rest form) ,g)
                                  `(,form ,g))))
                (setf result
-                     `(bind ,(vector g result)
+                     `(bind ,(list g result)
                             (if ,test ,threaded ,g)))))
     result))
 
@@ -248,8 +248,8 @@
                               `(,(first form) ,g ,@(rest form))
                               `(,form ,g))))
             (setf result
-                  `(bind ,(vector g result)
-                         (when (some? ,g) ,threaded)))))
+                  `(bind ,(list g result)
+                         (when (fol.compiler.primitive-functions:some? ,g) ,threaded)))))
         result)))
 
 (defmacro some->> (expr &rest forms)
@@ -264,24 +264,34 @@
                               `(,(first form) ,@(rest form) ,g)
                               `(,form ,g))))
             (setf result
-                  `(bind ,(vector g result)
-                         (when (some? ,g) ,threaded)))))
+                  `(bind ,(list g result)
+                         (when (fol.compiler.primitive-functions:some? ,g) ,threaded)))))
         result)))
+
+;;; Helper to convert bindings to list
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun ensure-list (x)
+    (cond
+      ((listp x) x)
+      ((vectorp x) (coerce x 'list))
+      ((typep x 'fol.compiler.collections:<collection>)
+       (fol.compiler.collections:collection-seq x))
+      ;; Fallback: try to treat as collection if standard-object
+      ((typep x 'standard-object)
+       (handler-case
+           (fol.compiler.collections:collection-seq x)
+         (error (e)
+           (error "ensure-list failed on standard-object ~S: ~A" x e))))
+      (t (error "ensure-list: Expected a sequence, got ~S of type ~S" x (type-of x))))))
 
 ;;; ===========================================================================
 ;;; Dynamic Binding Macros
 ;;; ===========================================================================
 
-(defmacro binding (bindings &body body)
-  "Temporarily rebinds dynamic vars (declared with defdynamic) to new values.
-   bindings is a vector of [var value ...] pairs."
-  (let ((pairs (loop for (var val) on (coerce bindings 'list) by #'cddr
-                     collect (list var val))))
-    `(cl:let ,(mapcar (lambda (pair) `(,(first pair) ,(second pair))) pairs)
-       ,@body)))
+;;; binding is a special form in the compiler, so no macro needed here.
 
 (defmacro with-redefs (bindings &body body)
-  "Temporarily redefines Vars during the scope of body.
+  "Temporarily redeclares Vars during the scope of body.
    bindings is a vector of [var value ...] pairs.
    Note: This is a simplified version that uses let binding."
   `(binding ,bindings ,@body))
@@ -419,7 +429,6 @@
   (fol.compiler:register-macro 'cond->> (macro-function 'cond->>))
   (fol.compiler:register-macro 'some-> (macro-function 'some->))
   (fol.compiler:register-macro 'some->> (macro-function 'some->>))
-  (fol.compiler:register-macro 'binding (macro-function 'binding))
   (fol.compiler:register-macro 'with-redefs (macro-function 'with-redefs))
   (fol.compiler:register-macro 'with-redefs-fn (macro-function 'with-redefs-fn))
   (fol.compiler:register-macro 'with-open (macro-function 'with-open))

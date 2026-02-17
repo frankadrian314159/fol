@@ -1,0 +1,80 @@
+﻿
+
+ --------------------------------
+ --------------------------------
+ COMPILE-BINDING-SINGLE-VAR in CODEGEN-TESTS [(binding [*x* 10] *x*) compiles to (let ((*x* 10)) *x*).]: 
+      
+(LENGTH BINDINGS)
+
+ evaluated to 
+
+0
+
+ which is not 
+
+=
+
+ to 
+
+1
+
+
+ --------------------------------
+ --------------------------------
+ COMPILE-BINDING-SINGLE-VAR in CODEGEN-TESTS [(binding [*x* 10] *x*) compiles to (let ((*x* 10)) *x*).]: 
+      
+(FIRST (FIRST BINDINGS))
+
+ evaluated to 
+
+NIL
+
+ which is not 
+
+EQ
+
+ to 
+
+*X*
+
+
+ --------------------------------
+ --------------------------------
+ COMPILE-BINDING-SINGLE-VAR in CODEGEN-TESTS [(binding [*x* 10] *x*) compiles to (let ((*x* 10)) *x*).]: 
+      
+(SECOND (FIRST BINDINGS))
+
+ evaluated to 
+
+NIL
+
+ which is not 
+
+EQL
+
+ to 
+
+10
+
+
+ --------------------------------
+ --------------------------------
+ COMPILE-BINDING-SINGLE-VAR in CODEGEN-TESTS [(binding [*x* 10] *x*) compiles to (let ((*x* 10)) *x*).]: 
+      
+(THIRD CODE)
+
+ evaluated to 
+
+NIL
+
+ which is not 
+
+EQ
+
+ to 
+
+*X*
+
+
+ --------------------------------
+

@@ -69,11 +69,14 @@
     (is (eql 5 code))))
 
 (test compile-thread-first-bare-symbol
-  "(-> x f) compiles to (f x)."
+  "(-> x f) compiles to (f x) with dynamic dispatch."
   (let* ((result (fol.compiler:compile-form '(-> 5 inc)))
          (code (fol.compiler:compilation-result-code result)))
     (is (null (fol.compiler:compilation-result-errors result)))
-    (is (equal '(inc 5) code))))
+    ;; Expect dynamic dispatch (IF checks fboundp)
+    (is (eq 'if (first code)))
+    ;; The direct call path should be the 'then' branch (3rd element): (inc 5)
+    (is (equal '(inc 5) (third code)))))
 
 (test compile-thread-first-call-form
   "(-> x (f a)) compiles to (f x a)."
@@ -329,17 +332,21 @@
     (is (eql 5 code))))
 
 (test compile-thread-last-bare-symbol
-  "(->> x f) compiles to (f x)."
+  "(->> x f) compiles to (f x) with dynamic dispatch."
   (let* ((result (fol.compiler:compile-form '(->> 5 inc)))
          (code (fol.compiler:compilation-result-code result)))
     (is (null (fol.compiler:compilation-result-errors result)))
-    (is (equal '(inc 5) code))))
+    ;; Expect dynamic dispatch (IF checks fboundp)
+    (is (eq 'if (first code)))
+    ;; The direct call path should be the 'then' branch (3rd element): (inc 5)
+    (is (equal '(inc 5) (third code)))))
 
 (test compile-thread-last-call-form
   "(->> x (f a)) compiles to (f a x) — threaded as last argument."
   (let* ((result (fol.compiler:compile-form '(->> 5 (+ 3))))
          (code (fol.compiler:compilation-result-code result)))
     (is (null (fol.compiler:compilation-result-errors result)))
+    ;; Expect direct call for CL function +
     (is (equal '(+ 3 5) code))))
 
 (test compile-thread-last-chained

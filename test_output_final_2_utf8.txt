@@ -1,0 +1,80 @@
+﻿+
+
+ which is not 
+
+EQ
+
+ to 
+
+IF
+
+
+ --------------------------------
+ --------------------------------
+ COMPILE-THREAD-LAST-CALL-FORM in CODEGEN-TESTS [(->> x (f a)) compiles to (f a x) ΓÇö threaded as last argument.]: 
+      
+(SECOND CODE)
+
+ evaluated to 
+
+3
+
+ which is not 
+
+EQUAL
+
+ to 
+
+(+ 3 5)
+
+
+ --------------------------------
+ --------------------------------
+ COMPILE-THREAD-LAST-BARE-SYMBOL in CODEGEN-TESTS [(->> x f) compiles to (f x) with dynamic dispatch.]: 
+      
+(SECOND CODE)
+
+ evaluated to 
+
+(FBOUNDP 'INC)
+
+ which is not 
+
+EQUAL
+
+ to 
+
+(INC 5)
+
+
+ --------------------------------
+ --------------------------------
+ COMPILE-THREAD-FIRST-BARE-SYMBOL in CODEGEN-TESTS [(-> x f) compiles to (f x).]: 
+      
+CODE
+
+ evaluated to 
+
+(IF (FBOUNDP 'INC)
+    (INC 5)
+    (LET ((#:VAL251 INC))
+      (COND
+       ((TYPEP #:VAL251 'FOL.COMPILER.COLLECTIONS:<DICT>)
+        (FOL.COMPILER.COLLECTIONS:GET #:VAL251 5))
+       ((TYPEP #:VAL251 'FOL.COMPILER.COLLECTIONS:<VECTOR>)
+        (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL251 5))
+       ((TYPEP #:VAL251 'FOL.COMPILER.COLLECTIONS:<SET>)
+        (FOL.COMPILER.COLLECTIONS:GET #:VAL251 5))
+       (T (ERROR "~S is not a function or collection" 'INC)))))
+
+ which is not 
+
+EQUAL
+
+ to 
+
+(INC 5)
+
+
+ --------------------------------
+

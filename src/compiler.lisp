@@ -68,10 +68,9 @@
                      :form form)))
                  ;; FOL set literal #{a b c}
                  ((typep form 'fol.compiler.collections:<set>)
-                  (let ((elements (fol.compiler.collections:collection-seq form)))
-                    (fol.compiler.ast:make-set-node
-                     :elements (mapcar #'parse-form elements)
-                     :form form)))
+                  (fol.compiler.ast:make-set-node
+                   :elements (mapcar #'parse-form (fol.compiler.collections:collection-seq form))
+                   :form form))
                  (t (error "Cannot parse form: ~S" form))))))
 
 (defun parse-compound (form)
