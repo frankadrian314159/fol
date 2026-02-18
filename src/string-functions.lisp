@@ -15,13 +15,13 @@
      (str nil \"foo\" nil)            => \"foo\"
      (str)                            => \"\""
   (apply #'concatenate 'string
-         (mapcar (lambda (arg)
-                   (typecase arg
-                     (string arg)
-                     (character (string arg))
-                     (null "")
-                     (t (prin1-to-string arg))))
-                 args)))
+    (mapcar (lambda (arg)
+              (typecase arg
+                (string arg)
+                (character (string arg))
+                (null "")
+                (t (prin1-to-string arg))))
+        args)))
 
 (defun subs (s start &optional end)
   "Return substring of S from START to END (exclusive).
@@ -39,21 +39,6 @@
                          len)))
     (subseq s actual-start actual-end)))
 
-(defun join (separator coll)
-  "Join collection elements with SEPARATOR string.
-   Elements are converted to strings via str.
-
-   Examples:
-     (join \", \" '(1 2 3))        => \"1, 2, 3\"
-     (join \" \" #(\"a\" \"b\" \"c\")) => \"a b c\""
-  (let ((seq (coerce coll 'list)))
-    (if (null seq)
-        ""
-        (apply #'str
-               (cons (first seq)
-                     (mapcan (lambda (x) (list separator x))
-                             (rest seq)))))))
-
 (defun split (s pattern)
   "Split string S by PATTERN (string or regex).
    Returns vector of substrings.
@@ -67,14 +52,14 @@
             (start 0)
             (pattern-len (length pattern)))
         (loop
-          (let ((pos (search pattern s :start2 start)))
-            (if pos
-                (progn
-                  (push (subseq s start pos) parts)
-                  (setf start (+ pos pattern-len)))
-                (progn
-                  (push (subseq s start) parts)
-                  (return)))))
+         (let ((pos (search pattern s :start2 start)))
+           (if pos
+               (progn
+                (push (subseq s start pos) parts)
+                (setf start (+ pos pattern-len)))
+               (progn
+                (push (subseq s start) parts)
+                (return)))))
         (coerce (nreverse parts) 'vector))
       ;; Regex split (requires cl-ppcre)
       (coerce (cl-ppcre:split pattern s) 'vector)))
@@ -132,8 +117,8 @@
   (if (zerop (length s))
       s
       (concatenate 'string
-                   (string-upcase (subseq s 0 1))
-                   (subseq s 1))))
+        (string-upcase (subseq s 0 1))
+        (subseq s 1))))
 
 (defun str-replace (s match replacement)
   "Replace all occurrences of MATCH with REPLACEMENT in string S.
@@ -148,13 +133,13 @@
             (match-len (length match))
             (repl-len (length replacement)))
         (loop
-          (let ((pos (search match result)))
-            (if pos
-                (setf result (concatenate 'string
-                                          (subseq result 0 pos)
-                                          replacement
-                                          (subseq result (+ pos match-len))))
-                (return result)))))
+         (let ((pos (search match result)))
+           (if pos
+               (setf result (concatenate 'string
+                              (subseq result 0 pos)
+                              replacement
+                              (subseq result (+ pos match-len))))
+               (return result)))))
       ;; Regex replacement (requires cl-ppcre)
       (cl-ppcre:regex-replace-all match s replacement)))
 
@@ -214,7 +199,7 @@
   (or (null s)
       (zerop (length s))
       (every (lambda (c) (member c '(#\Space #\Tab #\Newline #\Return)))
-             s)))
+          s)))
 
 (defun str-reverse (s)
   "Reverse string S.
@@ -237,14 +222,6 @@
      (format t \"Hello~%\")              => NIL (prints to stdout)"
   (apply #'cl:format destination control-string args))
 
-(defun size (s)
-  "Returns the length of string S.
-
-   Examples:
-     (size \"hello\")  => 5
-     (size \"\")       => 0"
-  (length s))
-
 (defun char (s index)
   "Returns the character at INDEX in string S (Clojure-style).
    Throws an error if index is out of bounds.
@@ -265,13 +242,13 @@
      (char-name-string #\\Space)      => \"space\"
      (char-name-string #\\a)          => NIL"
   (cond
-    ((char= c #\Newline) "newline")
-    ((char= c #\Space) "space")
-    ((char= c #\Tab) "tab")
-    ((char= c #\Return) "return")
-    ((char= c #\Backspace) "backspace")
-    ((char= c (code-char 12)) "formfeed")
-    (t nil)))
+   ((char= c #\Newline) "newline")
+   ((char= c #\Space) "space")
+   ((char= c #\Tab) "tab")
+   ((char= c #\Return) "return")
+   ((char= c #\Backspace) "backspace")
+   ((char= c (code-char 12)) "formfeed")
+   (t nil)))
 
 (defun char-escape-string (c)
   "Returns the escape sequence for character C as a string.
@@ -284,13 +261,13 @@
      (char-escape-string #\\Space)     => \"\\\\space\"
      (char-escape-string #\\a)         => \"\\\\a\""
   (cond
-    ((char= c #\Newline) "\\n")
-    ((char= c #\Tab) "\\t")
-    ((char= c #\Return) "\\r")
-    ((char= c #\Backspace) "\\b")
-    ((char= c (code-char 12)) "\\f")
-    ((char= c #\Space) "\\space")
-    (t (format nil "\\~C" c))))
+   ((char= c #\Newline) "\\n")
+   ((char= c #\Tab) "\\t")
+   ((char= c #\Return) "\\r")
+   ((char= c #\Backspace) "\\b")
+   ((char= c (code-char 12)) "\\f")
+   ((char= c #\Space) "\\space")
+   (t (format nil "\\~C" c))))
 
 (defun compare (s1 s2)
   "Compare two strings lexicographically.
@@ -336,24 +313,24 @@
         (i 0))
     (loop while (< i len)
           do (cond
-               ;; Found \r\n
-               ((and (char= (char s i) #\Return)
-                     (< (1+ i) len)
-                     (char= (char s (1+ i)) #\Newline))
+              ;; Found \r\n
+              ((and (char= (char s i) #\Return)
+                    (< (1+ i) len)
+                    (char= (char s (1+ i)) #\Newline))
                 (push (subseq s start i) lines)
                 (setf start (+ i 2))
                 (setf i (+ i 2)))
-               ;; Found \n
-               ((char= (char s i) #\Newline)
+              ;; Found \n
+              ((char= (char s i) #\Newline)
                 (push (subseq s start i) lines)
                 (setf start (1+ i))
                 (incf i))
-               ;; Regular character
-               (t
+              ;; Regular character
+              (t
                 (incf i))))
     ;; Add remaining part if any
     (when (<= start len)
-      (push (subseq s start) lines))
+          (push (subseq s start) lines))
     (coerce (nreverse lines) 'vector)))
 
 ;;; ============================================================================
@@ -396,38 +373,6 @@
 ;;; Generic Clojure-style string functions (with char/string/regex support)
 ;;; ============================================================================
 
-(defgeneric replace (s match replacement &key use-regex)
-  (:documentation "Replace all occurrences of MATCH with REPLACEMENT in string S.
-                   MATCH can be a character or string.
-                   If :use-regex T, MATCH is treated as a CL-PPCRE regex pattern."))
-
-(defmethod replace ((s string) (match character) (replacement string) &key use-regex)
-  "Replace all occurrences of character MATCH with REPLACEMENT."
-  (declare (ignore use-regex))
-  (with-output-to-string (out)
-    (loop for c across s
-          do (if (char= c match)
-                 (write-string replacement out)
-                 (write-char c out)))))
-
-(defmethod replace ((s string) (match string) (replacement string) &key use-regex)
-  "Replace all occurrences of string MATCH with REPLACEMENT.
-   If :use-regex T, MATCH is a regex pattern."
-  (if use-regex
-      ;; Regex replacement using CL-PPCRE
-      (cl-ppcre:regex-replace-all match s replacement)
-      ;; Literal string replacement
-      (let ((result s)
-            (match-len (length match)))
-        (loop
-          (let ((pos (search match result)))
-            (if pos
-                (setf result (concatenate 'string
-                                          (subseq result 0 pos)
-                                          replacement
-                                          (subseq result (+ pos match-len))))
-                (return result)))))))
-
 (defgeneric replace-first (s match replacement &key use-regex)
   (:documentation "Replace first occurrence of MATCH with REPLACEMENT in string S.
                    MATCH can be a character or string.
@@ -439,9 +384,9 @@
   (let ((pos (position match s)))
     (if pos
         (concatenate 'string
-                     (subseq s 0 pos)
-                     replacement
-                     (subseq s (1+ pos)))
+          (subseq s 0 pos)
+          replacement
+          (subseq s (1+ pos)))
         s)))
 
 (defmethod replace-first ((s string) (match string) (replacement string) &key use-regex)
@@ -454,9 +399,9 @@
       (let ((pos (search match s)))
         (if pos
             (concatenate 'string
-                         (subseq s 0 pos)
-                         replacement
-                         (subseq s (+ pos (length match))))
+              (subseq s 0 pos)
+              replacement
+              (subseq s (+ pos (length match))))
             s))))
 
 (defgeneric reverse (s)
@@ -542,18 +487,18 @@
   (multiple-value-bind (match-start match-end reg-starts reg-ends)
       (cl-ppcre:scan pattern string :start start)
     (when match-start
-      (if (and reg-starts (plusp (length reg-starts)))
-          ;; Has capture groups - return vector of [full-match group1 group2 ...]
-          (let ((result (make-array (1+ (length reg-starts)))))
-            (setf (aref result 0) (subseq string match-start match-end))
-            (loop for i from 0 below (length reg-starts)
-                  do (setf (aref result (1+ i))
+          (if (and reg-starts (plusp (length reg-starts)))
+              ;; Has capture groups - return vector of [full-match group1 group2 ...]
+              (let ((result (make-array (1+ (length reg-starts)))))
+                (setf (aref result 0) (subseq string match-start match-end))
+                (loop for i from 0 below (length reg-starts)
+                      do (setf (aref result (1+ i))
                            (if (aref reg-starts i)
                                (subseq string (aref reg-starts i) (aref reg-ends i))
                                nil)))
-            result)
-          ;; No capture groups - return just the match
-          (subseq string match-start match-end)))))
+                result)
+              ;; No capture groups - return just the match
+              (subseq string match-start match-end)))))
 
 (defun re-seq (pattern string)
   "Return a vector of all matches of PATTERN in STRING.
@@ -566,28 +511,28 @@
   (let ((matches '())
         (start 0))
     (loop
-      (multiple-value-bind (match-start match-end reg-starts reg-ends)
-          (cl-ppcre:scan pattern string :start start)
-        (unless match-start
-          (return))
-        (push
+     (multiple-value-bind (match-start match-end reg-starts reg-ends)
+         (cl-ppcre:scan pattern string :start start)
+       (unless match-start
+         (return))
+       (push
          (if (and reg-starts (plusp (length reg-starts)))
              ;; Has capture groups
              (let ((result (make-array (1+ (length reg-starts)))))
                (setf (aref result 0) (subseq string match-start match-end))
                (loop for i from 0 below (length reg-starts)
                      do (setf (aref result (1+ i))
-                              (if (aref reg-starts i)
-                                  (subseq string (aref reg-starts i) (aref reg-ends i))
-                                  nil)))
+                          (if (aref reg-starts i)
+                              (subseq string (aref reg-starts i) (aref reg-ends i))
+                              nil)))
                result)
              ;; No capture groups
              (subseq string match-start match-end))
          matches)
-        (setf start match-end)
-        ;; Prevent infinite loop on zero-length matches
-        (when (= match-start match-end)
-          (incf start))))
+       (setf start match-end)
+       ;; Prevent infinite loop on zero-length matches
+       (when (= match-start match-end)
+             (incf start))))
     (coerce (nreverse matches) 'vector)))
 
 (defun re-matches (pattern string)
@@ -605,18 +550,18 @@
     (when (and match-start
                (= match-start 0)
                (= match-end (length string)))
-      (if (and reg-starts (plusp (length reg-starts)))
-          ;; Has capture groups
-          (let ((result (make-array (1+ (length reg-starts)))))
-            (setf (aref result 0) (subseq string match-start match-end))
-            (loop for i from 0 below (length reg-starts)
-                  do (setf (aref result (1+ i))
+          (if (and reg-starts (plusp (length reg-starts)))
+              ;; Has capture groups
+              (let ((result (make-array (1+ (length reg-starts)))))
+                (setf (aref result 0) (subseq string match-start match-end))
+                (loop for i from 0 below (length reg-starts)
+                      do (setf (aref result (1+ i))
                            (if (aref reg-starts i)
                                (subseq string (aref reg-starts i) (aref reg-ends i))
                                nil)))
-            result)
-          ;; No capture groups
-          (subseq string match-start match-end)))))
+                result)
+              ;; No capture groups
+              (subseq string match-start match-end)))))
 
 (defun re-matcher (pattern string)
   "Create a compiled scanner for PATTERN.

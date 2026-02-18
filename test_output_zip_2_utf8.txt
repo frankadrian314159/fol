@@ -1,0 +1,80 @@
+﻿
+
+ --------------------------------
+ --------------------------------
+ NEXT-TRAVERSAL in ZIP-TESTS []: 
+      
+(NTH 5 NODES)
+
+ evaluated to 
+
+NIL
+
+ which is not 
+
+EQL
+
+ to 
+
+3
+
+
+ --------------------------------
+ --------------------------------
+ NEXT-TRAVERSAL in ZIP-TESTS []: 
+      
+(NTH 6 NODES)
+
+ evaluated to 
+
+NIL
+
+ which is not 
+
+EQUALP
+
+ to 
+
+#(4)
+
+
+ --------------------------------
+ --------------------------------
+ NEXT-TRAVERSAL in ZIP-TESTS []: 
+      
+(NTH 7 NODES)
+
+ evaluated to 
+
+NIL
+
+ which is not 
+
+EQL
+
+ to 
+
+4
+
+
+ --------------------------------
+ --------------------------------
+ REMOVE-NESTED in ZIP-TESTS []: 
+      
+ROOT
+
+ evaluated to 
+
+(1 (2 3) 4)
+
+ which is not 
+
+EQUAL
+
+ to 
+
+(1 (2) 4)
+
+
+ --------------------------------
+

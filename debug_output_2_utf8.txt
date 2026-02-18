@@ -1,0 +1,68 @@
+﻿This is SBCL 2.6.0, an implementation of ANSI Common Lisp.
+More information about SBCL is available at <http://www.sbcl.org/>.
+
+SBCL is free software, provided as is, with absolutely no warranty.
+It is mostly in the public domain; some portions are provided under
+BSD-style licenses.  See the CREDITS and COPYING files in the
+distribution for more information.
+To load "bordeaux-threads":
+  Load 1 ASDF system:
+    bordeaux-threads
+; Loading "bordeaux-threads"
+
+To load "usocket":
+  Load 1 ASDF system:
+    usocket
+; Loading "usocket"
+
+To load "cl-json":
+  Load 1 ASDF system:
+    cl-json
+; Loading "cl-json"
+
+To load "flexi-streams":
+  Load 1 ASDF system:
+    flexi-streams
+; Loading "flexi-streams"
+
+To load "fiveam":
+  Load 1 ASDF system:
+    fiveam
+; Loading "fiveam"
+
+To load "closer-mop":
+  Load 1 ASDF system:
+    closer-mop
+; Loading "closer-mop"
+
+To load "cl-ppcre":
+  Load 1 ASDF system:
+    cl-ppcre
+; Loading "cl-ppcre"
+..
+To load "fset":
+  Load 1 ASDF system:
+    fset
+; Loading "fset"
+..
+To load "sycamore":
+  Load 1 ASDF system:
+    sycamore
+; Loading "sycamore"
+
+sbcl : WARNING: redefining IRONCLAD:BLOCK-LENGTH in DEFGENERIC
+At line:1 char:1
++ sbcl --non-interactive --load run-debug.lisp > debug_output_2.txt 2>& ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (WARNING: redefi...H in DEFGENERIC:String) [], RemoteExce 
+   ption
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+Testing reader with [1 2 3]...
+Read result: [1 2 3]
+Type: <VECTOR>
+Class: #<STANDARD-CLASS FOL.COMPILER.COLLECTIONS:<VECTOR>>
+fol-vector-p: T
+Is it a CL vector? NIL
+Is it a FOL vector? T

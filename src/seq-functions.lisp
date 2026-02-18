@@ -5,123 +5,119 @@
 
 (in-package :fol.compiler.seq-functions)
 
+
 ;;; ===========================================================================
-;;; Thread Pool for Parallel Operations
+;;; Reduced (Early Termination for Transducers)
 ;;; ===========================================================================
 
-(defvar *thread-pool-size* 16
-  "Number of worker threads in the global thread pool.")
+(defstruct reduced
+  val)
 
-(defvar *work-queue* nil
-  "Queue of work items to be processed by worker threads.")
+(defun reduced (val)
+  "Wraps VAL to signal early termination in a transduction."
+  (make-reduced :val val))
 
-(defvar *work-queue-lock* nil
-  "Lock protecting the work queue.")
+(defun reduced? (x)
+  "Returns true if X is a reduced value (early termination wrapper)."
+  (typep x 'reduced))
 
-(defvar *work-queue-condvar* nil
-  "Condition variable for signaling work availability.")
+(defun unreduced (x)
+  "If X is reduced, unwraps it; otherwise returns X as-is."
+  (if (reduced? x) (reduced-val x) x))
 
-(defvar *worker-threads* nil
-  "Vector of worker threads.")
+(defun ensure-reduced (x)
+  "If X is already reduced, returns it; otherwise wraps it."
+  (if (reduced? x) x (reduced x)))
 
-(defvar *thread-pool-shutdown* nil
-  "Flag indicating thread pool should shut down.")
+;;; ===========================================================================
+;;; Transduce Infrastructure
+;;; ===========================================================================
 
-(defstruct work-item
-  "A unit of work for the thread pool."
-  (fn nil :type function)
-  (args nil :type list)
-  (result-box nil :type cons)  ; cons cell to store result
-  (done-lock nil)
-  (done-condvar nil))
+(defun completing (rf)
+  "Wraps a reducing function to support 0 and 1 arity."
+  (lambda (&optional (acc nil acc-p) (input nil input-p))
+    (cond
+     ((not acc-p) (error "Completing RF requires init via reduce"))
+     ((not input-p) acc)
+     (t (funcall rf acc input)))))
 
-(defun %worker-thread-loop ()
-  "Main loop for worker threads. Pulls work from queue and executes it."
-  (loop
-    (let ((work nil))
-      ;; Get work from queue
-      (bt:with-lock-held (*work-queue-lock*)
-        (loop while (and (null *work-queue*) (not *thread-pool-shutdown*))
-              do (bt:condition-wait *work-queue-condvar* *work-queue-lock*))
-        (when *thread-pool-shutdown*
-          (return-from %worker-thread-loop))
-        (when *work-queue*
-          (setf work (pop *work-queue*))))
+(defun transduce (xform f init coll)
+  "Reduce over COLL with transducer XFORM applied to reducing function F."
+  (let* ((rf (funcall xform (if (functionp f)
+                                (completing f)
+                                (completing (lambda (a b) (funcall f a b))))))
+         (acc init)
+         (iter (fol.compiler.collections:collection-seq coll)))
+    (cl:loop for x in iter
+    do (let ((res (funcall rf acc x)))
+         (if (reduced? res)
+             (return (unreduced res))
+             (setf acc res)))
+    finally (return (funcall rf acc)))))
 
-      ;; Execute work
-      (when work
-        (let ((result (handler-case
-                          (apply (work-item-fn work) (work-item-args work))
-                        (error (e)
-                          (format *error-output* "~&Worker thread error: ~A~%" e)
-                          :error))))
-          ;; Store result and signal completion
-          (setf (car (work-item-result-box work)) result)
-          (bt:with-lock-held ((work-item-done-lock work))
-            (bt:condition-notify (work-item-done-condvar work))))))))
+;;; ---------------------------------------------------------------------------
+;;; into - conj items from source into target, optionally via transducer
+;;; ---------------------------------------------------------------------------
 
-(defun %initialize-thread-pool ()
-  "Initialize the global thread pool with worker threads."
-  (unless *worker-threads*
-    (setf *work-queue* nil)
-    (setf *work-queue-lock* (bt:make-lock "work-queue-lock"))
-    (setf *work-queue-condvar* (bt:make-condition-variable :name "work-queue-condvar"))
-    (setf *thread-pool-shutdown* nil)
-    (setf *worker-threads*
-          (make-array *thread-pool-size*
-                      :initial-contents
-                      (loop for i from 0 below *thread-pool-size*
-                            collect (bt:make-thread #'%worker-thread-loop
-                                                     :name (format nil "worker-~D" i)))))))
+(defun into (to xform-or-from &optional (from nil from-p))
+  "Returns a new collection consisting of TO with all items of FROM conjoined.
+   (into to from)        => reduce conj over from into to
+   (into to xform from)  => transduce from through xform, conj into to
 
-(defun %submit-work (fn args)
-  "Submit work to the thread pool. Returns a work-item that can be waited on."
-  (%initialize-thread-pool)  ; Ensure pool is initialized
-  (let ((work (make-work-item
-               :fn fn
-               :args args
-               :result-box (cons nil nil)
-               :done-lock (bt:make-lock)
-               :done-condvar (bt:make-condition-variable))))
-    (bt:with-lock-held (*work-queue-lock*)
-      (setf *work-queue* (nconc *work-queue* (list work)))
-      (bt:condition-notify *work-queue-condvar*))
-    work))
-
-(defun %wait-for-work (work-item)
-  "Wait for a work item to complete and return its result."
-  (bt:with-lock-held ((work-item-done-lock work-item))
-    (loop while (null (car (work-item-result-box work-item)))
-          do (bt:condition-wait (work-item-done-condvar work-item)
-                                (work-item-done-lock work-item))))
-  (car (work-item-result-box work-item)))
+   Examples:
+     (into [] [1 2 3])                => [1 2 3]
+     (into #{} [1 2 1 3])             => #{1 2 3}
+     (into [] (map inc) [1 2 3])      => [2 3 4]
+     (into {} (map (fn [x] [x (* x x)])) [1 2 3]) => {1 1, 2 4, 3 9}"
+  (if from-p
+      ;; 3-arity: (into to xform from) - transduced
+      (transduce xform-or-from #'fol.compiler.collection-functions:conj to from)
+      ;; 2-arity: (into to from) - simple conj reduction
+      (let ((iter (fol.compiler.collections:collection-seq xform-or-from))
+            (acc to))
+        (dolist (item iter)
+          (setf acc (fol.compiler.collection-functions:conj acc item)))
+        acc)))
 
 ;;; ===========================================================================
 ;;; Higher-Order Collection Functions
 ;;; ===========================================================================
 
 ;;; ---------------------------------------------------------------------------
-;;; map - Apply function to each element of collection(s)
+;;; map - Apply function to each element of collection(s), or return transducer
 ;;; ---------------------------------------------------------------------------
 
-(defun map (fn coll &rest colls)
-  "Apply FN to elements of COLL (and additional COLLS in parallel).
-   Returns a new collection of the same type as COLL.
+(defun map (fn &rest args)
+  "Apply FN to elements of collection(s). With no collection args, returns a transducer.
+   (map f)              => transducer
+   (map f coll)         => mapped collection
+   (map f coll & colls) => zip-mapped collection
 
    Examples:
      (map inc [1 2 3])           => [2 3 4]
      (map + [1 2 3] [10 20 30])  => [11 22 33]
-     (map (fn [x] (* x 2)) #{1 2 3}) => #{2 4 6}"
-  (if colls
-      ;; Multiple collections - zip them
-      (let* ((seqs (cons (fol.compiler.collections:collection-seq coll)
-                         (cl:mapcar #'fol.compiler.collections:collection-seq colls)))
-             (results (apply #'cl:mapcar fn seqs)))
-        (apply #'fol.compiler.collections:make (class-name (class-of coll)) results))
-      ;; Single collection
-      (let* ((seq (fol.compiler.collections:collection-seq coll))
-             (results (cl:mapcar fn seq)))
-        (apply #'fol.compiler.collections:make (class-name (class-of coll)) results))))
+     (map inc)                   => transducer"
+  (if (null args)
+      ;; Transducer: (map f) => transducer
+      (lambda (rf)
+        (lambda (&optional (acc nil acc-p) (input nil input-p))
+          (cond
+           ((not acc-p) (funcall rf))
+           ((not input-p) (funcall rf acc))
+           (t (funcall rf acc (funcall fn input))))))
+      ;; Sequence function: (map f coll ...) => collection
+      (let ((coll (cl:first args))
+            (colls (cl:rest args)))
+        (if colls
+            ;; Multiple collections - zip them
+            (let* ((seqs (cl:cons (fol.compiler.collections:collection-seq coll)
+                                  (cl:mapcar #'fol.compiler.collections:collection-seq colls)))
+                   (results (cl:apply #'cl:mapcar fn seqs)))
+              (cl:apply #'fol.compiler.collections:make (class-name (class-of coll)) results))
+            ;; Single collection
+            (let* ((seq (fol.compiler.collections:collection-seq coll))
+                   (results (cl:mapcar fn seq)))
+              (cl:apply #'fol.compiler.collections:make (class-name (class-of coll)) results))))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; mapv - map returning vector
@@ -158,33 +154,45 @@
                          (cl:mapcar #'fol.compiler.collections:collection-seq colls)))
              (zipped (apply #'cl:mapcar #'list seqs))
              (work-items (cl:mapcar (lambda (args)
-                                      (%submit-work fn args))
-                                    zipped))
-             (results (cl:mapcar #'%wait-for-work work-items)))
+                                      (fol.compiler.mutable:submit-work fn args))
+                           zipped))
+             (results (cl:mapcar #'fol.compiler.mutable:wait-for-work work-items)))
         (apply #'fol.compiler.collections:make (class-name (class-of coll)) results))
       ;; Single collection - process in parallel
       (let* ((seq (fol.compiler.collections:collection-seq coll))
              (work-items (cl:mapcar (lambda (elem)
-                                      (%submit-work fn (list elem)))
-                                    seq))
-             (results (cl:mapcar #'%wait-for-work work-items)))
+                                      (fol.compiler.mutable:submit-work fn (list elem)))
+                           seq))
+             (results (cl:mapcar #'fol.compiler.mutable:wait-for-work work-items)))
         (apply #'fol.compiler.collections:make (class-name (class-of coll)) results))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; filter - Keep elements that satisfy predicate
 ;;; ---------------------------------------------------------------------------
 
-(defun filter (pred coll)
-  "Return a new collection containing only elements where (PRED element) is truthy.
+(defun filter (pred &rest args)
+  "Keep elements where (PRED element) is truthy. With no collection, returns transducer.
 
    Examples:
-     (filter odd? [1 2 3 4 5])             => [1 3 5]
-     (filter (fn [x] (> x 2)) #{1 2 3 4}) => #{3 4}"
-  (let* ((seq (fol.compiler.collections:collection-seq coll))
-         (filtered (cl:remove-if-not (lambda (x)
-                                       (fol.compiler.primitives:truthy? (funcall pred x)))
-                                     seq)))
-    (apply #'fol.compiler.collections:make (class-name (class-of coll)) filtered)))
+     (filter odd? [1 2 3 4 5])  => [1 3 5]
+     (filter odd?)               => transducer"
+  (if (null args)
+      ;; Transducer
+      (lambda (rf)
+        (lambda (&optional (acc nil acc-p) (input nil input-p))
+          (cond
+           ((not acc-p) (funcall rf))
+           ((not input-p) (funcall rf acc))
+           (t (if (fol.compiler.primitives:truthy? (funcall pred input))
+                  (funcall rf acc input)
+                  acc)))))
+      ;; Sequence function
+      (let ((coll (cl:first args)))
+        (let* ((seq (fol.compiler.collections:collection-seq coll))
+               (filtered (cl:remove-if-not (lambda (x)
+                                             (fol.compiler.primitives:truthy? (funcall pred x)))
+                           seq)))
+          (cl:apply #'fol.compiler.collections:make (class-name (class-of coll)) filtered)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; filterv - filter returning vector
@@ -198,7 +206,7 @@
   (let* ((seq (fol.compiler.collections:collection-seq coll))
          (filtered (cl:remove-if-not (lambda (x)
                                        (fol.compiler.primitives:truthy? (funcall pred x)))
-                                     seq)))
+                     seq)))
     (apply #'fol.compiler.collections:make 'fol.compiler.collections:<vector> filtered)))
 
 ;;; ---------------------------------------------------------------------------
@@ -220,17 +228,35 @@
 ;;; mapcat - map followed by concatenation
 ;;; ---------------------------------------------------------------------------
 
-(defun mapcat (fn coll)
-  "Apply FN to each element of COLL, then concatenate the results.
-   FN should return a collection. Results are concatenated into same type as COLL.
+(defun mapcat (fn &rest args)
+  "Apply FN to each element, then concatenate results. With no collection, returns transducer.
 
    Examples:
-     (mapcat (fn [x] [x (* x 2)]) [1 2 3]) => [1 2 2 4 3 6]"
-  (let* ((seq (fol.compiler.collections:collection-seq coll))
-         (mapped (cl:mapcar fn seq))
-         (seqs (cl:mapcar #'fol.compiler.collections:collection-seq mapped))
-         (flattened (apply #'cl:append seqs)))
-    (apply #'fol.compiler.collections:make (class-name (class-of coll)) flattened)))
+     (mapcat (fn [x] [x (* x 2)]) [1 2 3]) => [1 2 2 4 3 6]
+     (mapcat (fn [x] [x (* x 2)]))          => transducer"
+  (if (null args)
+      ;; Transducer
+      (lambda (rf)
+        (lambda (&optional (acc nil acc-p) (input nil input-p))
+          (cond
+           ((not acc-p) (funcall rf))
+           ((not input-p) (funcall rf acc))
+           (t (let ((coll (funcall fn input)))
+                (let ((iter (fol.compiler.collections:collection-seq coll))
+                      (current-acc acc))
+                  (cl:loop for item in iter
+                  do (let ((res (funcall rf current-acc item)))
+                       (if (reduced? res)
+                           (return res)
+                           (setf current-acc res)))
+                  finally (return current-acc))))))))
+      ;; Sequence function
+      (let ((coll (cl:first args)))
+        (let* ((seq (fol.compiler.collections:collection-seq coll))
+               (mapped (cl:mapcar fn seq))
+               (seqs (cl:mapcar #'fol.compiler.collections:collection-seq mapped))
+               (flattened (cl:apply #'cl:append seqs)))
+          (cl:apply #'fol.compiler.collections:make (class-name (class-of coll)) flattened)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; pmapcat - parallel map followed by concatenation using thread pool
@@ -244,9 +270,9 @@
      (pmapcat (fn [x] [x (* x 2)]) [1 2 3]) => [1 2 2 4 3 6]"
   (let* ((seq (fol.compiler.collections:collection-seq coll))
          (work-items (cl:mapcar (lambda (elem)
-                                  (%submit-work fn (list elem)))
-                                seq))
-         (mapped (cl:mapcar #'%wait-for-work work-items))
+                                  (fol.compiler.mutable:submit-work fn (list elem)))
+                       seq))
+         (mapped (cl:mapcar #'fol.compiler.mutable:wait-for-work work-items))
          (seqs (cl:mapcar #'fol.compiler.collections:collection-seq mapped))
          (flattened (apply #'cl:append seqs)))
     (apply #'fol.compiler.collections:make (class-name (class-of coll)) flattened)))
@@ -255,32 +281,50 @@
 ;;; remove - Inverse of filter
 ;;; ---------------------------------------------------------------------------
 
-(defun remove (pred coll)
-  "Return a new collection containing only elements where (PRED element) is falsy.
-   Inverse of filter.
+(defun remove (pred &rest args)
+  "Keep elements where (PRED element) is falsy. With no collection, returns transducer.
 
    Examples:
-     (remove odd? [1 2 3 4 5])         => [2 4]
-     (remove (fn [x] (> x 2)) [1 2 3 4]) => [1 2]"
-  (let* ((seq (fol.compiler.collections:collection-seq coll))
-         (kept (cl:remove-if (lambda (x)
-                               (fol.compiler.primitives:truthy? (funcall pred x)))
-                             seq)))
-    (apply #'fol.compiler.collections:make (class-name (class-of coll)) kept)))
+     (remove odd? [1 2 3 4 5])  => [2 4]
+     (remove odd?)               => transducer"
+  (if (null args)
+      ;; Transducer: complement of filter
+      (filter (cl:complement pred))
+      ;; Sequence function
+      (let ((coll (cl:first args)))
+        (let* ((seq (fol.compiler.collections:collection-seq coll))
+               (kept (cl:remove-if (lambda (x)
+                                     (fol.compiler.primitives:truthy? (funcall pred x)))
+                       seq)))
+          (cl:apply #'fol.compiler.collections:make (class-name (class-of coll)) kept)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; keep - map but remove nil results
 ;;; ---------------------------------------------------------------------------
 
-(defun keep (fn coll)
-  "Apply FN to each element of COLL and keep non-nil results.
+(defun keep (fn &rest args)
+  "Apply FN and keep non-nil results. With no collection, returns transducer.
 
    Examples:
-     (keep (fn [x] (if (odd? x) (* x 2) nil)) [1 2 3 4 5]) => [2 6 10]"
-  (let* ((seq (fol.compiler.collections:collection-seq coll))
-         (results (cl:mapcar fn seq))
-         (kept (cl:remove-if #'null results)))
-    (apply #'fol.compiler.collections:make (class-name (class-of coll)) kept)))
+     (keep (fn [x] (if (odd? x) (* x 2) nil)) [1 2 3 4 5]) => [2 6 10]
+     (keep (fn [x] (if (odd? x) (* x 2) nil)))               => transducer"
+  (if (null args)
+      ;; Transducer
+      (lambda (rf)
+        (lambda (&optional (acc nil acc-p) (input nil input-p))
+          (cond
+           ((not acc-p) (funcall rf))
+           ((not input-p) (funcall rf acc))
+           (t (let ((result (funcall fn input)))
+                (if result
+                    (funcall rf acc result)
+                    acc))))))
+      ;; Sequence function
+      (let ((coll (cl:first args)))
+        (let* ((seq (fol.compiler.collections:collection-seq coll))
+               (results (cl:mapcar fn seq))
+               (kept (cl:remove-if #'null results)))
+          (cl:apply #'fol.compiler.collections:make (class-name (class-of coll)) kept)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; some - Test if any element satisfies predicate
@@ -309,7 +353,7 @@
   (let ((seq (fol.compiler.collections:collection-seq coll)))
     (cl:every (lambda (x)
                 (fol.compiler.primitives:truthy? (funcall pred x)))
-              seq)))
+      seq)))
 
 ;;; ---------------------------------------------------------------------------
 ;;; partition - Split collection into groups of n
@@ -327,94 +371,153 @@
     (loop while seq
           do (let ((group (cl:subseq seq 0 (min n (length seq)))))
                (push (apply #'fol.compiler.collections:make
-                            'fol.compiler.collections:<vector> group)
+                       'fol.compiler.collections:<vector> group)
                      result)
                (setf seq (cl:nthcdr n seq))))
     (apply #'fol.compiler.collections:make
-           'fol.compiler.collections:<vector>
-           (nreverse result))))
+      'fol.compiler.collections:<vector>
+      (nreverse result))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; take - Take first n elements
 ;;; ---------------------------------------------------------------------------
 
-(defun take (n coll)
-  "Return a vector of the first N elements from COLL.
-   Handles infinite lazy sequences without full realization.
+(defun take (n &rest args)
+  "Take first N elements from COLL. With no collection, returns transducer.
 
    Examples:
      (take 3 [1 2 3 4 5])  => [1 2 3]
-     (take 10 [1 2 3])     => [1 2 3]
-     (take 4 (repeat 0))   => [0 0 0 0]"
-  (if (typep coll 'fol.compiler.collections:<lazy-seq>)
-      ;; Lazy-seq: iterate using realize-lazy-seq to avoid full realization
-      (let ((result '())
-            (current coll)
-            (count 0))
-        (loop while (and (< count n) current
-                         (typep current 'fol.compiler.collections:<lazy-seq>))
+     (take 3)               => transducer"
+  (if (null args)
+      ;; Transducer
+      (lambda (rf)
+        (let ((counter 0))
+          (lambda (&optional (acc nil acc-p) (input nil input-p))
+            (cond
+             ((not acc-p) (funcall rf))
+             ((not input-p) (funcall rf acc))
+             (t (if (< counter n)
+                    (let ((result (funcall rf acc input)))
+                      (incf counter)
+                      (if (>= counter n)
+                          (ensure-reduced result)
+                          result))
+                    (ensure-reduced acc)))))))
+      ;; Sequence function
+      (let ((coll (cl:first args)))
+        (if (typep coll 'fol.compiler.collections:<lazy-seq>)
+            ;; Lazy-seq: iterate using realize-lazy-seq to avoid full realization
+            (let ((result '())
+                  (current coll)
+                  (count 0))
+              (cl:loop while (and (< count n) current
+                                  (typep current 'fol.compiler.collections:<lazy-seq>))
               do (let* ((realized (fol.compiler.collections:realize-lazy-seq current))
                         (head (when (typep realized 'fol.compiler.collections:<list>)
-                                (fol.compiler.collections:list-first realized)))
+                                    (fol.compiler.collections:list-first realized)))
                         (tail (when (typep realized 'fol.compiler.collections:<list>)
-                                (fol.compiler.collections:list-rest realized))))
+                                    (fol.compiler.collections:list-rest realized))))
                    (push head result)
                    (incf count)
                    (setf current tail)))
-        (apply #'fol.compiler.collections:make
-               'fol.compiler.collections:<vector>
-               (nreverse result)))
-      ;; Eager collections: use collection-seq
-      (let* ((seq (fol.compiler.collections:collection-seq coll))
-             (taken (cl:subseq seq 0 (min n (length seq)))))
-        (apply #'fol.compiler.collections:make
-               'fol.compiler.collections:<vector>
-               taken))))
+              (cl:apply #'fol.compiler.collections:make
+                'fol.compiler.collections:<vector>
+                (nreverse result)))
+            ;; Eager collections: use collection-seq
+            (let* ((seq (fol.compiler.collections:collection-seq coll))
+                   (taken (cl:subseq seq 0 (cl:min n (length seq)))))
+              (cl:apply #'fol.compiler.collections:make
+                'fol.compiler.collections:<vector>
+                taken))))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; drop - Drop first n elements
 ;;; ---------------------------------------------------------------------------
 
-(defun drop (n coll)
-  "Return a collection without the first N elements from COLL.
+(defun drop (n &rest args)
+  "Drop first N elements from COLL. With no collection, returns transducer.
 
    Examples:
      (drop 2 [1 2 3 4 5])  => [3 4 5]
-     (drop 10 [1 2 3])     => []"
-  (let* ((seq (fol.compiler.collections:collection-seq coll))
-         (dropped (cl:nthcdr n seq)))
-    (apply #'fol.compiler.collections:make (class-name (class-of coll)) dropped)))
+     (drop 2)               => transducer"
+  (if (null args)
+      ;; Transducer
+      (lambda (rf)
+        (let ((counter 0))
+          (lambda (&optional (acc nil acc-p) (input nil input-p))
+            (cond
+             ((not acc-p) (funcall rf))
+             ((not input-p) (funcall rf acc))
+             (t (if (< counter n)
+                    (progn (incf counter) acc)
+                    (funcall rf acc input)))))))
+      ;; Sequence function
+      (let ((coll (cl:first args)))
+        (let* ((seq (fol.compiler.collections:collection-seq coll))
+               (dropped (cl:nthcdr n seq)))
+          (cl:apply #'fol.compiler.collections:make (class-name (class-of coll)) dropped)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; take-while - Take elements while predicate is true
 ;;; ---------------------------------------------------------------------------
 
-(defun take-while (pred coll)
-  "Return elements from COLL up to first element where PRED is falsy.
+(defun take-while (pred &rest args)
+  "Take elements while PRED is truthy. With no collection, returns transducer.
 
    Examples:
-     (take-while (fn [x] (< x 5)) [1 2 3 4 5 6 1 2]) => [1 2 3 4]"
-  (let ((seq (fol.compiler.collections:collection-seq coll))
-        (result '()))
-    (loop for elem in seq
+     (take-while (fn [x] (< x 5)) [1 2 3 4 5 6 1 2]) => [1 2 3 4]
+     (take-while even?)                                 => transducer"
+  (if (null args)
+      ;; Transducer
+      (lambda (rf)
+        (lambda (&optional (acc nil acc-p) (input nil input-p))
+          (cond
+           ((not acc-p) (funcall rf))
+           ((not input-p) (funcall rf acc))
+           (t (if (fol.compiler.primitives:truthy? (funcall pred input))
+                  (funcall rf acc input)
+                  (ensure-reduced acc))))))
+      ;; Sequence function
+      (let ((coll (cl:first args)))
+        (let ((seq (fol.compiler.collections:collection-seq coll))
+              (result '()))
+          (cl:loop for elem in seq
           while (fol.compiler.primitives:truthy? (funcall pred elem))
           do (push elem result))
-    (apply #'fol.compiler.collections:make (class-name (class-of coll)) (nreverse result))))
+          (cl:apply #'fol.compiler.collections:make (class-name (class-of coll)) (nreverse result))))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; drop-while - Drop elements while predicate is true
 ;;; ---------------------------------------------------------------------------
 
-(defun drop-while (pred coll)
-  "Drop elements from COLL up to first element where PRED is falsy.
+(defun drop-while (pred &rest args)
+  "Drop elements while PRED is truthy. With no collection, returns transducer.
 
    Examples:
-     (drop-while (fn [x] (< x 5)) [1 2 3 4 5 6 1 2]) => [5 6 1 2]"
-  (let ((seq (fol.compiler.collections:collection-seq coll)))
-    (loop for tail on seq
-          when (not (fol.compiler.primitives:truthy? (funcall pred (car tail))))
-          return (apply #'fol.compiler.collections:make (class-name (class-of coll)) tail)
-          finally (return (fol.compiler.collections:make (class-name (class-of coll)))))))
+     (drop-while (fn [x] (< x 5)) [1 2 3 4 5 6 1 2]) => [5 6 1 2]
+     (drop-while even?)                                 => transducer"
+  (if (null args)
+      ;; Transducer
+      (lambda (rf)
+        (let ((dropping t))
+          (lambda (&optional (acc nil acc-p) (input nil input-p))
+            (cond
+             ((not acc-p) (funcall rf))
+             ((not input-p) (funcall rf acc))
+             (t (if dropping
+                    (if (fol.compiler.primitives:truthy? (funcall pred input))
+                        acc
+                        (progn
+                         (setf dropping nil)
+                         (funcall rf acc input)))
+                    (funcall rf acc input)))))))
+      ;; Sequence function
+      (let ((coll (cl:first args)))
+        (let ((seq (fol.compiler.collections:collection-seq coll)))
+          (cl:loop for tail on seq
+            when (cl:not (fol.compiler.primitives:truthy? (funcall pred (car tail))))
+            return (cl:apply #'fol.compiler.collections:make (class-name (class-of coll)) tail)
+          finally (return (fol.compiler.collections:make (class-name (class-of coll)))))))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; concat - Concatenate multiple collections
@@ -449,9 +552,9 @@
        ;; Use key-order for ordered dict
        (let ((seq (fol.compiler.collections:ordered-dict-key-order dict)))
          (return-from keys
-           (apply #'fol.compiler.collections:make
-                  'fol.compiler.collections:<vector>
-                  (fol.compiler.collections:collection-seq seq)))))
+                      (apply #'fol.compiler.collections:make
+                        'fol.compiler.collections:<vector>
+                        (fol.compiler.collections:collection-seq seq)))))
       (fol.compiler.collections:<sorted-dict>
        (sycamore:do-tree-map ((k v) (fol.compiler.collections:storage-items dict))
          (declare (ignore v))
@@ -463,8 +566,8 @@
       (t
        (error "keys requires a dict, got ~S" dict)))
     (apply #'fol.compiler.collections:make
-           'fol.compiler.collections:<vector>
-           (nreverse result))))
+      'fol.compiler.collections:<vector>
+      (nreverse result))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; sort-by - Sort collection by key function
@@ -486,17 +589,17 @@
                      ;; Function - use directly
                      keyfn))
          (sorted (cl:sort (copy-list seq) #'<
-                          :key (lambda (x)
-                                 (let ((k (funcall key-fn x)))
-                                   ;; Handle various key types
-                                   (typecase k
-                                     (number k)
-                                     (string (string k))
-                                     (symbol (symbol-name k))
-                                     (t k)))))))
+                   :key (lambda (x)
+                          (let ((k (funcall key-fn x)))
+                            ;; Handle various key types
+                            (typecase k
+                              (number k)
+                              (string (string k))
+                              (symbol (symbol-name k))
+                              (t k)))))))
     (apply #'fol.compiler.collections:make
-           'fol.compiler.collections:<vector>
-           sorted)))
+      'fol.compiler.collections:<vector>
+      sorted)))
 
 ;;; ===========================================================================
 ;;; Sequence Constructors and Coercions
@@ -516,48 +619,74 @@
      (seq nil)        => NIL
      (seq {:a 1})     => ((:a . 1))"
   (cond
-    ((null coll) nil)
-    ((typep coll 'fol.compiler.collections:<collection>)
+   ((null coll) nil)
+   ((typep coll 'fol.compiler.collections:<collection>)
      (let ((s (fol.compiler.collections:collection-seq coll)))
        (if (null s) nil s)))
-    (t nil)))
+   (t nil)))
 
 ;;; ---------------------------------------------------------------------------
 ;;; sequence - coerce a coll to a lazy-seq or eager vector
 ;;; ---------------------------------------------------------------------------
 
-(defun sequence (coll)
-  "Coerces COLL to a FOL vector.  Returns an empty vector for nil or empty colls.
+(defun sequence (xform-or-coll &optional (coll nil coll-p))
+  "Coerce to vector, or apply transducer.
+   (sequence coll)        => FOL vector of coll's elements
+   (sequence xform coll)  => lazy-seq of transduced coll
 
    Examples:
-     (sequence [1 2 3])      => [1 2 3]
-     (sequence #{3 1 2})     => [1 2 3]  ; order may vary
-     (sequence nil)          => []"
-  (if (null coll)
-      (fol.compiler.collections:make 'fol.compiler.collections:<vector>)
-      (let ((s (fol.compiler.collections:collection-seq coll)))
-        (apply #'fol.compiler.collections:make
-               'fol.compiler.collections:<vector>
-               s))))
+     (sequence [1 2 3])            => [1 2 3]
+     (sequence (map inc) [1 2 3])  => lazy-seq of [2 3 4]
+     (sequence nil)                => []"
+  (if coll-p
+      ;; (sequence xform coll) - apply transducer, return lazy-seq
+      (make-instance 'fol.compiler.collections:<lazy-seq>
+        :thunk (lambda ()
+                 (transduce xform-or-coll
+                            #'fol.compiler.collection-functions:conj
+                            (fol.compiler.collection-functions:vector)
+                            coll)))
+      ;; (sequence coll) - coerce to vector
+      (if (null xform-or-coll)
+          (fol.compiler.collections:make 'fol.compiler.collections:<vector>)
+          (let ((s (fol.compiler.collections:collection-seq xform-or-coll)))
+            (cl:apply #'fol.compiler.collections:make
+              'fol.compiler.collections:<vector>
+              s)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; keep-indexed - keep with index
 ;;; ---------------------------------------------------------------------------
 
-(defun keep-indexed (fn coll)
-  "Apply FN to index and each element of COLL; keep non-nil results.
-   FN takes two arguments: (index element).
+(defun keep-indexed (fn &rest args)
+  "Apply FN to (index, element) and keep non-nil results. With no collection, returns transducer.
 
    Examples:
-     (keep-indexed (fn [i x] (if (odd? i) x nil)) [0 1 2 3 4]) => [1 3]"
-  (let* ((s (fol.compiler.collections:collection-seq coll))
-         (result (cl:loop for elem in s
-                          for i from 0
-                          for v = (funcall fn i elem)
-                          when v collect v)))
-    (apply #'fol.compiler.collections:make
-           'fol.compiler.collections:<vector>
-           result)))
+     (keep-indexed (fn [i x] (if (odd? i) x nil)) [0 1 2 3 4]) => [1 3]
+     (keep-indexed (fn [i x] (if (odd? i) x nil)))               => transducer"
+  (if (null args)
+      ;; Transducer
+      (lambda (rf)
+        (let ((idx -1))
+          (lambda (&optional (acc nil acc-p) (input nil input-p))
+            (cond
+             ((not acc-p) (funcall rf))
+             ((not input-p) (funcall rf acc))
+             (t (incf idx)
+                (let ((result (funcall fn idx input)))
+                  (if result
+                      (funcall rf acc result)
+                      acc)))))))
+      ;; Sequence function
+      (let ((coll (cl:first args)))
+        (let* ((s (fol.compiler.collections:collection-seq coll))
+               (result (cl:loop for elem in s
+                       for i from 0
+                       for v = (funcall fn i elem)
+                         when v collect v)))
+          (cl:apply #'fol.compiler.collections:make
+            'fol.compiler.collections:<vector>
+            result)))))
 
 ;;; ===========================================================================
 ;;; Infinite / Generative Sequences (returned as eager vectors when finite,
@@ -580,17 +709,17 @@
       ;; (repeat n x) form
       (let ((n n-or-x))
         (apply #'fol.compiler.collections:make
-               'fol.compiler.collections:<vector>
-               (cl:make-list n :initial-element x)))
+          'fol.compiler.collections:<vector>
+          (cl:make-list n :initial-element x)))
       ;; (repeat x) form - return a <lazy-seq> that yields x forever
       (labels ((make-repeat-seq (val)
-                 (fol.compiler.collections:make
-                  'fol.compiler.collections:<lazy-seq>
-                  (lambda ()
-                    (make-instance 'fol.compiler.collections:<list>
-                                   :first-elem val
-                                   :rest-list (make-repeat-seq val)
-                                   :list-size 1)))))
+                                (fol.compiler.collections:make
+                                 'fol.compiler.collections:<lazy-seq>
+                                 (lambda ()
+                                   (make-instance 'fol.compiler.collections:<list>
+                                     :first-elem val
+                                     :rest-list (make-repeat-seq val)
+                                     :list-size 1)))))
         (make-repeat-seq n-or-x))))
 
 ;;; ---------------------------------------------------------------------------
@@ -609,17 +738,17 @@
      (range 0 10 2)   => [0 2 4 6 8]
      (range 5 0 -1)   => [5 4 3 2 1]"
   (let* ((len (length args))
-         (start (if (>= len 2) (first  args) 0))
-         (end   (if (>= len 2) (second args) (first args)))
-         (step  (if (>= len 3) (third  args) 1)))
+         (start (if (>= len 2) (first args) 0))
+         (end (if (>= len 2) (second args) (first args)))
+         (step (if (>= len 3) (third args) 1)))
     (when (zerop step)
-      (error "range: step cannot be zero"))
+          (error "range: step cannot be zero"))
     (let ((nums (cl:loop for i = start then (+ i step)
-                         while (if (plusp step) (< i end) (> i end))
-                         collect i)))
+                while (if (plusp step) (< i end) (> i end))
+                collect i)))
       (apply #'fol.compiler.collections:make
-             'fol.compiler.collections:<vector>
-             nums))))
+        'fol.compiler.collections:<vector>
+        nums))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; repeatedly - call a zero-arg function n times (or return lazy-seq)
@@ -635,18 +764,18 @@
   (if fn-supplied-p
       (let ((n n-or-fn))
         (apply #'fol.compiler.collections:make
-               'fol.compiler.collections:<vector>
-               (cl:loop repeat n collect (funcall fn))))
+          'fol.compiler.collections:<vector>
+          (cl:loop repeat n collect (funcall fn))))
       ;; (repeatedly fn) - infinite lazy seq
       (let ((f n-or-fn))
         (labels ((make-rep-seq ()
-                   (fol.compiler.collections:make
-                    'fol.compiler.collections:<lazy-seq>
-                    (lambda ()
-                      (make-instance 'fol.compiler.collections:<list>
-                                     :first-elem (funcall f)
-                                     :rest-list (make-rep-seq)
-                                     :list-size 1)))))
+                               (fol.compiler.collections:make
+                                'fol.compiler.collections:<lazy-seq>
+                                (lambda ()
+                                  (make-instance 'fol.compiler.collections:<list>
+                                    :first-elem (funcall f)
+                                    :rest-list (make-rep-seq)
+                                    :list-size 1)))))
           (make-rep-seq)))))
 
 ;;; ---------------------------------------------------------------------------
@@ -661,10 +790,10 @@
      (take 5 (iterate inc 0))    => [0 1 2 3 4]
      (take 4 (iterate (fn [x] (* x 2)) 1)) => [1 2 4 8]"
   (labels ((make-iter-seq (val)
-             (fol.compiler.collections:make
-              'fol.compiler.collections:<lazy-seq>
-              (lambda ()
-                (make-instance 'fol.compiler.collections:<list>
+                          (fol.compiler.collections:make
+                           'fol.compiler.collections:<lazy-seq>
+                           (lambda ()
+                             (make-instance 'fol.compiler.collections:<list>
                                :first-elem val
                                :rest-list (make-iter-seq (funcall f val))
                                :list-size 1)))))
@@ -689,13 +818,13 @@
   (let ((result '())
         (k initk))
     (cl:loop
-      for state = (funcall step k)
-      while (funcall some? state)
-      do (push (funcall vf state) result)
-         (setf k (funcall kf state)))
+    for state = (funcall step k)
+    while (funcall some? state)
+    do (push (funcall vf state) result)
+      (setf k (funcall kf state)))
     (apply #'fol.compiler.collections:make
-           'fol.compiler.collections:<vector>
-           (nreverse result))))
+      'fol.compiler.collections:<vector>
+      (nreverse result))))
 
 ;;; ===========================================================================
 ;;; File and I/O Sequences
@@ -714,36 +843,23 @@
   (let ((root (cl:pathname dir))
         (result '()))
     (labels ((walk (p)
-               (push p result)
-               (when (cl:probe-file p)
-                 (when (cl:directory p)
-                   (dolist (child (cl:directory
-                                   (cl:make-pathname :name :wild
-                                                     :type :wild
-                                                     :defaults p)))
-                     (walk child))))))
+                   (push p result)
+                   (when (cl:probe-file p)
+                         (when (cl:directory p)
+                               (dolist (child (cl:directory
+                                                (cl:make-pathname :name :wild
+                                                                  :type :wild
+                                                                  :defaults p)))
+                                 (walk child))))))
       (walk root))
     (apply #'fol.compiler.collections:make
-           'fol.compiler.collections:<vector>
-           (nreverse result))))
+      'fol.compiler.collections:<vector>
+      (nreverse result))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; line-seq - lazy seq of lines from a stream
 ;;; ---------------------------------------------------------------------------
 
-(defun line-seq (stream)
-  "Returns a vector of all lines read from STREAM.
-   STREAM must be a CL input stream (use input-stream-stream to unwrap FOL streams).
-
-   Examples:
-     (line-seq (open \"/tmp/file.txt\"))  => [\"line1\" \"line2\" ...]"
-  (let ((result '()))
-    (cl:loop for line = (cl:read-line stream nil nil)
-             while line
-             do (push line result))
-    (apply #'fol.compiler.collections:make
-           'fol.compiler.collections:<vector>
-           (nreverse result))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; tree-seq - depth-first tree traversal
@@ -759,18 +875,18 @@
        => ((1 (2 3) (4 (5 6))) 1 (2 3) 2 3 (4 (5 6)) 4 (5 6) 5 6)"
   (let ((result '()))
     (labels ((walk (node)
-               (push node result)
-               (when (funcall branch? node)
-                 (let ((children-seq (funcall children node)))
-                   (dolist (child (if (typep children-seq
-                                             'fol.compiler.collections:<collection>)
-                                      (fol.compiler.collections:collection-seq children-seq)
-                                      children-seq))
-                     (walk child))))))
+                   (push node result)
+                   (when (funcall branch? node)
+                         (let ((children-seq (funcall children node)))
+                           (dolist (child (if (typep children-seq
+                                                     'fol.compiler.collections:<collection>)
+                                              (fol.compiler.collections:collection-seq children-seq)
+                                              children-seq))
+                             (walk child))))))
       (walk root))
     (apply #'fol.compiler.collections:make
-           'fol.compiler.collections:<vector>
-           (nreverse result))))
+      'fol.compiler.collections:<vector>
+      (nreverse result))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; iterator-seq - seq from an iterator-like object
@@ -791,10 +907,10 @@
      => [1 2 3]"
   (let ((result '()))
     (cl:loop while (funcall iter :has-next?)
-             do (push (funcall iter :next) result))
+    do (push (funcall iter :next) result))
     (apply #'fol.compiler.collections:make
-           'fol.compiler.collections:<vector>
-           (nreverse result))))
+      'fol.compiler.collections:<vector>
+      (nreverse result))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; enumeration-seq - seq from an enumeration-like object
@@ -814,10 +930,10 @@
                ((eq msg :next-element) (pop xs))))))"
   (let ((result '()))
     (cl:loop while (funcall enum :has-more?)
-             do (push (funcall enum :next-element) result))
+    do (push (funcall enum :next-element) result))
     (apply #'fol.compiler.collections:make
-           'fol.compiler.collections:<vector>
-           (nreverse result))))
+      'fol.compiler.collections:<vector>
+      (nreverse result))))
 
 ;;; ===========================================================================
 ;;; Additional Sequence Operations
@@ -828,87 +944,197 @@
 ;;; ---------------------------------------------------------------------------
 
 (defun sort (coll &optional (comp #'cl:<))
-  "Returns a sorted vector of COLL's elements using COMP (default: cl:<).
-   COMP is a two-argument predicate returning true if first arg precedes second.
-
-   Examples:
-     (sort [3 1 4 1 5])       => [1 1 3 4 5]
-     (sort [3 1 2] #'cl:>)    => [3 2 1]"
+  "Returns a sorted collection of the same type as COLL using COMP.
+   (sort [3 1 2]) => [1 2 3]"
   (let* ((seq (collection-seq coll))
-         (sorted (cl:sort (copy-list seq) comp)))
-    (apply #'fol.compiler.collections:make
-           'fol.compiler.collections:<vector> sorted)))
+         ;; For dicts, we sort the pairs based on the comparator (applied to keys usually?)
+         ;; Standard sort takes elements. For dicts, elements are (k . v).
+         ;; If comp is cl:<, it expects numbers.
+         ;; We should probably default to sorting by key if comp is default.
+         (sorted (cl:sort (copy-list seq)
+                   (if (and (typep coll 'fol.compiler.collections:<dict>)
+                            (eq comp #'cl:<))
+                       (lambda (a b) (cl:< (car a) (car b)))
+                       comp))))
+    (cond
+     ((typep coll 'fol.compiler.collections:<dict>)
+       (apply #'fol.compiler.collections:make
+         (class-name (class-of coll))
+         (loop for (k . v) in sorted collect k collect v)))
+     ((listp coll)
+       sorted)
+     (t
+       (apply #'fol.compiler.collections:make
+         (class-name (class-of coll))
+         sorted)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; reverse - reverse a collection
 ;;; ---------------------------------------------------------------------------
 
 (defun reverse (coll)
-  "Returns a vector of COLL's items in reverse order.
+  "Returns a collection of the same type as COLL with items in reverse order.
+   If COLL is a sorted collection, returns a new sorted collection with an inverted comparator."
+  (cond
+   ;; Sorted Set: Invert comparator
+   ((typep coll 'fol.compiler.collections:<sorted-set>)
+     (let ((old-cmp (fol.compiler.collections:comparator-compare coll))
+           (name (class-name (class-of coll))))
+       ;; Case for <int-set>: coerce to generic <sorted-set> because <int-set> forces ascending
+       (when (eq name 'fol.compiler.collections:<int-set>)
+             (setf name 'fol.compiler.collections:<sorted-set>))
+       (apply #'fol.compiler.collections:make
+         name
+         (lambda (a b) (funcall old-cmp b a))
+         (fol.compiler.collections:collection-seq coll))))
 
-   Examples:
-     (reverse [1 2 3])   => [3 2 1]
-     (reverse '(a b c))  => [c b a]"
-  (let ((seq (collection-seq coll)))
-    (apply #'fol.compiler.collections:make
-           'fol.compiler.collections:<vector>
-           (cl:reverse seq))))
+   ;; Sorted Dict: Invert comparator
+   ((typep coll 'fol.compiler.collections:<sorted-dict>)
+     (let ((old-cmp (fol.compiler.collections:comparator-compare coll))
+           (name (class-name (class-of coll))))
+       ;; Case for <int-dict>: coerce to generic <sorted-dict> if needed,
+       ;; but <int-dict> supports custom comparators so we might be ok,
+       ;; except the constructor might force optimal fixnum cmp if arg is nil.
+       ;; Passing a lambda comparator converts it to generic tree map logic anyway.
+       (apply #'fol.compiler.collections:make
+         name
+         (lambda (a b) (funcall old-cmp b a))
+         (loop for (k . v) in (fol.compiler.collections:collection-seq coll)
+               collect k collect v))))
+
+   ;; Priority Dict
+   ((typep coll 'fol.compiler.collections:<priority-dict>)
+     (let ((old-cmp (or (fol.compiler.collections:priority-dict-compare coll)
+                        #'cl:<))) ;; Default priority logic
+       (apply #'fol.compiler.collections:make
+         (class-name (class-of coll))
+         (lambda (a b) (if (funcall old-cmp a b) nil t)) ;; Invert boolean predicate? Or -1/0/1?
+         ;; Priority dict compare is -1/0/1 or predicate?
+         ;; Definition: "Comparator function... Returns negative/zero/positive fixnum"
+         ;; So we invert args.
+         (lambda (a b) (funcall old-cmp b a))
+         (loop for (k . v) in (fol.compiler.collections:collection-seq coll)
+               collect k collect v))))
+
+   ;; Dense Int Set -> Vector (cannot be reversed as dense-int-set)
+   ((typep coll 'fol.compiler.collections:<dense-int-set>)
+     (apply #'fol.compiler.collections:make
+       'fol.compiler.collections:<vector>
+       (cl:reverse (fol.compiler.collections:collection-seq coll))))
+
+   ;; Standard handling for Lists/Vectors/Deques
+   (t
+     (let ((rev-seq (cl:reverse (collection-seq coll))))
+       (cond
+        ((typep coll 'fol.compiler.collections:<dict>)
+          (apply #'fol.compiler.collections:make
+            (class-name (class-of coll))
+            (loop for (k . v) in rev-seq collect k collect v)))
+        ((listp coll)
+          rev-seq)
+        (t
+          (apply #'fol.compiler.collections:make
+            (class-name (class-of coll))
+            rev-seq)))))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; map-indexed - map with index passed as first arg
 ;;; ---------------------------------------------------------------------------
 
-(defun map-indexed (fn coll)
-  "Apply FN to (index element) for each element of COLL. Returns a vector.
+(defun map-indexed (fn &rest args)
+  "Apply FN to (index, element). With no collection, returns transducer.
 
    Examples:
-     (map-indexed (fn [i x] [i x]) [:a :b :c])
-       => [[0 :a] [1 :b] [2 :c]]"
-  (let* ((seq (collection-seq coll))
-         (result (cl:loop for elem in seq
-                          for i from 0
-                          collect (funcall fn i elem))))
-    (apply #'fol.compiler.collections:make
-           'fol.compiler.collections:<vector> result)))
+     (map-indexed (fn [i x] [i x]) [:a :b :c]) => [[0 :a] [1 :b] [2 :c]]
+     (map-indexed (fn [i x] [i x]))              => transducer"
+  (if (null args)
+      ;; Transducer
+      (lambda (rf)
+        (let ((idx -1))
+          (lambda (&optional (acc nil acc-p) (input nil input-p))
+            (cond
+             ((not acc-p) (funcall rf))
+             ((not input-p) (funcall rf acc))
+             (t (incf idx)
+                (funcall rf acc (funcall fn idx input)))))))
+      ;; Sequence function
+      (let ((coll (cl:first args)))
+        (let* ((seq (collection-seq coll))
+               (result (cl:loop for elem in seq
+                       for i from 0
+                       collect (funcall fn i elem))))
+          (cl:apply #'fol.compiler.collections:make
+            'fol.compiler.collections:<vector> result)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; distinct - remove duplicates preserving first occurrence
 ;;; ---------------------------------------------------------------------------
 
-(defun distinct (coll)
-  "Returns a vector of COLL's elements with duplicates removed.
-   Preserves the first occurrence of each element.
+(defun distinct (&rest args)
+  "Remove duplicates preserving first occurrence. With no args, returns transducer.
 
    Examples:
-     (distinct [1 2 1 3 2 4])  => [1 2 3 4]"
-  (let ((seen (make-hash-table :test 'equal))
-        (result '()))
-    (dolist (elem (collection-seq coll))
-      (unless (gethash elem seen)
-        (setf (gethash elem seen) t)
-        (push elem result)))
-    (apply #'fol.compiler.collections:make
-           'fol.compiler.collections:<vector> (nreverse result))))
+     (distinct [1 2 1 3 2 4])  => [1 2 3 4]
+     (distinct)                 => transducer"
+  (if (null args)
+      ;; Transducer
+      (lambda (rf)
+        (let ((seen (fol.compiler.collection-functions:set)))
+          (lambda (&optional (acc nil acc-p) (input nil input-p))
+            (cond
+             ((not acc-p) (funcall rf))
+             ((not input-p) (funcall rf acc))
+             (t (if (fol.compiler.collection-functions:contains? seen input)
+                    acc
+                    (progn
+                     (setf seen (fol.compiler.collection-functions:conj seen input))
+                     (funcall rf acc input))))))))
+      ;; Sequence function
+      (let ((coll (cl:first args)))
+        (let ((seen (make-hash-table :test 'equal))
+              (result '()))
+          (dolist (elem (collection-seq coll))
+            (unless (gethash elem seen)
+              (setf (gethash elem seen) t)
+              (push elem result)))
+          (cl:apply #'fol.compiler.collections:make
+            'fol.compiler.collections:<vector> (nreverse result))))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; dedupe - remove consecutive duplicates
 ;;; ---------------------------------------------------------------------------
 
-(defun dedupe (coll)
-  "Returns a vector with consecutive duplicate elements removed.
+(defun dedupe (&rest args)
+  "Remove consecutive duplicates. With no args, returns transducer.
 
    Examples:
-     (dedupe [1 1 2 1 1 3 3])  => [1 2 1 3]"
-  (let ((seq (collection-seq coll))
-        (result '())
-        (sentinel (list :dedupe-sentinel)))
-    (let ((prev sentinel))
-      (dolist (elem seq)
-        (unless (equal elem prev)
-          (push elem result)
-          (setf prev elem))))
-    (apply #'fol.compiler.collections:make
-           'fol.compiler.collections:<vector> (nreverse result))))
+     (dedupe [1 1 2 1 1 3 3])  => [1 2 1 3]
+     (dedupe)                    => transducer"
+  (if (null args)
+      ;; Transducer
+      (lambda (rf)
+        (let ((prior :none-yet))
+          (lambda (&optional (acc nil acc-p) (input nil input-p))
+            (cond
+             ((not acc-p) (funcall rf))
+             ((not input-p) (funcall rf acc))
+             (t (if (equal prior input)
+                    acc
+                    (progn
+                     (setf prior input)
+                     (funcall rf acc input))))))))
+      ;; Sequence function
+      (let ((coll (cl:first args)))
+        (let ((seq (collection-seq coll))
+              (result '())
+              (sentinel (cl:list :dedupe-sentinel)))
+          (let ((prev sentinel))
+            (dolist (elem seq)
+              (unless (equal elem prev)
+                (push elem result)
+                (setf prev elem))))
+          (cl:apply #'fol.compiler.collections:make
+            'fol.compiler.collections:<vector> (nreverse result))))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; flatten - recursively flatten nested collections
@@ -921,13 +1147,13 @@
      (flatten [1 [2 [3 4]] 5])  => [1 2 3 4 5]"
   (let ((result '()))
     (labels ((flat (x)
-               (if (typep x 'fol.compiler.collections:<collection>)
-                   (dolist (elem (collection-seq x))
-                     (flat elem))
-                   (push x result))))
+                   (if (typep x 'fol.compiler.collections:<collection>)
+                       (dolist (elem (collection-seq x))
+                         (flat elem))
+                       (push x result))))
       (flat coll))
     (apply #'fol.compiler.collections:make
-           'fol.compiler.collections:<vector> (nreverse result))))
+      'fol.compiler.collections:<vector> (nreverse result))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; group-by - group elements by a key function
@@ -947,8 +1173,8 @@
                  (setf d (fol.compiler.collection-functions:assoc
                           d k
                           (apply #'fol.compiler.collections:make
-                                 'fol.compiler.collections:<vector>
-                                 (nreverse vs)))))
+                            'fol.compiler.collections:<vector>
+                            (nreverse vs)))))
                buckets)
       d)))
 
@@ -956,54 +1182,106 @@
 ;;; partition-all - like partition but keeps partial final group
 ;;; ---------------------------------------------------------------------------
 
-(defun partition-all (n coll)
-  "Like partition but always includes a partial final group.
+(defun partition-all (n &rest args)
+  "Partition into groups of N. With no collection, returns transducer.
 
    Examples:
-     (partition-all 3 [1 2 3 4 5])  => [[1 2 3] [4 5]]"
-  (let ((seq (collection-seq coll))
-        (result '()))
-    (loop while seq
-          do (let ((group (cl:subseq seq 0 (min n (length seq)))))
-               (push (apply #'fol.compiler.collections:make
-                            'fol.compiler.collections:<vector> group)
+     (partition-all 3 [1 2 3 4 5])  => [[1 2 3] [4 5]]
+     (partition-all 3)               => transducer"
+  (if (null args)
+      ;; Transducer
+      (lambda (rf)
+        (let ((buffer (cl:make-array n :adjustable t :fill-pointer 0)))
+          (lambda (&optional (acc nil acc-p) (input nil input-p))
+            (cond
+             ((not acc-p) (funcall rf))
+             ((not input-p)
+               (if (> (length buffer) 0)
+                   (let ((result (funcall rf acc (fol.compiler.collection-functions:vec buffer))))
+                     (funcall rf result))
+                   (funcall rf acc)))
+             (t (vector-push-extend input buffer)
+                (if (cl:= (length buffer) n)
+                    (let ((res (fol.compiler.collection-functions:vec (copy-seq buffer))))
+                      (setf (fill-pointer buffer) 0)
+                      (funcall rf acc res))
+                    acc))))))
+      ;; Sequence function
+      (let ((coll (cl:first args)))
+        (let ((seq (collection-seq coll))
+              (result '()))
+          (cl:loop while seq
+          do (let ((group (cl:subseq seq 0 (cl:min n (length seq)))))
+               (push (cl:apply #'fol.compiler.collections:make
+                       'fol.compiler.collections:<vector> group)
                      result)
                (setf seq (cl:nthcdr n seq))))
-    (apply #'fol.compiler.collections:make
-           'fol.compiler.collections:<vector> (nreverse result))))
+          (cl:apply #'fol.compiler.collections:make
+            'fol.compiler.collections:<vector> (nreverse result))))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; partition-by - partition by consecutive equal values of fn
 ;;; ---------------------------------------------------------------------------
 
-(defun partition-by (fn coll)
-  "Partitions COLL into groups where consecutive (fn item) values are equal.
+(defun partition-by (fn &rest args)
+  "Partition by consecutive equal (fn item) values. With no collection, returns transducer.
 
    Examples:
-     (partition-by even? [1 1 2 2 3])  => [[1 1] [2 2] [3]]"
-  (let ((seq (collection-seq coll))
-        (result '())
-        (current-group '())
-        (sentinel (list :partition-by-sentinel)))
-    (let ((current-key sentinel))
-      (dolist (elem seq)
-        (let ((key (funcall fn elem)))
-          (if (or (eq current-key sentinel) (equal key current-key))
-              (push elem current-group)
-              (progn
-                (push (apply #'fol.compiler.collections:make
+     (partition-by even? [1 1 2 2 3])  => [[1 1] [2 2] [3]]
+     (partition-by even?)               => transducer"
+  (if (null args)
+      ;; Transducer
+      (lambda (rf)
+        (let ((buffer (cl:make-array 0 :adjustable t :fill-pointer 0))
+              (prior :none-yet))
+          (lambda (&optional (acc nil acc-p) (input nil input-p))
+            (cond
+             ((not acc-p) (funcall rf))
+             ((not input-p)
+               (if (> (length buffer) 0)
+                   (let ((result (funcall rf acc (fol.compiler.collection-functions:vec buffer))))
+                     (funcall rf result))
+                   (funcall rf acc)))
+             (t (let ((val (funcall fn input)))
+                  (cond
+                   ((eq prior :none-yet)
+                     (setf prior val)
+                     (vector-push-extend input buffer)
+                     acc)
+                   ((equal val prior)
+                     (vector-push-extend input buffer)
+                     acc)
+                   (t
+                     (let ((res (fol.compiler.collection-functions:vec (copy-seq buffer))))
+                       (setf (fill-pointer buffer) 0)
+                       (vector-push-extend input buffer)
+                       (setf prior val)
+                       (funcall rf acc res))))))))))
+      ;; Sequence function
+      (let ((coll (cl:first args)))
+        (let ((seq (collection-seq coll))
+              (result '())
+              (current-group '())
+              (sentinel (cl:list :partition-by-sentinel)))
+          (let ((current-key sentinel))
+            (dolist (elem seq)
+              (let ((key (funcall fn elem)))
+                (if (cl:or (eq current-key sentinel) (equal key current-key))
+                    (push elem current-group)
+                    (progn
+                     (push (cl:apply #'fol.compiler.collections:make
                              'fol.compiler.collections:<vector>
                              (nreverse current-group))
-                      result)
-                (setf current-group (list elem))))
-          (setf current-key key)))
-      (when current-group
-        (push (apply #'fol.compiler.collections:make
-                     'fol.compiler.collections:<vector>
-                     (nreverse current-group))
-              result)))
-    (apply #'fol.compiler.collections:make
-           'fol.compiler.collections:<vector> (nreverse result))))
+                           result)
+                     (setf current-group (cl:list elem))))
+                (setf current-key key)))
+            (when current-group
+                  (push (cl:apply #'fol.compiler.collections:make
+                          'fol.compiler.collections:<vector>
+                          (nreverse current-group))
+                        result)))
+          (cl:apply #'fol.compiler.collections:make
+            'fol.compiler.collections:<vector> (nreverse result))))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; split-at - split at position n
@@ -1046,8 +1324,8 @@
           for j = (random (1+ i))
           do (rotatef (aref arr i) (aref arr j)))
     (apply #'fol.compiler.collections:make
-           'fol.compiler.collections:<vector>
-           (coerce arr 'list))))
+      'fol.compiler.collections:<vector>
+      (coerce arr 'list))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; butlast - all but the last element
@@ -1060,8 +1338,8 @@
      (butlast [1 2 3 4])  => [1 2 3]
      (butlast [1])        => []"
   (apply #'fol.compiler.collections:make
-         'fol.compiler.collections:<vector>
-         (cl:butlast (collection-seq coll))))
+    'fol.compiler.collections:<vector>
+    (cl:butlast (collection-seq coll))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; drop-last - drop last n elements
@@ -1075,13 +1353,13 @@
    Examples:
      (drop-last [1 2 3 4])    => [1 2 3]
      (drop-last 2 [1 2 3 4])  => [1 2]"
-  (let* ((n   (if coll-p n-or-coll 1))
+  (let* ((n (if coll-p n-or-coll 1))
          (seq (collection-seq (if coll-p coll n-or-coll)))
          (len (length seq))
          (keep (max 0 (- len n))))
     (apply #'fol.compiler.collections:make
-           'fol.compiler.collections:<vector>
-           (cl:subseq seq 0 keep))))
+      'fol.compiler.collections:<vector>
+      (cl:subseq seq 0 keep))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; take-last - take last n elements
@@ -1093,12 +1371,12 @@
    Examples:
      (take-last 2 [1 2 3 4])  => [3 4]
      (take-last 0 [1 2 3])    => []"
-  (let* ((seq  (collection-seq coll))
-         (len  (length seq))
+  (let* ((seq (collection-seq coll))
+         (len (length seq))
          (skip (max 0 (- len n))))
     (apply #'fol.compiler.collections:make
-           'fol.compiler.collections:<vector>
-           (cl:nthcdr skip seq))))
+      'fol.compiler.collections:<vector>
+      (cl:nthcdr skip seq))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; nthrest - drop first n elements
@@ -1186,16 +1464,16 @@
      (take 5 (cycle [1 2 3]))  => [1 2 3 1 2]"
   (let ((seq (collection-seq coll)))
     (when (null seq)
-      (error "cycle: cannot cycle an empty collection"))
+          (error "cycle: cannot cycle an empty collection"))
     (labels ((make-cycle (remaining full-seq)
-               (fol.compiler.collections:make
-                'fol.compiler.collections:<lazy-seq>
-                (let ((r remaining) (f full-seq))
-                  (lambda ()
-                    (make-instance 'fol.compiler.collections:<list>
-                                   :first-elem (cl:first r)
-                                   :rest-list (make-cycle (or (cl:rest r) f) f)
-                                   :list-size 1))))))
+                         (fol.compiler.collections:make
+                          'fol.compiler.collections:<lazy-seq>
+                          (let ((r remaining) (f full-seq))
+                            (lambda ()
+                              (make-instance 'fol.compiler.collections:<list>
+                                :first-elem (cl:first r)
+                                :rest-list (make-cycle (or (cl:rest r) f) f)
+                                :list-size 1))))))
       (make-cycle seq seq))))
 
 ;;; ---------------------------------------------------------------------------
@@ -1213,81 +1491,189 @@
         (result '()))
     (loop while (cl:every #'identity seqs)
           do (dolist (s seqs) (push (cl:first s) result))
-             (setf seqs (mapcar #'cl:rest seqs)))
+            (setf seqs (mapcar #'cl:rest seqs)))
     (apply #'fol.compiler.collections:make
-           'fol.compiler.collections:<vector> (nreverse result))))
+      'fol.compiler.collections:<vector> (nreverse result))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; interpose - insert separator between elements
 ;;; ---------------------------------------------------------------------------
 
-(defun interpose (sep coll)
-  "Returns a vector with SEP inserted between consecutive elements of COLL.
+(defun interpose (sep &rest args)
+  "Insert SEP between elements. With no collection, returns transducer.
 
    Examples:
-     (interpose 0 [1 2 3])           => [1 0 2 0 3]
-     (interpose \", \" [\"a\" \"b\"])  => [\"a\" \", \" \"b\"]"
-  (let ((seq (collection-seq coll)))
-    (if (null seq)
-        (fol.compiler.collections:make 'fol.compiler.collections:<vector>)
-        (let ((result (list (cl:first seq))))
-          (dolist (elem (cl:rest seq))
-            (push sep result)
-            (push elem result))
-          (apply #'fol.compiler.collections:make
-                 'fol.compiler.collections:<vector>
-                 (nreverse result))))))
+     (interpose 0 [1 2 3])  => [1 0 2 0 3]
+     (interpose 0)            => transducer"
+  (if (null args)
+      ;; Transducer
+      (lambda (rf)
+        (let ((started nil))
+          (lambda (&optional (acc nil acc-p) (input nil input-p))
+            (cond
+             ((not acc-p) (funcall rf))
+             ((not input-p) (funcall rf acc))
+             (t (if started
+                    (let ((result (funcall rf acc sep)))
+                      (if (reduced? result)
+                          result
+                          (funcall rf result input)))
+                    (progn
+                     (setf started t)
+                     (funcall rf acc input))))))))
+      ;; Sequence function
+      (let ((coll (cl:first args)))
+        (let ((seq (collection-seq coll)))
+          (if (null seq)
+              (fol.compiler.collections:make 'fol.compiler.collections:<vector>)
+              (let ((result (cl:list (cl:first seq))))
+                (dolist (elem (cl:rest seq))
+                  (push sep result)
+                  (push elem result))
+                (cl:apply #'fol.compiler.collections:make
+                  'fol.compiler.collections:<vector>
+                  (nreverse result))))))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; take-nth - take every nth element
 ;;; ---------------------------------------------------------------------------
 
-(defun take-nth (n coll)
-  "Returns a vector of every Nth element of COLL (0-indexed first element).
+(defun take-nth (n &rest args)
+  "Take every Nth element. With no collection, returns transducer.
 
    Examples:
      (take-nth 2 [1 2 3 4 5 6])  => [1 3 5]
-     (take-nth 1 [1 2 3])        => [1 2 3]"
-  (when (< n 1)
-    (error "take-nth: n must be >= 1, got ~S" n))
-  (let* ((seq (collection-seq coll))
-         (result (cl:loop for elem in seq
-                          for i from 0
-                          when (zerop (mod i n)) collect elem)))
-    (apply #'fol.compiler.collections:make
-           'fol.compiler.collections:<vector> result)))
+     (take-nth 2)                  => transducer"
+  (if (null args)
+      ;; Transducer
+      (lambda (rf)
+        (let ((counter -1))
+          (lambda (&optional (acc nil acc-p) (input nil input-p))
+            (cond
+             ((not acc-p) (funcall rf))
+             ((not input-p) (funcall rf acc))
+             (t (incf counter)
+                (if (zerop (mod counter n))
+                    (funcall rf acc input)
+                    acc))))))
+      ;; Sequence function
+      (let ((coll (cl:first args)))
+        (when (< n 1)
+              (error "take-nth: n must be >= 1, got ~S" n))
+        (let* ((seq (collection-seq coll))
+               (result (cl:loop for elem in seq
+                       for i from 0
+                         when (zerop (mod i n)) collect elem)))
+          (cl:apply #'fol.compiler.collections:make
+            'fol.compiler.collections:<vector> result)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; random-sample - random subset with given probability
 ;;; ---------------------------------------------------------------------------
 
-(defun random-sample (prob coll)
-  "Returns a vector of elements from COLL selected with probability PROB.
-   PROB should be a float between 0.0 and 1.0.
+(defun random-sample (prob &rest args)
+  "Select elements with probability PROB. With no collection, returns transducer.
 
    Examples:
-     (random-sample 0.5 [1 2 3 4 5 6])  => random subset"
-  (let* ((seq (collection-seq coll))
-         (result (cl:loop for elem in seq
-                          when (< (random 1.0) (float prob))
-                          collect elem)))
-    (apply #'fol.compiler.collections:make
-           'fol.compiler.collections:<vector> result)))
+     (random-sample 0.5 [1 2 3 4 5 6])  => random subset
+     (random-sample 0.5)                  => transducer"
+  (if (null args)
+      ;; Transducer
+      (filter (lambda (_) (declare (ignore _)) (< (random 1.0) prob)))
+      ;; Sequence function
+      (let ((coll (cl:first args)))
+        (let* ((seq (collection-seq coll))
+               (result (cl:loop for elem in seq
+                         when (< (random 1.0) (float prob))
+                       collect elem)))
+          (cl:apply #'fol.compiler.collections:make
+            'fol.compiler.collections:<vector> result)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; seque - buffered sequence (simplified eager evaluation)
 ;;; ---------------------------------------------------------------------------
 
-(defun seque (n-or-coll &optional (coll nil coll-p))
-  "Returns a vector backed by the given sequence.
-   In Clojure, seque uses an agent for async buffering; here evaluation is eager.
-   (seque coll)    => vector of coll's elements
-   (seque n coll)  => same (buffer size n is ignored)
+;;; ---------------------------------------------------------------------------
+;;; Blocking Queue Helper
+;;; ---------------------------------------------------------------------------
 
+(defclass %blocking-queue ()
+    ((queue :initform nil :accessor bq-queue)
+     (tail :initform nil :accessor bq-tail)
+     (count :initform 0 :accessor bq-count)
+     (capacity :initarg :capacity :accessor bq-capacity)
+     (lock :initform (bordeaux-threads:make-lock "bq") :accessor bq-lock)
+     (not-full :initform (bordeaux-threads:make-condition-variable :name "not-full") :accessor bq-not-full)
+     (not-empty :initform (bordeaux-threads:make-condition-variable :name "not-empty") :accessor bq-not-empty)))
+
+(defun make-%blocking-queue (capacity)
+  (make-instance '%blocking-queue :capacity capacity))
+
+(defun bq-put (bq item)
+  (bordeaux-threads:with-lock-held ((bq-lock bq))
+    (loop while (cl:>= (bq-count bq) (bq-capacity bq))
+          do (bordeaux-threads:condition-wait (bq-not-full bq) (bq-lock bq)))
+    (let ((node (cl:cons item nil)))
+      (if (bq-queue bq)
+          (setf (cl:cdr (bq-tail bq)) node
+            (bq-tail bq) node)
+          (setf (bq-queue bq) node
+            (bq-tail bq) node)))
+    (cl:incf (bq-count bq))
+    (bordeaux-threads:condition-notify (bq-not-empty bq))))
+
+(defun bq-take (bq)
+  (bordeaux-threads:with-lock-held ((bq-lock bq))
+    (loop while (cl:zerop (bq-count bq))
+          do (bordeaux-threads:condition-wait (bq-not-empty bq) (bq-lock bq)))
+    (let ((item (cl:pop (bq-queue bq))))
+      (unless (bq-queue bq)
+        (setf (bq-tail bq) nil))
+      (cl:decf (bq-count bq))
+      (bordeaux-threads:condition-notify (bq-not-full bq))
+      item)))
+
+;;; ---------------------------------------------------------------------------
+;;; seque - buffered sequence (async with agent)
+;;; ---------------------------------------------------------------------------
+
+(defun seque (n-or-coll &optional (coll nil coll-p))
+  "Returns a lazy sequence backed by the given sequence and a blocking buffer.
+   Uses an agent to buffer elements asynchronously.
+   
+   (seque s)       => uses default buffer size 100
+   (seque n s)     => uses buffer size n
+   
    Examples:
-     (seque [1 2 3])     => [1 2 3]
-     (seque 16 [1 2 3])  => [1 2 3]"
-  (sequence (if coll-p coll n-or-coll)))
+     (seque [1 2 3])
+     (seque 5 (range 100))"
+  (let ((n (if coll-p n-or-coll 100))
+        (s (if coll-p coll n-or-coll)))
+    (when (cl:<= n 0) (setf n 1))
+
+    (let ((bq (make-%blocking-queue n))
+          (ag (agent nil))
+          (eos (cl:cons :eos nil))) ;; Unique sentinel
+
+      ;; Start the producer agent
+      (send-off ag
+                (lambda (state)
+                  (declare (ignore state))
+                  ;; Iterate and push to queue (blocks if full)
+                  (run! (lambda (x) (bq-put bq x)) s)
+                  ;; Push EOS
+                  (bq-put bq eos)
+                  nil))
+
+      ;; Return lazy sequence consuming the queue
+      (labels ((drain ()
+                      (fol.compiler.collection-functions:lazy-seq
+                       (lambda ()
+                         (let ((x (bq-take bq)))
+                           (if (eq x eos)
+                               nil
+                               (cl:cons x (drain))))))))
+        (drain)))))
 
 ;;; ===========================================================================
 ;;; Element Accessors
@@ -1329,7 +1715,7 @@
      (ffirst [[1 2] [3 4]])  => 1"
   (let ((inner (cl:first (collection-seq coll))))
     (when inner
-      (cl:first (collection-seq inner)))))
+          (cl:first (collection-seq inner)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; nfirst - next of first (rest of first element's seq)
@@ -1342,7 +1728,7 @@
      (nfirst [[1 2 3] [4 5]])  => (2 3)"
   (let ((inner (cl:first (collection-seq coll))))
     (when inner
-      (cl:rest (collection-seq inner)))))
+          (cl:rest (collection-seq inner)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; nthnext - nth application of next
@@ -1419,12 +1805,12 @@
               do (let ((realized (realize-lazy-seq current)))
                    (if (typep realized 'fol.compiler.collections:<list>)
                        (progn
-                         (push (list-first realized) result)
-                         (setf current (list-rest realized)))
+                        (push (list-first realized) result)
+                        (setf current (list-rest realized)))
                        (setf current nil))))
         (apply #'fol.compiler.collections:make
-               'fol.compiler.collections:<vector>
-               (nreverse result)))
+          'fol.compiler.collections:<vector>
+          (nreverse result)))
       ;; Eager: return as-is (already fully realized)
       coll))
 
@@ -1456,7 +1842,7 @@
      (rand-nth [1 2 3 4 5])  => 3  ; random"
   (let ((seq (collection-seq coll)))
     (when seq
-      (cl:nth (random (length seq)) seq))))
+          (cl:nth (random (length seq)) seq))))
 
 ;;; ===========================================================================
 ;;; Key-Based Min/Max
@@ -1474,7 +1860,7 @@
      (max-key abs -3 1 2)               => -3"
   (cl:reduce (lambda (a b)
                (if (cl:>= (funcall k a) (funcall k b)) a b))
-             more :initial-value x))
+    more :initial-value x))
 
 ;;; ---------------------------------------------------------------------------
 ;;; min-key - element with minimum key value
@@ -1488,7 +1874,7 @@
      (min-key abs -3 1 2)               => 1"
   (cl:reduce (lambda (a b)
                (if (cl:<= (funcall k a) (funcall k b)) a b))
-             more :initial-value x))
+    more :initial-value x))
 
 ;;; ===========================================================================
 ;;; Zip and Reductions
@@ -1533,8 +1919,8 @@
           (setf acc (funcall fn acc elem))
           (push acc results))
         (apply #'fol.compiler.collections:make
-               'fol.compiler.collections:<vector>
-               (nreverse results)))
+          'fol.compiler.collections:<vector>
+          (nreverse results)))
       ;; (reductions fn coll) form — use first element as init
       (let ((seq (collection-seq init-or-coll)))
         (if (null seq)
@@ -1547,5 +1933,5 @@
                 (setf acc (funcall fn acc elem))
                 (push acc results))
               (apply #'fol.compiler.collections:make
-                     'fol.compiler.collections:<vector>
-                     (nreverse results)))))))
+                'fol.compiler.collections:<vector>
+                (nreverse results)))))))

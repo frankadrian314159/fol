@@ -1,0 +1,110 @@
+﻿This is SBCL 2.6.0, an implementation of ANSI Common Lisp.
+More information about SBCL is available at <http://www.sbcl.org/>.
+
+SBCL is free software, provided as is, with absolutely no warranty.
+It is mostly in the public domain; some portions are provided under
+BSD-style licenses.  See the CREDITS and COPYING files in the
+distribution for more information.
+To load "bordeaux-threads":
+  Load 1 ASDF system:
+    bordeaux-threads
+; Loading "bordeaux-threads"
+
+To load "usocket":
+  Load 1 ASDF system:
+    usocket
+; Loading "usocket"
+
+To load "cl-json":
+  Load 1 ASDF system:
+    cl-json
+; Loading "cl-json"
+
+To load "flexi-streams":
+  Load 1 ASDF system:
+    flexi-streams
+; Loading "flexi-streams"
+
+To load "fiveam":
+  Load 1 ASDF system:
+    fiveam
+; Loading "fiveam"
+
+To load "closer-mop":
+  Load 1 ASDF system:
+    closer-mop
+; Loading "closer-mop"
+
+To load "cl-ppcre":
+  Load 1 ASDF system:
+    cl-ppcre
+; Loading "cl-ppcre"
+..
+To load "fset":
+  Load 1 ASDF system:
+    fset
+; Loading "fset"
+..
+To load "sycamore":
+  Load 1 ASDF system:
+    sycamore
+; Loading "sycamore"
+
+sbcl : WARNING: redefining IRONCLAD:BLOCK-LENGTH in DEFGENERIC
+At line:1 char:1
++ sbcl --non-interactive --load run-lsim.lisp > lsim_output_14.txt 2>&1
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (WARNING: redefi...H in DEFGENERIC:String) [], RemoteExce 
+   ption
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+; compiling file "C:/Users/frank/Projects/FOL/fol/src/reader.lisp" (written 18 FEB 2026 02:04:34 AM):
+
+; wrote C:/Users/frank/AppData/Local/cache/common-lisp/sbcl-2.6.0-win-x64/C/Users/frank/Projects/FOL/fol/src/reader-tmpGHU3ALSV.fasl
+; compilation finished in 0:00:00.062
+; compiling file "C:/Users/frank/Projects/FOL/fol/src/compiler.lisp" (written 17 FEB 2026 04:06:44 PM):
+
+; file: C:/Users/frank/Projects/FOL/fol/src/compiler.lisp
+; in: DEFUN MACROEXPAND
+;     (MULTIPLE-VALUE-BIND (FOL.COMPILER::FINAL FOL.COMPILER::ANY-EXPANSION)
+;         (FOL.COMPILER:MACROEXPAND FOL.COMPILER::EXPANDED)
+;       (VALUES FOL.COMPILER::FINAL T))
+; ==>
+;   #'(LAMBDA
+;         (
+;          &OPTIONAL FOL.COMPILER::FINAL FOL.COMPILER::ANY-EXPANSION
+;          &REST #:IGNORE)
+;       (DECLARE (IGNORE #:IGNORE))
+;       (VALUES FOL.COMPILER::FINAL T))
+; 
+; caught STYLE-WARNING:
+;   The variable ANY-EXPANSION is defined but never used.
+
+; in: DEFUN COMPILE-FILE
+;     (FOL.COMPILER::FASL-PATH
+;      (MAKE-PATHNAME :TYPE "fasl" :DEFAULTS FOL.COMPILER::LISP-PATH))
+; 
+; caught STYLE-WARNING:
+;   The variable FASL-PATH is defined but never used.
+
+
+; wrote C:/Users/frank/AppData/Local/cache/common-lisp/sbcl-2.6.0-win-x64/C/Users/frank/Projects/FOL/fol/src/compiler-tmpAAURSO1.fasl
+; compilation finished in 0:00:00.215
+WARNING:
+   Lisp compilation had style-warnings while
+   compiling #<CL-SOURCE-FILE "fol-compiler" "compiler">
+; compiling file "C:/Users/frank/Projects/FOL/fol/src/macros.lisp" (written 17 FEB 2026 12:21:38 AM):
+
+; wrote C:/Users/frank/AppData/Local/cache/common-lisp/sbcl-2.6.0-win-x64/C/Users/frank/Projects/FOL/fol/src/macros-tmp5GEXGEG5.fasl
+; compilation finished in 0:00:00.107
+; compiling file "C:/Users/frank/Projects/FOL/fol/src/repl.lisp" (written 17 FEB 2026 03:59:05 PM):
+
+; wrote C:/Users/frank/AppData/Local/cache/common-lisp/sbcl-2.6.0-win-x64/C/Users/frank/Projects/FOL/fol/src/repl-tmpAR3FSGEY.fasl
+; compilation finished in 0:00:00.007
+; 
+; compilation unit finished
+;   caught 2 STYLE-WARNING conditions
+
+--- Running lsim.fol ---
+
+Error running lsim.fol: Compilation error: (Invalid fn form: (FOL.MACROS::FN #() RES))

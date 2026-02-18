@@ -11,21 +11,21 @@
 (defun coerce-to-stream (x &key (input t))
   "Internal helper to coerce argument to appropriate stream."
   (cond
-    ((and input (fol.compiler.streams:<input-stream>? x)) x)
-    ((and (not input) (fol.compiler.streams:<output-stream>? x)) x)
-    ((streamp x) 
-     (if input 
+   ((and input (fol.compiler.streams:<input-stream>? x)) x)
+   ((and (not input) (fol.compiler.streams:<output-stream>? x)) x)
+   ((streamp x)
+     (if input
          (make-instance 'fol.compiler.streams:<file-input-stream> :stream x :file-object x)
          (make-instance 'fol.compiler.streams:<file-output-stream> :stream x :file-object x)))
-    ((stringp x)
+   ((stringp x)
      (if input
-         (make-instance 'fol.compiler.streams:<file-input-stream> 
-                                             :stream (open x :direction :input)
-                                             :filename x
-                                             :file-object (open x :direction :input)) ;; Warning: This opens a file but doesn't manage closing well if not used in with-open
+         (make-instance 'fol.compiler.streams:<file-input-stream>
+           :stream (open x :direction :input)
+           :filename x
+           :file-object (open x :direction :input)) ;; Warning: This opens a file but doesn't manage closing well if not used in with-open
          ;; For output, we default to string as filename
          (fol.compiler.streams:file-output-stream x)))
-    (t (error "Cannot coerce ~S to stream." x))))
+   (t (error "Cannot coerce ~S to stream." x))))
 
 ;;; Implementation Note:
 ;;; Many of these functions take an optional stream argument.
@@ -38,10 +38,10 @@
    Returns nil."
   (let ((stream (fol.compiler.streams::output-stream-stream fol.compiler.streams:*out*)))
     (when args
-      (cl:prin1 (first args) stream)
-      (dolist (obj (rest args))
-        (fol.compiler.streams:stream-write-char fol.compiler.streams:*out* #\Space)
-        (cl:prin1 obj stream)))
+          (cl:prin1 (first args) stream)
+          (dolist (obj (rest args))
+            (fol.compiler.streams:stream-write-char fol.compiler.streams:*out* #\Space)
+            (cl:prin1 obj stream)))
     nil))
 
 (defun prn (&rest args)
@@ -53,10 +53,10 @@
   "Prints object(s) to *out*. Returns nil."
   (let ((stream (fol.compiler.streams::output-stream-stream fol.compiler.streams:*out*)))
     (when args
-      (cl:princ (first args) stream)
-      (dolist (obj (rest args))
-        (fol.compiler.streams:stream-write-char fol.compiler.streams:*out* #\Space)
-        (cl:princ obj stream)))
+          (cl:princ (first args) stream)
+          (dolist (obj (rest args))
+            (fol.compiler.streams:stream-write-char fol.compiler.streams:*out* #\Space)
+            (cl:princ obj stream)))
     nil))
 
 (defun println (&rest args)
@@ -81,39 +81,39 @@
 (defun print-table (rows)
   "Prints a collection of maps as a text table."
   (when (and rows (first rows))
-    (let* ((keys-seq (fol.compiler.seq-functions:keys (first rows)))
-           ;; Convert keys sequence to list for mapcar
-           (keys (reverse (fol.compiler.seq-functions:reduce (lambda (acc x) (cons x acc)) nil keys-seq)))
-           (col-data (mapcar (lambda (k)
-                               (let ((header (string k))
-                                     (vals (mapcar (lambda (r) (cl:format nil "~A" (fol.compiler.collection-functions:get r k))) rows)))
-                                 (list :key k
-                                       :header header
-                                       :width (reduce #'max (mapcar #'length vals) :initial-value (length header))
-                                       :vals vals)))
+        (let* ((keys-seq (fol.compiler.seq-functions:keys (first rows)))
+               ;; Convert keys sequence to list for mapcar
+               (keys (reverse (fol.compiler.seq-functions:reduce (lambda (acc x) (cons x acc)) nil keys-seq)))
+               (col-data (mapcar (lambda (k)
+                                   (let ((header (string k))
+                                         (vals (mapcar (lambda (r) (cl:format nil "~A" (fol.compiler.collection-functions:get r k))) rows)))
+                                     (list :key k
+                                           :header header
+                                           :width (reduce #'max (mapcar #'length vals) :initial-value (length header))
+                                           :vals vals)))
                              keys))
-           (stream (fol.compiler.streams::output-stream-stream fol.compiler.streams:*out*)))
-      ;; Print header
-      (cl:format stream "| ")
-      (dolist (col col-data)
-        (cl:format stream "~A~A | " (getf col :header)
-                   (make-string (- (getf col :width) (length (getf col :header))) :initial-element #\Space)))
-      (cl:format stream "~%")
-      
-      ;; Print separator
-      (cl:format stream "|-")
-      (dolist (col col-data)
-        (cl:format stream "~A-|-" (make-string (getf col :width) :initial-element #\-)))
-      (cl:format stream "~%")
+               (stream (fol.compiler.streams::output-stream-stream fol.compiler.streams:*out*)))
+          ;; Print header
+          (cl:format stream "| ")
+          (dolist (col col-data)
+            (cl:format stream "~A~A | " (getf col :header)
+              (make-string (- (getf col :width) (length (getf col :header))) :initial-element #\Space)))
+          (cl:format stream "~%")
 
-      ;; Print rows
-      (dotimes (i (length rows))
-        (cl:format stream "| ")
-        (dolist (col col-data)
-          (let ((val (nth i (getf col :vals))))
-            (cl:format stream "~A~A | " val
-                       (make-string (- (getf col :width) (length val)) :initial-element #\Space))))
-        (cl:format stream "~%"))))
+          ;; Print separator
+          (cl:format stream "|-")
+          (dolist (col col-data)
+            (cl:format stream "~A-|-" (make-string (getf col :width) :initial-element #\-)))
+          (cl:format stream "~%")
+
+          ;; Print rows
+          (dotimes (i (length rows))
+            (cl:format stream "| ")
+            (dolist (col col-data)
+              (let ((val (nth i (getf col :vals))))
+                (cl:format stream "~A~A | " val
+                  (make-string (- (getf col :width) (length val)) :initial-element #\Space))))
+            (cl:format stream "~%"))))
   nil)
 
 (defun pprint (x)
@@ -122,23 +122,14 @@
 
 (defun cl-format (stream format-string &rest args)
   "Wrapper around CL:FORMAT."
-  (apply #'cl:format (if (eq stream t) 
+  (apply #'cl:format (if (eq stream t)
                          (fol.compiler.streams::output-stream-stream fol.compiler.streams:*out*)
                          stream)
-         format-string args))
+    format-string args))
 
-(defun format (fmt &rest args)
-  "Clojure-style format. Returns formatted string."
-  (apply #'cl:format nil fmt args))
 
 ;;; String IO
 
-(defmacro with-out-str (&body body)
-  "Evaluates exprs in a context where *out* is bound to a fresh StringWriter.
-   Returns the string created by any nested printing calls."
-  `(let ((fol.compiler.streams:*out* (fol.compiler.streams:string-output-stream)))
-     ,@body
-     (fol.compiler.streams:get-output-string fol.compiler.streams:*out*)))
 
 (defun pr-str (&rest args)
   "pr to a string, returning it."
@@ -170,14 +161,10 @@
   "Returns the lines of text from rdr as a lazy sequence of strings."
   (let ((line (read-line rdr nil nil)))
     (if line
-        (fol.compiler.collection-functions:lazy-seq 
-          (lambda () (cons line (line-seq rdr))))
+        (fol.compiler.collection-functions:lazy-seq
+         (lambda () (cons line (line-seq rdr))))
         nil)))
 
-(defmacro with-in-str (str &body body)
-  "Evaluates body in a context where *in* is bound to a fresh StringReader initialized with the string s."
-  `(let ((fol.compiler.streams:*in* (fol.compiler.streams:string-input-stream ,str)))
-     ,@body))
 
 ;;; File IO
 
@@ -193,22 +180,12 @@
 (defun spit (f content &key (append nil))
   "Opposite of slurp. Opens f, writes content, then closes f.
    Options passed to open (e.g. :append)."
-  (with-open-file (stream f :direction :output 
+  (with-open-file (stream f :direction :output
                           :if-exists (if append :append :supersede)
                           :if-does-not-exist :create)
     (write-sequence content stream))
   nil)
 
-(defmacro with-open (bindings &body body)
-  "bindings => [name init ...]
-   Evaluates body in a try expression with names bound to the values of the inits,
-   and a finally clause that calls (.close name) on each name in reverse order."
-  (let ((binding-pairs (loop for (name init) on bindings by #'cddr collect (list name init))))
-    `(let ,binding-pairs
-       (unwind-protect
-            (progn ,@body)
-         ,@(loop for (name init) in (reverse binding-pairs)
-                 collect `(close ,name))))))
 
 (defun close (x)
   "Closes the stream/resource x."
@@ -225,12 +202,12 @@
 (defun copy (input output)
   "Copies input to output."
   ;; Basic implementation
-  (cond 
-    ((and (stringp input) (pathnamep output)) ;; String to File
-     (spit output input))
-    ((and (pathnamep input) (pathnamep output)) ;; File to File
-     (uiop:copy-file input output))
-    (t (error "Not implemented copy for these types"))))
+  (cond
+   ((and (stringp input) (pathnamep output)) ;; String to File
+                                            (spit output input))
+   ((and (pathnamep input) (pathnamep output)) ;; File to File
+                                              (uiop:copy-file input output))
+   (t (error "Not implemented copy for these types"))))
 
 (defun delete-file (f)
   "Delete file f. Returns true if successful."

@@ -298,8 +298,10 @@
      (sorted? (int-set 1 2 3))             => T
      (sorted? (dict :a 1))                 => NIL
      (sorted? (set 1 2 3))                 => NIL"
-  (or (typep obj 'fol.compiler.collections:<sorted-dict>)
-      (typep obj 'fol.compiler.collections:<sorted-set>)))
+  (or (typep obj 'fol.compiler.collections:<sorted-set>)
+      (typep obj 'fol.compiler.collections:<sorted-dict>)
+      (typep obj 'fol.compiler.collections:<priority-dict>)
+      (typep obj 'fol.compiler.collections:<dense-int-set>)))
 
 (defun counted? (obj)
   "Returns true if OBJ is a counted collection (any subtype of <collection>).
@@ -322,9 +324,7 @@
      (reversible? (sorted-set nil 1 2 3))  => T
      (reversible? (dict :a 1))             => NIL
      (reversible? (set 1 2 3))             => NIL"
-  (or (typep obj 'fol.compiler.collections:<vector>)
-      (typep obj 'fol.compiler.collections:<sorted-dict>)
-      (typep obj 'fol.compiler.collections:<sorted-set>)))
+  (typep obj 'fol.compiler.collections:<ordered-collection>))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Type Checking Functions
@@ -524,7 +524,7 @@
      (let ((x '(1 2)))
        (identical? x x))     => T
      (identical? '(1 2) '(1 2))  => NIL  ; different cons cells"
-   (eq x y))
+  (eq x y))
 
 (defgeneric equal? (a b)
   (:documentation "Returns true if A and B are equal in value.
@@ -535,13 +535,13 @@
 
 (defmethod equal? ((a fol.compiler.collections:<collection>) (b fol.compiler.collections:<collection>))
   (and (= (fol.compiler.collections:collection-size a)
-          (fol.compiler.collections:collection-size b))
+         (fol.compiler.collections:collection-size b))
        (equal? (fol.compiler.collections:collection-seq a)
                (fol.compiler.collections:collection-seq b))))
-    
+
 (defmethod equal? ((a cons) (b cons))
-   (and (equal? (car a) (car b))
-        (equal? (cdr a) (cdr b))))
+  (and (equal? (car a) (car b))
+       (equal? (cdr a) (cdr b))))
 
 (defun =? (x y)
   "Returns true if X and Y are equal in value.
@@ -552,30 +552,3 @@
      (=? '(1 2) '(1 2))       => T
      (=? 42 42)               => T"
   (equal? x y))
-
-(defun zero? (x)
-  "Returns true if X is zero.
-
-   Examples:
-     (zero? 0)       => T
-     (zero? 1)       => NIL
-     (zero? 0.0)     => T"
-  (zerop x))
-
-(defun odd? (x)
-  "Returns true if X is an odd integer.
-
-   Examples:
-     (odd? 3)       => T
-     (odd? 4)       => NIL
-     (odd? -1)      => T"
-  (oddp x))
-
-(defun even? (x)
-  "Returns true if X is an even integer.
-
-   Examples:
-     (even? 4)      => T
-     (even? 3)      => NIL
-     (even? 0)      => T"
-  (evenp x))

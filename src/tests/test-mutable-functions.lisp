@@ -1,80 +1,69 @@
-;;; FOL Compiler - Mutable Functions Tests
+;;; FOL Compiler - Mutable Functions Tests (Part 2)
 
 (in-package :fol.compiler.tests)
 
 (in-suite mutable-functions-tests)
 
-;;; Atom Extensions
+;;; Validators
 
-(test swap-vals-test
-  (let ((a (fol.compiler.mutable-functions:atom 10)))
-    (let ((result (fol.compiler.mutable-functions:swap-vals! a #'+ 5)))
-      (is (equal result '(10 15)))
-      (is (= 15 (fol.compiler.mutable-functions:deref a))))))
+(test atom-validator-test
+  (let ((a (fol.compiler.mutable:atom 0 :validator #'evenp)))
+    (is (eql 0 (fol.compiler.mutable:deref a)))
+    (fol.compiler.mutable:reset! a 2)
+    (is (eql 2 (fol.compiler.mutable:deref a)))
+    (signals error (fol.compiler.mutable:reset! a 3))
+    (is (eql 2 (fol.compiler.mutable:deref a)))))
 
-(test reset-vals-test
-  (let ((a (fol.compiler.mutable-functions:atom 10)))
-    (let ((result (fol.compiler.mutable-functions:reset-vals! a 20)))
-      (is (equal result '(10 20)))
-      (is (= 20 (fol.compiler.mutable-functions:deref a))))))
+(test ref-validator-dynamic-test
+  (let ((r (fol.compiler.mutable:ref 0)))
+    (fol.compiler.mutable-functions:set-validator! r #'evenp)
+    (fol.compiler.mutable:dosync
+      (fol.compiler.mutable:ref-set r 2))
+    (signals error
+      (fol.compiler.mutable:dosync
+        (fol.compiler.mutable:ref-set r 3)))))
 
-;;; Futures
+;;; Watchers
 
-(test future-basic-test
-  (let ((f (fol.compiler.mutable-functions:future (+ 1 2))))
-    (is (fol.compiler.mutable-functions:future? f))
-    (is (= 3 (fol.compiler.mutable-functions:deref f)))))
+(test atom-watch-test
+  (let ((a (fol.compiler.mutable:atom 0))
+        (notifications nil))
+    (fol.compiler.mutable-functions:add-watch a :key 
+      (lambda (k r old new)
+        (declare (ignore k r))
+        (push (list old new) notifications)))
+    (fol.compiler.mutable:reset! a 1)
+    (is (equal notifications '((0 1))))
+    (fol.compiler.mutable:swap! a #'1+)
+    (is (equal notifications '((1 2) (0 1))))
+    (fol.compiler.mutable-functions:remove-watch a :key)
+    (fol.compiler.mutable:reset! a 3)
+    (is (equal notifications '((1 2) (0 1))))))
 
-(test future-async-test
-  (let ((f (fol.compiler.mutable-functions:future (sleep 0.1) :done)))
-    ;; Should not be done immediately (conceptually, though sleep might be fast)
-    ;; Actually checking if it eventually complete.
-    (is (eq :done (fol.compiler.mutable-functions:deref f)))))
+;;; STM Extensions
 
-(test future-error-test
-  (let ((f (fol.compiler.mutable-functions:future (error "Failure"))))
-    (signals error (fol.compiler.mutable-functions:deref f))))
+(test io!-test
+  (signals error
+    (fol.compiler.mutable:dosync
+      (fol.compiler.mutable-functions:io!
+        (print "Should fail"))))
+  (is (eq t (fol.compiler.mutable-functions:io! t))))
 
-(test future-cancel-test
-  (let ((f (fol.compiler.mutable-functions:future (sleep 2) :done)))
-    (is (fol.compiler.mutable-functions:future-cancel f))
-    (is (fol.compiler.mutable-functions:future-cancelled? f))
-    (signals error (fol.compiler.mutable-functions:deref f))))
+(test sync-macro-test
+  (let ((r (fol.compiler.mutable:ref 0)))
+    (fol.compiler.mutable-functions:sync nil
+      (fol.compiler.mutable:ref-set r 1))
+    (is (eql 1 (fol.compiler.mutable:deref r)))))
 
-;;; Promises
+;;; Agent Extensions
 
-(test promise-basic-test
-  (let ((p (fol.compiler.mutable-functions:promise)))
-    (fol.compiler.mutable-functions:deliver p :delivered)
-    (is (eq :delivered (fol.compiler.mutable-functions:deref p)))))
+(test await-for-test
+  (let ((a (fol.compiler.mutable:agent 0)))
+    (fol.compiler.mutable:send a (lambda (x) (sleep 0.1) (1+ x)))
+    ;; Wait sufficient time
+    (is (eq t (fol.compiler.mutable-functions:await-for 2000 a)))
+    (is (eql 1 (fol.compiler.mutable:deref a)))))
 
-(test promise-async-test
-  (let ((p (fol.compiler.mutable-functions:promise)))
-    (fol.compiler.mutable-functions:future
-      (sleep 0.1)
-      (fol.compiler.mutable-functions:deliver p :async-result))
-    (is (eq :async-result (fol.compiler.mutable-functions:deref p)))))
-
-(test promise-deliver-once-test
-  (let ((p (fol.compiler.mutable-functions:promise)))
-    (fol.compiler.mutable-functions:deliver p 1)
-    (fol.compiler.mutable-functions:deliver p 2)
-    (is (= 1 (fol.compiler.mutable-functions:deref p)))))
-
-;;; Parallel Processing
-
-(test pvalues-test
-  (let ((result (fol.compiler.mutable-functions:pvalues (+ 1 1) (+ 2 2))))
-    (is (equal result '(2 4)))))
-
-(test pmap-test
-  ;; Use small list to avoid heavy threading overhead in test
-  (let ((result (fol.compiler.mutable-functions:pmap #'1+ '(1 2 3))))
-    (is (equal result '(2 3 4)))))
-
-;;; Thread Bindings (Placeholder check)
-
-(test thread-bindings-placeholder
-  ;; Just verify bound-fn macro expands and compiles
-  (let ((f (fol.compiler.mutable-functions:bound-fn () 42)))
-    (is (= 42 (funcall f)))))
+(test executor-stubs
+  (is (null (fol.compiler.mutable-functions:set-agent-send-executor! nil)))
+  (is (null (fol.compiler.mutable-functions:shutdown-agents))))

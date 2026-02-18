@@ -1,0 +1,80 @@
+﻿  Running test DORUN-RETURNS-NIL .
+  Running test DORUN-FORCES-LAZY-SEQ .
+  Running test DOALL-EAGER-RETURNS-SAME .
+  Running test DOALL-LAZY-RETURNS-VECTOR ...
+  Running test RUN!-APPLIES-PROC .
+  Running test RUN!-RETURNS-NIL .
+  Running test RAND-NTH-RETURNS-ELEMENT .
+  Running test RAND-NTH-NIL-ON-EMPTY .
+  Running test MAX-KEY-SINGLE .
+  Running test MAX-KEY-TWO-ARGS .
+  Running test MAX-KEY-MULTIPLE .
+  Running test MIN-KEY-SINGLE .
+  Running test MIN-KEY-TWO-ARGS .
+  Running test MIN-KEY-MULTIPLE .
+  Running test ZIPMAP-BASIC ...
+  Running test ZIPMAP-STOPS-AT-SHORTER-KEYS .
+  Running test ZIPMAP-EMPTY .
+  Running test REDUCTIONS-WITH-INIT .....
+  Running test REDUCTIONS-WITHOUT-INIT .....
+  Running test REDUCTIONS-EMPTY-COLL .
+  Running test REDUCTIONS-SINGLE-WITH-INIT ...
+ Running test suite IO-TESTS
+  Running test SPIT-AND-SLURP .
+  Running test PR-STR-TEST ...
+  Running test PRINT-STR-TEST ...
+  Running test PRINT-TABLE-TEST ....
+  Running test FORMAT-TEST ..
+  Running test PRINTF-TEST .
+  Running test PRINTLN-STR-TEST .
+  Running test READ-LINE-TEST ..
+  Running test RESOURCE-MANAGEMENT .
+ Running test suite MISC-FUNCTIONS-TESTS
+  Running test DEFONCE-DEFINES-WHEN-UNBOUND ..
+  Running test DEFONCE-NO-OVERWRITE-WHEN-BOUND .
+  Running test DEFONCE-RETURNS-SYMBOL-NAME .
+  Running test DEFONCE-DECLARES-SPECIAL ..
+  Running test DEFONCE-WITH-NIL-VALUE ..
+  Running test DEFONCE-IDEMPOTENT-MULTIPLE-CALLS .
+  Running test INTERN-STRING-RETURNS-SYMBOL ..
+  Running test INTERN-STRING-UPCASES .
+  Running test INTERN-SYMBOL-ARGUMENT ..
+  Running test INTERN-WITH-KEYWORD-PACKAGE ..
+  Running test INTERN-WITH-CL-USER-PACKAGE ..
+  Running test INTERN-WITH-PACKAGE-OBJECT ..
+  Running test INTERN-DEFAULT-PACKAGE-IS-CURRENT .
+  Running test INTERN-IDEMPOTENT .
+ Running test suite MUTABLE-FUNCTIONS-TESTS
+  Running test ATOM-VALIDATOR-TEST ....
+  Running test REF-VALIDATOR-DYNAMIC-TEST .
+  Running test ATOM-WATCH-TEST ...
+  Running test IO!-TEST ..
+  Running test SYNC-MACRO-TEST .
+  Running test AWAIT-FOR-TEST ..
+  Running test EXECUTOR-STUBS ..
+ Running test suite ZIP-TESTS
+  Running test VECTOR-ZIP-BASIC-NAV ...............
+  Running test SEQ-ZIP-BASIC-NAV ........
+  Running test REPLACE-NODE .
+  Running test EDIT-NODE .
+  Running test INSERT-SIBLINGS-AND-CHILDREN ..
+  Running test REMOVE-NODE ....
+  Running test REMOVE-NESTED ..
+  Running test NEXT-TRAVERSAL X
+  Running test PREV-TRAVERSAL .....
+ Did 2920 checks.
+    Pass: 2919 (99%)
+    Skip: 0 ( 0%)
+    Fail: 1 ( 0%)
+
+ Failure Details:
+ --------------------------------
+ NEXT-TRAVERSAL in ZIP-TESTS []: 
+      Unexpected Error: #<TYPE-ERROR expected-type: FOL.COMPILER.ZIP::ZIPPER-LOC
+                               datum: NIL>
+The value
+  NIL
+is not of type
+  FOL.COMPILER.ZIP::ZIPPER-LOC.
+ --------------------------------
+

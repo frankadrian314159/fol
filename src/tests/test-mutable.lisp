@@ -25,7 +25,7 @@
 
 (test atom-default-value-nil
   "atom with no argument defaults to NIL."
-  (let ((a (fol.compiler.mutable:atom)))
+  (let ((a (fol.compiler.mutable:atom nil)))
     (is (null (fol.compiler.mutable:deref a)))))
 
 (test atom-with-initial-value
@@ -159,7 +159,7 @@
   "ref-set changes the ref's value within dosync."
   (let ((r (fol.compiler.mutable:ref 1)))
     (fol.compiler.mutable:dosync
-      (fol.compiler.mutable:ref-set r 99))
+     (fol.compiler.mutable:ref-set r 99))
     (is (eql 99 (fol.compiler.mutable:deref r)))))
 
 (test ref-set-outside-dosync-errors
@@ -172,14 +172,14 @@
   "alter applies fn to the ref's value within dosync."
   (let ((r (fol.compiler.mutable:ref 10)))
     (fol.compiler.mutable:dosync
-      (fol.compiler.mutable:alter r #'1+))
+     (fol.compiler.mutable:alter r #'1+))
     (is (eql 11 (fol.compiler.mutable:deref r)))))
 
 (test alter-with-args
   "alter passes extra args to fn."
   (let ((r (fol.compiler.mutable:ref 10)))
     (fol.compiler.mutable:dosync
-      (fol.compiler.mutable:alter r #'+ 5 3))
+     (fol.compiler.mutable:alter r #'+ 5 3))
     (is (eql 18 (fol.compiler.mutable:deref r)))))
 
 (test alter-outside-dosync-errors
@@ -192,7 +192,7 @@
   "commute updates the ref's value within dosync."
   (let ((r (fol.compiler.mutable:ref 10)))
     (fol.compiler.mutable:dosync
-      (fol.compiler.mutable:commute r #'+ 5))
+     (fol.compiler.mutable:commute r #'+ 5))
     (is (eql 15 (fol.compiler.mutable:deref r)))))
 
 (test commute-outside-dosync-errors
@@ -205,7 +205,7 @@
   "ensure returns the ref's current value within dosync."
   (let ((r (fol.compiler.mutable:ref :x)))
     (is (eq :x (fol.compiler.mutable:dosync
-                 (fol.compiler.mutable:ensure r))))))
+                (fol.compiler.mutable:ensure r))))))
 
 (test ensure-outside-dosync-errors
   "ensure signals an error outside dosync."
@@ -222,16 +222,16 @@
   (let ((r (fol.compiler.mutable:ref 0)))
     (is (eql 42
              (fol.compiler.mutable:dosync
-               (fol.compiler.mutable:ref-set r 1)
-               42)))))
+              (fol.compiler.mutable:ref-set r 1)
+              42)))))
 
 (test dosync-nested-flattens
   "Nested dosync runs in the enclosing transaction."
   (let ((r (fol.compiler.mutable:ref 0)))
     (fol.compiler.mutable:dosync
-      (fol.compiler.mutable:ref-set r 1)
-      (fol.compiler.mutable:dosync
-        (fol.compiler.mutable:ref-set r 2)))
+     (fol.compiler.mutable:ref-set r 1)
+     (fol.compiler.mutable:dosync
+      (fol.compiler.mutable:ref-set r 2)))
     (is (eql 2 (fol.compiler.mutable:deref r)))))
 
 (test dosync-multiple-refs
@@ -239,8 +239,8 @@
   (let ((r1 (fol.compiler.mutable:ref 0))
         (r2 (fol.compiler.mutable:ref 0)))
     (fol.compiler.mutable:dosync
-      (fol.compiler.mutable:ref-set r1 10)
-      (fol.compiler.mutable:ref-set r2 20))
+     (fol.compiler.mutable:ref-set r1 10)
+     (fol.compiler.mutable:ref-set r2 20))
     (is (eql 10 (fol.compiler.mutable:deref r1)))
     (is (eql 20 (fol.compiler.mutable:deref r2)))))
 
@@ -248,15 +248,15 @@
   "Within dosync, deref sees writes made earlier in the same transaction."
   (let ((r (fol.compiler.mutable:ref 0)))
     (fol.compiler.mutable:dosync
-      (fol.compiler.mutable:ref-set r 42)
-      (is (eql 42 (fol.compiler.mutable:deref r))))))
+     (fol.compiler.mutable:ref-set r 42)
+     (is (eql 42 (fol.compiler.mutable:deref r))))))
 
 (test dosync-alter-chains
   "Multiple alters within dosync chain correctly."
   (let ((r (fol.compiler.mutable:ref 0)))
     (fol.compiler.mutable:dosync
-      (fol.compiler.mutable:alter r #'+ 10)
-      (fol.compiler.mutable:alter r #'* 3))
+     (fol.compiler.mutable:alter r #'+ 10)
+     (fol.compiler.mutable:alter r #'* 3))
     (is (eql 30 (fol.compiler.mutable:deref r)))))
 
 ;;; ---------------------------------------------------------------------------
@@ -272,7 +272,7 @@
   "Validator accepts valid ref-set."
   (let ((r (fol.compiler.mutable:ref 42 :validator #'evenp)))
     (fol.compiler.mutable:dosync
-      (fol.compiler.mutable:ref-set r 44))
+     (fol.compiler.mutable:ref-set r 44))
     (is (eql 44 (fol.compiler.mutable:deref r)))))
 
 (test ref-validator-rejects
@@ -280,7 +280,7 @@
   (let ((r (fol.compiler.mutable:ref 42 :validator #'evenp)))
     (signals error
       (fol.compiler.mutable:dosync
-        (fol.compiler.mutable:ref-set r 43)))))
+       (fol.compiler.mutable:ref-set r 43)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Ref printer
@@ -303,16 +303,18 @@
         (n-threads 10)
         (n-increments 100))
     (let ((threads
-            (loop for i below n-threads
-                  collect (bordeaux-threads:make-thread
-                           (lambda ()
-                             (dotimes (j n-increments)
-                               (fol.compiler.mutable:dosync
-                                 (fol.compiler.mutable:alter r #'1+))))))))
+           (loop for i below n-threads
+                 collect (let ((thr (make-instance 'fol.compiler.mutable:<thread>
+                                      :fn (lambda ()
+                                            (dotimes (j n-increments)
+                                              (fol.compiler.mutable:dosync
+                                               (fol.compiler.mutable:alter r #'1+)))))))
+                           (fol.compiler.mutable:start thr)
+                           thr))))
       (dolist (th threads)
-        (bordeaux-threads:join-thread th))
+        (fol.compiler.mutable:thread-join th))
       (is (= (* n-threads n-increments)
-              (fol.compiler.mutable:deref r))))))
+            (fol.compiler.mutable:deref r))))))
 
 (test ref-concurrent-transfer
   "Concurrent transfers between two refs preserve the total sum."
@@ -321,20 +323,22 @@
         (n-threads 8)
         (n-transfers 50))
     (let ((threads
-            (loop for i below n-threads
-                  collect (bordeaux-threads:make-thread
-                           (lambda ()
-                             (dotimes (j n-transfers)
-                               (fol.compiler.mutable:dosync
-                                 (let ((v1 (fol.compiler.mutable:deref r1)))
-                                   (when (> v1 0)
-                                     (fol.compiler.mutable:alter r1 #'1-)
-                                     (fol.compiler.mutable:alter r2 #'1+))))))))))
-      (dolist (th threads)
-        (bordeaux-threads:join-thread th))
-      ;; The total across both refs must always be 2000
-      (is (= 2000 (+ (fol.compiler.mutable:deref r1)
-                      (fol.compiler.mutable:deref r2)))))))
+           (loop for i below n-threads
+                 collect (let ((thr (make-instance 'fol.compiler.mutable:<thread>
+                                      :fn (lambda ()
+                                            (dotimes (j n-transfers)
+                                              (fol.compiler.mutable:dosync
+                                               (let ((v1 (fol.compiler.mutable:deref r1)))
+                                                 (when (> v1 0)
+                                                       (fol.compiler.mutable:alter r1 #'1-)
+                                                       (fol.compiler.mutable:alter r2 #'1+))))))))))
+                   (fol.compiler.mutable:start thr)
+                   thr))))
+    (dolist (th threads)
+      (fol.compiler.mutable:thread-join th))
+    ;; The total across both refs must always be 2000
+    (is (= 2000 (+ (fol.compiler.mutable:deref r1)
+                   (fol.compiler.mutable:deref r2)))))))
 
 (test ref-commute-concurrent
   "Concurrent commutes converge to correct total."
@@ -342,16 +346,18 @@
         (n-threads 10)
         (n-increments 100))
     (let ((threads
-            (loop for i below n-threads
-                  collect (bordeaux-threads:make-thread
-                           (lambda ()
-                             (dotimes (j n-increments)
-                               (fol.compiler.mutable:dosync
-                                 (fol.compiler.mutable:commute r #'1+))))))))
+           (loop for i below n-threads
+                 collect (let ((thr (make-instance 'fol.compiler.mutable:<thread>
+                                      :fn (lambda ()
+                                            (dotimes (j n-increments)
+                                              (fol.compiler.mutable:dosync
+                                               (fol.compiler.mutable:commute r #'1+)))))))
+                           (fol.compiler.mutable:start thr)
+                           thr))))
       (dolist (th threads)
-        (bordeaux-threads:join-thread th))
+        (fol.compiler.mutable:thread-join th))
       (is (= (* n-threads n-increments)
-              (fol.compiler.mutable:deref r))))))
+            (fol.compiler.mutable:deref r))))))
 
 ;;; =========================================================================
 ;;; Agent tests
@@ -442,7 +448,7 @@
     (fol.compiler.mutable:send a (lambda (v)
                                    (declare (ignore v))
                                    (error "boom")))
-    (sleep 0.1)  ; Give worker time to process
+    (sleep 0.1) ; Give worker time to process
     (is (not (null (fol.compiler.mutable:agent-error a))))
     ;; Further sends should error
     (signals error
@@ -480,9 +486,9 @@
   "Custom error handler receives agent and error."
   (let* ((handler-called nil)
          (a (fol.compiler.mutable:agent 0
-              :error-handler (lambda (ag err)
-                               (declare (ignore ag))
-                               (setf handler-called (type-of err))))))
+                                        :error-handler (lambda (ag err)
+                                                         (declare (ignore ag))
+                                                         (setf handler-called (type-of err))))))
     (fol.compiler.mutable:send a (lambda (v)
                                    (declare (ignore v))
                                    (error "boom")))

@@ -3,6 +3,16 @@
 ;;; Provides functions for walking and transforming tree structures
 ;;; (nested FOL collections). Based on Clojure's clojure.walk namespace.
 
+(defpackage fol.walk
+  (:use cl)
+  (:import-from fol.compiler.collections
+                <collection> <vector> <dict> <set> <list>
+                collection-seq storage-items make)
+  (:export
+   walk prewalk postwalk
+   prewalk-demo prewalk-replace
+   postwalk-demo postwalk-replace))
+
 (in-package :fol.walk)
 
 ;;; ---------------------------------------------------------------------------
@@ -20,39 +30,39 @@
      (walk #'1+ #'identity vec)  ; increment each element of a vector
      (walk #'identity #'reverse vec)  ; walk elements unchanged, reverse result"
   (cond
-    ;; FOL <list>
-    ((typep form '<list>)
+   ;; FOL <list>
+   ((typep form '<list>)
      (funcall outer
-              (apply #'make '<list>
-                     (mapcar inner (collection-seq form)))))
+       (apply #'make '<list>
+         (mapcar inner (collection-seq form)))))
 
-    ;; FOL <vector>
-    ((typep form '<vector>)
+   ;; FOL <vector>
+   ((typep form '<vector>)
      (funcall outer
-              (apply #'make '<vector>
-                     (mapcar inner (collection-seq form)))))
+       (apply #'make '<vector>
+         (mapcar inner (collection-seq form)))))
 
-    ;; FOL <dict> - entries are (key . value) pairs; wrap as 2-element vectors
-    ((typep form '<dict>)
+   ;; FOL <dict> - entries are (key . value) pairs; wrap as 2-element vectors
+   ((typep form '<dict>)
      (funcall outer
-              (let* ((pairs (collection-seq form))
-                     (new-args
-                       (loop for pair in pairs
-                             for entry = (make '<vector> (car pair) (cdr pair))
-                             for walked = (funcall inner entry)
-                             for walked-seq = (collection-seq walked)
-                             append (cl:list (cl:first walked-seq)
-                                             (cl:second walked-seq)))))
-                (apply #'make '<dict> new-args))))
+       (let* ((pairs (collection-seq form))
+              (new-args
+               (loop for pair in pairs
+                     for entry = (make '<vector> (car pair) (cdr pair))
+                     for walked = (funcall inner entry)
+                     for walked-seq = (collection-seq walked)
+                       append (cl:list (cl:first walked-seq)
+                                (cl:second walked-seq)))))
+         (apply #'make '<dict> new-args))))
 
-    ;; FOL <set>
-    ((typep form '<set>)
+   ;; FOL <set>
+   ((typep form '<set>)
      (funcall outer
-              (apply #'make '<set>
-                     (mapcar inner (collection-seq form)))))
+       (apply #'make '<set>
+         (mapcar inner (collection-seq form)))))
 
-    ;; Non-collection: just apply outer
-    (t (funcall outer form))))
+   ;; Non-collection: just apply outer
+   (t (funcall outer form))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; prewalk - Pre-order traversal

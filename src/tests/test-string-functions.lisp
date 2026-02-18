@@ -196,29 +196,6 @@
     (is (string= "b" (aref result 1)))
     (is (string= "" (aref result 2)))))
 
-;;; ---------------------------------------------------------------------------
-;;; Generic replace function
-;;; ---------------------------------------------------------------------------
-
-(test replace-character
-  "replace can replace a character with a string."
-  (is (string= "hXllo"
-               (fol.compiler.string-functions:replace "hello" #\e "X"))))
-
-(test replace-string-literal
-  "replace can replace a literal string."
-  (is (string= "hello FOL"
-               (fol.compiler.string-functions:replace "hello world" "world" "FOL"))))
-
-(test replace-string-regex
-  "replace can use regex patterns."
-  (is (string= "aXbXcX"
-               (fol.compiler.string-functions:replace "a1b2c3" "\\d" "X" :use-regex t))))
-
-(test replace-all-occurrences
-  "replace replaces all occurrences."
-  (is (string= "XXX"
-               (fol.compiler.string-functions:replace "aaa" #\a "X"))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Generic replace-first function

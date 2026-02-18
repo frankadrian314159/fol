@@ -1,0 +1,159 @@
+﻿This is SBCL 2.6.0, an implementation of ANSI Common Lisp.
+More information about SBCL is available at <http://www.sbcl.org/>.
+
+SBCL is free software, provided as is, with absolutely no warranty.
+It is mostly in the public domain; some portions are provided under
+BSD-style licenses.  See the CREDITS and COPYING files in the
+distribution for more information.
+To load "bordeaux-threads":
+  Load 1 ASDF system:
+    bordeaux-threads
+; Loading "bordeaux-threads"
+
+To load "usocket":
+  Load 1 ASDF system:
+    usocket
+; Loading "usocket"
+
+To load "cl-json":
+  Load 1 ASDF system:
+    cl-json
+; Loading "cl-json"
+
+To load "flexi-streams":
+  Load 1 ASDF system:
+    flexi-streams
+; Loading "flexi-streams"
+
+To load "fiveam":
+  Load 1 ASDF system:
+    fiveam
+; Loading "fiveam"
+
+To load "closer-mop":
+  Load 1 ASDF system:
+    closer-mop
+; Loading "closer-mop"
+
+To load "cl-ppcre":
+  Load 1 ASDF system:
+    cl-ppcre
+; Loading "cl-ppcre"
+..
+To load "fset":
+  Load 1 ASDF system:
+    fset
+; Loading "fset"
+..
+To load "sycamore":
+  Load 1 ASDF system:
+    sycamore
+; Loading "sycamore"
+
+sbcl : 
+At line:1 char:1
++ sbcl --non-interactive --load run-debug.lisp > debug_output_1.txt 2>& ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+; file: C:/Users/frank/Projects/FOL/fol/fol.asd
+; in: DEFSYSTEM "fol"
+;     ("bootstrap")
+; 
+; caught ERROR:
+;   illegal function call
+
+;     ((TEST-OP (TEST-OP "fol/tests")))
+; 
+; caught ERROR:
+;   illegal function call
+
+; file: C:/Users/frank/Projects/FOL/fol/fol.asd
+; in: DEFSYSTEM "fol"
+;     (DEFSYSTEM "fol" :DESCRIPTION
+;      "Functional Object Lisp - A persistent object-oriented programming language."
+;      :VERSION "0.1.0" :AUTHOR "Frank Adrian" :LICENSE "MIT" :DEPENDS-ON
+;      ("bootstrap") ...)
+; 
+; caught STYLE-WARNING:
+;   undefined function: COMMON-LISP-USER::DEFSYSTEM
+; 
+; compilation unit finished
+;   Undefined function:
+;     DEFSYSTEM
+;   caught 2 ERROR conditions
+;   caught 1 STYLE-WARNING condition
+While evaluating the form starting at line 28, column 0
+  of #P"C:/Users/frank/Projects/FOL/fol/fol.asd":
+While evaluating the form starting at line 1, column 0
+  of #P"C:/Users/frank/Projects/FOL/fol/run-debug.lisp":
+Unhandled SB-INT:COMPILED-PROGRAM-ERROR in thread #<SB-THREAD:THREAD tid=29988 "main thread" RUNNING
+                                                     {1100030003}>:
+  Execution of a form compiled with errors.
+Form:
+  ("bootstrap")
+Compile-time error:
+  illegal function call
+
+Backtrace for: #<SB-THREAD:THREAD tid=29988 "main thread" RUNNING {1100030003}>
+0: (SB-DEBUG::DEBUGGER-DISABLED-HOOK #<SB-INT:COMPILED-PROGRAM-ERROR {1102E747E3}> #<unused argument> 
+:QUIT T)
+1: (SB-DEBUG::RUN-HOOK *INVOKE-DEBUGGER-HOOK* #<SB-INT:COMPILED-PROGRAM-ERROR {1102E747E3}>)
+2: (INVOKE-DEBUGGER #<SB-INT:COMPILED-PROGRAM-ERROR {1102E747E3}>)
+3: (ERROR SB-INT:COMPILED-PROGRAM-ERROR :MESSAGE "illegal function call" :SOURCE "(\"bootstrap\")")
+4: ((LAMBDA NIL :IN "C:/Users/frank/Projects/FOL/fol/fol.asd"))
+5: (SB-INT:SIMPLE-EVAL-IN-LEXENV (DEFSYSTEM "fol" :DESCRIPTION "Functional Object Lisp - A persistent 
+object-oriented programming language." :VERSION "0.1.0" :AUTHOR "Frank Adrian" :LICENSE "MIT" 
+:DEPENDS-ON ("bootstrap") ...) #<NULL-LEXENV>)
+6: (EVAL-TLF (DEFSYSTEM "fol" :DESCRIPTION "Functional Object Lisp - A persistent object-oriented 
+programming language." :VERSION "0.1.0" :AUTHOR "Frank Adrian" :LICENSE "MIT" :DEPENDS-ON 
+("bootstrap") ...) 1 NIL)
+7: ((LABELS SB-FASL::EVAL-FORM :IN SB-INT:LOAD-AS-SOURCE) (DEFSYSTEM "fol" :DESCRIPTION "Functional 
+Object Lisp - A persistent object-oriented programming language." :VERSION "0.1.0" :AUTHOR "Frank 
+Adrian" :LICENSE "MIT" :DEPENDS-ON ("bootstrap") ...) 1)
+8: ((LAMBDA (SB-KERNEL:FORM &KEY :CURRENT-INDEX &ALLOW-OTHER-KEYS) :IN SB-INT:LOAD-AS-SOURCE) 
+(DEFSYSTEM "fol" :DESCRIPTION "Functional Object Lisp - A persistent object-oriented programming 
+language." :VERSION "0.1.0" :AUTHOR "Frank Adrian" :LICENSE "MIT" :DEPENDS-ON ("bootstrap") ...) 
+:CURRENT-INDEX 1)
+9: (SB-C::%DO-FORMS-FROM-INFO #<FUNCTION (LAMBDA (SB-KERNEL:FORM &KEY :CURRENT-INDEX 
+&ALLOW-OTHER-KEYS) :IN SB-INT:LOAD-AS-SOURCE) {5FE71B}> #<SB-C::SOURCE-INFO {1102DEDE63}> 
+SB-C::INPUT-ERROR-IN-LOAD)
+10: (SB-INT:LOAD-AS-SOURCE #<SB-INT:FORM-TRACKING-STREAM for "file 
+C:\\Users\\frank\\Projects\\FOL\\fol\\fol.asd" {1102DF6773}> :VERBOSE NIL :PRINT NIL :CONTEXT 
+"loading")
+11: ((LABELS SB-FASL::LOAD-STREAM-1 :IN LOAD) #<SB-INT:FORM-TRACKING-STREAM for "file 
+C:\\Users\\frank\\Projects\\FOL\\fol\\fol.asd" {1102DF6773}> NIL)
+12: (SB-FASL::CALL-WITH-LOAD-BINDINGS #<FUNCTION (LABELS SB-FASL::LOAD-STREAM-1 :IN LOAD) {5FEADB}> 
+#<SB-INT:FORM-TRACKING-STREAM for "file C:\\Users\\frank\\Projects\\FOL\\fol\\fol.asd" {1102DF6773}> 
+NIL #<SB-INT:FORM-TRACKING-STREAM for "file C:\\Users\\frank\\Projects\\FOL\\fol\\fol.asd" 
+{1102DF6773}>)
+13: (LOAD "fol.asd" :VERBOSE NIL :PRINT NIL :IF-DOES-NOT-EXIST :ERROR :EXTERNAL-FORMAT :DEFAULT)
+14: (SB-INT:SIMPLE-EVAL-IN-LEXENV (LOAD "fol.asd") #<NULL-LEXENV>)
+15: (EVAL-TLF (LOAD "fol.asd") 0 NIL)
+16: ((LABELS SB-FASL::EVAL-FORM :IN SB-INT:LOAD-AS-SOURCE) (LOAD "fol.asd") 0)
+17: ((LAMBDA (SB-KERNEL:FORM &KEY :CURRENT-INDEX &ALLOW-OTHER-KEYS) :IN SB-INT:LOAD-AS-SOURCE) (LOAD 
+"fol.asd") :CURRENT-INDEX 0)
+18: (SB-C::%DO-FORMS-FROM-INFO #<FUNCTION (LAMBDA (SB-KERNEL:FORM &KEY :CURRENT-INDEX 
+&ALLOW-OTHER-KEYS) :IN SB-INT:LOAD-AS-SOURCE) {5FF10B}> #<SB-C::SOURCE-INFO {1102DED9F3}> 
+SB-C::INPUT-ERROR-IN-LOAD)
+19: (SB-INT:LOAD-AS-SOURCE #<SB-INT:FORM-TRACKING-STREAM for "file 
+C:\\Users\\frank\\Projects\\FOL\\fol\\run-debug.lisp" {1102DF4073}> :VERBOSE NIL :PRINT NIL :CONTEXT 
+"loading")
+20: ((LABELS SB-FASL::LOAD-STREAM-1 :IN LOAD) #<SB-INT:FORM-TRACKING-STREAM for "file 
+C:\\Users\\frank\\Projects\\FOL\\fol\\run-debug.lisp" {1102DF4073}> NIL)
+21: (SB-FASL::CALL-WITH-LOAD-BINDINGS #<FUNCTION (LABELS SB-FASL::LOAD-STREAM-1 :IN LOAD) {5FF4CB}> 
+#<SB-INT:FORM-TRACKING-STREAM for "file C:\\Users\\frank\\Projects\\FOL\\fol\\run-debug.lisp" 
+{1102DF4073}> NIL #<SB-INT:FORM-TRACKING-STREAM for "file 
+C:\\Users\\frank\\Projects\\FOL\\fol\\run-debug.lisp" {1102DF4073}>)
+22: (LOAD #P"run-debug.lisp" :VERBOSE NIL :PRINT NIL :IF-DOES-NOT-EXIST :ERROR :EXTERNAL-FORMAT 
+:DEFAULT)
+23: (SB-IMPL::PROCESS-EVAL/LOAD-OPTIONS ((:LOAD . "run-debug.lisp") (:QUIT)))
+24: (SB-IMPL::TOPLEVEL-INIT)
+25: ((FLET SB-UNIX::BODY :IN SB-IMPL::START-LISP))
+26: ((FLET "WITHOUT-INTERRUPTS-BODY-3" :IN SB-IMPL::START-LISP))
+27: (SB-IMPL::%START-LISP)
+28: ("foreign function: #x140046A39")
+29: ("foreign function: #x14000AD20")
+
+unhandled condition in --disable-debugger mode, quitting

@@ -6,14 +6,14 @@
 (test union-test
   (let ((s1 (fol.compiler.collection-functions:set 1 2 3))
         (s2 (fol.compiler.collection-functions:set 3 4 5)))
-    (is (fol.compiler.collection-functions:contains? (fol.compiler.relational:union s1 s2) 1))
-    (is (fol.compiler.collection-functions:contains? (fol.compiler.relational:union s1 s2) 5))
-    (is (= 5 (fol.compiler.collection-functions:size (fol.compiler.relational:union s1 s2))))))
+    (is (fol.compiler.collection-functions:contains? (fol.compiler.collection-functions:union s1 s2) 1))
+    (is (fol.compiler.collection-functions:contains? (fol.compiler.collection-functions:union s1 s2) 5))
+    (is (= 5 (fol.compiler.collection-functions:size (fol.compiler.collection-functions:union s1 s2))))))
 
 (test difference-test
   (let ((s1 (fol.compiler.collection-functions:set 1 2 3))
         (s2 (fol.compiler.collection-functions:set 3 4 5)))
-    (let ((diff (fol.compiler.relational:difference s1 s2)))
+    (let ((diff (fol.compiler.collection-functions:difference s1 s2)))
       (is (fol.compiler.collection-functions:contains? diff 1))
       (is (fol.compiler.collection-functions:contains? diff 2))
       (is (not (fol.compiler.collection-functions:contains? diff 3)))
@@ -22,14 +22,14 @@
 (test intersection-test
   (let ((s1 (fol.compiler.collection-functions:set 1 2 3))
         (s2 (fol.compiler.collection-functions:set 3 4 5)))
-    (let ((inter (fol.compiler.relational:intersection s1 s2)))
+    (let ((inter (fol.compiler.collection-functions:intersection s1 s2)))
       (is (fol.compiler.collection-functions:contains? inter 3))
       (is (not (fol.compiler.collection-functions:contains? inter 1)))
       (is (= 1 (fol.compiler.collection-functions:size inter))))))
 
 (test select-test
   (let ((s (fol.compiler.collection-functions:set 1 2 3 4)))
-    (let ((res (fol.compiler.relational:select #'evenp s)))
+    (let ((res (fol.compiler.collection-functions:select #'evenp s)))
       (is (fol.compiler.collection-functions:contains? res 2))
       (is (fol.compiler.collection-functions:contains? res 4))
       (is (= 2 (fol.compiler.collection-functions:size res))))))
@@ -40,7 +40,7 @@
                (fol.compiler.collection-functions:dict :a 2 :c 3))))
     (let ((res (fol.compiler.relational:project data (fol.compiler.collection-functions:vector :a))))
       (is (= 2 (fol.compiler.collection-functions:size res)))
-      (let ((l (fol.compiler.collection-functions:into (fol.compiler.collection-functions:list) res)))
+      (let ((l (fol.compiler.seq-functions:into (fol.compiler.collection-functions:list) res)))
         (is (some (lambda (d) (= 1 (fol.compiler.collection-functions:get d :a))) (fol.compiler.collections:collection-seq l)))
         (is (some (lambda (d) (= 2 (fol.compiler.collection-functions:get d :a))) (fol.compiler.collections:collection-seq l)))))))
 
@@ -69,7 +69,7 @@
         (r2 (fol.compiler.collection-functions:set
              (fol.compiler.collection-functions:dict :id 1 :extra "x")
              (fol.compiler.collection-functions:dict :id 3 :extra "y"))))
-    (let ((j (fol.compiler.relational:join r1 r2)))
+    (let ((j (fol.compiler.merged-functions:join r1 r2)))
       (is (= 1 (fol.compiler.collection-functions:size j)))
       (let ((item (fol.compiler.collection-functions:first j)))
         (is (= 1 (fol.compiler.collection-functions:get item :id)))

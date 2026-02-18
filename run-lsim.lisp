@@ -1,0 +1,33 @@
+(require :asdf)
+(push (truename "src/") asdf:*central-registry*)
+(asdf:load-system :fol-compiler)
+
+(format t "~%--- Running lsim.fol ---~%")
+(format t "In FOL.USER symbols:~%")
+(let ((p (find-package :fol.user)))
+  (flet ((check (sym-name)
+                (multiple-value-bind (sym status) (find-symbol sym-name p)
+                  (if sym
+                      (format t "~A -> ~A (home: ~A, status: ~A)~%"
+                        sym-name sym (package-name (symbol-package sym)) status)
+                      (format t "~A -> NOT FOUND~%" sym-name)))))
+    (check "MAP")
+    (check "REDUCE")
+    (check "MAKE")
+    (check "GET")
+    (check "STR")
+    (check "DELAY")
+    (format t "--- Describe REDUCE ---~%")
+    (describe (find-symbol "REDUCE" p))
+    (format t "--- Describe SET ---~%")
+    (describe (find-symbol "SET" p))
+    (format t "--- Describe GET ---~%")
+    (describe (find-symbol "GET" p))))
+(handler-case
+    (fol.repl:run-fol-file "fol-code/lsim.fol")
+  (error (e)
+    (format t "~%Error running lsim.fol: ~A~%" e)
+    (sb-ext:exit :code 1)))
+(format t "~%--- Finished running lsim.fol ---~%")
+
+(sb-ext:exit)

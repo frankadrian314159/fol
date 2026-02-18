@@ -1,0 +1,5374 @@
+﻿This is SBCL 2.6.0, an implementation of ANSI Common Lisp.
+More information about SBCL is available at <http://www.sbcl.org/>.
+
+SBCL is free software, provided as is, with absolutely no warranty.
+It is mostly in the public domain; some portions are provided under
+BSD-style licenses.  See the CREDITS and COPYING files in the
+distribution for more information.
+To load "bordeaux-threads":
+  Load 1 ASDF system:
+    bordeaux-threads
+; Loading "bordeaux-threads"
+
+To load "usocket":
+  Load 1 ASDF system:
+    usocket
+; Loading "usocket"
+
+To load "cl-json":
+  Load 1 ASDF system:
+    cl-json
+; Loading "cl-json"
+
+To load "flexi-streams":
+  Load 1 ASDF system:
+    flexi-streams
+; Loading "flexi-streams"
+
+To load "fiveam":
+  Load 1 ASDF system:
+    fiveam
+; Loading "fiveam"
+
+To load "closer-mop":
+  Load 1 ASDF system:
+    closer-mop
+; Loading "closer-mop"
+
+To load "cl-ppcre":
+  Load 1 ASDF system:
+    cl-ppcre
+; Loading "cl-ppcre"
+..
+To load "fset":
+  Load 1 ASDF system:
+    fset
+; Loading "fset"
+..
+To load "sycamore":
+  Load 1 ASDF system:
+    sycamore
+; Loading "sycamore"
+
+sbcl : WARNING: redefining IRONCLAD:BLOCK-LENGTH in DEFGENERIC
+At line:1 char:1
++ sbcl --non-interactive --load run-lsim.lisp > lsim_output_18.txt 2>&1
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (WARNING: redefi...H in DEFGENERIC:String) [], RemoteExce 
+   ption
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+; compiling file "C:/Users/frank/Projects/FOL/fol/src/package.lisp" (written 18 FEB 2026 02:28:59 AM):
+
+; wrote C:/Users/frank/AppData/Local/cache/common-lisp/sbcl-2.6.0-win-x64/C/Users/frank/Projects/FOL/fol/src/package-tmpGHU3ALSV.fasl
+; compilation finished in 0:00:00.014
+WARNING: FOL.COMPILER.MUTABLE also exports the following symbols:
+  (FOL.COMPILER.MUTABLE:AGENT-WATCHES FOL.COMPILER.MUTABLE:REF-WATCHES
+   FOL.COMPILER.MUTABLE:AGENT-VALIDATOR FOL.COMPILER.MUTABLE:ATOM-VALIDATOR
+   FOL.COMPILER.MUTABLE:ATOM-WATCHES FOL.COMPILER.MUTABLE:REF-VALIDATOR)
+See also:
+  The ANSI Standard, Macro DEFPACKAGE
+  The SBCL Manual, Variable *ON-PACKAGE-VARIANCE*
+; compiling file "C:/Users/frank/Projects/FOL/fol/src/compareops.lisp" (written 11 FEB 2026 01:06:39 AM):
+
+; wrote C:/Users/frank/AppData/Local/cache/common-lisp/sbcl-2.6.0-win-x64/C/Users/frank/Projects/FOL/fol/src/compareops-tmpAAURSO1.fasl
+; compilation finished in 0:00:00.090
+; compiling file "C:/Users/frank/Projects/FOL/fol/src/primitives.lisp" (written 13 FEB 2026 07:59:44 AM):
+
+; wrote C:/Users/frank/AppData/Local/cache/common-lisp/sbcl-2.6.0-win-x64/C/Users/frank/Projects/FOL/fol/src/primitives-tmp5GEXGEG5.fasl
+; compilation finished in 0:00:00.025
+; compiling file "C:/Users/frank/Projects/FOL/fol/src/collections.lisp" (written 17 FEB 2026 03:08:10 AM):
+
+; wrote C:/Users/frank/AppData/Local/cache/common-lisp/sbcl-2.6.0-win-x64/C/Users/frank/Projects/FOL/fol/src/collections-tmpAR3FSGEY.fasl
+; compilation finished in 0:00:00.133
+; compiling file "C:/Users/frank/Projects/FOL/fol/src/primitive-functions.lisp" (written 17 FEB 2026 07:16:02 AM):
+
+; wrote C:/Users/frank/AppData/Local/cache/common-lisp/sbcl-2.6.0-win-x64/C/Users/frank/Projects/FOL/fol/src/primitive-functions-tmpJAIDFZTC.fasl
+; compilation finished in 0:00:00.021
+; compiling file "C:/Users/frank/Projects/FOL/fol/src/ast.lisp" (written 17 FEB 2026 09:35:20 AM):
+
+; wrote C:/Users/frank/AppData/Local/cache/common-lisp/sbcl-2.6.0-win-x64/C/Users/frank/Projects/FOL/fol/src/ast-tmp8V3J6PE9.fasl
+; compilation finished in 0:00:00.357
+; compiling file "C:/Users/frank/Projects/FOL/fol/src/destructure.lisp" (written 11 FEB 2026 10:21:03 PM):
+
+; wrote C:/Users/frank/AppData/Local/cache/common-lisp/sbcl-2.6.0-win-x64/C/Users/frank/Projects/FOL/fol/src/destructure-tmp9V47YWQF.fasl
+; compilation finished in 0:00:00.036
+; compiling file "C:/Users/frank/Projects/FOL/fol/src/persistence.lisp" (written 16 FEB 2026 01:17:48 PM):
+
+; wrote C:/Users/frank/AppData/Local/cache/common-lisp/sbcl-2.6.0-win-x64/C/Users/frank/Projects/FOL/fol/src/persistence-tmp9BN22RMA.fasl
+; compilation finished in 0:00:00.027
+; compiling file "C:/Users/frank/Projects/FOL/fol/src/string-functions.lisp" (written 14 FEB 2026 11:24:03 PM):
+
+; file: C:/Users/frank/Projects/FOL/fol/src/string-functions.lisp
+; in: DEFUN STR-REPLACE
+;     (FOL.COMPILER.STRING-FUNCTIONS::REPL-LEN
+;      (LENGTH FOL.COMPILER.STRING-FUNCTIONS::REPLACEMENT))
+; 
+; caught STYLE-WARNING:
+;   The variable REPL-LEN is defined but never used.
+
+; in: DEFMETHOD LAST-INDEX-OF (STRING STRING)
+;     (IGNORE FOL.COMPILER.STRING-FUNCTIONS::END)
+; 
+; caught STYLE-WARNING:
+;   IGNORE declaration for a variable from outer scope: END
+
+
+; wrote C:/Users/frank/AppData/Local/cache/common-lisp/sbcl-2.6.0-win-x64/C/Users/frank/Projects/FOL/fol/src/string-functions-tmp1CXFJSK9.fasl
+; compilation finished in 0:00:00.065
+WARNING:
+   Lisp compilation had style-warnings while
+   compiling #<CL-SOURCE-FILE "fol-compiler" "string-functions">
+; compiling file "C:/Users/frank/Projects/FOL/fol/src/collection-functions.lisp" (written 17 FEB 2026 03:52:14 AM):
+
+; wrote C:/Users/frank/AppData/Local/cache/common-lisp/sbcl-2.6.0-win-x64/C/Users/frank/Projects/FOL/fol/src/collection-functions-tmpX4BRKI0R.fasl
+; compilation finished in 0:00:00.213
+; compiling file "C:/Users/frank/Projects/FOL/fol/src/arithmetic-functions.lisp" (written 14 FEB 2026 10:44:34 PM):
+
+; file: C:/Users/frank/Projects/FOL/fol/src/arithmetic-functions.lisp
+; in: DEFMETHOD POSITIVE? (T) => DEFGENERIC NEGATIVE?
+;     (DEFGENERIC FOL.COMPILER.ARITHMETIC-FUNCTIONS:NEGATIVE?
+;         (FOL.COMPILER.ARITHMETIC-FUNCTIONS::NUM)
+;       (:DOCUMENTATION "Returns T if NUM is less than zero, NIL otherwise."))
+; 
+; note: deleting unreachable code
+
+; in: DEFMETHOD POSITIVE? (T) => DEFMETHOD NEGATIVE? (NUMBER)
+;     (DEFMETHOD FOL.COMPILER.ARITHMETIC-FUNCTIONS:NEGATIVE?
+;                ((FOL.COMPILER.ARITHMETIC-FUNCTIONS::NUM NUMBER))
+;       (ERROR "NEGATIVE? requires a real number, got ~A of type ~A"
+;              FOL.COMPILER.ARITHMETIC-FUNCTIONS::NUM
+;              (TYPE-OF FOL.COMPILER.ARITHMETIC-FUNCTIONS::NUM)))
+; 
+; note: deleting unreachable code
+
+; in: DEFMETHOD POSITIVE? (T) => DEFMETHOD NEGATIVE? (T)
+;     (DEFMETHOD FOL.COMPILER.ARITHMETIC-FUNCTIONS:NEGATIVE?
+;                (FOL.COMPILER.ARITHMETIC-FUNCTIONS::OBJ)
+;       (ERROR "NEGATIVE? requires a real number, got ~A of type ~A"
+;              FOL.COMPILER.ARITHMETIC-FUNCTIONS::OBJ
+;              (TYPE-OF FOL.COMPILER.ARITHMETIC-FUNCTIONS::OBJ)))
+; 
+; note: deleting unreachable code
+
+; in: DEFMETHOD POSITIVE? (T) => DEFGENERIC INTEGRAL?
+;     (DEFGENERIC FOL.COMPILER.ARITHMETIC-FUNCTIONS:INTEGRAL?
+;         (FOL.COMPILER.ARITHMETIC-FUNCTIONS::NUM)
+;       (:DOCUMENTATION "Returns T if NUM has an integer value, NIL otherwise."))
+; 
+; note: deleting unreachable code
+
+; in: DEFMETHOD POSITIVE? (T) => DEFMETHOD INTEGRAL? (NUMBER)
+;     (DEFMETHOD FOL.COMPILER.ARITHMETIC-FUNCTIONS:INTEGRAL?
+;                ((FOL.COMPILER.ARITHMETIC-FUNCTIONS::NUM NUMBER))
+;       NIL)
+; 
+; note: deleting unreachable code
+
+
+; wrote C:/Users/frank/AppData/Local/cache/common-lisp/sbcl-2.6.0-win-x64/C/Users/frank/Projects/FOL/fol/src/arithmetic-functions-tmpQ371UGST.fasl
+; compilation finished in 0:00:00.142
+; compiling file "C:/Users/frank/Projects/FOL/fol/src/bitwise-operation-functions.lisp" (written 14 FEB 2026 01:44:51 PM):
+
+; wrote C:/Users/frank/AppData/Local/cache/common-lisp/sbcl-2.6.0-win-x64/C/Users/frank/Projects/FOL/fol/src/bitwise-operation-functions-tmp2OWI3Q7U.fasl
+; compilation finished in 0:00:00.041
+; compiling file "C:/Users/frank/Projects/FOL/fol/src/logical-operation-functions.lisp" (written 12 FEB 2026 02:52:03 PM):
+
+; wrote C:/Users/frank/AppData/Local/cache/common-lisp/sbcl-2.6.0-win-x64/C/Users/frank/Projects/FOL/fol/src/logical-operation-functions-tmp9KKTJMYV.fasl
+; compilation finished in 0:00:00.081
+; compiling file "C:/Users/frank/Projects/FOL/fol/src/cl-utils.lisp" (written 13 FEB 2026 03:28:19 AM):
+
+; wrote C:/Users/frank/AppData/Local/cache/common-lisp/sbcl-2.6.0-win-x64/C/Users/frank/Projects/FOL/fol/src/cl-utils-tmpJU0JWO19.fasl
+; compilation finished in 0:00:00.005
+; compiling file "C:/Users/frank/Projects/FOL/fol/src/seq-functions.lisp" (written 17 FEB 2026 06:57:45 AM):
+
+; file: C:/Users/frank/Projects/FOL/fol/src/seq-functions.lisp
+; in: DEFUN KEYS
+;     (FOL.COMPILER.COLLECTIONS:<ORDERED-DICT>
+;      (LET ((FOL.COMPILER.SEQ-FUNCTIONS:SEQ
+;             (FOL.COMPILER.COLLECTIONS:ORDERED-DICT-KEY-ORDER
+;              FOL.COMPILER.SEQ-FUNCTIONS::DICT)))
+;        (RETURN-FROM FOL.COMPILER.SEQ-FUNCTIONS:KEYS
+;          (APPLY #'FOL.COMPILER.PRIMITIVES:MAKE 'FOL.COMPILER.COLLECTIONS:<VECTOR>
+;                 (FOL.COMPILER.COLLECTIONS:COLLECTION-SEQ
+;                  FOL.COMPILER.SEQ-FUNCTIONS:SEQ)))))
+; 
+; caught STYLE-WARNING:
+;   Clause <ORDERED-DICT> is shadowed by <DICT>
+
+;     (FOL.COMPILER.COLLECTIONS:<SORTED-DICT>
+;      (SYCAMORE:DO-TREE-MAP ((FOL.COMPILER.SEQ-FUNCTIONS::K
+;                              FOL.COMPILER.SEQ-FUNCTIONS::V)
+;                             (FOL.COMPILER.COLLECTIONS:STORAGE-ITEMS
+;                              FOL.COMPILER.SEQ-FUNCTIONS::DICT))
+;        (DECLARE (IGNORE FOL.COMPILER.SEQ-FUNCTIONS::V))
+;        (PUSH FOL.COMPILER.SEQ-FUNCTIONS::K FOL.COMPILER.SEQ-FUNCTIONS::RESULT)))
+; 
+; caught STYLE-WARNING:
+;   Clause <SORTED-DICT> is shadowed by <DICT>
+
+;     (FOL.COMPILER.COLLECTIONS:<PRIORITY-DICT>
+;      (SYCAMORE:DO-HASH-MAP ((FOL.COMPILER.SEQ-FUNCTIONS::K
+;                              FOL.COMPILER.SEQ-FUNCTIONS::V)
+;                             (FOL.COMPILER.COLLECTIONS:STORAGE-ITEMS
+;                              FOL.COMPILER.SEQ-FUNCTIONS::DICT))
+;        (DECLARE (IGNORE FOL.COMPILER.SEQ-FUNCTIONS::V))
+;        (PUSH FOL.COMPILER.SEQ-FUNCTIONS::K FOL.COMPILER.SEQ-FUNCTIONS::RESULT)))
+; 
+; caught STYLE-WARNING:
+;   Clause <PRIORITY-DICT> is shadowed by <DICT>
+
+
+; wrote C:/Users/frank/AppData/Local/cache/common-lisp/sbcl-2.6.0-win-x64/C/Users/frank/Projects/FOL/fol/src/seq-functions-tmpZX2WN8N4.fasl
+; compilation finished in 0:00:00.162
+WARNING:
+   Lisp compilation had style-warnings while
+   compiling #<CL-SOURCE-FILE "fol-compiler" "seq-functions">
+; compiling file "C:/Users/frank/Projects/FOL/fol/src/reader.lisp" (written 18 FEB 2026 02:04:34 AM):
+
+; wrote C:/Users/frank/AppData/Local/cache/common-lisp/sbcl-2.6.0-win-x64/C/Users/frank/Projects/FOL/fol/src/reader-tmpOU81XRV0.fasl
+; compilation finished in 0:00:00.033
+; compiling file "C:/Users/frank/Projects/FOL/fol/src/mutable.lisp" (written 17 FEB 2026 02:37:39 PM):
+
+; wrote C:/Users/frank/AppData/Local/cache/common-lisp/sbcl-2.6.0-win-x64/C/Users/frank/Projects/FOL/fol/src/mutable-tmpY2ML9CFA.fasl
+; compilation finished in 0:00:00.062
+; compiling file "C:/Users/frank/Projects/FOL/fol/src/mutable-functions.lisp" (written 17 FEB 2026 02:39:18 PM):
+
+; file: C:/Users/frank/Projects/FOL/fol/src/mutable-functions.lisp
+; in: DEFMACRO SYNC
+;     (DEFMACRO FOL.COMPILER.MUTABLE-FUNCTIONS:SYNC
+;               (FOL.COMPILER.MUTABLE-FUNCTIONS::FLAGS-IGNORED
+;                &BODY FOL.COMPILER.MUTABLE-FUNCTIONS::BODY)
+;       "Alias for dosync. Flags are currently ignored."
+;       `(FOL.COMPILER.MUTABLE:DOSYNC
+;          ,@FOL.COMPILER.MUTABLE-FUNCTIONS::BODY))
+; --> EVAL-WHEN SB-C::%DEFMACRO SB-INT:NAMED-LAMBDA SB-INT:NAMED-DS-BIND 
+; --> SB-INT:BINDING* 
+; ==>
+;   (LET* ((#:G0
+;           (SB-C::CHECK-DS-LIST/&REST (CDR #:EXPR) 1 1
+;                                      '(#
+;                                        FOL.COMPILER.MUTABLE-FUNCTIONS::FLAGS-IGNORED
+;                                        &BODY
+;                                        FOL.COMPILER.MUTABLE-FUNCTIONS::BODY)))
+;          (FOL.COMPILER.MUTABLE-FUNCTIONS::FLAGS-IGNORED (POP #:G0))
+;          (FOL.COMPILER.MUTABLE-FUNCTIONS::BODY #:G0))
+;     (DECLARE
+;      (SB-C::CONSTANT-VALUE FOL.COMPILER.MUTABLE-FUNCTIONS::FLAGS-IGNORED
+;                            FOL.COMPILER.MUTABLE-FUNCTIONS::BODY))
+;     (BLOCK FOL.COMPILER.MUTABLE-FUNCTIONS:SYNC
+;       `(FOL.COMPILER.MUTABLE:DOSYNC
+;          ,@FOL.COMPILER.MUTABLE-FUNCTIONS::BODY)))
+; 
+; caught STYLE-WARNING:
+;   The variable FLAGS-IGNORED is defined but never used.
+
+; file: C:/Users/frank/Projects/FOL/fol/src/mutable-functions.lisp
+; in: DEFMACRO SYNC
+;     (DEFMACRO FOL.COMPILER.MUTABLE-FUNCTIONS:SYNC
+;               (FOL.COMPILER.MUTABLE-FUNCTIONS::FLAGS-IGNORED
+;                &BODY FOL.COMPILER.MUTABLE-FUNCTIONS::BODY)
+;       "Alias for dosync. Flags are currently ignored."
+;       `(FOL.COMPILER.MUTABLE:DOSYNC
+;          ,@FOL.COMPILER.MUTABLE-FUNCTIONS::BODY))
+; --> EVAL-WHEN SB-C::%DEFMACRO SB-C::%DEFMACRO SB-INT:NAMED-LAMBDA FUNCTION 
+; --> SB-INT:NAMED-DS-BIND SB-INT:BINDING* 
+; ==>
+;   (LET* ((#:G0
+;           (SB-C::CHECK-DS-LIST/&REST (CDR #:EXPR) 1 1
+;                                      '(#
+;                                        FOL.COMPILER.MUTABLE-FUNCTIONS::FLAGS-IGNORED
+;                                        &BODY
+;                                        FOL.COMPILER.MUTABLE-FUNCTIONS::BODY)))
+;          (FOL.COMPILER.MUTABLE-FUNCTIONS::FLAGS-IGNORED (POP #:G0))
+;          (FOL.COMPILER.MUTABLE-FUNCTIONS::BODY #:G0))
+;     (DECLARE
+;      (SB-C::CONSTANT-VALUE FOL.COMPILER.MUTABLE-FUNCTIONS::FLAGS-IGNORED
+;                            FOL.COMPILER.MUTABLE-FUNCTIONS::BODY))
+;     (BLOCK FOL.COMPILER.MUTABLE-FUNCTIONS:SYNC
+;       `(FOL.COMPILER.MUTABLE:DOSYNC
+;          ,@FOL.COMPILER.MUTABLE-FUNCTIONS::BODY)))
+; 
+; caught STYLE-WARNING:
+;   The variable FLAGS-IGNORED is defined but never used.
+
+; in: DEFUN SEND-VIA
+;     (DEFUN FOL.COMPILER.MUTABLE-FUNCTIONS:SEND-VIA
+;            (FOL.COMPILER.MUTABLE-FUNCTIONS::EXECUTOR FOL.COMPILER.MUTABLE:AGENT
+;             FOL.COMPILER.MUTABLE-FUNCTIONS::FN
+;             &REST FOL.COMPILER.MUTABLE-FUNCTIONS::ARGS)
+;       "Dispatch an action to agent using executor.
+;      Current implementation ignores executor and uses default send logic."
+;       (APPLY #'FOL.COMPILER.MUTABLE:SEND FOL.COMPILER.MUTABLE:AGENT
+;              FOL.COMPILER.MUTABLE-FUNCTIONS::FN
+;              FOL.COMPILER.MUTABLE-FUNCTIONS::ARGS))
+; --> SB-IMPL::%DEFUN SB-IMPL::%DEFUN SB-INT:NAMED-LAMBDA 
+; ==>
+;   #'(SB-INT:NAMED-LAMBDA FOL.COMPILER.MUTABLE-FUNCTIONS:SEND-VIA
+;         (FOL.COMPILER.MUTABLE-FUNCTIONS::EXECUTOR FOL.COMPILER.MUTABLE:AGENT
+;          FOL.COMPILER.MUTABLE-FUNCTIONS::FN &REST
+;          FOL.COMPILER.MUTABLE-FUNCTIONS::ARGS)
+;       (DECLARE (SB-C::TOP-LEVEL-FORM))
+;       "Dispatch an action to agent using executor.
+;    Current implementation ignores executor and uses default send logic."
+;       (BLOCK FOL.COMPILER.MUTABLE-FUNCTIONS:SEND-VIA
+;         (APPLY #'FOL.COMPILER.MUTABLE:SEND FOL.COMPILER.MUTABLE:AGENT
+;                FOL.COMPILER.MUTABLE-FUNCTIONS::FN
+;                FOL.COMPILER.MUTABLE-FUNCTIONS::ARGS)))
+; 
+; caught STYLE-WARNING:
+;   The variable EXECUTOR is defined but never used.
+
+; in: DEFUN PUSH-THREAD-BINDINGS
+;     (DEFUN FOL.COMPILER.MUTABLE-FUNCTIONS:PUSH-THREAD-BINDINGS
+;            (FOL.COMPILER.MUTABLE-FUNCTIONS::BINDINGS-MAP)
+;       (ERROR "push-thread-bindings not fully supported in CL model."))
+; --> SB-IMPL::%DEFUN SB-IMPL::%DEFUN SB-INT:NAMED-LAMBDA 
+; ==>
+;   #'(SB-INT:NAMED-LAMBDA FOL.COMPILER.MUTABLE-FUNCTIONS:PUSH-THREAD-BINDINGS
+;         (FOL.COMPILER.MUTABLE-FUNCTIONS::BINDINGS-MAP)
+;       (DECLARE (SB-C::TOP-LEVEL-FORM))
+;       (BLOCK FOL.COMPILER.MUTABLE-FUNCTIONS:PUSH-THREAD-BINDINGS
+;         (ERROR "push-thread-bindings not fully supported in CL model.")))
+; 
+; caught STYLE-WARNING:
+;   The variable BINDINGS-MAP is defined but never used.
+
+
+; wrote C:/Users/frank/AppData/Local/cache/common-lisp/sbcl-2.6.0-win-x64/C/Users/frank/Projects/FOL/fol/src/mutable-functions-tmpX2JYJDQE.fasl
+; compilation finished in 0:00:00.050
+WARNING:
+   Lisp compilation had style-warnings while
+   compiling #<CL-SOURCE-FILE "fol-compiler" "mutable-functions">
+; compiling file "C:/Users/frank/Projects/FOL/fol/src/streams.lisp" (written 17 FEB 2026 08:09:02 AM):
+
+; wrote C:/Users/frank/AppData/Local/cache/common-lisp/sbcl-2.6.0-win-x64/C/Users/frank/Projects/FOL/fol/src/streams-tmpOPCILR65.fasl
+; compilation finished in 0:00:00.023
+; compiling file "C:/Users/frank/Projects/FOL/fol/src/functional.lisp" (written 16 FEB 2026 01:14:34 PM):
+
+; wrote C:/Users/frank/AppData/Local/cache/common-lisp/sbcl-2.6.0-win-x64/C/Users/frank/Projects/FOL/fol/src/functional-tmpRV9F8A9A.fasl
+; compilation finished in 0:00:00.009
+; compiling file "C:/Users/frank/Projects/FOL/fol/src/relational.lisp" (written 17 FEB 2026 03:23:18 AM):
+
+; wrote C:/Users/frank/AppData/Local/cache/common-lisp/sbcl-2.6.0-win-x64/C/Users/frank/Projects/FOL/fol/src/relational-tmpK2ZAJT4I.fasl
+; compilation finished in 0:00:00.012
+; compiling file "C:/Users/frank/Projects/FOL/fol/src/io.lisp" (written 17 FEB 2026 02:06:57 PM):
+
+; file: C:/Users/frank/Projects/FOL/fol/src/io.lisp
+; in: DEFUN READ-LINE
+;     (DEFUN FOL.COMPILER.IO:READ-LINE
+;            (
+;             &OPTIONAL (STREAM FOL.COMPILER.STREAMS:*IN*)
+;             (FOL.COMPILER.IO::EOF-ERROR-P T) FOL.COMPILER.IO::EOF-VALUE
+;             FOL.COMPILER.IO::RECURSIVE-P)
+;       "Reads the next line from stream."
+;       (FOL.COMPILER.STREAMS:STREAM-READ-LINE STREAM))
+; --> SB-IMPL::%DEFUN SB-IMPL::%DEFUN SB-INT:NAMED-LAMBDA 
+; ==>
+;   #'(SB-INT:NAMED-LAMBDA FOL.COMPILER.IO:READ-LINE
+;         (&OPTIONAL (STREAM FOL.COMPILER.STREAMS:*IN*)
+;          (FOL.COMPILER.IO::EOF-ERROR-P T) FOL.COMPILER.IO::EOF-VALUE
+;          FOL.COMPILER.IO::RECURSIVE-P)
+;       (DECLARE (SB-C::TOP-LEVEL-FORM))
+;       "Reads the next line from stream."
+;       (BLOCK FOL.COMPILER.IO:READ-LINE
+;         (FOL.COMPILER.STREAMS:STREAM-READ-LINE STREAM)))
+; 
+; caught STYLE-WARNING:
+;   The variable EOF-ERROR-P is defined but never used.
+; 
+; caught STYLE-WARNING:
+;   The variable EOF-VALUE is defined but never used.
+; 
+; caught STYLE-WARNING:
+;   The variable RECURSIVE-P is defined but never used.
+
+; in: DEFUN SLURP
+;     (DEFUN FOL.COMPILER.IO:SLURP
+;            (FOL.COMPILER.IO::F &KEY FOL.COMPILER.IO::ENCODING)
+;       "Reads the file named by f into a string and returns it."
+;       (WITH-OPEN-FILE
+;           (STREAM FOL.COMPILER.IO::F :DIRECTION :INPUT :IF-DOES-NOT-EXIST NIL)
+;         (IF STREAM
+;             (LET (#)
+;               (READ-SEQUENCE FOL.COMPILER.IO::SEQ STREAM)
+;               FOL.COMPILER.IO::SEQ)
+;             NIL)))
+; --> SB-IMPL::%DEFUN SB-IMPL::%DEFUN SB-INT:NAMED-LAMBDA 
+; ==>
+;   #'(SB-INT:NAMED-LAMBDA FOL.COMPILER.IO:SLURP
+;         (FOL.COMPILER.IO::F &KEY FOL.COMPILER.IO::ENCODING)
+;       (DECLARE (SB-C::TOP-LEVEL-FORM))
+;       "Reads the file named by f into a string and returns it."
+;       (BLOCK FOL.COMPILER.IO:SLURP
+;         (WITH-OPEN-FILE
+;             (STREAM FOL.COMPILER.IO::F :DIRECTION :INPUT :IF-DOES-NOT-EXIST
+;              NIL)
+;           (IF STREAM
+;               (LET #
+;                 #
+;                 FOL.COMPILER.IO::SEQ)
+;               NIL))))
+; 
+; caught STYLE-WARNING:
+;   The variable ENCODING is defined but never used.
+
+
+; wrote C:/Users/frank/AppData/Local/cache/common-lisp/sbcl-2.6.0-win-x64/C/Users/frank/Projects/FOL/fol/src/io-tmpUX5S4ADN.fasl
+; compilation finished in 0:00:00.030
+WARNING:
+   Lisp compilation had style-warnings while
+   compiling #<CL-SOURCE-FILE "fol-compiler" "io">
+; compiling file "C:/Users/frank/Projects/FOL/fol/src/transducers.lisp" (written 17 FEB 2026 07:28:44 AM):
+
+; wrote C:/Users/frank/AppData/Local/cache/common-lisp/sbcl-2.6.0-win-x64/C/Users/frank/Projects/FOL/fol/src/transducers-tmp10401X32.fasl
+; compilation finished in 0:00:00.041
+; compiling file "C:/Users/frank/Projects/FOL/fol/src/metadata.lisp" (written 16 FEB 2026 01:18:35 PM):
+
+; wrote C:/Users/frank/AppData/Local/cache/common-lisp/sbcl-2.6.0-win-x64/C/Users/frank/Projects/FOL/fol/src/metadata-tmpZ7CBRM0G.fasl
+; compilation finished in 0:00:00.012
+; compiling file "C:/Users/frank/Projects/FOL/fol/src/misc-functions.lisp" (written 17 FEB 2026 09:21:22 AM):
+
+; wrote C:/Users/frank/AppData/Local/cache/common-lisp/sbcl-2.6.0-win-x64/C/Users/frank/Projects/FOL/fol/src/misc-functions-tmp9OZEQ0G2.fasl
+; compilation finished in 0:00:00.005
+; compiling file "C:/Users/frank/Projects/FOL/fol/src/compiler.lisp" (written 17 FEB 2026 04:06:44 PM):
+
+; file: C:/Users/frank/Projects/FOL/fol/src/compiler.lisp
+; in: DEFUN MACROEXPAND
+;     (MULTIPLE-VALUE-BIND (FOL.COMPILER::FINAL FOL.COMPILER::ANY-EXPANSION)
+;         (FOL.COMPILER:MACROEXPAND FOL.COMPILER::EXPANDED)
+;       (VALUES FOL.COMPILER::FINAL T))
+; ==>
+;   #'(LAMBDA
+;         (
+;          &OPTIONAL FOL.COMPILER::FINAL FOL.COMPILER::ANY-EXPANSION
+;          &REST #:IGNORE)
+;       (DECLARE (IGNORE #:IGNORE))
+;       (VALUES FOL.COMPILER::FINAL T))
+; 
+; caught STYLE-WARNING:
+;   The variable ANY-EXPANSION is defined but never used.
+
+; in: DEFUN COMPILE-FILE
+;     (FOL.COMPILER::FASL-PATH
+;      (MAKE-PATHNAME :TYPE "fasl" :DEFAULTS FOL.COMPILER::LISP-PATH))
+; 
+; caught STYLE-WARNING:
+;   The variable FASL-PATH is defined but never used.
+
+
+; wrote C:/Users/frank/AppData/Local/cache/common-lisp/sbcl-2.6.0-win-x64/C/Users/frank/Projects/FOL/fol/src/compiler-tmpB2JTL1W9.fasl
+; compilation finished in 0:00:00.202
+WARNING:
+   Lisp compilation had style-warnings while
+   compiling #<CL-SOURCE-FILE "fol-compiler" "compiler">
+; compiling file "C:/Users/frank/Projects/FOL/fol/src/macros.lisp" (written 18 FEB 2026 02:21:45 AM):
+
+; wrote C:/Users/frank/AppData/Local/cache/common-lisp/sbcl-2.6.0-win-x64/C/Users/frank/Projects/FOL/fol/src/macros-tmpP3BI68WQ.fasl
+; compilation finished in 0:00:00.091
+; compiling file "C:/Users/frank/Projects/FOL/fol/src/repl.lisp" (written 17 FEB 2026 03:59:05 PM):
+
+; wrote C:/Users/frank/AppData/Local/cache/common-lisp/sbcl-2.6.0-win-x64/C/Users/frank/Projects/FOL/fol/src/repl-tmpQDARA81Z.fasl
+; compilation finished in 0:00:00.005
+
+; file: C:/Users/frank/Projects/FOL/fol/src/relational.lisp
+; in: DEFUN FOL.COMPILER.RELATIONAL:SELECT
+;     'FOL.COMPILER.RELATIONAL::<ORDERED-SET>
+; 
+; caught STYLE-WARNING:
+;   undefined type: FOL.COMPILER.RELATIONAL::<ORDERED-SET>
+
+;     'FOL.COMPILER.RELATIONAL::<SORTED-SET>
+; 
+; caught STYLE-WARNING:
+;   undefined type: FOL.COMPILER.RELATIONAL::<SORTED-SET>
+
+
+; file: C:/Users/frank/Projects/FOL/fol/src/seq-functions.lisp
+; in: DEFUN FOL.COMPILER.SEQ-FUNCTIONS::%WORKER-THREAD-LOOP
+;     (FOL.COMPILER.SEQ-FUNCTIONS::WORK-ITEM-RESULT-BOX
+;      FOL.COMPILER.SEQ-FUNCTIONS::WORK)
+; 
+; caught STYLE-WARNING:
+;   undefined type: FOL.COMPILER.SEQ-FUNCTIONS:CONS
+
+; in: DEFSTRUCT FOL.COMPILER.SEQ-FUNCTIONS::WORK-ITEM
+;     (FOL.COMPILER.SEQ-FUNCTIONS::RESULT-BOX NIL :TYPE
+;      FOL.COMPILER.SEQ-FUNCTIONS:CONS)
+; --> SB-INT:NAMED-LAMBDA FUNCTION BLOCK LET 
+; ==>
+;   (SB-KERNEL:THE*
+;    (FOL.COMPILER.SEQ-FUNCTIONS:CONS :CONTEXT
+;                                     (SB-KERNEL::STRUCT-CONTEXT
+;                                      FOL.COMPILER.SEQ-FUNCTIONS::WORK-ITEM
+;                                      . FOL.COMPILER.SEQ-FUNCTIONS::RESULT-BOX))
+;    SB-KERNEL::VALUE)
+; 
+; caught STYLE-WARNING:
+;   undefined type: FOL.COMPILER.SEQ-FUNCTIONS:CONS
+
+;     (DEFSTRUCT FOL.COMPILER.SEQ-FUNCTIONS::WORK-ITEM
+;       "A unit of work for the thread pool."
+;       (FOL.COMPILER.SEQ-FUNCTIONS::FN NIL :TYPE FUNCTION)
+;       (FOL.COMPILER.SEQ-FUNCTIONS::ARGS NIL :TYPE LIST)
+;       (FOL.COMPILER.SEQ-FUNCTIONS::RESULT-BOX NIL :TYPE
+;        FOL.COMPILER.SEQ-FUNCTIONS:CONS)
+;       (FOL.COMPILER.SEQ-FUNCTIONS::DONE-LOCK NIL)
+;       (FOL.COMPILER.SEQ-FUNCTIONS::DONE-CONDVAR NIL))
+; 
+; caught STYLE-WARNING:
+;   undefined type: FOL.COMPILER.SEQ-FUNCTIONS:CONS
+
+; 
+; caught STYLE-WARNING:
+;   3395 more uses of undefined type FOL.COMPILER.SEQ-FUNCTIONS:CONS
+; 
+; compilation unit finished
+;   Undefined types:
+;     FOL.COMPILER.RELATIONAL::<ORDERED-SET> FOL.COMPILER.RELATIONAL::<SORTED-SET> 
+FOL.COMPILER.SEQ-FUNCTIONS:CONS
+;   caught 21 STYLE-WARNING conditions
+;   printed 5 notes
+
+--- Running lsim.fol ---
+; compiling file "C:/Users/frank/Projects/FOL/fol/fol-code/lsim.lisp" (written 18 FEB 2026 02:29:34 AM):
+
+; file: C:/Users/frank/Projects/FOL/fol/fol-code/lsim.lisp
+; in: DEFUN COMPUTE-NEXT-STATE
+;     (REDUCE
+;      (LAMBDA (MAX-D IN-PORT)
+;        (LET ((D #))
+;          (IF (TRUTHY? #)
+;              D
+;              MAX-D)))
+;      0 CHANGED-INPUTS)
+; 
+; caught WARNING:
+;   The function REDUCE is called with odd number of keyword arguments.
+
+;     (MAP
+;      (LAMBDA (OUT-PORT)
+;        (LET ((DELAY #))
+;          (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT :VALUE (GET NEW-STATES OUT-PORT)
+;                                                  :DELAY DELAY :PORT OUT-PORT)))
+;      (IF (FBOUNDP 'COMPONENT-OUTPUTS)
+;          (COMPONENT-OUTPUTS COMP)
+;          (LET ((#:VAL350 COMPONENT-OUTPUTS))
+;            (COND (# #) (# #) (# #) (T #)))))
+; 
+; caught WARNING:
+;   The function MAP is called with two arguments, but wants at least three.
+
+;     (#:VAL347 COMPONENT-LOGIC-FN)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL347 is defined but never used.
+
+;     (#:VAL348 COMPONENT-DELAYS)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL348 is defined but never used.
+
+;     (#:OP349 LOGIC-FN)
+; 
+; caught STYLE-WARNING:
+;   The variable #:OP349 is defined but never used.
+
+;     (#:VAL350 COMPONENT-OUTPUTS)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL350 is defined but never used.
+
+; in: IF (FBOUNDP 'REGISTER-PRIMITIVE)
+;     (LAMBDA (NAME PARAM CONNS)
+;       (MAKE <LOGIC-COMPONENT> :NAME NAME :TYPE 'NOT :CONNECTIONS CONNS :INPUTS
+;        (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :IN) :OUTPUTS
+;        (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :OUT) ...))
+; 
+; caught STYLE-WARNING:
+;   The variable PARAM is defined but never used.
+; 
+; caught STYLE-WARNING:
+;   The variable PARAM is defined but never used.
+; 
+; caught STYLE-WARNING:
+;   The variable PARAM is defined but never used.
+; 
+; caught STYLE-WARNING:
+;   The variable PARAM is defined but never used.
+
+;     (LAMBDA (NAME PARAM CONNS)
+;       (MAKE <LOGIC-COMPONENT> :NAME NAME :TYPE 'NAND :CONNECTIONS CONNS :INPUTS
+;        (FOL.COMPILER.COLLECTION-FUNCTIONS:SET 1 2 :IN) :OUTPUTS
+;        (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :OUT) ...))
+; 
+; caught STYLE-WARNING:
+;   The variable PARAM is defined but never used.
+; 
+; caught STYLE-WARNING:
+;   The variable PARAM is defined but never used.
+; 
+; caught STYLE-WARNING:
+;   The variable PARAM is defined but never used.
+; 
+; caught STYLE-WARNING:
+;   The variable PARAM is defined but never used.
+
+;     (LAMBDA (NAME PARAM CONNS)
+;       (MAKE <LOGIC-COMPONENT> :NAME NAME :TYPE 'NOR :CONNECTIONS CONNS :INPUTS
+;        (FOL.COMPILER.COLLECTION-FUNCTIONS:SET 1 2 :IN) :OUTPUTS
+;        (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :OUT) ...))
+; 
+; caught STYLE-WARNING:
+;   The variable PARAM is defined but never used.
+; 
+; caught STYLE-WARNING:
+;   The variable PARAM is defined but never used.
+; 
+; caught STYLE-WARNING:
+;   The variable PARAM is defined but never used.
+; 
+; caught STYLE-WARNING:
+;   The variable PARAM is defined but never used.
+
+;     (LAMBDA (NAME PARAM CONNS)
+;       (MAKE <LOGIC-COMPONENT> :NAME NAME :TYPE 'AND :CONNECTIONS CONNS :INPUTS
+;        (FOL.COMPILER.COLLECTION-FUNCTIONS:SET 1 2 :IN) :OUTPUTS
+;        (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :OUT) ...))
+; 
+; caught STYLE-WARNING:
+;   The variable PARAM is defined but never used.
+; 
+; caught STYLE-WARNING:
+;   The variable PARAM is defined but never used.
+; 
+; caught STYLE-WARNING:
+;   The variable PARAM is defined but never used.
+; 
+; caught STYLE-WARNING:
+;   The variable PARAM is defined but never used.
+
+;     (LAMBDA (NAME PARAM CONNS)
+;       (MAKE <LOGIC-COMPONENT> :NAME NAME :TYPE 'OR :CONNECTIONS CONNS :INPUTS
+;        (FOL.COMPILER.COLLECTION-FUNCTIONS:SET 1 2 :IN) :OUTPUTS
+;        (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :OUT) ...))
+; 
+; caught STYLE-WARNING:
+;   The variable PARAM is defined but never used.
+; 
+; caught STYLE-WARNING:
+;   The variable PARAM is defined but never used.
+; 
+; caught STYLE-WARNING:
+;   The variable PARAM is defined but never used.
+; 
+; caught STYLE-WARNING:
+;   The variable PARAM is defined but never used.
+
+;     (LAMBDA (NAME PARAM CONNS)
+;       (MAKE <LOGIC-COMPONENT> :NAME NAME :TYPE 'XOR :CONNECTIONS CONNS :INPUTS
+;        (FOL.COMPILER.COLLECTION-FUNCTIONS:SET 1 2 :IN) :OUTPUTS
+;        (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :OUT) ...))
+; 
+; caught STYLE-WARNING:
+;   The variable PARAM is defined but never used.
+; 
+; caught STYLE-WARNING:
+;   The variable PARAM is defined but never used.
+; 
+; caught STYLE-WARNING:
+;   The variable PARAM is defined but never used.
+; 
+; caught STYLE-WARNING:
+;   The variable PARAM is defined but never used.
+
+;     (LAMBDA (NAME PARAM CONNS)
+;       (MAKE <LOGIC-COMPONENT> :NAME NAME :TYPE 'XNOR :CONNECTIONS CONNS :INPUTS
+;        (FOL.COMPILER.COLLECTION-FUNCTIONS:SET 1 2 :IN) :OUTPUTS
+;        (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :OUT) ...))
+; 
+; caught STYLE-WARNING:
+;   The variable PARAM is defined but never used.
+; 
+; caught STYLE-WARNING:
+;   The variable PARAM is defined but never used.
+; 
+; caught STYLE-WARNING:
+;   The variable PARAM is defined but never used.
+; 
+; caught STYLE-WARNING:
+;   The variable PARAM is defined but never used.
+
+; file: C:/Users/frank/Projects/FOL/fol/fol-code/lsim.lisp
+; in: DEFMACRO DEFPART
+;     (DEFMACRO DEFPART (NAME PORTS &BODY BODY)
+;       '(REGISTER-MODULE 'NAME
+;         (MAKE <MODULE-DEF> :NAME 'NAME :PORTS 'PORTS :BODY 'BODY)))
+; --> EVAL-WHEN SB-C::%DEFMACRO SB-INT:NAMED-LAMBDA SB-INT:NAMED-DS-BIND 
+; --> SB-INT:BINDING* 
+; ==>
+;   (LET* ((#:G0
+;           (SB-C::CHECK-DS-LIST/&REST (CDR #:EXPR) 2 2
+;                                      '(# NAME PORTS &BODY BODY)))
+;          (NAME (POP #:G0))
+;          (PORTS (POP #:G0))
+;          (BODY #:G0))
+;     (DECLARE (SB-C::CONSTANT-VALUE NAME PORTS BODY))
+;     (BLOCK DEFPART
+;       '(REGISTER-MODULE 'NAME
+;         (MAKE <MODULE-DEF> :NAME 'NAME :PORTS 'PORTS :BODY 'BODY))))
+; 
+; caught STYLE-WARNING:
+;   The variable NAME is defined but never used.
+; 
+; caught STYLE-WARNING:
+;   The variable PORTS is defined but never used.
+; 
+; caught STYLE-WARNING:
+;   The variable BODY is defined but never used.
+
+; in: DEFMACRO DEFPART
+;     (DEFMACRO DEFPART (NAME PORTS &BODY BODY)
+;       '(REGISTER-MODULE 'NAME
+;         (MAKE <MODULE-DEF> :NAME 'NAME :PORTS 'PORTS :BODY 'BODY)))
+; --> EVAL-WHEN SB-C::%DEFMACRO SB-C::%DEFMACRO SB-INT:NAMED-LAMBDA FUNCTION 
+; --> SB-INT:NAMED-DS-BIND SB-INT:BINDING* 
+; ==>
+;   (LET* ((#:G0
+;           (SB-C::CHECK-DS-LIST/&REST (CDR #:EXPR) 2 2
+;                                      '(# NAME PORTS &BODY BODY)))
+;          (NAME (POP #:G0))
+;          (PORTS (POP #:G0))
+;          (BODY #:G0))
+;     (DECLARE (SB-C::CONSTANT-VALUE NAME PORTS BODY))
+;     (BLOCK DEFPART
+;       '(REGISTER-MODULE 'NAME
+;         (MAKE <MODULE-DEF> :NAME 'NAME :PORTS 'PORTS :BODY 'BODY))))
+; 
+; caught STYLE-WARNING:
+;   The variable NAME is defined but never used.
+; 
+; caught STYLE-WARNING:
+;   The variable PORTS is defined but never used.
+; 
+; caught STYLE-WARNING:
+;   The variable BODY is defined but never used.
+
+; in: IF (FBOUNDP 'REGISTER-MODULE)
+;     (GET #:VAL361 'REGISTER- 32BIT
+;          (MAKE '<MODULE-DEF> :NAME 'REGISTER- 32BIT :PORTS
+;           '(CLK D 0 D 1 D 2 D 3 D 4 D ...) :BODY
+;           '((D-LATCH BIT 0 :CLK CLK :D D 0 :Q Q 0 :QBAR ...)
+;             (D-LATCH BIT 1 :CLK CLK :D D 1 :Q Q 1 :QBAR ...)
+;             (D-LATCH BIT 2 :CLK CLK :D D 2 :Q Q 2 :QBAR ...)
+;             (D-LATCH BIT 3 :CLK CLK :D D 3 :Q Q 3 :QBAR ...)
+;             (D-LATCH BIT 4 :CLK CLK :D D 4 :Q Q 4 :QBAR ...)
+;             (D-LATCH BIT 5 :CLK CLK :D D 5 :Q Q 5 :QBAR ...)
+;             (D-LATCH BIT 6 :CLK CLK :D D 6 :Q Q 6 :QBAR ...)
+;             (D-LATCH BIT 7 :CLK CLK :D D 7 :Q Q 7 :QBAR ...)
+;             (D-LATCH BIT 8 :CLK CLK :D D 8 :Q Q 8 :QBAR ...)
+;             (D-LATCH BIT 9 :CLK CLK :D D 9 :Q Q 9 :QBAR ...)
+;             (D-LATCH BIT 10 :CLK CLK :D D 10 :Q Q 10 :QBAR ...)
+;             (D-LATCH BIT 11 :CLK CLK :D D 11 :Q Q 11 :QBAR ...) ...)))
+; 
+; caught WARNING:
+;   The function GET called with four arguments, but wants at most three.
+; 
+; caught WARNING:
+;   The function GET called with four arguments, but wants at most three.
+
+; in: DEFUN QUALIFY-NAME
+;     (GET #:VAL363 PREFIX "/" NAME)
+; 
+; caught WARNING:
+;   The function GET called with four arguments, but wants at most three.
+; 
+; caught WARNING:
+;   The function GET called with four arguments, but wants at most three.
+
+;     (#:VAL362 NIL?)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL362 is defined but never used.
+
+;     (#:VAL363 STR)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL363 is defined but never used.
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL363 PREFIX "/" NAME)
+; 
+; caught STYLE-WARNING:
+;   The function FOL.COMPILER.COLLECTION-FUNCTIONS:NTH called with four arguments, but wants at most 
+three.
+
+; in: IF (FBOUNDP 'REGISTER-PRIMITIVE)
+;     (LET ((#:VAL351 REGISTER-PRIMITIVE))
+;       (COND ((TYPEP #:VAL351 '<DICT>) (GET #:VAL351 'NOT (LAMBDA # #)))
+;             ((TYPEP #:VAL351 '<VECTOR>)
+;              (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL351 'NOT (LAMBDA # #)))
+;             ((TYPEP #:VAL351 '<SET>) (GET #:VAL351 'NOT (LAMBDA # #)))
+;             (T (ERROR "~S is not a function or collection" 'REGISTER-PRIMITIVE))))
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL351 is defined but never used.
+
+;     (LET ((#:VAL352 REGISTER-PRIMITIVE))
+;       (COND ((TYPEP #:VAL352 '<DICT>) (GET #:VAL352 'NAND (LAMBDA # #)))
+;             ((TYPEP #:VAL352 '<VECTOR>)
+;              (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL352 'NAND (LAMBDA # #)))
+;             ((TYPEP #:VAL352 '<SET>) (GET #:VAL352 'NAND (LAMBDA # #)))
+;             (T (ERROR "~S is not a function or collection" 'REGISTER-PRIMITIVE))))
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL352 is defined but never used.
+
+;     (LET ((#:VAL353 REGISTER-PRIMITIVE))
+;       (COND ((TYPEP #:VAL353 '<DICT>) (GET #:VAL353 'NOR (LAMBDA # #)))
+;             ((TYPEP #:VAL353 '<VECTOR>)
+;              (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL353 'NOR (LAMBDA # #)))
+;             ((TYPEP #:VAL353 '<SET>) (GET #:VAL353 'NOR (LAMBDA # #)))
+;             (T (ERROR "~S is not a function or collection" 'REGISTER-PRIMITIVE))))
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL353 is defined but never used.
+
+;     (LET ((#:VAL354 REGISTER-PRIMITIVE))
+;       (COND ((TYPEP #:VAL354 '<DICT>) (GET #:VAL354 'AND (LAMBDA # #)))
+;             ((TYPEP #:VAL354 '<VECTOR>)
+;              (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL354 'AND (LAMBDA # #)))
+;             ((TYPEP #:VAL354 '<SET>) (GET #:VAL354 'AND (LAMBDA # #)))
+;             (T (ERROR "~S is not a function or collection" 'REGISTER-PRIMITIVE))))
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL354 is defined but never used.
+
+;     (LET ((#:VAL355 REGISTER-PRIMITIVE))
+;       (COND ((TYPEP #:VAL355 '<DICT>) (GET #:VAL355 'OR (LAMBDA # #)))
+;             ((TYPEP #:VAL355 '<VECTOR>)
+;              (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL355 'OR (LAMBDA # #)))
+;             ((TYPEP #:VAL355 '<SET>) (GET #:VAL355 'OR (LAMBDA # #)))
+;             (T (ERROR "~S is not a function or collection" 'REGISTER-PRIMITIVE))))
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL355 is defined but never used.
+
+;     (LET ((#:VAL356 REGISTER-PRIMITIVE))
+;       (COND ((TYPEP #:VAL356 '<DICT>) (GET #:VAL356 'XOR (LAMBDA # #)))
+;             ((TYPEP #:VAL356 '<VECTOR>)
+;              (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL356 'XOR (LAMBDA # #)))
+;             ((TYPEP #:VAL356 '<SET>) (GET #:VAL356 'XOR (LAMBDA # #)))
+;             (T (ERROR "~S is not a function or collection" 'REGISTER-PRIMITIVE))))
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL356 is defined but never used.
+
+;     (LET ((#:VAL357 REGISTER-PRIMITIVE))
+;       (COND ((TYPEP #:VAL357 '<DICT>) (GET #:VAL357 'XNOR (LAMBDA # #)))
+;             ((TYPEP #:VAL357 '<VECTOR>)
+;              (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL357 'XNOR (LAMBDA # #)))
+;             ((TYPEP #:VAL357 '<SET>) (GET #:VAL357 'XNOR (LAMBDA # #)))
+;             (T (ERROR "~S is not a function or collection" 'REGISTER-PRIMITIVE))))
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL357 is defined but never used.
+
+;     (LET ((#:VAL358 REGISTER-PRIMITIVE))
+;       (COND ((TYPEP #:VAL358 '<DICT>) (GET #:VAL358 'DELAY (LAMBDA # #)))
+;             ((TYPEP #:VAL358 '<VECTOR>)
+;              (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL358 'DELAY
+;                                                     (LAMBDA # #)))
+;             ((TYPEP #:VAL358 '<SET>) (GET #:VAL358 'DELAY (LAMBDA # #)))
+;             (T (ERROR "~S is not a function or collection" 'REGISTER-PRIMITIVE))))
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL358 is defined but never used.
+
+; in: IF (FBOUNDP 'REGISTER-MODULE)
+;     (LET ((#:VAL359 REGISTER-MODULE))
+;       (COND
+;        ((TYPEP #:VAL359 '<DICT>)
+;         (GET #:VAL359 'SR-LATCH
+;              (MAKE '<MODULE-DEF> :NAME 'SR-LATCH :PORTS '# :BODY '#)))
+;        ((TYPEP #:VAL359 '<VECTOR>)
+;         (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL359 'SR-LATCH
+;                                                (MAKE '<MODULE-DEF> :NAME
+;                                                 'SR-LATCH :PORTS '# :BODY '#)))
+;        ((TYPEP #:VAL359 '<SET>)
+;         (GET #:VAL359 'SR-LATCH
+;              (MAKE '<MODULE-DEF> :NAME 'SR-LATCH :PORTS '# :BODY '#)))
+;        (T (ERROR "~S is not a function or collection" 'REGISTER-MODULE))))
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL359 is defined but never used.
+
+;     (LET ((#:VAL360 REGISTER-MODULE))
+;       (COND
+;        ((TYPEP #:VAL360 '<DICT>)
+;         (GET #:VAL360 'D-LATCH
+;              (MAKE '<MODULE-DEF> :NAME 'D-LATCH :PORTS '# :BODY '#)))
+;        ((TYPEP #:VAL360 '<VECTOR>)
+;         (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL360 'D-LATCH
+;                                                (MAKE '<MODULE-DEF> :NAME 'D-LATCH
+;                                                 :PORTS '# :BODY '#)))
+;        ((TYPEP #:VAL360 '<SET>)
+;         (GET #:VAL360 'D-LATCH
+;              (MAKE '<MODULE-DEF> :NAME 'D-LATCH :PORTS '# :BODY '#)))
+;        (T (ERROR "~S is not a function or collection" 'REGISTER-MODULE))))
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL360 is defined but never used.
+
+;     (REGISTER-MODULE 'REGISTER- 32BIT
+;      (MAKE '<MODULE-DEF> :NAME 'REGISTER- 32BIT :PORTS
+;       '(CLK D 0 D 1 D 2 D 3 D 4 D ...) :BODY
+;       '((D-LATCH BIT 0 :CLK CLK :D D 0 :Q Q 0 :QBAR ...)
+;         (D-LATCH BIT 1 :CLK CLK :D D 1 :Q Q 1 :QBAR ...)
+;         (D-LATCH BIT 2 :CLK CLK :D D 2 :Q Q 2 :QBAR ...)
+;         (D-LATCH BIT 3 :CLK CLK :D D 3 :Q Q 3 :QBAR ...)
+;         (D-LATCH BIT 4 :CLK CLK :D D 4 :Q Q 4 :QBAR ...)
+;         (D-LATCH BIT 5 :CLK CLK :D D 5 :Q Q 5 :QBAR ...)
+;         (D-LATCH BIT 6 :CLK CLK :D D 6 :Q Q 6 :QBAR ...)
+;         (D-LATCH BIT 7 :CLK CLK :D D 7 :Q Q 7 :QBAR ...)
+;         (D-LATCH BIT 8 :CLK CLK :D D 8 :Q Q 8 :QBAR ...)
+;         (D-LATCH BIT 9 :CLK CLK :D D 9 :Q Q 9 :QBAR ...)
+;         (D-LATCH BIT 10 :CLK CLK :D D 10 :Q Q 10 :QBAR ...)
+;         (D-LATCH BIT 11 :CLK CLK :D D 11 :Q Q 11 :QBAR ...) ...)))
+; 
+; caught WARNING:
+;   The function REGISTER-MODULE is called with three arguments, but wants exactly two.
+
+;     (LET ((#:VAL361 REGISTER-MODULE))
+;       (COND
+;        ((TYPEP #:VAL361 '<DICT>)
+;         (GET #:VAL361 'REGISTER- 32BIT
+;              (MAKE '<MODULE-DEF> :NAME 'REGISTER- 32BIT :PORTS '# :BODY '#)))
+;        ((TYPEP #:VAL361 '<VECTOR>)
+;         (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL361 'REGISTER- 32BIT
+;                                                (MAKE '<MODULE-DEF> :NAME
+;                                                 'REGISTER- 32BIT :PORTS '# :BODY
+;                                                 '#)))
+;        ((TYPEP #:VAL361 '<SET>)
+;         (GET #:VAL361 'REGISTER- 32BIT
+;              (MAKE '<MODULE-DEF> :NAME 'REGISTER- 32BIT :PORTS '# :BODY '#)))
+;        (T (ERROR "~S is not a function or collection" 'REGISTER-MODULE))))
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL361 is defined but never used.
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL361 'REGISTER- 32BIT
+;                                            (MAKE '<MODULE-DEF> :NAME 'REGISTER-
+;                                             32BIT :PORTS
+;                                             '(CLK D 0 D 1 D 2 D 3 D 4 D ...)
+;                                             :BODY
+;                                             '((D-LATCH BIT 0 :CLK CLK :D D 0 :Q Q
+;                                                0 :QBAR ...)
+;                                               (D-LATCH BIT 1 :CLK CLK :D D 1 :Q Q
+;                                                1 :QBAR ...)
+;                                               (D-LATCH BIT 2 :CLK CLK :D D 2 :Q Q
+;                                                2 :QBAR ...)
+;                                               (D-LATCH BIT 3 :CLK CLK :D D 3 :Q Q
+;                                                3 :QBAR ...)
+;                                               (D-LATCH BIT 4 :CLK CLK :D D 4 :Q Q
+;                                                4 :QBAR ...)
+;                                               (D-LATCH BIT 5 :CLK CLK :D D 5 :Q Q
+;                                                5 :QBAR ...)
+;                                               (D-LATCH BIT 6 :CLK CLK :D D 6 :Q Q
+;                                                6 :QBAR ...)
+;                                               (D-LATCH BIT 7 :CLK CLK :D D 7 :Q Q
+;                                                7 :QBAR ...)
+;                                               (D-LATCH BIT 8 :CLK CLK :D D 8 :Q Q
+;                                                8 :QBAR ...)
+;                                               (D-LATCH BIT 9 :CLK CLK :D D 9 :Q Q
+;                                                9 :QBAR ...)
+;                                               (D-LATCH BIT 10 :CLK CLK :D D 10 :Q
+;                                                Q 10 :QBAR ...)
+;                                               (D-LATCH BIT 11 :CLK CLK :D D 11 :Q
+;                                                Q 11 :QBAR ...)
+;                                               ...)))
+; 
+; caught STYLE-WARNING:
+;   The function FOL.COMPILER.COLLECTION-FUNCTIONS:NTH called with four arguments, but wants at most 
+three.
+
+; in: DEFUN RESOLVE-NODE
+;     (#:VAL364 QUALIFY-NAME)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL364 is defined but never used.
+
+; in: DEFUN PARSE-CONNECTIONS
+;     (ASSOC ACC PORT RESOLVED)
+; 
+; caught WARNING:
+;   The function ASSOC is called with odd number of keyword arguments.
+
+;     (GET #:VAL365 NODE-SYM PREFIX BINDINGS)
+; 
+; caught WARNING:
+;   The function GET called with four arguments, but wants at most three.
+; 
+; caught WARNING:
+;   The function GET called with four arguments, but wants at most three.
+
+;     (#:VAL365 RESOLVE-NODE)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL365 is defined but never used.
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL365 NODE-SYM PREFIX BINDINGS)
+; 
+; caught STYLE-WARNING:
+;   The function FOL.COMPILER.COLLECTION-FUNCTIONS:NTH called with four arguments, but wants at most 
+three.
+
+; in: DEFUN EXPAND-SPEC
+;     (GET #:VAL371 CHILD-SPEC FULL-NAME RESOLVED-CONNS)
+; 
+; caught WARNING:
+;   The function GET called with four arguments, but wants at most three.
+; 
+; caught WARNING:
+;   The function GET called with four arguments, but wants at most three.
+
+;     (REDUCE
+;      (LAMBDA (ACC CHILD-SPEC)
+;        (CONCAT ACC
+;         (IF (FBOUNDP 'EXPAND-SPEC)
+;             (EXPAND-SPEC CHILD-SPEC FULL-NAME RESOLVED-CONNS)
+;             (LET #
+;               #))))
+;      (FOL.COMPILER.COLLECTION-FUNCTIONS:VECTOR)
+;      (IF (FBOUNDP 'MODULE-BODY)
+;          (MODULE-BODY MODULE-DEF)
+;          (LET ((#:VAL372 MODULE-BODY))
+;            (COND (# #) (# #) (# #) (T #)))))
+; 
+; caught WARNING:
+;   The function REDUCE is called with odd number of keyword arguments.
+
+;     (GET #:OP373 FULL-NAME PARAM RESOLVED-CONNS)
+; 
+; caught WARNING:
+;   The function GET called with four arguments, but wants at most three.
+; 
+; caught WARNING:
+;   The function GET called with four arguments, but wants at most three.
+
+;     (GET #:VAL368 ARGS PREFIX BINDINGS)
+; 
+; caught WARNING:
+;   The function GET called with four arguments, but wants at most three.
+; 
+; caught WARNING:
+;   The function GET called with four arguments, but wants at most three.
+
+;     (#:VAL366 KEYWORD?)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL366 is defined but never used.
+
+;     (#:VAL367 QUALIFY-NAME)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL367 is defined but never used.
+
+;     (#:VAL368 PARSE-CONNECTIONS)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL368 is defined but never used.
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL368 ARGS PREFIX BINDINGS)
+; 
+; caught STYLE-WARNING:
+;   The function FOL.COMPILER.COLLECTION-FUNCTIONS:NTH called with four arguments, but wants at most 
+three.
+
+;     (#:VAL369 GET-MODULE)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL369 is defined but never used.
+
+;     (#:VAL370 GET-PRIMITIVE)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL370 is defined but never used.
+
+;     (#:VAL372 MODULE-BODY)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL372 is defined but never used.
+
+;     (#:OP373 PRIMITIVE-FACTORY)
+; 
+; caught STYLE-WARNING:
+;   The variable #:OP373 is defined but never used.
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:OP373 FULL-NAME PARAM RESOLVED-CONNS)
+; 
+; caught STYLE-WARNING:
+;   The function FOL.COMPILER.COLLECTION-FUNCTIONS:NTH called with four arguments, but wants at most 
+three.
+
+;     (#:VAL371 EXPAND-SPEC)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL371 is defined but never used.
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL371 CHILD-SPEC FULL-NAME
+;                                            RESOLVED-CONNS)
+; 
+; caught STYLE-WARNING:
+;   The function FOL.COMPILER.COLLECTION-FUNCTIONS:NTH called with four arguments, but wants at most 
+three.
+
+; in: DEFUN EXPAND-NETLIST
+;     (GET #:VAL376 "Module " TOP-MODULE-NAME " not found")
+; 
+; caught WARNING:
+;   The function GET called with four arguments, but wants at most three.
+; 
+; caught WARNING:
+;   The function GET called with four arguments, but wants at most three.
+
+;     (GET #:VAL378 SPEC NIL TOP-BINDINGS)
+; 
+; caught WARNING:
+;   The function GET called with four arguments, but wants at most three.
+; 
+; caught WARNING:
+;   The function GET called with four arguments, but wants at most three.
+
+;     (REDUCE
+;      (LAMBDA (ACC SPEC)
+;        (CONCAT ACC
+;         (IF (FBOUNDP 'EXPAND-SPEC)
+;             (EXPAND-SPEC SPEC NIL TOP-BINDINGS)
+;             (LET #
+;               #))))
+;      (FOL.COMPILER.COLLECTION-FUNCTIONS:VECTOR)
+;      (IF (FBOUNDP 'MODULE-BODY)
+;          (MODULE-BODY DEF)
+;          (LET ((#:VAL379 MODULE-BODY))
+;            (COND (# #) (# #) (# #) (T #)))))
+; 
+; caught WARNING:
+;   The function REDUCE is called with odd number of keyword arguments.
+
+;     (ASSOC ACC P P)
+; 
+; caught WARNING:
+;   The function ASSOC is called with odd number of keyword arguments.
+
+;     (REDUCE (LAMBDA (ACC P) (ASSOC ACC P P))
+;             (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT)
+;             (IF (FBOUNDP 'MODULE-PORTS)
+;                 (MODULE-PORTS DEF)
+;                 (LET ((#:VAL377 MODULE-PORTS))
+;                   (COND (# #) (# #) (# #) (T #)))))
+; 
+; caught WARNING:
+;   The function REDUCE is called with odd number of keyword arguments.
+
+; in: DEFUN EXPAND-NETLIST =>
+;      DEF (IF (FBOUNDP 'GET-MODULE)
+;          (GET-MODULE TOP-MODULE-NAME)
+;          (LET ((#:VAL374 GET-MODULE))
+;            (COND ((TYPEP #:VAL374 '<DICT>) (GET #:VAL374 TOP-MODULE-NAME))
+;                  ((TYPEP #:VAL374 '<VECTOR>)
+;                   (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL374
+;                                                          TOP-MODULE-NAME))
+;                  ((TYPEP #:VAL374 '<SET>) (GET #:VAL374 TOP-MODULE-NAME))
+;                  (T (ERROR "~S is not a function or collection" 'GET-MODULE)))))
+;     (#:VAL374 GET-MODULE)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL374 is defined but never used.
+
+; in: DEFUN EXPAND-NETLIST
+;     (#:VAL375 NIL?)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL375 is defined but never used.
+
+;     (#:VAL376 STR)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL376 is defined but never used.
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL376 "Module " TOP-MODULE-NAME
+;                                            " not found")
+; 
+; caught STYLE-WARNING:
+;   The function FOL.COMPILER.COLLECTION-FUNCTIONS:NTH called with four arguments, but wants at most 
+three.
+
+;     (#:VAL377 MODULE-PORTS)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL377 is defined but never used.
+
+;     (#:VAL379 MODULE-BODY)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL379 is defined but never used.
+
+;     (#:VAL378 EXPAND-SPEC)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL378 is defined but never used.
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL378 SPEC NIL TOP-BINDINGS)
+; 
+; caught STYLE-WARNING:
+;   The function FOL.COMPILER.COLLECTION-FUNCTIONS:NTH called with four arguments, but wants at most 
+three.
+
+; in: DEFUN REGISTER-CONNECTIVITY
+;     (GET #:VAL381 ACC NODE
+;          (LAMBDA (COMPS)
+;            (CONJ (OR COMPS (FOL.COMPILER.COLLECTION-FUNCTIONS:VECTOR)) COMP)))
+; 
+; caught WARNING:
+;   The function GET called with four arguments, but wants at most three.
+; 
+; caught WARNING:
+;   The function GET called with four arguments, but wants at most three.
+
+;     (REDUCE
+;      (LAMBDA (ACC PORT)
+;        (LET ((NODE #))
+;          (IF (FBOUNDP 'UPDATE)
+;              (UPDATE ACC NODE #)
+;              (LET #
+;                #))))
+;      MAP
+;      (IF (FBOUNDP 'COMPONENT-INPUTS)
+;          (COMPONENT-INPUTS COMP)
+;          (LET ((#:VAL382 COMPONENT-INPUTS))
+;            (COND (# #) (# #) (# #) (T #)))))
+; 
+; caught WARNING:
+;   The function REDUCE is called with odd number of keyword arguments.
+
+;     (#:VAL380 COMPONENT-CONNECTIONS)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL380 is defined but never used.
+
+;     (#:VAL381 UPDATE)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL381 is defined but never used.
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL381 ACC NODE
+;                                            (LAMBDA (COMPS)
+;                                              (CONJ
+;                                               (OR COMPS
+;                                                   (FOL.COMPILER.COLLECTION-FUNCTIONS:VECTOR))
+;                                               COMP)))
+; 
+; caught STYLE-WARNING:
+;   The function FOL.COMPILER.COLLECTION-FUNCTIONS:NTH called with four arguments, but wants at most 
+three.
+
+;     (#:VAL382 COMPONENT-INPUTS)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL382 is defined but never used.
+
+; in: DEFUN INSERT-EVENT
+;     (#:START-383 (GET-INTERNAL-REAL-TIME))
+; 
+; caught STYLE-WARNING:
+;   The variable #:START-383 is defined but never used.
+
+;     (#:RESULT-384 (PROGN EVENT))
+; 
+; caught STYLE-WARNING:
+;   The variable #:RESULT-384 is defined but never used.
+
+;     (#:END-385 (GET-INTERNAL-REAL-TIME))
+; 
+; caught STYLE-WARNING:
+;   The variable #:END-385 is defined but never used.
+
+;     (#:START-386 (GET-INTERNAL-REAL-TIME))
+; 
+; caught STYLE-WARNING:
+;   The variable #:START-386 is defined but never used.
+
+;     (#:RESULT-387 (PROGN HEAD))
+; 
+; caught STYLE-WARNING:
+;   The variable #:RESULT-387 is defined but never used.
+
+;     (#:END-388 (GET-INTERNAL-REAL-TIME))
+; 
+; caught STYLE-WARNING:
+;   The variable #:END-388 is defined but never used.
+
+;     (#:VAL389 INSERT-EVENT)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL389 is defined but never used.
+
+; in: DEFUN MERGE-EVENTS
+;     (REDUCE INSERT-EVENT QUEUE NEW-EVENTS)
+; 
+; caught WARNING:
+;   The function REDUCE is called with odd number of keyword arguments.
+
+; in: DEFUN GET-INPUT-STATES
+;     (ASSOC ACC PORT (GET NODE-VALUES NODE))
+; 
+; caught WARNING:
+;   The function ASSOC is called with odd number of keyword arguments.
+
+;     (REDUCE
+;      (LAMBDA (ACC PORT)
+;        (LET ((NODE #))
+;          (ASSOC ACC PORT (GET NODE-VALUES NODE))))
+;      (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT)
+;      (IF (FBOUNDP 'COMPONENT-INPUTS)
+;          (COMPONENT-INPUTS COMP)
+;          (LET ((#:VAL391 COMPONENT-INPUTS))
+;            (COND (# #) (# #) (# #) (T #)))))
+; 
+; caught WARNING:
+;   The function REDUCE is called with odd number of keyword arguments.
+
+;     (#:VAL391 COMPONENT-INPUTS)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL391 is defined but never used.
+
+;     (#:VAL390 COMPONENT-CONNECTIONS)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL390 is defined but never used.
+
+; in: DEFUN GET-CHANGED-PORTS
+;     (#:VAL393 COMPONENT-INPUTS)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL393 is defined but never used.
+
+;     (#:VAL392 COMPONENT-CONNECTIONS)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL392 is defined but never used.
+
+; in: DEFUN RUN-SIMULATION
+;     (MAP
+;      (LAMBDA (RES)
+;        (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT :NODE
+;                                                (GET
+;                                                 (IF #
+;                                                     #
+;                                                     #)
+;                                                 (GET RES :PORT))
+;                                                :VALUE (GET RES :VALUE) :TIME
+;                                                (+ EVENT-TIME
+;                                                   (IF #
+;                                                       #
+;                                                       #))))
+;      RESULTS)
+; 
+; caught WARNING:
+;   The function MAP is called with two arguments, but wants at least three.
+
+;     (GET #:VAL408 COMP INPUT-STATES CHANGED-PORTS)
+; 
+; caught WARNING:
+;   The function GET called with four arguments, but wants at most three.
+; 
+; caught WARNING:
+;   The function GET called with four arguments, but wants at most three.
+
+;     (MAP
+;      (LAMBDA (RES)
+;        (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT :NODE
+;                                                (GET
+;                                                 (IF #
+;                                                     #
+;                                                     #)
+;                                                 (GET RES :PORT))
+;                                                :VALUE (GET RES :VALUE) :TIME
+;                                                (+ EVENT-TIME
+;                                                   (IF #
+;                                                       #
+;                                                       #))))
+;      RESULTS)
+; 
+; caught WARNING:
+;   The function MAP is called with two arguments, but wants at least three.
+
+;     (GET #:VAL408 COMP INPUT-STATES CHANGED-PORTS)
+; 
+; caught WARNING:
+;   The function GET called with four arguments, but wants at most three.
+; 
+; caught WARNING:
+;   The function GET called with four arguments, but wants at most three.
+
+;     (MAP
+;      (LAMBDA (RES)
+;        (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT :NODE
+;                                                (GET
+;                                                 (IF #
+;                                                     #
+;                                                     #)
+;                                                 (GET RES :PORT))
+;                                                :VALUE (GET RES :VALUE) :TIME
+;                                                (+ EVENT-TIME
+;                                                   (IF #
+;                                                       #
+;                                                       #))))
+;      RESULTS)
+; 
+; caught WARNING:
+;   The function MAP is called with two arguments, but wants at least three.
+
+;     (GET #:VAL408 COMP INPUT-STATES CHANGED-PORTS)
+; 
+; caught WARNING:
+;   The function GET called with four arguments, but wants at most three.
+; 
+; caught WARNING:
+;   The function GET called with four arguments, but wants at most three.
+
+;     (MAP
+;      (LAMBDA (RES)
+;        (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT :NODE
+;                                                (GET
+;                                                 (IF #
+;                                                     #
+;                                                     #)
+;                                                 (GET RES :PORT))
+;                                                :VALUE (GET RES :VALUE) :TIME
+;                                                (+ EVENT-TIME
+;                                                   (IF #
+;                                                       #
+;                                                       #))))
+;      RESULTS)
+; 
+; caught WARNING:
+;   The function MAP is called with two arguments, but wants at least three.
+
+;     (GET #:VAL408 COMP INPUT-STATES CHANGED-PORTS)
+; 
+; caught WARNING:
+;   The function GET called with four arguments, but wants at most three.
+; 
+; caught WARNING:
+;   The function GET called with four arguments, but wants at most three.
+
+;     (REDUCE CONJ ACC (GET CONNECTIVITY NODE))
+; 
+; caught WARNING:
+;   The function REDUCE is called with odd number of keyword arguments.
+
+;     (REDUCE (LAMBDA (ACC NODE) (REDUCE CONJ ACC (GET CONNECTIVITY NODE)))
+;             (FOL.COMPILER.COLLECTION-FUNCTIONS:SET) CHANGED-NODES)
+; 
+; caught WARNING:
+;   The function REDUCE is called with odd number of keyword arguments.
+
+;     (GET #:VAL405 ACC (GET EVT :NODE)
+;          (LAMBDA (EVTS)
+;            (CONJ (OR EVTS (FOL.COMPILER.COLLECTION-FUNCTIONS:VECTOR)) EVT)))
+; 
+; caught WARNING:
+;   The function GET called with four arguments, but wants at most three.
+; 
+; caught WARNING:
+;   The function GET called with four arguments, but wants at most three.
+
+;     (REDUCE
+;      (LAMBDA (ACC EVT)
+;        (IF (TRUTHY? (CONTAINS? MONITORED-NODES #))
+;            (IF (FBOUNDP 'UPDATE)
+;                (UPDATE ACC # #)
+;                (LET #
+;                  #))
+;            ACC))
+;      EVENT-HISTORY BATCH)
+; 
+; caught WARNING:
+;   The function REDUCE is called with odd number of keyword arguments.
+
+;     (MERGE NODE-VALUES UPDATES)
+; 
+; caught WARNING:
+;   The function MERGE is called with two arguments, but wants at least four.
+
+;     (ASSOC ACC (GET EVT :NODE) (GET EVT :VALUE))
+; 
+; caught WARNING:
+;   The function ASSOC is called with odd number of keyword arguments.
+
+;     (REDUCE (LAMBDA (ACC EVT) (ASSOC ACC (GET EVT :NODE) (GET EVT :VALUE)))
+;             (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT) BATCH)
+; 
+; caught WARNING:
+;   The function REDUCE is called with odd number of keyword arguments.
+
+;     (REDUCE
+;      (LAMBDA (ACC C)
+;        (IF (FBOUNDP 'REGISTER-CONNECTIVITY)
+;            (REGISTER-CONNECTIVITY C ACC)
+;            (LET (#)
+;              (COND # # # #))))
+;      (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT) NETLIST)
+; 
+; caught WARNING:
+;   The function REDUCE is called with odd number of keyword arguments.
+
+;     (#:VAL403 REGISTER-CONNECTIVITY)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL403 is defined but never used.
+
+;     (#:START-397 (GET-INTERNAL-REAL-TIME))
+; 
+; caught STYLE-WARNING:
+;   The variable #:START-397 is defined but never used.
+
+;     (#:RESULT-398 (PROGN X))
+; 
+; caught STYLE-WARNING:
+;   The variable #:RESULT-398 is defined but never used.
+
+;     (#:END-399 (GET-INTERNAL-REAL-TIME))
+; 
+; caught STYLE-WARNING:
+;   The variable #:END-399 is defined but never used.
+
+;     (#:START-400 (GET-INTERNAL-REAL-TIME))
+; 
+; caught STYLE-WARNING:
+;   The variable #:START-400 is defined but never used.
+
+;     (#:RESULT-401 (PROGN X))
+; 
+; caught STYLE-WARNING:
+;   The variable #:RESULT-401 is defined but never used.
+
+;     (#:END-402 (GET-INTERNAL-REAL-TIME))
+; 
+; caught STYLE-WARNING:
+;   The variable #:END-402 is defined but never used.
+
+;     (#:VAL405 UPDATE)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL405 is defined but never used.
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL405 ACC (GET EVT :NODE)
+;                                            (LAMBDA (EVTS)
+;                                              (CONJ
+;                                               (OR EVTS
+;                                                   (FOL.COMPILER.COLLECTION-FUNCTIONS:VECTOR))
+;                                               EVT)))
+; 
+; caught STYLE-WARNING:
+;   The function FOL.COMPILER.COLLECTION-FUNCTIONS:NTH called with four arguments, but wants at most 
+three.
+
+;     (#:VAL406 GET-INPUT-STATES)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL406 is defined but never used.
+
+;     (#:VAL407 GET-CHANGED-PORTS)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL407 is defined but never used.
+
+;     (#:VAL408 COMPUTE-NEXT-STATE)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL408 is defined but never used.
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL408 COMP INPUT-STATES
+;                                            CHANGED-PORTS)
+; 
+; caught STYLE-WARNING:
+;   The function FOL.COMPILER.COLLECTION-FUNCTIONS:NTH called with four arguments, but wants at most 
+three.
+
+;     (#:VAL409 COMPONENT-CONNECTIONS)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL409 is defined but never used.
+
+;     (#:VAL410 FOL.MACROS::<DELAY>)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL410 is defined but never used.
+
+;     (#:VAL406 GET-INPUT-STATES)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL406 is defined but never used.
+
+;     (#:VAL407 GET-CHANGED-PORTS)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL407 is defined but never used.
+
+;     (#:VAL408 COMPUTE-NEXT-STATE)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL408 is defined but never used.
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL408 COMP INPUT-STATES
+;                                            CHANGED-PORTS)
+; 
+; caught STYLE-WARNING:
+;   The function FOL.COMPILER.COLLECTION-FUNCTIONS:NTH called with four arguments, but wants at most 
+three.
+
+;     (#:VAL409 COMPONENT-CONNECTIONS)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL409 is defined but never used.
+
+;     (#:VAL410 FOL.MACROS::<DELAY>)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL410 is defined but never used.
+
+;     (#:VAL406 GET-INPUT-STATES)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL406 is defined but never used.
+
+;     (#:VAL407 GET-CHANGED-PORTS)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL407 is defined but never used.
+
+;     (#:VAL408 COMPUTE-NEXT-STATE)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL408 is defined but never used.
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL408 COMP INPUT-STATES
+;                                            CHANGED-PORTS)
+; 
+; caught STYLE-WARNING:
+;   The function FOL.COMPILER.COLLECTION-FUNCTIONS:NTH called with four arguments, but wants at most 
+three.
+
+;     (#:VAL409 COMPONENT-CONNECTIONS)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL409 is defined but never used.
+
+;     (#:VAL410 FOL.MACROS::<DELAY>)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL410 is defined but never used.
+
+;     (#:VAL406 GET-INPUT-STATES)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL406 is defined but never used.
+
+;     (#:VAL407 GET-CHANGED-PORTS)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL407 is defined but never used.
+
+;     (#:VAL408 COMPUTE-NEXT-STATE)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL408 is defined but never used.
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL408 COMP INPUT-STATES
+;                                            CHANGED-PORTS)
+; 
+; caught STYLE-WARNING:
+;   The function FOL.COMPILER.COLLECTION-FUNCTIONS:NTH called with four arguments, but wants at most 
+three.
+
+;     (#:VAL404 SORT-BY)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL404 is defined but never used.
+
+;     (#:START-394 (GET-INTERNAL-REAL-TIME))
+; 
+; caught STYLE-WARNING:
+;   The variable #:START-394 is defined but never used.
+
+;     (#:RESULT-395 (PROGN (FIRST QUEUE)))
+; 
+; caught STYLE-WARNING:
+;   The variable #:RESULT-395 is defined but never used.
+
+;     (#:END-396 (GET-INTERNAL-REAL-TIME))
+; 
+; caught STYLE-WARNING:
+;   The variable #:END-396 is defined but never used.
+
+;     (#:VAL411 PMAPCAT)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL411 is defined but never used.
+
+;     (#:VAL412 MERGE-EVENTS)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL412 is defined but never used.
+
+;     (#:VAL409 COMPONENT-CONNECTIONS)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL409 is defined but never used.
+
+;     (#:VAL410 FOL.MACROS::<DELAY>)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL410 is defined but never used.
+
+; in: DEFUN RUN
+;     (GET #:VAL414 NETLIST INITIAL-EVENTS TIME MONITORED)
+; 
+; caught WARNING:
+;   The function GET called with five arguments, but wants at most three.
+; 
+; caught WARNING:
+;   The function GET called with five arguments, but wants at most three.
+
+;     (#:VAL413 EXPAND-NETLIST)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL413 is defined but never used.
+
+;     (#:VAL414 RUN-SIMULATION)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL414 is defined but never used.
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL414 NETLIST INITIAL-EVENTS TIME
+;                                            MONITORED)
+; 
+; caught STYLE-WARNING:
+;   The function FOL.COMPILER.COLLECTION-FUNCTIONS:NTH called with five arguments, but wants at most 
+three.
+
+; in: DEFUN DISPLAY
+;     (GET #:VAL418 "Events for " NODE ":")
+; 
+; caught WARNING:
+;   The function GET called with four arguments, but wants at most three.
+; 
+; caught WARNING:
+;   The function GET called with four arguments, but wants at most three.
+
+;     (GET #:VAL419 "  T="
+;          (LET ((#:START-415 (GET-INTERNAL-REAL-TIME)))
+;            (LET ((#:RESULT-416 #))
+;              (LET (#)
+;                (PROGN # #:RESULT-416))))
+;          " V=" (GET E :VALUE))
+; 
+; caught WARNING:
+;   The function GET called with five arguments, but wants at most three.
+; 
+; caught WARNING:
+;   The function GET called with five arguments, but wants at most three.
+
+;     (MAP
+;      (LAMBDA (E)
+;        (PRINT
+;         (IF (FBOUNDP 'STR)
+;             (STR "  T=" # " V=" #)
+;             (LET #
+;               #))))
+;      EVTS)
+; 
+; caught WARNING:
+;   The function MAP is called with two arguments, but wants at least three.
+
+;     (MAP
+;      (LAMBDA (NODE)
+;        (PRINT
+;         (IF (FBOUNDP 'STR)
+;             (STR "Events for " NODE ":")
+;             (LET #
+;               #)))
+;        (LET ((EVTS #))
+;          (IF (TRUTHY? #)
+;              (PRINT "  (no events)")
+;              (MAP # EVTS))))
+;      NODES)
+; 
+; caught WARNING:
+;   The function MAP is called with two arguments, but wants at least three.
+
+;     (#:VAL418 STR)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL418 is defined but never used.
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL418 "Events for " NODE ":")
+; 
+; caught STYLE-WARNING:
+;   The function FOL.COMPILER.COLLECTION-FUNCTIONS:NTH called with four arguments, but wants at most 
+three.
+
+;     (#:START-415 (GET-INTERNAL-REAL-TIME))
+; 
+; caught STYLE-WARNING:
+;   The variable #:START-415 is defined but never used.
+
+;     (#:RESULT-416 (PROGN E))
+; 
+; caught STYLE-WARNING:
+;   The variable #:RESULT-416 is defined but never used.
+
+;     (#:END-417 (GET-INTERNAL-REAL-TIME))
+; 
+; caught STYLE-WARNING:
+;   The variable #:END-417 is defined but never used.
+
+;     (#:VAL419 STR)
+; 
+; caught STYLE-WARNING:
+;   The variable #:VAL419 is defined but never used.
+
+;     (#:START-415 (GET-INTERNAL-REAL-TIME))
+; 
+; caught STYLE-WARNING:
+;   The variable #:START-415 is defined but never used.
+
+;     (#:RESULT-416 (PROGN E))
+; 
+; caught STYLE-WARNING:
+;   The variable #:RESULT-416 is defined but never used.
+
+;     (#:END-417 (GET-INTERNAL-REAL-TIME))
+; 
+; caught STYLE-WARNING:
+;   The variable #:END-417 is defined but never used.
+
+;     (#:START-415 (GET-INTERNAL-REAL-TIME))
+; 
+; caught STYLE-WARNING:
+;   The variable #:START-415 is defined but never used.
+
+;     (#:RESULT-416 (PROGN E))
+; 
+; caught STYLE-WARNING:
+;   The variable #:RESULT-416 is defined but never used.
+
+;     (#:END-417 (GET-INTERNAL-REAL-TIME))
+; 
+; caught STYLE-WARNING:
+;   The variable #:END-417 is defined but never used.
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL419 "  T="
+;                                            (LET ((#:START-415
+;                                                   (GET-INTERNAL-REAL-TIME)))
+;                                              (LET ((#:RESULT-416 #))
+;                                                (LET (#)
+;                                                  (PROGN # #:RESULT-416))))
+;                                            " V=" (GET E :VALUE))
+; 
+; caught STYLE-WARNING:
+;   The function FOL.COMPILER.COLLECTION-FUNCTIONS:NTH called with five arguments, but wants at most 
+three.
+
+;     (#:START-415 (GET-INTERNAL-REAL-TIME))
+; 
+; caught STYLE-WARNING:
+;   The variable #:START-415 is defined but never used.
+
+;     (#:RESULT-416 (PROGN E))
+; 
+; caught STYLE-WARNING:
+;   The variable #:RESULT-416 is defined but never used.
+
+;     (#:END-417 (GET-INTERNAL-REAL-TIME))
+; 
+; caught STYLE-WARNING:
+;   The variable #:END-417 is defined but never used.
+
+; file: C:/Users/frank/Projects/FOL/fol/fol-code/lsim.lisp
+; in: IF (FBOUNDP 'REGISTER-MODULE)
+;     (GET #:VAL361 'REGISTER- 32BIT
+;          (MAKE '<MODULE-DEF> :NAME 'REGISTER- 32BIT :PORTS
+;           '(CLK D 0 D 1 D 2 D 3 D 4 D ...) :BODY
+;           '((D-LATCH BIT 0 :CLK CLK :D D 0 :Q Q 0 :QBAR ...)
+;             (D-LATCH BIT 1 :CLK CLK :D D 1 :Q Q 1 :QBAR ...)
+;             (D-LATCH BIT 2 :CLK CLK :D D 2 :Q Q 2 :QBAR ...)
+;             (D-LATCH BIT 3 :CLK CLK :D D 3 :Q Q 3 :QBAR ...)
+;             (D-LATCH BIT 4 :CLK CLK :D D 4 :Q Q 4 :QBAR ...)
+;             (D-LATCH BIT 5 :CLK CLK :D D 5 :Q Q 5 :QBAR ...)
+;             (D-LATCH BIT 6 :CLK CLK :D D 6 :Q Q 6 :QBAR ...)
+;             (D-LATCH BIT 7 :CLK CLK :D D 7 :Q Q 7 :QBAR ...)
+;             (D-LATCH BIT 8 :CLK CLK :D D 8 :Q Q 8 :QBAR ...)
+;             (D-LATCH BIT 9 :CLK CLK :D D 9 :Q Q 9 :QBAR ...)
+;             (D-LATCH BIT 10 :CLK CLK :D D 10 :Q Q 10 :QBAR ...)
+;             (D-LATCH BIT 11 :CLK CLK :D D 11 :Q Q 11 :QBAR ...) ...)))
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::32BIT
+
+;     (MAKE '<MODULE-DEF> :NAME 'REGISTER- 32BIT :PORTS
+;      '(CLK D 0 D 1 D 2 D 3 D 4 D ...) :BODY
+;      '((D-LATCH BIT 0 :CLK CLK :D D 0 :Q Q 0 :QBAR ...)
+;        (D-LATCH BIT 1 :CLK CLK :D D 1 :Q Q 1 :QBAR ...)
+;        (D-LATCH BIT 2 :CLK CLK :D D 2 :Q Q 2 :QBAR ...)
+;        (D-LATCH BIT 3 :CLK CLK :D D 3 :Q Q 3 :QBAR ...)
+;        (D-LATCH BIT 4 :CLK CLK :D D 4 :Q Q 4 :QBAR ...)
+;        (D-LATCH BIT 5 :CLK CLK :D D 5 :Q Q 5 :QBAR ...)
+;        (D-LATCH BIT 6 :CLK CLK :D D 6 :Q Q 6 :QBAR ...)
+;        (D-LATCH BIT 7 :CLK CLK :D D 7 :Q Q 7 :QBAR ...)
+;        (D-LATCH BIT 8 :CLK CLK :D D 8 :Q Q 8 :QBAR ...)
+;        (D-LATCH BIT 9 :CLK CLK :D D 9 :Q Q 9 :QBAR ...)
+;        (D-LATCH BIT 10 :CLK CLK :D D 10 :Q Q 10 :QBAR ...)
+;        (D-LATCH BIT 11 :CLK CLK :D D 11 :Q Q 11 :QBAR ...) ...))
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::32BIT
+
+;     (REGISTER-MODULE 'REGISTER- 32BIT
+;      (MAKE '<MODULE-DEF> :NAME 'REGISTER- 32BIT :PORTS
+;       '(CLK D 0 D 1 D 2 D 3 D 4 D ...) :BODY
+;       '((D-LATCH BIT 0 :CLK CLK :D D 0 :Q Q 0 :QBAR ...)
+;         (D-LATCH BIT 1 :CLK CLK :D D 1 :Q Q 1 :QBAR ...)
+;         (D-LATCH BIT 2 :CLK CLK :D D 2 :Q Q 2 :QBAR ...)
+;         (D-LATCH BIT 3 :CLK CLK :D D 3 :Q Q 3 :QBAR ...)
+;         (D-LATCH BIT 4 :CLK CLK :D D 4 :Q Q 4 :QBAR ...)
+;         (D-LATCH BIT 5 :CLK CLK :D D 5 :Q Q 5 :QBAR ...)
+;         (D-LATCH BIT 6 :CLK CLK :D D 6 :Q Q 6 :QBAR ...)
+;         (D-LATCH BIT 7 :CLK CLK :D D 7 :Q Q 7 :QBAR ...)
+;         (D-LATCH BIT 8 :CLK CLK :D D 8 :Q Q 8 :QBAR ...)
+;         (D-LATCH BIT 9 :CLK CLK :D D 9 :Q Q 9 :QBAR ...)
+;         (D-LATCH BIT 10 :CLK CLK :D D 10 :Q Q 10 :QBAR ...)
+;         (D-LATCH BIT 11 :CLK CLK :D D 11 :Q Q 11 :QBAR ...) ...)))
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::32BIT
+
+; 
+; caught WARNING:
+;   5 more uses of undefined variable 32BIT
+
+
+; file: C:/Users/frank/Projects/FOL/fol/fol-code/lsim.lisp
+; in: DEFUN EXPAND-SPEC
+;     (MAKE <COMPONENT> :NAME FULL-NAME :TYPE TYPE :CONNECTIONS RESOLVED-CONNS)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::<COMPONENT>
+
+; in: DEFUN RUN-SIMULATION
+;     (#:VAL410 FOL.MACROS::<DELAY>)
+; 
+; caught WARNING:
+;   undefined variable: FOL.MACROS::<DELAY>
+; 
+; caught WARNING:
+;   undefined variable: FOL.MACROS::<DELAY>
+; 
+; caught WARNING:
+;   undefined variable: FOL.MACROS::<DELAY>
+
+; 
+; caught WARNING:
+;   1 more use of undefined variable FOL.MACROS::<DELAY>
+
+
+; file: C:/Users/frank/Projects/FOL/fol/fol-code/lsim.lisp
+; in: DEFUN RUN-SIMULATION
+;     (FOL.MACROS::<DELAY> (LAMBDA () RES))
+; 
+; caught STYLE-WARNING:
+;   undefined function: FOL.MACROS::<DELAY>
+
+; in: DEFUN COMPUTE-NEXT-STATE
+;     '<DICT>
+; 
+; caught STYLE-WARNING:
+;   undefined type: COMMON-LISP-USER::<DICT>
+; 
+; caught STYLE-WARNING:
+;   undefined type: COMMON-LISP-USER::<DICT>
+; 
+; caught STYLE-WARNING:
+;   undefined type: COMMON-LISP-USER::<DICT>
+
+; 
+; caught STYLE-WARNING:
+;   67 more uses of undefined type <DICT>
+
+
+; file: C:/Users/frank/Projects/FOL/fol/fol-code/lsim.lisp
+; in: IF (FBOUNDP 'REGISTER-PRIMITIVE)
+;     (MAKE <LOGIC-COMPONENT> :NAME NAME :TYPE 'NOT :CONNECTIONS CONNS :INPUTS
+;      (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :IN) :OUTPUTS
+;      (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :OUT) ...)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::<LOGIC-COMPONENT>
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::<LOGIC-COMPONENT>
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::<LOGIC-COMPONENT>
+
+; 
+; caught WARNING:
+;   29 more uses of undefined variable <LOGIC-COMPONENT>
+
+
+; file: C:/Users/frank/Projects/FOL/fol/fol-code/lsim.lisp
+; in: DEFUN COMPUTE-NEXT-STATE
+;     '<SET>
+; 
+; caught STYLE-WARNING:
+;   undefined type: COMMON-LISP-USER::<SET>
+; 
+; caught STYLE-WARNING:
+;   undefined type: COMMON-LISP-USER::<SET>
+; 
+; caught STYLE-WARNING:
+;   undefined type: COMMON-LISP-USER::<SET>
+
+; 
+; caught STYLE-WARNING:
+;   67 more uses of undefined type <SET>
+
+
+; file: C:/Users/frank/Projects/FOL/fol/fol-code/lsim.lisp
+; in: DEFUN COMPUTE-NEXT-STATE
+;     '<VECTOR>
+; 
+; caught STYLE-WARNING:
+;   undefined type: COMMON-LISP-USER::<VECTOR>
+; 
+; caught STYLE-WARNING:
+;   undefined type: COMMON-LISP-USER::<VECTOR>
+; 
+; caught STYLE-WARNING:
+;   undefined type: COMMON-LISP-USER::<VECTOR>
+
+; 
+; caught STYLE-WARNING:
+;   67 more uses of undefined type <VECTOR>
+
+
+; file: C:/Users/frank/Projects/FOL/fol/fol-code/lsim.lisp
+; in: DEFUN GET-CHANGED-PORTS
+;     (#:VAL392 COMPONENT-CONNECTIONS)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::COMPONENT-CONNECTIONS
+
+; in: DEFUN GET-INPUT-STATES
+;     (#:VAL390 COMPONENT-CONNECTIONS)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::COMPONENT-CONNECTIONS
+
+; in: DEFUN REGISTER-CONNECTIVITY
+;     (#:VAL380 COMPONENT-CONNECTIONS)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::COMPONENT-CONNECTIONS
+
+; 
+; caught WARNING:
+;   4 more uses of undefined variable COMPONENT-CONNECTIONS
+
+
+; file: C:/Users/frank/Projects/FOL/fol/fol-code/lsim.lisp
+; in: DEFUN COMPUTE-NEXT-STATE
+;     (#:VAL348 COMPONENT-DELAYS)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::COMPONENT-DELAYS
+
+; in: DEFUN GET-CHANGED-PORTS
+;     (#:VAL393 COMPONENT-INPUTS)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::COMPONENT-INPUTS
+
+; in: DEFUN GET-INPUT-STATES
+;     (#:VAL391 COMPONENT-INPUTS)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::COMPONENT-INPUTS
+
+; in: DEFUN REGISTER-CONNECTIVITY
+;     (#:VAL382 COMPONENT-INPUTS)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::COMPONENT-INPUTS
+
+; in: DEFUN COMPUTE-NEXT-STATE
+;     (#:VAL347 COMPONENT-LOGIC-FN)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::COMPONENT-LOGIC-FN
+
+;     (#:VAL350 COMPONENT-OUTPUTS)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::COMPONENT-OUTPUTS
+
+; in: DEFUN RUN-SIMULATION
+;     (#:VAL408 COMPUTE-NEXT-STATE)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::COMPUTE-NEXT-STATE
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::COMPUTE-NEXT-STATE
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::COMPUTE-NEXT-STATE
+
+; 
+; caught WARNING:
+;   1 more use of undefined variable COMPUTE-NEXT-STATE
+
+
+; file: C:/Users/frank/Projects/FOL/fol/fol-code/lsim.lisp
+; in: DEFUN EVENTS
+;     (CONCAT Q EVENTS)
+; 
+; caught STYLE-WARNING:
+;   undefined function: COMMON-LISP-USER::CONCAT
+
+; in: DEFUN EXPAND-NETLIST
+;     (CONCAT ACC
+;      (IF (FBOUNDP 'EXPAND-SPEC)
+;          (EXPAND-SPEC SPEC NIL TOP-BINDINGS)
+;          (LET ((#:VAL378 EXPAND-SPEC))
+;            (COND (# #) (# #) (# #) (T #)))))
+; 
+; caught STYLE-WARNING:
+;   undefined function: COMMON-LISP-USER::CONCAT
+
+; in: DEFUN EXPAND-SPEC
+;     (CONCAT ACC
+;      (IF (FBOUNDP 'EXPAND-SPEC)
+;          (EXPAND-SPEC CHILD-SPEC FULL-NAME RESOLVED-CONNS)
+;          (LET ((#:VAL371 EXPAND-SPEC))
+;            (COND (# #) (# #) (# #) (T #)))))
+; 
+; caught STYLE-WARNING:
+;   undefined function: COMMON-LISP-USER::CONCAT
+
+; in: DEFUN RUN-SIMULATION
+;     (REDUCE CONJ ACC (GET CONNECTIVITY NODE))
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::CONJ
+
+;     (CONJ (OR EVTS (FOL.COMPILER.COLLECTION-FUNCTIONS:VECTOR)) EVT)
+; 
+; caught STYLE-WARNING:
+;   undefined function: COMMON-LISP-USER::CONJ
+
+; in: DEFUN REGISTER-CONNECTIVITY
+;     (CONJ (OR COMPS (FOL.COMPILER.COLLECTION-FUNCTIONS:VECTOR)) COMP)
+; 
+; caught STYLE-WARNING:
+;   undefined function: COMMON-LISP-USER::CONJ
+
+; in: DEFUN RUN-SIMULATION
+;     (CONTAINS? MONITORED-NODES (GET EVT :NODE))
+; 
+; caught STYLE-WARNING:
+;   undefined function: COMMON-LISP-USER::CONTAINS?
+
+; in: DEFUN GET-CHANGED-PORTS
+;     (CONTAINS? CHANGED-NODES NODE)
+; 
+; caught STYLE-WARNING:
+;   undefined function: COMMON-LISP-USER::CONTAINS?
+
+; in: DEFUN RESOLVE-NODE
+;     (CONTAINS? BINDINGS NODE-SYM)
+; 
+; caught STYLE-WARNING:
+;   undefined function: COMMON-LISP-USER::CONTAINS?
+
+; in: DEFUN RUN-SIMULATION
+;     (DROP-WHILE
+;      (LAMBDA (X)
+;        (=
+;         (LET (#)
+;           (LET #
+;             #))
+;         EVENT-TIME))
+;      QUEUE)
+; 
+; caught STYLE-WARNING:
+;   undefined function: COMMON-LISP-USER::DROP-WHILE
+
+; in: DEFUN INSERT-EVENT
+;     (EMPTY? QUEUE)
+; 
+; caught STYLE-WARNING:
+;   undefined function: COMMON-LISP-USER::EMPTY?
+
+; in: DEFUN EXPAND-SPEC
+;     (EMPTY? RAW-ARGS)
+; 
+; caught STYLE-WARNING:
+;   undefined function: COMMON-LISP-USER::EMPTY?
+
+; in: DEFUN PARSE-CONNECTIONS
+;     (EMPTY? REM)
+; 
+; caught STYLE-WARNING:
+;   undefined function: COMMON-LISP-USER::EMPTY?
+
+; 
+; caught STYLE-WARNING:
+;   2 more uses of undefined function EMPTY?
+
+
+; file: C:/Users/frank/Projects/FOL/fol/fol-code/lsim.lisp
+; in: DEFUN INSERT-EVENT
+;     (- #:END-385 #:START-383)
+; 
+; caught WARNING:
+;   undefined variable: #:END-385
+
+;     (- #:END-388 #:START-386)
+; 
+; caught WARNING:
+;   undefined variable: #:END-388
+
+; in: DEFUN RUN-SIMULATION
+;     (- #:END-396 #:START-394)
+; 
+; caught WARNING:
+;   undefined variable: #:END-396
+
+;     (- #:END-399 #:START-397)
+; 
+; caught WARNING:
+;   undefined variable: #:END-399
+
+;     (- #:END-402 #:START-400)
+; 
+; caught WARNING:
+;   undefined variable: #:END-402
+
+; in: DEFUN DISPLAY
+;     (- #:END-417 #:START-415)
+; 
+; caught WARNING:
+;   undefined variable: #:END-417
+; 
+; caught WARNING:
+;   undefined variable: #:END-417
+; 
+; caught WARNING:
+;   undefined variable: #:END-417
+; 
+; caught WARNING:
+;   undefined variable: #:END-417
+
+; in: DEFUN RUN
+;     (#:VAL413 EXPAND-NETLIST)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::EXPAND-NETLIST
+
+; in: DEFUN EXPAND-NETLIST
+;     (#:VAL378 EXPAND-SPEC)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::EXPAND-SPEC
+
+; in: DEFUN EXPAND-SPEC
+;     (#:VAL371 EXPAND-SPEC)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::EXPAND-SPEC
+
+; in: DEFUN GET-CHANGED-PORTS
+;     (FILTER
+;      (LAMBDA (PORT)
+;        (LET ((NODE #))
+;          (CONTAINS? CHANGED-NODES NODE)))
+;      (IF (FBOUNDP 'COMPONENT-INPUTS)
+;          (COMPONENT-INPUTS COMP)
+;          (LET ((#:VAL393 COMPONENT-INPUTS))
+;            (COND (# #) (# #) (# #) (T #)))))
+; 
+; caught STYLE-WARNING:
+;   undefined function: COMMON-LISP-USER::FILTER
+
+; in: DEFUN RUN-SIMULATION
+;     (#:VAL407 GET-CHANGED-PORTS)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::GET-CHANGED-PORTS
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::GET-CHANGED-PORTS
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::GET-CHANGED-PORTS
+
+; 
+; caught WARNING:
+;   1 more use of undefined variable GET-CHANGED-PORTS
+
+
+; file: C:/Users/frank/Projects/FOL/fol/fol-code/lsim.lisp
+; in: DEFUN RUN-SIMULATION
+;     (#:VAL406 GET-INPUT-STATES)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::GET-INPUT-STATES
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::GET-INPUT-STATES
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::GET-INPUT-STATES
+
+; 
+; caught WARNING:
+;   1 more use of undefined variable GET-INPUT-STATES
+
+
+; file: C:/Users/frank/Projects/FOL/fol/fol-code/lsim.lisp
+; in: DEFUN EXPAND-NETLIST =>
+;      DEF (IF (FBOUNDP 'GET-MODULE)
+;          (GET-MODULE TOP-MODULE-NAME)
+;          (LET ((#:VAL374 GET-MODULE))
+;            (COND ((TYPEP #:VAL374 '<DICT>) (GET #:VAL374 TOP-MODULE-NAME))
+;                  ((TYPEP #:VAL374 '<VECTOR>)
+;                   (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL374
+;                                                          TOP-MODULE-NAME))
+;                  ((TYPEP #:VAL374 '<SET>) (GET #:VAL374 TOP-MODULE-NAME))
+;                  (T (ERROR "~S is not a function or collection" 'GET-MODULE)))))
+;     (#:VAL374 GET-MODULE)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::GET-MODULE
+
+; in: DEFUN EXPAND-SPEC
+;     (#:VAL369 GET-MODULE)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::GET-MODULE
+
+;     (#:VAL370 GET-PRIMITIVE)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::GET-PRIMITIVE
+
+; in: DEFUN MERGE-EVENTS
+;     (REDUCE INSERT-EVENT QUEUE NEW-EVENTS)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::INSERT-EVENT
+
+; in: DEFUN INSERT-EVENT
+;     (#:VAL389 INSERT-EVENT)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::INSERT-EVENT
+
+; in: DEFUN MONITOR
+;     (INTO (OR S (FOL.COMPILER.COLLECTION-FUNCTIONS:SET)) NODES)
+; 
+; caught STYLE-WARNING:
+;   undefined function: COMMON-LISP-USER::INTO
+
+; in: DEFUN RUN-SIMULATION
+;     (KEYS UPDATES)
+; 
+; caught STYLE-WARNING:
+;   undefined function: COMMON-LISP-USER::KEYS
+
+; in: DEFUN EXPAND-SPEC
+;     (#:VAL366 KEYWORD?)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::KEYWORD?
+
+;     (KEYWORD? (FIRST RAW-ARGS))
+; 
+; caught STYLE-WARNING:
+;   undefined function: COMMON-LISP-USER::KEYWORD?
+
+; in: IF (FBOUNDP 'REGISTER-PRIMITIVE)
+;     (MAKE <LOGIC-COMPONENT> :NAME NAME :TYPE 'NOR :CONNECTIONS CONNS :INPUTS
+;      (FOL.COMPILER.COLLECTION-FUNCTIONS:SET 1 2 :IN) :OUTPUTS
+;      (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :OUT) ...)
+; 
+; caught STYLE-WARNING:
+;   undefined function: COMMON-LISP-USER::MAKE
+
+;     (MAKE <LOGIC-COMPONENT> :NAME NAME :TYPE 'NAND :CONNECTIONS CONNS :INPUTS
+;      (FOL.COMPILER.COLLECTION-FUNCTIONS:SET 1 2 :IN) :OUTPUTS
+;      (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :OUT) ...)
+; 
+; caught STYLE-WARNING:
+;   undefined function: COMMON-LISP-USER::MAKE
+
+;     (MAKE <LOGIC-COMPONENT> :NAME NAME :TYPE 'NOT :CONNECTIONS CONNS :INPUTS
+;      (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :IN) :OUTPUTS
+;      (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :OUT) ...)
+; 
+; caught STYLE-WARNING:
+;   undefined function: COMMON-LISP-USER::MAKE
+
+; 
+; caught STYLE-WARNING:
+;   9 more uses of undefined function MAKE
+
+
+; file: C:/Users/frank/Projects/FOL/fol/fol-code/lsim.lisp
+; in: DEFUN RUN-SIMULATION
+;     (#:VAL412 MERGE-EVENTS)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::MERGE-EVENTS
+
+; in: DEFUN EXPAND-NETLIST
+;     (#:VAL379 MODULE-BODY)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::MODULE-BODY
+
+; in: DEFUN EXPAND-SPEC
+;     (#:VAL372 MODULE-BODY)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::MODULE-BODY
+
+; in: DEFUN EXPAND-NETLIST
+;     (#:VAL377 MODULE-PORTS)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::MODULE-PORTS
+
+;     (#:VAL375 NIL?)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::NIL?
+
+; in: DEFUN QUALIFY-NAME
+;     (#:VAL362 NIL?)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::NIL?
+
+; in: DEFUN EXPAND-NETLIST
+;     (NIL? DEF)
+; 
+; caught STYLE-WARNING:
+;   undefined function: COMMON-LISP-USER::NIL?
+
+; in: DEFUN QUALIFY-NAME
+;     (NIL? PREFIX)
+; 
+; caught STYLE-WARNING:
+;   undefined function: COMMON-LISP-USER::NIL?
+
+; in: DEFUN COMPUTE-NEXT-STATE
+;     (ERROR "Value ~S is not callable or a collection" #:OP349)
+; 
+; caught WARNING:
+;   undefined variable: #:OP349
+
+;     (GET #:OP349 INPUT-STATES)
+; 
+; caught WARNING:
+;   undefined variable: #:OP349
+
+;     (TYPEP #:OP349 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:OP349
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:OP349 INPUT-STATES)
+; 
+; caught WARNING:
+;   undefined variable: #:OP349
+
+;     (TYPEP #:OP349 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:OP349
+
+;     (GET #:OP349 INPUT-STATES)
+; 
+; caught WARNING:
+;   undefined variable: #:OP349
+
+;     (TYPEP #:OP349 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:OP349
+
+;     (FUNCALL #:OP349 INPUT-STATES)
+; 
+; caught WARNING:
+;   undefined variable: #:OP349
+
+;     (FUNCTIONP #:OP349)
+; 
+; caught WARNING:
+;   undefined variable: #:OP349
+
+; in: DEFUN EXPAND-SPEC
+;     (ERROR "Value ~S is not callable or a collection" #:OP373)
+; 
+; caught WARNING:
+;   undefined variable: #:OP373
+
+;     (GET #:OP373 FULL-NAME PARAM RESOLVED-CONNS)
+; 
+; caught WARNING:
+;   undefined variable: #:OP373
+
+;     (TYPEP #:OP373 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:OP373
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:OP373 FULL-NAME PARAM RESOLVED-CONNS)
+; 
+; caught WARNING:
+;   undefined variable: #:OP373
+
+;     (TYPEP #:OP373 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:OP373
+
+;     (GET #:OP373 FULL-NAME PARAM RESOLVED-CONNS)
+; 
+; caught WARNING:
+;   undefined variable: #:OP373
+
+;     (TYPEP #:OP373 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:OP373
+
+;     (FUNCALL #:OP373 FULL-NAME PARAM RESOLVED-CONNS)
+; 
+; caught WARNING:
+;   undefined variable: #:OP373
+
+;     (FUNCTIONP #:OP373)
+; 
+; caught WARNING:
+;   undefined variable: #:OP373
+
+;     (#:VAL368 PARSE-CONNECTIONS)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::PARSE-CONNECTIONS
+
+; in: DEFUN RUN-SIMULATION
+;     (#:VAL411 PMAPCAT)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::PMAPCAT
+
+;     (PMAPCAT
+;      (LAMBDA (COMP)
+;        (LET ((INPUT-STATES #))
+;          (LET (#)
+;            (LET #
+;              #))))
+;      AFFECTED-COMPS)
+; 
+; caught STYLE-WARNING:
+;   undefined function: COMMON-LISP-USER::PMAPCAT
+
+; in: DEFUN EXPAND-SPEC
+;     (#:VAL367 QUALIFY-NAME)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::QUALIFY-NAME
+
+; in: DEFUN RESOLVE-NODE
+;     (#:VAL364 QUALIFY-NAME)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::QUALIFY-NAME
+
+; in: DEFUN RUN-SIMULATION
+;     (#:VAL403 REGISTER-CONNECTIVITY)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::REGISTER-CONNECTIVITY
+
+; in: IF (FBOUNDP 'REGISTER-MODULE)
+;     (#:VAL361 REGISTER-MODULE)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::REGISTER-MODULE
+
+;     (#:VAL360 REGISTER-MODULE)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::REGISTER-MODULE
+
+;     (#:VAL359 REGISTER-MODULE)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::REGISTER-MODULE
+
+; in: IF (FBOUNDP 'REGISTER-PRIMITIVE)
+;     (#:VAL353 REGISTER-PRIMITIVE)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::REGISTER-PRIMITIVE
+
+;     (#:VAL352 REGISTER-PRIMITIVE)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::REGISTER-PRIMITIVE
+
+;     (#:VAL351 REGISTER-PRIMITIVE)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::REGISTER-PRIMITIVE
+
+; 
+; caught WARNING:
+;   5 more uses of undefined variable REGISTER-PRIMITIVE
+
+
+; file: C:/Users/frank/Projects/FOL/fol/fol-code/lsim.lisp
+; in: DEFUN PARSE-CONNECTIONS
+;     (#:VAL365 RESOLVE-NODE)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::RESOLVE-NODE
+
+; in: DEFUN INSERT-EVENT
+;     (PROGN
+;      (FORMAT T "Elapsed time: ~,3f ms~%"
+;              (* (/ (- #:END-385 #:START-383) INTERNAL-TIME-UNITS-PER-SECOND)
+;                 1000.0))
+;      #:RESULT-384)
+; 
+; caught WARNING:
+;   undefined variable: #:RESULT-384
+
+;     (PROGN
+;      (FORMAT T "Elapsed time: ~,3f ms~%"
+;              (* (/ (- #:END-388 #:START-386) INTERNAL-TIME-UNITS-PER-SECOND)
+;                 1000.0))
+;      #:RESULT-387)
+; 
+; caught WARNING:
+;   undefined variable: #:RESULT-387
+
+; in: DEFUN RUN-SIMULATION
+;     (PROGN
+;      (FORMAT T "Elapsed time: ~,3f ms~%"
+;              (* (/ (- #:END-396 #:START-394) INTERNAL-TIME-UNITS-PER-SECOND)
+;                 1000.0))
+;      #:RESULT-395)
+; 
+; caught WARNING:
+;   undefined variable: #:RESULT-395
+
+;     (PROGN
+;      (FORMAT T "Elapsed time: ~,3f ms~%"
+;              (* (/ (- #:END-399 #:START-397) INTERNAL-TIME-UNITS-PER-SECOND)
+;                 1000.0))
+;      #:RESULT-398)
+; 
+; caught WARNING:
+;   undefined variable: #:RESULT-398
+
+;     (PROGN
+;      (FORMAT T "Elapsed time: ~,3f ms~%"
+;              (* (/ (- #:END-402 #:START-400) INTERNAL-TIME-UNITS-PER-SECOND)
+;                 1000.0))
+;      #:RESULT-401)
+; 
+; caught WARNING:
+;   undefined variable: #:RESULT-401
+
+; in: DEFUN DISPLAY
+;     (PROGN
+;      (FORMAT T "Elapsed time: ~,3f ms~%"
+;              (* (/ (- #:END-417 #:START-415) INTERNAL-TIME-UNITS-PER-SECOND)
+;                 1000.0))
+;      #:RESULT-416)
+; 
+; caught WARNING:
+;   undefined variable: #:RESULT-416
+; 
+; caught WARNING:
+;   undefined variable: #:RESULT-416
+; 
+; caught WARNING:
+;   undefined variable: #:RESULT-416
+; 
+; caught WARNING:
+;   undefined variable: #:RESULT-416
+
+; in: DEFUN RUN
+;     (#:VAL414 RUN-SIMULATION)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::RUN-SIMULATION
+
+; in: DEFUN RUN-SIMULATION
+;     (#:VAL404 SORT-BY)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::SORT-BY
+
+;     (SORT-BY :TIME INITIAL-EVENTS)
+; 
+; caught STYLE-WARNING:
+;   undefined function: COMMON-LISP-USER::SORT-BY
+
+; in: DEFUN INSERT-EVENT
+;     (- #:END-385 #:START-383)
+; 
+; caught WARNING:
+;   undefined variable: #:START-383
+
+;     (- #:END-388 #:START-386)
+; 
+; caught WARNING:
+;   undefined variable: #:START-386
+
+; in: DEFUN RUN-SIMULATION
+;     (- #:END-396 #:START-394)
+; 
+; caught WARNING:
+;   undefined variable: #:START-394
+
+;     (- #:END-399 #:START-397)
+; 
+; caught WARNING:
+;   undefined variable: #:START-397
+
+;     (- #:END-402 #:START-400)
+; 
+; caught WARNING:
+;   undefined variable: #:START-400
+
+; in: DEFUN DISPLAY
+;     (- #:END-417 #:START-415)
+; 
+; caught WARNING:
+;   undefined variable: #:START-415
+; 
+; caught WARNING:
+;   undefined variable: #:START-415
+; 
+; caught WARNING:
+;   undefined variable: #:START-415
+; 
+; caught WARNING:
+;   undefined variable: #:START-415
+
+;     (#:VAL418 STR)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::STR
+
+; in: DEFUN EXPAND-NETLIST
+;     (#:VAL376 STR)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::STR
+
+; in: DEFUN QUALIFY-NAME
+;     (#:VAL363 STR)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::STR
+
+; 
+; caught WARNING:
+;   1 more use of undefined variable STR
+
+
+; file: C:/Users/frank/Projects/FOL/fol/fol-code/lsim.lisp
+; in: DEFUN DISPLAY
+;     (STR "Events for " NODE ":")
+; 
+; caught STYLE-WARNING:
+;   undefined function: COMMON-LISP-USER::STR
+
+; in: DEFUN EXPAND-NETLIST
+;     (STR "Module " TOP-MODULE-NAME " not found")
+; 
+; caught STYLE-WARNING:
+;   undefined function: COMMON-LISP-USER::STR
+
+; in: DEFUN QUALIFY-NAME
+;     (STR PREFIX "/" NAME)
+; 
+; caught STYLE-WARNING:
+;   undefined function: COMMON-LISP-USER::STR
+
+; in: DEFUN MONITOR
+;     (SWAP! *SIM-CONTEXT* #'UPDATE :MONITORED
+;      (LAMBDA (S) (INTO (OR S (FOL.COMPILER.COLLECTION-FUNCTIONS:SET)) NODES)))
+; 
+; caught STYLE-WARNING:
+;   undefined function: COMMON-LISP-USER::SWAP!
+
+; in: DEFUN REGISTER-PRIMITIVE
+;     (SWAP! *PRIMITIVES* #'ASSOC NAME FACTORY)
+; 
+; caught STYLE-WARNING:
+;   undefined function: COMMON-LISP-USER::SWAP!
+
+; in: DEFUN REGISTER-MODULE
+;     (SWAP! *CIRCUIT-MODULES* #'ASSOC NAME DEF)
+; 
+; caught STYLE-WARNING:
+;   undefined function: COMMON-LISP-USER::SWAP!
+
+; 
+; caught STYLE-WARNING:
+;   2 more uses of undefined function SWAP!
+
+
+; file: C:/Users/frank/Projects/FOL/fol/fol-code/lsim.lisp
+; in: DEFUN QUALIFY-NAME
+;     (SYMBOL
+;      (IF (FBOUNDP 'STR)
+;          (STR PREFIX "/" NAME)
+;          (LET ((#:VAL363 STR))
+;            (COND (# #) (# #) (# #) (T #)))))
+; 
+; caught WARNING:
+;   The function SYMBOL is undefined, and its name is reserved by ANSI CL so that
+;   even if it were defined later, the code doing so would not be portable.
+
+; in: DEFUN RUN-SIMULATION
+;     (TAKE-WHILE
+;      (LAMBDA (X)
+;        (=
+;         (LET (#)
+;           (LET #
+;             #))
+;         EVENT-TIME))
+;      QUEUE)
+; 
+; caught STYLE-WARNING:
+;   undefined function: COMMON-LISP-USER::TAKE-WHILE
+
+; in: DEFUN RESOLVE-NODE
+;     (TRUTHY? (CONTAINS? BINDINGS NODE-SYM))
+; 
+; caught STYLE-WARNING:
+;   undefined function: COMMON-LISP-USER::TRUTHY?
+
+; in: DEFUN QUALIFY-NAME
+;     (TRUTHY?
+;      (IF (FBOUNDP 'NIL?)
+;          (NIL? PREFIX)
+;          (LET ((#:VAL362 NIL?))
+;            (COND (# #) (# #) (# #) (T #)))))
+; 
+; caught STYLE-WARNING:
+;   undefined function: COMMON-LISP-USER::TRUTHY?
+
+; in: DEFUN COMPUTE-NEXT-STATE
+;     (TRUTHY? (AND D (> D MAX-D)))
+; 
+; caught STYLE-WARNING:
+;   undefined function: COMMON-LISP-USER::TRUTHY?
+
+; 
+; caught STYLE-WARNING:
+;   6 more uses of undefined function TRUTHY?
+
+
+; file: C:/Users/frank/Projects/FOL/fol/fol-code/lsim.lisp
+; in: DEFUN RUN-SIMULATION
+;     (#:VAL405 UPDATE)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::UPDATE
+
+; in: DEFUN REGISTER-CONNECTIVITY
+;     (#:VAL381 UPDATE)
+; 
+; caught WARNING:
+;   undefined variable: COMMON-LISP-USER::UPDATE
+
+; in: DEFUN MONITOR
+;     #'UPDATE
+; 
+; caught STYLE-WARNING:
+;   undefined function: COMMON-LISP-USER::UPDATE
+
+; in: DEFUN RUN-SIMULATION
+;     (UPDATE ACC (GET EVT :NODE)
+;      (LAMBDA (EVTS)
+;        (CONJ (OR EVTS (FOL.COMPILER.COLLECTION-FUNCTIONS:VECTOR)) EVT)))
+; 
+; caught STYLE-WARNING:
+;   undefined function: COMMON-LISP-USER::UPDATE
+
+; in: DEFUN REGISTER-CONNECTIVITY
+;     (UPDATE ACC NODE
+;      (LAMBDA (COMPS)
+;        (CONJ (OR COMPS (FOL.COMPILER.COLLECTION-FUNCTIONS:VECTOR)) COMP)))
+; 
+; caught STYLE-WARNING:
+;   undefined function: COMMON-LISP-USER::UPDATE
+
+; 
+; caught STYLE-WARNING:
+;   1 more use of undefined function UPDATE
+
+
+; file: C:/Users/frank/Projects/FOL/fol/fol-code/lsim.lisp
+; in: DEFUN COMPUTE-NEXT-STATE
+;     (GET #:VAL347 COMP)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL347
+
+;     (TYPEP #:VAL347 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL347
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL347 COMP)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL347
+
+;     (TYPEP #:VAL347 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL347
+
+;     (GET #:VAL347 COMP)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL347
+
+;     (TYPEP #:VAL347 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL347
+
+;     (GET #:VAL348 COMP)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL348
+
+;     (TYPEP #:VAL348 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL348
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL348 COMP)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL348
+
+;     (TYPEP #:VAL348 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL348
+
+;     (GET #:VAL348 COMP)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL348
+
+;     (TYPEP #:VAL348 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL348
+
+;     (GET #:VAL350 COMP)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL350
+
+;     (TYPEP #:VAL350 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL350
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL350 COMP)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL350
+
+;     (TYPEP #:VAL350 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL350
+
+;     (GET #:VAL350 COMP)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL350
+
+;     (TYPEP #:VAL350 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL350
+
+; in: IF (FBOUNDP 'REGISTER-PRIMITIVE)
+;     (GET #:VAL351 'NOT
+;          (LAMBDA (NAME PARAM CONNS)
+;            (MAKE <LOGIC-COMPONENT> :NAME NAME :TYPE 'NOT :CONNECTIONS CONNS
+;             :INPUTS (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :IN) :OUTPUTS
+;             (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :OUT) ...)))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL351
+
+;     (TYPEP #:VAL351 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL351
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL351 'NOT
+;                                            (LAMBDA (NAME PARAM CONNS)
+;                                              (MAKE <LOGIC-COMPONENT> :NAME NAME
+;                                               :TYPE 'NOT :CONNECTIONS CONNS
+;                                               :INPUTS
+;                                               (FOL.COMPILER.COLLECTION-FUNCTIONS:SET
+;                                                :IN)
+;                                               :OUTPUTS
+;                                               (FOL.COMPILER.COLLECTION-FUNCTIONS:SET
+;                                                :OUT)
+;                                               ...)))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL351
+
+;     (TYPEP #:VAL351 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL351
+
+;     (GET #:VAL351 'NOT
+;          (LAMBDA (NAME PARAM CONNS)
+;            (MAKE <LOGIC-COMPONENT> :NAME NAME :TYPE 'NOT :CONNECTIONS CONNS
+;             :INPUTS (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :IN) :OUTPUTS
+;             (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :OUT) ...)))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL351
+
+;     (TYPEP #:VAL351 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL351
+
+;     (GET #:VAL352 'NAND
+;          (LAMBDA (NAME PARAM CONNS)
+;            (MAKE <LOGIC-COMPONENT> :NAME NAME :TYPE 'NAND :CONNECTIONS CONNS
+;             :INPUTS (FOL.COMPILER.COLLECTION-FUNCTIONS:SET 1 2 :IN) :OUTPUTS
+;             (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :OUT) ...)))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL352
+
+;     (TYPEP #:VAL352 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL352
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL352 'NAND
+;                                            (LAMBDA (NAME PARAM CONNS)
+;                                              (MAKE <LOGIC-COMPONENT> :NAME NAME
+;                                               :TYPE 'NAND :CONNECTIONS CONNS
+;                                               :INPUTS
+;                                               (FOL.COMPILER.COLLECTION-FUNCTIONS:SET
+;                                                1 2 :IN)
+;                                               :OUTPUTS
+;                                               (FOL.COMPILER.COLLECTION-FUNCTIONS:SET
+;                                                :OUT)
+;                                               ...)))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL352
+
+;     (TYPEP #:VAL352 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL352
+
+;     (GET #:VAL352 'NAND
+;          (LAMBDA (NAME PARAM CONNS)
+;            (MAKE <LOGIC-COMPONENT> :NAME NAME :TYPE 'NAND :CONNECTIONS CONNS
+;             :INPUTS (FOL.COMPILER.COLLECTION-FUNCTIONS:SET 1 2 :IN) :OUTPUTS
+;             (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :OUT) ...)))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL352
+
+;     (TYPEP #:VAL352 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL352
+
+;     (GET #:VAL353 'NOR
+;          (LAMBDA (NAME PARAM CONNS)
+;            (MAKE <LOGIC-COMPONENT> :NAME NAME :TYPE 'NOR :CONNECTIONS CONNS
+;             :INPUTS (FOL.COMPILER.COLLECTION-FUNCTIONS:SET 1 2 :IN) :OUTPUTS
+;             (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :OUT) ...)))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL353
+
+;     (TYPEP #:VAL353 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL353
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL353 'NOR
+;                                            (LAMBDA (NAME PARAM CONNS)
+;                                              (MAKE <LOGIC-COMPONENT> :NAME NAME
+;                                               :TYPE 'NOR :CONNECTIONS CONNS
+;                                               :INPUTS
+;                                               (FOL.COMPILER.COLLECTION-FUNCTIONS:SET
+;                                                1 2 :IN)
+;                                               :OUTPUTS
+;                                               (FOL.COMPILER.COLLECTION-FUNCTIONS:SET
+;                                                :OUT)
+;                                               ...)))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL353
+
+;     (TYPEP #:VAL353 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL353
+
+;     (GET #:VAL353 'NOR
+;          (LAMBDA (NAME PARAM CONNS)
+;            (MAKE <LOGIC-COMPONENT> :NAME NAME :TYPE 'NOR :CONNECTIONS CONNS
+;             :INPUTS (FOL.COMPILER.COLLECTION-FUNCTIONS:SET 1 2 :IN) :OUTPUTS
+;             (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :OUT) ...)))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL353
+
+;     (TYPEP #:VAL353 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL353
+
+;     (GET #:VAL354 'AND
+;          (LAMBDA (NAME PARAM CONNS)
+;            (MAKE <LOGIC-COMPONENT> :NAME NAME :TYPE 'AND :CONNECTIONS CONNS
+;             :INPUTS (FOL.COMPILER.COLLECTION-FUNCTIONS:SET 1 2 :IN) :OUTPUTS
+;             (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :OUT) ...)))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL354
+
+;     (TYPEP #:VAL354 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL354
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL354 'AND
+;                                            (LAMBDA (NAME PARAM CONNS)
+;                                              (MAKE <LOGIC-COMPONENT> :NAME NAME
+;                                               :TYPE 'AND :CONNECTIONS CONNS
+;                                               :INPUTS
+;                                               (FOL.COMPILER.COLLECTION-FUNCTIONS:SET
+;                                                1 2 :IN)
+;                                               :OUTPUTS
+;                                               (FOL.COMPILER.COLLECTION-FUNCTIONS:SET
+;                                                :OUT)
+;                                               ...)))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL354
+
+;     (TYPEP #:VAL354 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL354
+
+;     (GET #:VAL354 'AND
+;          (LAMBDA (NAME PARAM CONNS)
+;            (MAKE <LOGIC-COMPONENT> :NAME NAME :TYPE 'AND :CONNECTIONS CONNS
+;             :INPUTS (FOL.COMPILER.COLLECTION-FUNCTIONS:SET 1 2 :IN) :OUTPUTS
+;             (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :OUT) ...)))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL354
+
+;     (TYPEP #:VAL354 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL354
+
+;     (GET #:VAL355 'OR
+;          (LAMBDA (NAME PARAM CONNS)
+;            (MAKE <LOGIC-COMPONENT> :NAME NAME :TYPE 'OR :CONNECTIONS CONNS
+;             :INPUTS (FOL.COMPILER.COLLECTION-FUNCTIONS:SET 1 2 :IN) :OUTPUTS
+;             (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :OUT) ...)))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL355
+
+;     (TYPEP #:VAL355 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL355
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL355 'OR
+;                                            (LAMBDA (NAME PARAM CONNS)
+;                                              (MAKE <LOGIC-COMPONENT> :NAME NAME
+;                                               :TYPE 'OR :CONNECTIONS CONNS
+;                                               :INPUTS
+;                                               (FOL.COMPILER.COLLECTION-FUNCTIONS:SET
+;                                                1 2 :IN)
+;                                               :OUTPUTS
+;                                               (FOL.COMPILER.COLLECTION-FUNCTIONS:SET
+;                                                :OUT)
+;                                               ...)))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL355
+
+;     (TYPEP #:VAL355 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL355
+
+;     (GET #:VAL355 'OR
+;          (LAMBDA (NAME PARAM CONNS)
+;            (MAKE <LOGIC-COMPONENT> :NAME NAME :TYPE 'OR :CONNECTIONS CONNS
+;             :INPUTS (FOL.COMPILER.COLLECTION-FUNCTIONS:SET 1 2 :IN) :OUTPUTS
+;             (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :OUT) ...)))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL355
+
+;     (TYPEP #:VAL355 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL355
+
+;     (GET #:VAL356 'XOR
+;          (LAMBDA (NAME PARAM CONNS)
+;            (MAKE <LOGIC-COMPONENT> :NAME NAME :TYPE 'XOR :CONNECTIONS CONNS
+;             :INPUTS (FOL.COMPILER.COLLECTION-FUNCTIONS:SET 1 2 :IN) :OUTPUTS
+;             (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :OUT) ...)))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL356
+
+;     (TYPEP #:VAL356 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL356
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL356 'XOR
+;                                            (LAMBDA (NAME PARAM CONNS)
+;                                              (MAKE <LOGIC-COMPONENT> :NAME NAME
+;                                               :TYPE 'XOR :CONNECTIONS CONNS
+;                                               :INPUTS
+;                                               (FOL.COMPILER.COLLECTION-FUNCTIONS:SET
+;                                                1 2 :IN)
+;                                               :OUTPUTS
+;                                               (FOL.COMPILER.COLLECTION-FUNCTIONS:SET
+;                                                :OUT)
+;                                               ...)))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL356
+
+;     (TYPEP #:VAL356 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL356
+
+;     (GET #:VAL356 'XOR
+;          (LAMBDA (NAME PARAM CONNS)
+;            (MAKE <LOGIC-COMPONENT> :NAME NAME :TYPE 'XOR :CONNECTIONS CONNS
+;             :INPUTS (FOL.COMPILER.COLLECTION-FUNCTIONS:SET 1 2 :IN) :OUTPUTS
+;             (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :OUT) ...)))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL356
+
+;     (TYPEP #:VAL356 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL356
+
+;     (GET #:VAL357 'XNOR
+;          (LAMBDA (NAME PARAM CONNS)
+;            (MAKE <LOGIC-COMPONENT> :NAME NAME :TYPE 'XNOR :CONNECTIONS CONNS
+;             :INPUTS (FOL.COMPILER.COLLECTION-FUNCTIONS:SET 1 2 :IN) :OUTPUTS
+;             (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :OUT) ...)))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL357
+
+;     (TYPEP #:VAL357 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL357
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL357 'XNOR
+;                                            (LAMBDA (NAME PARAM CONNS)
+;                                              (MAKE <LOGIC-COMPONENT> :NAME NAME
+;                                               :TYPE 'XNOR :CONNECTIONS CONNS
+;                                               :INPUTS
+;                                               (FOL.COMPILER.COLLECTION-FUNCTIONS:SET
+;                                                1 2 :IN)
+;                                               :OUTPUTS
+;                                               (FOL.COMPILER.COLLECTION-FUNCTIONS:SET
+;                                                :OUT)
+;                                               ...)))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL357
+
+;     (TYPEP #:VAL357 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL357
+
+;     (GET #:VAL357 'XNOR
+;          (LAMBDA (NAME PARAM CONNS)
+;            (MAKE <LOGIC-COMPONENT> :NAME NAME :TYPE 'XNOR :CONNECTIONS CONNS
+;             :INPUTS (FOL.COMPILER.COLLECTION-FUNCTIONS:SET 1 2 :IN) :OUTPUTS
+;             (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :OUT) ...)))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL357
+
+;     (TYPEP #:VAL357 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL357
+
+;     (GET #:VAL358 'DELAY
+;          (LAMBDA (NAME PARAM CONNS)
+;            (LET ((D #))
+;              (MAKE <LOGIC-COMPONENT> :NAME NAME :TYPE 'DELAY :CONNECTIONS CONNS
+;               :INPUTS (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :IN) :OUTPUTS
+;               (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :OUT) ...))))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL358
+
+;     (TYPEP #:VAL358 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL358
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL358 'DELAY
+;                                            (LAMBDA (NAME PARAM CONNS)
+;                                              (LET ((D #))
+;                                                (MAKE <LOGIC-COMPONENT> :NAME NAME
+;                                                 :TYPE 'DELAY :CONNECTIONS CONNS
+;                                                 :INPUTS
+;                                                 (FOL.COMPILER.COLLECTION-FUNCTIONS:SET
+;                                                  :IN)
+;                                                 :OUTPUTS
+;                                                 (FOL.COMPILER.COLLECTION-FUNCTIONS:SET
+;                                                  :OUT)
+;                                                 ...))))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL358
+
+;     (TYPEP #:VAL358 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL358
+
+;     (GET #:VAL358 'DELAY
+;          (LAMBDA (NAME PARAM CONNS)
+;            (LET ((D #))
+;              (MAKE <LOGIC-COMPONENT> :NAME NAME :TYPE 'DELAY :CONNECTIONS CONNS
+;               :INPUTS (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :IN) :OUTPUTS
+;               (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :OUT) ...))))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL358
+
+;     (TYPEP #:VAL358 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL358
+
+; in: IF (FBOUNDP 'REGISTER-MODULE)
+;     (GET #:VAL359 'SR-LATCH
+;          (MAKE '<MODULE-DEF> :NAME 'SR-LATCH :PORTS '(R S Q QBAR) :BODY
+;           '((NAND NAND 1 :IN 1 R :IN 2 QBAR :OUT Q)
+;             (NAND NAND 2 :IN 1 S :IN 2 Q :OUT QBAR))))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL359
+
+;     (TYPEP #:VAL359 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL359
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL359 'SR-LATCH
+;                                            (MAKE '<MODULE-DEF> :NAME 'SR-LATCH
+;                                             :PORTS '(R S Q QBAR) :BODY
+;                                             '((NAND NAND 1 :IN 1 R :IN 2 QBAR
+;                                                :OUT Q)
+;                                               (NAND NAND 2 :IN 1 S :IN 2 Q :OUT
+;                                                QBAR))))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL359
+
+;     (TYPEP #:VAL359 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL359
+
+;     (GET #:VAL359 'SR-LATCH
+;          (MAKE '<MODULE-DEF> :NAME 'SR-LATCH :PORTS '(R S Q QBAR) :BODY
+;           '((NAND NAND 1 :IN 1 R :IN 2 QBAR :OUT Q)
+;             (NAND NAND 2 :IN 1 S :IN 2 Q :OUT QBAR))))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL359
+
+;     (TYPEP #:VAL359 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL359
+
+;     (GET #:VAL360 'D-LATCH
+;          (MAKE '<MODULE-DEF> :NAME 'D-LATCH :PORTS '(CLK D Q QBAR) :BODY
+;           '((NAND NAND 1 :IN 1 D :IN 2 CLK :OUT S)
+;             (NAND NAND 2 :IN 1 S :IN 2 CLK :OUT R)
+;             (SR-LATCH LATCH :R R :S S :Q Q :QBAR QBAR))))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL360
+
+;     (TYPEP #:VAL360 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL360
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL360 'D-LATCH
+;                                            (MAKE '<MODULE-DEF> :NAME 'D-LATCH
+;                                             :PORTS '(CLK D Q QBAR) :BODY
+;                                             '((NAND NAND 1 :IN 1 D :IN 2 CLK :OUT
+;                                                S)
+;                                               (NAND NAND 2 :IN 1 S :IN 2 CLK :OUT
+;                                                R)
+;                                               (SR-LATCH LATCH :R R :S S :Q Q
+;                                                :QBAR QBAR))))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL360
+
+;     (TYPEP #:VAL360 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL360
+
+;     (GET #:VAL360 'D-LATCH
+;          (MAKE '<MODULE-DEF> :NAME 'D-LATCH :PORTS '(CLK D Q QBAR) :BODY
+;           '((NAND NAND 1 :IN 1 D :IN 2 CLK :OUT S)
+;             (NAND NAND 2 :IN 1 S :IN 2 CLK :OUT R)
+;             (SR-LATCH LATCH :R R :S S :Q Q :QBAR QBAR))))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL360
+
+;     (TYPEP #:VAL360 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL360
+
+;     (GET #:VAL361 'REGISTER- 32BIT
+;          (MAKE '<MODULE-DEF> :NAME 'REGISTER- 32BIT :PORTS
+;           '(CLK D 0 D 1 D 2 D 3 D 4 D ...) :BODY
+;           '((D-LATCH BIT 0 :CLK CLK :D D 0 :Q Q 0 :QBAR ...)
+;             (D-LATCH BIT 1 :CLK CLK :D D 1 :Q Q 1 :QBAR ...)
+;             (D-LATCH BIT 2 :CLK CLK :D D 2 :Q Q 2 :QBAR ...)
+;             (D-LATCH BIT 3 :CLK CLK :D D 3 :Q Q 3 :QBAR ...)
+;             (D-LATCH BIT 4 :CLK CLK :D D 4 :Q Q 4 :QBAR ...)
+;             (D-LATCH BIT 5 :CLK CLK :D D 5 :Q Q 5 :QBAR ...)
+;             (D-LATCH BIT 6 :CLK CLK :D D 6 :Q Q 6 :QBAR ...)
+;             (D-LATCH BIT 7 :CLK CLK :D D 7 :Q Q 7 :QBAR ...)
+;             (D-LATCH BIT 8 :CLK CLK :D D 8 :Q Q 8 :QBAR ...)
+;             (D-LATCH BIT 9 :CLK CLK :D D 9 :Q Q 9 :QBAR ...)
+;             (D-LATCH BIT 10 :CLK CLK :D D 10 :Q Q 10 :QBAR ...)
+;             (D-LATCH BIT 11 :CLK CLK :D D 11 :Q Q 11 :QBAR ...) ...)))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL361
+
+;     (TYPEP #:VAL361 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL361
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL361 'REGISTER- 32BIT
+;                                            (MAKE '<MODULE-DEF> :NAME 'REGISTER-
+;                                             32BIT :PORTS
+;                                             '(CLK D 0 D 1 D 2 D 3 D 4 D ...)
+;                                             :BODY
+;                                             '((D-LATCH BIT 0 :CLK CLK :D D 0 :Q Q
+;                                                0 :QBAR ...)
+;                                               (D-LATCH BIT 1 :CLK CLK :D D 1 :Q Q
+;                                                1 :QBAR ...)
+;                                               (D-LATCH BIT 2 :CLK CLK :D D 2 :Q Q
+;                                                2 :QBAR ...)
+;                                               (D-LATCH BIT 3 :CLK CLK :D D 3 :Q Q
+;                                                3 :QBAR ...)
+;                                               (D-LATCH BIT 4 :CLK CLK :D D 4 :Q Q
+;                                                4 :QBAR ...)
+;                                               (D-LATCH BIT 5 :CLK CLK :D D 5 :Q Q
+;                                                5 :QBAR ...)
+;                                               (D-LATCH BIT 6 :CLK CLK :D D 6 :Q Q
+;                                                6 :QBAR ...)
+;                                               (D-LATCH BIT 7 :CLK CLK :D D 7 :Q Q
+;                                                7 :QBAR ...)
+;                                               (D-LATCH BIT 8 :CLK CLK :D D 8 :Q Q
+;                                                8 :QBAR ...)
+;                                               (D-LATCH BIT 9 :CLK CLK :D D 9 :Q Q
+;                                                9 :QBAR ...)
+;                                               (D-LATCH BIT 10 :CLK CLK :D D 10 :Q
+;                                                Q 10 :QBAR ...)
+;                                               (D-LATCH BIT 11 :CLK CLK :D D 11 :Q
+;                                                Q 11 :QBAR ...)
+;                                               ...)))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL361
+
+;     (TYPEP #:VAL361 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL361
+
+;     (GET #:VAL361 'REGISTER- 32BIT
+;          (MAKE '<MODULE-DEF> :NAME 'REGISTER- 32BIT :PORTS
+;           '(CLK D 0 D 1 D 2 D 3 D 4 D ...) :BODY
+;           '((D-LATCH BIT 0 :CLK CLK :D D 0 :Q Q 0 :QBAR ...)
+;             (D-LATCH BIT 1 :CLK CLK :D D 1 :Q Q 1 :QBAR ...)
+;             (D-LATCH BIT 2 :CLK CLK :D D 2 :Q Q 2 :QBAR ...)
+;             (D-LATCH BIT 3 :CLK CLK :D D 3 :Q Q 3 :QBAR ...)
+;             (D-LATCH BIT 4 :CLK CLK :D D 4 :Q Q 4 :QBAR ...)
+;             (D-LATCH BIT 5 :CLK CLK :D D 5 :Q Q 5 :QBAR ...)
+;             (D-LATCH BIT 6 :CLK CLK :D D 6 :Q Q 6 :QBAR ...)
+;             (D-LATCH BIT 7 :CLK CLK :D D 7 :Q Q 7 :QBAR ...)
+;             (D-LATCH BIT 8 :CLK CLK :D D 8 :Q Q 8 :QBAR ...)
+;             (D-LATCH BIT 9 :CLK CLK :D D 9 :Q Q 9 :QBAR ...)
+;             (D-LATCH BIT 10 :CLK CLK :D D 10 :Q Q 10 :QBAR ...)
+;             (D-LATCH BIT 11 :CLK CLK :D D 11 :Q Q 11 :QBAR ...) ...)))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL361
+
+;     (TYPEP #:VAL361 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL361
+
+; in: DEFUN QUALIFY-NAME
+;     (GET #:VAL362 PREFIX)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL362
+
+;     (TYPEP #:VAL362 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL362
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL362 PREFIX)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL362
+
+;     (TYPEP #:VAL362 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL362
+
+;     (GET #:VAL362 PREFIX)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL362
+
+;     (TYPEP #:VAL362 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL362
+
+;     (GET #:VAL363 PREFIX "/" NAME)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL363
+
+;     (TYPEP #:VAL363 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL363
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL363 PREFIX "/" NAME)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL363
+
+;     (TYPEP #:VAL363 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL363
+
+;     (GET #:VAL363 PREFIX "/" NAME)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL363
+
+;     (TYPEP #:VAL363 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL363
+
+; in: DEFUN RESOLVE-NODE
+;     (GET #:VAL364 PREFIX NODE-SYM)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL364
+
+;     (TYPEP #:VAL364 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL364
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL364 PREFIX NODE-SYM)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL364
+
+;     (TYPEP #:VAL364 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL364
+
+;     (GET #:VAL364 PREFIX NODE-SYM)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL364
+
+;     (TYPEP #:VAL364 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL364
+
+; in: DEFUN PARSE-CONNECTIONS
+;     (GET #:VAL365 NODE-SYM PREFIX BINDINGS)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL365
+
+;     (TYPEP #:VAL365 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL365
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL365 NODE-SYM PREFIX BINDINGS)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL365
+
+;     (TYPEP #:VAL365 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL365
+
+;     (GET #:VAL365 NODE-SYM PREFIX BINDINGS)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL365
+
+;     (TYPEP #:VAL365 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL365
+
+; in: DEFUN EXPAND-SPEC
+;     (GET #:VAL366 (FIRST RAW-ARGS))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL366
+
+;     (TYPEP #:VAL366 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL366
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL366 (FIRST RAW-ARGS))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL366
+
+;     (TYPEP #:VAL366 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL366
+
+;     (GET #:VAL366 (FIRST RAW-ARGS))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL366
+
+;     (TYPEP #:VAL366 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL366
+
+;     (GET #:VAL367 PREFIX NAME)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL367
+
+;     (TYPEP #:VAL367 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL367
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL367 PREFIX NAME)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL367
+
+;     (TYPEP #:VAL367 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL367
+
+;     (GET #:VAL367 PREFIX NAME)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL367
+
+;     (TYPEP #:VAL367 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL367
+
+;     (GET #:VAL368 ARGS PREFIX BINDINGS)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL368
+
+;     (TYPEP #:VAL368 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL368
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL368 ARGS PREFIX BINDINGS)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL368
+
+;     (TYPEP #:VAL368 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL368
+
+;     (GET #:VAL368 ARGS PREFIX BINDINGS)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL368
+
+;     (TYPEP #:VAL368 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL368
+
+;     (GET #:VAL369 TYPE)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL369
+
+;     (TYPEP #:VAL369 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL369
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL369 TYPE)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL369
+
+;     (TYPEP #:VAL369 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL369
+
+;     (GET #:VAL369 TYPE)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL369
+
+;     (TYPEP #:VAL369 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL369
+
+;     (GET #:VAL370 TYPE)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL370
+
+;     (TYPEP #:VAL370 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL370
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL370 TYPE)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL370
+
+;     (TYPEP #:VAL370 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL370
+
+;     (GET #:VAL370 TYPE)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL370
+
+;     (TYPEP #:VAL370 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL370
+
+;     (GET #:VAL371 CHILD-SPEC FULL-NAME RESOLVED-CONNS)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL371
+
+;     (TYPEP #:VAL371 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL371
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL371 CHILD-SPEC FULL-NAME
+;                                            RESOLVED-CONNS)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL371
+
+;     (TYPEP #:VAL371 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL371
+
+;     (GET #:VAL371 CHILD-SPEC FULL-NAME RESOLVED-CONNS)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL371
+
+;     (TYPEP #:VAL371 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL371
+
+;     (GET #:VAL372 MODULE-DEF)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL372
+
+;     (TYPEP #:VAL372 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL372
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL372 MODULE-DEF)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL372
+
+;     (TYPEP #:VAL372 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL372
+
+;     (GET #:VAL372 MODULE-DEF)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL372
+
+;     (TYPEP #:VAL372 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL372
+
+; in: DEFUN EXPAND-NETLIST =>
+;      DEF (IF (FBOUNDP 'GET-MODULE)
+;          (GET-MODULE TOP-MODULE-NAME)
+;          (LET ((#:VAL374 GET-MODULE))
+;            (COND ((TYPEP #:VAL374 '<DICT>) (GET #:VAL374 TOP-MODULE-NAME))
+;                  ((TYPEP #:VAL374 '<VECTOR>)
+;                   (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL374
+;                                                          TOP-MODULE-NAME))
+;                  ((TYPEP #:VAL374 '<SET>) (GET #:VAL374 TOP-MODULE-NAME))
+;                  (T (ERROR "~S is not a function or collection" 'GET-MODULE)))))
+;     (GET #:VAL374 TOP-MODULE-NAME)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL374
+
+;     (TYPEP #:VAL374 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL374
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL374 TOP-MODULE-NAME)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL374
+
+;     (TYPEP #:VAL374 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL374
+
+;     (GET #:VAL374 TOP-MODULE-NAME)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL374
+
+;     (TYPEP #:VAL374 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL374
+
+; in: DEFUN EXPAND-NETLIST
+;     (GET #:VAL375 DEF)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL375
+
+;     (TYPEP #:VAL375 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL375
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL375 DEF)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL375
+
+;     (TYPEP #:VAL375 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL375
+
+;     (GET #:VAL375 DEF)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL375
+
+;     (TYPEP #:VAL375 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL375
+
+;     (GET #:VAL376 "Module " TOP-MODULE-NAME " not found")
+; 
+; caught WARNING:
+;   undefined variable: #:VAL376
+
+;     (TYPEP #:VAL376 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL376
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL376 "Module " TOP-MODULE-NAME
+;                                            " not found")
+; 
+; caught WARNING:
+;   undefined variable: #:VAL376
+
+;     (TYPEP #:VAL376 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL376
+
+;     (GET #:VAL376 "Module " TOP-MODULE-NAME " not found")
+; 
+; caught WARNING:
+;   undefined variable: #:VAL376
+
+;     (TYPEP #:VAL376 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL376
+
+;     (GET #:VAL377 DEF)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL377
+
+;     (TYPEP #:VAL377 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL377
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL377 DEF)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL377
+
+;     (TYPEP #:VAL377 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL377
+
+;     (GET #:VAL377 DEF)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL377
+
+;     (TYPEP #:VAL377 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL377
+
+;     (GET #:VAL378 SPEC NIL TOP-BINDINGS)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL378
+
+;     (TYPEP #:VAL378 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL378
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL378 SPEC NIL TOP-BINDINGS)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL378
+
+;     (TYPEP #:VAL378 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL378
+
+;     (GET #:VAL378 SPEC NIL TOP-BINDINGS)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL378
+
+;     (TYPEP #:VAL378 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL378
+
+;     (GET #:VAL379 DEF)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL379
+
+;     (TYPEP #:VAL379 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL379
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL379 DEF)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL379
+
+;     (TYPEP #:VAL379 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL379
+
+;     (GET #:VAL379 DEF)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL379
+
+;     (TYPEP #:VAL379 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL379
+
+; in: DEFUN REGISTER-CONNECTIVITY
+;     (GET #:VAL380 COMP)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL380
+
+;     (TYPEP #:VAL380 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL380
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL380 COMP)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL380
+
+;     (TYPEP #:VAL380 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL380
+
+;     (GET #:VAL380 COMP)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL380
+
+;     (TYPEP #:VAL380 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL380
+
+;     (GET #:VAL381 ACC NODE
+;          (LAMBDA (COMPS)
+;            (CONJ (OR COMPS (FOL.COMPILER.COLLECTION-FUNCTIONS:VECTOR)) COMP)))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL381
+
+;     (TYPEP #:VAL381 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL381
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL381 ACC NODE
+;                                            (LAMBDA (COMPS)
+;                                              (CONJ
+;                                               (OR COMPS
+;                                                   (FOL.COMPILER.COLLECTION-FUNCTIONS:VECTOR))
+;                                               COMP)))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL381
+
+;     (TYPEP #:VAL381 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL381
+
+;     (GET #:VAL381 ACC NODE
+;          (LAMBDA (COMPS)
+;            (CONJ (OR COMPS (FOL.COMPILER.COLLECTION-FUNCTIONS:VECTOR)) COMP)))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL381
+
+;     (TYPEP #:VAL381 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL381
+
+;     (GET #:VAL382 COMP)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL382
+
+;     (TYPEP #:VAL382 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL382
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL382 COMP)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL382
+
+;     (TYPEP #:VAL382 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL382
+
+;     (GET #:VAL382 COMP)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL382
+
+;     (TYPEP #:VAL382 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL382
+
+; in: DEFUN INSERT-EVENT
+;     (GET #:VAL389 (REST QUEUE) EVENT)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL389
+
+;     (TYPEP #:VAL389 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL389
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL389 (REST QUEUE) EVENT)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL389
+
+;     (TYPEP #:VAL389 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL389
+
+;     (GET #:VAL389 (REST QUEUE) EVENT)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL389
+
+;     (TYPEP #:VAL389 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL389
+
+; in: DEFUN GET-INPUT-STATES
+;     (GET #:VAL390 COMP)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL390
+
+;     (TYPEP #:VAL390 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL390
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL390 COMP)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL390
+
+;     (TYPEP #:VAL390 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL390
+
+;     (GET #:VAL390 COMP)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL390
+
+;     (TYPEP #:VAL390 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL390
+
+;     (GET #:VAL391 COMP)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL391
+
+;     (TYPEP #:VAL391 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL391
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL391 COMP)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL391
+
+;     (TYPEP #:VAL391 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL391
+
+;     (GET #:VAL391 COMP)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL391
+
+;     (TYPEP #:VAL391 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL391
+
+; in: DEFUN GET-CHANGED-PORTS
+;     (GET #:VAL392 COMP)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL392
+
+;     (TYPEP #:VAL392 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL392
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL392 COMP)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL392
+
+;     (TYPEP #:VAL392 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL392
+
+;     (GET #:VAL392 COMP)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL392
+
+;     (TYPEP #:VAL392 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL392
+
+;     (GET #:VAL393 COMP)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL393
+
+;     (TYPEP #:VAL393 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL393
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL393 COMP)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL393
+
+;     (TYPEP #:VAL393 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL393
+
+;     (GET #:VAL393 COMP)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL393
+
+;     (TYPEP #:VAL393 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL393
+
+; in: DEFUN RUN-SIMULATION
+;     (GET #:VAL403 C ACC)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL403
+
+;     (TYPEP #:VAL403 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL403
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL403 C ACC)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL403
+
+;     (TYPEP #:VAL403 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL403
+
+;     (GET #:VAL403 C ACC)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL403
+
+;     (TYPEP #:VAL403 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL403
+
+;     (GET #:VAL404 :TIME INITIAL-EVENTS)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL404
+
+;     (TYPEP #:VAL404 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL404
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL404 :TIME INITIAL-EVENTS)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL404
+
+;     (TYPEP #:VAL404 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL404
+
+;     (GET #:VAL404 :TIME INITIAL-EVENTS)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL404
+
+;     (TYPEP #:VAL404 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL404
+
+;     (GET #:VAL405 ACC (GET EVT :NODE)
+;          (LAMBDA (EVTS)
+;            (CONJ (OR EVTS (FOL.COMPILER.COLLECTION-FUNCTIONS:VECTOR)) EVT)))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL405
+
+;     (TYPEP #:VAL405 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL405
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL405 ACC (GET EVT :NODE)
+;                                            (LAMBDA (EVTS)
+;                                              (CONJ
+;                                               (OR EVTS
+;                                                   (FOL.COMPILER.COLLECTION-FUNCTIONS:VECTOR))
+;                                               EVT)))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL405
+
+;     (TYPEP #:VAL405 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL405
+
+;     (GET #:VAL405 ACC (GET EVT :NODE)
+;          (LAMBDA (EVTS)
+;            (CONJ (OR EVTS (FOL.COMPILER.COLLECTION-FUNCTIONS:VECTOR)) EVT)))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL405
+
+;     (TYPEP #:VAL405 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL405
+
+;     (GET #:VAL406 COMP NEW-NODE-VALUES)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL406
+
+;     (TYPEP #:VAL406 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL406
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL406 COMP NEW-NODE-VALUES)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL406
+
+;     (TYPEP #:VAL406 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL406
+
+;     (GET #:VAL406 COMP NEW-NODE-VALUES)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL406
+
+;     (TYPEP #:VAL406 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL406
+
+;     (GET #:VAL406 COMP NEW-NODE-VALUES)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL406
+
+;     (TYPEP #:VAL406 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL406
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL406 COMP NEW-NODE-VALUES)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL406
+
+;     (TYPEP #:VAL406 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL406
+
+;     (GET #:VAL406 COMP NEW-NODE-VALUES)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL406
+
+;     (TYPEP #:VAL406 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL406
+
+;     (GET #:VAL406 COMP NEW-NODE-VALUES)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL406
+
+;     (TYPEP #:VAL406 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL406
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL406 COMP NEW-NODE-VALUES)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL406
+
+;     (TYPEP #:VAL406 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL406
+
+;     (GET #:VAL406 COMP NEW-NODE-VALUES)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL406
+
+;     (TYPEP #:VAL406 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL406
+
+;     (GET #:VAL406 COMP NEW-NODE-VALUES)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL406
+
+;     (TYPEP #:VAL406 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL406
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL406 COMP NEW-NODE-VALUES)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL406
+
+;     (TYPEP #:VAL406 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL406
+
+;     (GET #:VAL406 COMP NEW-NODE-VALUES)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL406
+
+;     (TYPEP #:VAL406 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL406
+
+;     (GET #:VAL407 COMP (FOL.COMPILER.COLLECTION-FUNCTIONS:SET CHANGED-NODES))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL407
+
+;     (TYPEP #:VAL407 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL407
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL407 COMP
+;                                            (FOL.COMPILER.COLLECTION-FUNCTIONS:SET
+;                                             CHANGED-NODES))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL407
+
+;     (TYPEP #:VAL407 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL407
+
+;     (GET #:VAL407 COMP (FOL.COMPILER.COLLECTION-FUNCTIONS:SET CHANGED-NODES))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL407
+
+;     (TYPEP #:VAL407 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL407
+
+;     (GET #:VAL407 COMP (FOL.COMPILER.COLLECTION-FUNCTIONS:SET CHANGED-NODES))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL407
+
+;     (TYPEP #:VAL407 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL407
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL407 COMP
+;                                            (FOL.COMPILER.COLLECTION-FUNCTIONS:SET
+;                                             CHANGED-NODES))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL407
+
+;     (TYPEP #:VAL407 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL407
+
+;     (GET #:VAL407 COMP (FOL.COMPILER.COLLECTION-FUNCTIONS:SET CHANGED-NODES))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL407
+
+;     (TYPEP #:VAL407 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL407
+
+;     (GET #:VAL407 COMP (FOL.COMPILER.COLLECTION-FUNCTIONS:SET CHANGED-NODES))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL407
+
+;     (TYPEP #:VAL407 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL407
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL407 COMP
+;                                            (FOL.COMPILER.COLLECTION-FUNCTIONS:SET
+;                                             CHANGED-NODES))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL407
+
+;     (TYPEP #:VAL407 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL407
+
+;     (GET #:VAL407 COMP (FOL.COMPILER.COLLECTION-FUNCTIONS:SET CHANGED-NODES))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL407
+
+;     (TYPEP #:VAL407 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL407
+
+;     (GET #:VAL407 COMP (FOL.COMPILER.COLLECTION-FUNCTIONS:SET CHANGED-NODES))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL407
+
+;     (TYPEP #:VAL407 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL407
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL407 COMP
+;                                            (FOL.COMPILER.COLLECTION-FUNCTIONS:SET
+;                                             CHANGED-NODES))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL407
+
+;     (TYPEP #:VAL407 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL407
+
+;     (GET #:VAL407 COMP (FOL.COMPILER.COLLECTION-FUNCTIONS:SET CHANGED-NODES))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL407
+
+;     (TYPEP #:VAL407 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL407
+
+;     (GET #:VAL408 COMP INPUT-STATES CHANGED-PORTS)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL408
+
+;     (TYPEP #:VAL408 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL408
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL408 COMP INPUT-STATES
+;                                            CHANGED-PORTS)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL408
+
+;     (TYPEP #:VAL408 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL408
+
+;     (GET #:VAL408 COMP INPUT-STATES CHANGED-PORTS)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL408
+
+;     (TYPEP #:VAL408 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL408
+
+;     (GET #:VAL408 COMP INPUT-STATES CHANGED-PORTS)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL408
+
+;     (TYPEP #:VAL408 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL408
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL408 COMP INPUT-STATES
+;                                            CHANGED-PORTS)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL408
+
+;     (TYPEP #:VAL408 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL408
+
+;     (GET #:VAL408 COMP INPUT-STATES CHANGED-PORTS)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL408
+
+;     (TYPEP #:VAL408 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL408
+
+;     (GET #:VAL408 COMP INPUT-STATES CHANGED-PORTS)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL408
+
+;     (TYPEP #:VAL408 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL408
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL408 COMP INPUT-STATES
+;                                            CHANGED-PORTS)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL408
+
+;     (TYPEP #:VAL408 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL408
+
+;     (GET #:VAL408 COMP INPUT-STATES CHANGED-PORTS)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL408
+
+;     (TYPEP #:VAL408 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL408
+
+;     (GET #:VAL408 COMP INPUT-STATES CHANGED-PORTS)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL408
+
+;     (TYPEP #:VAL408 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL408
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL408 COMP INPUT-STATES
+;                                            CHANGED-PORTS)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL408
+
+;     (TYPEP #:VAL408 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL408
+
+;     (GET #:VAL408 COMP INPUT-STATES CHANGED-PORTS)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL408
+
+;     (TYPEP #:VAL408 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL408
+
+;     (GET #:VAL409 COMP)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL409
+
+;     (TYPEP #:VAL409 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL409
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL409 COMP)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL409
+
+;     (TYPEP #:VAL409 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL409
+
+;     (GET #:VAL409 COMP)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL409
+
+;     (TYPEP #:VAL409 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL409
+
+;     (GET #:VAL409 COMP)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL409
+
+;     (TYPEP #:VAL409 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL409
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL409 COMP)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL409
+
+;     (TYPEP #:VAL409 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL409
+
+;     (GET #:VAL409 COMP)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL409
+
+;     (TYPEP #:VAL409 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL409
+
+;     (GET #:VAL409 COMP)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL409
+
+;     (TYPEP #:VAL409 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL409
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL409 COMP)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL409
+
+;     (TYPEP #:VAL409 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL409
+
+;     (GET #:VAL409 COMP)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL409
+
+;     (TYPEP #:VAL409 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL409
+
+;     (GET #:VAL409 COMP)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL409
+
+;     (TYPEP #:VAL409 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL409
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL409 COMP)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL409
+
+;     (TYPEP #:VAL409 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL409
+
+;     (GET #:VAL409 COMP)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL409
+
+;     (TYPEP #:VAL409 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL409
+
+;     (GET #:VAL410 (LAMBDA () RES))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL410
+
+;     (TYPEP #:VAL410 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL410
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL410 (LAMBDA () RES))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL410
+
+;     (TYPEP #:VAL410 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL410
+
+;     (GET #:VAL410 (LAMBDA () RES))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL410
+
+;     (TYPEP #:VAL410 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL410
+
+;     (GET #:VAL410 (LAMBDA () RES))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL410
+
+;     (TYPEP #:VAL410 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL410
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL410 (LAMBDA () RES))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL410
+
+;     (TYPEP #:VAL410 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL410
+
+;     (GET #:VAL410 (LAMBDA () RES))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL410
+
+;     (TYPEP #:VAL410 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL410
+
+;     (GET #:VAL410 (LAMBDA () RES))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL410
+
+;     (TYPEP #:VAL410 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL410
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL410 (LAMBDA () RES))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL410
+
+;     (TYPEP #:VAL410 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL410
+
+;     (GET #:VAL410 (LAMBDA () RES))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL410
+
+;     (TYPEP #:VAL410 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL410
+
+;     (GET #:VAL410 (LAMBDA () RES))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL410
+
+;     (TYPEP #:VAL410 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL410
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL410 (LAMBDA () RES))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL410
+
+;     (TYPEP #:VAL410 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL410
+
+;     (GET #:VAL410 (LAMBDA () RES))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL410
+
+;     (TYPEP #:VAL410 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL410
+
+;     (GET #:VAL411
+;          (LAMBDA (COMP)
+;            (LET ((INPUT-STATES #))
+;              (LET (#)
+;                (LET #
+;                  #))))
+;          AFFECTED-COMPS)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL411
+
+;     (TYPEP #:VAL411 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL411
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL411
+;                                            (LAMBDA (COMP)
+;                                              (LET ((INPUT-STATES #))
+;                                                (LET (#)
+;                                                  (LET #
+;                                                    #))))
+;                                            AFFECTED-COMPS)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL411
+
+;     (TYPEP #:VAL411 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL411
+
+;     (GET #:VAL411
+;          (LAMBDA (COMP)
+;            (LET ((INPUT-STATES #))
+;              (LET (#)
+;                (LET #
+;                  #))))
+;          AFFECTED-COMPS)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL411
+
+;     (TYPEP #:VAL411 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL411
+
+;     (GET #:VAL412 REMAINING NEW-EVENTS)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL412
+
+;     (TYPEP #:VAL412 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL412
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL412 REMAINING NEW-EVENTS)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL412
+
+;     (TYPEP #:VAL412 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL412
+
+;     (GET #:VAL412 REMAINING NEW-EVENTS)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL412
+
+;     (TYPEP #:VAL412 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL412
+
+; in: DEFUN RUN
+;     (GET #:VAL413 MODULE-NAME)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL413
+
+;     (TYPEP #:VAL413 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL413
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL413 MODULE-NAME)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL413
+
+;     (TYPEP #:VAL413 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL413
+
+;     (GET #:VAL413 MODULE-NAME)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL413
+
+;     (TYPEP #:VAL413 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL413
+
+;     (GET #:VAL414 NETLIST INITIAL-EVENTS TIME MONITORED)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL414
+
+;     (TYPEP #:VAL414 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL414
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL414 NETLIST INITIAL-EVENTS TIME
+;                                            MONITORED)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL414
+
+;     (TYPEP #:VAL414 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL414
+
+;     (GET #:VAL414 NETLIST INITIAL-EVENTS TIME MONITORED)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL414
+
+;     (TYPEP #:VAL414 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL414
+
+; in: DEFUN DISPLAY
+;     (GET #:VAL418 "Events for " NODE ":")
+; 
+; caught WARNING:
+;   undefined variable: #:VAL418
+
+;     (TYPEP #:VAL418 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL418
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL418 "Events for " NODE ":")
+; 
+; caught WARNING:
+;   undefined variable: #:VAL418
+
+;     (TYPEP #:VAL418 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL418
+
+;     (GET #:VAL418 "Events for " NODE ":")
+; 
+; caught WARNING:
+;   undefined variable: #:VAL418
+
+;     (TYPEP #:VAL418 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL418
+
+;     (GET #:VAL419 "  T="
+;          (LET ((#:START-415 (GET-INTERNAL-REAL-TIME)))
+;            (LET ((#:RESULT-416 #))
+;              (LET (#)
+;                (PROGN # #:RESULT-416))))
+;          " V=" (GET E :VALUE))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL419
+
+;     (TYPEP #:VAL419 '<SET>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL419
+
+;     (FOL.COMPILER.COLLECTION-FUNCTIONS:NTH #:VAL419 "  T="
+;                                            (LET ((#:START-415
+;                                                   (GET-INTERNAL-REAL-TIME)))
+;                                              (LET ((#:RESULT-416 #))
+;                                                (LET (#)
+;                                                  (PROGN # #:RESULT-416))))
+;                                            " V=" (GET E :VALUE))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL419
+
+;     (TYPEP #:VAL419 '<VECTOR>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL419
+
+;     (GET #:VAL419 "  T="
+;          (LET ((#:START-415 (GET-INTERNAL-REAL-TIME)))
+;            (LET ((#:RESULT-416 #))
+;              (LET (#)
+;                (PROGN # #:RESULT-416))))
+;          " V=" (GET E :VALUE))
+; 
+; caught WARNING:
+;   undefined variable: #:VAL419
+
+;     (TYPEP #:VAL419 '<DICT>)
+; 
+; caught WARNING:
+;   undefined variable: #:VAL419
+; 
+; compilation unit finished
+;   Undefined types:
+;     <DICT> <SET> <VECTOR>
+;   Undefined functions:
+;     FOL.MACROS::<DELAY> CONCAT CONJ CONTAINS? DROP-WHILE EMPTY? FILTER INTO KEYS KEYWORD? MAKE NIL? 
+PMAPCAT SORT-BY STR SWAP! SYMBOL TAKE-WHILE TRUTHY? UPDATE
+;   Undefined variables:
+;     32BIT <COMPONENT> FOL.MACROS::<DELAY> <LOGIC-COMPONENT> COMPONENT-CONNECTIONS COMPONENT-DELAYS 
+COMPONENT-INPUTS COMPONENT-LOGIC-FN COMPONENT-OUTPUTS COMPUTE-NEXT-STATE CONJ #:END-385 #:END-388 
+#:END-396 #:END-399 #:END-402 #:END-417 #:END-417 #:END-417 #:END-417 EXPAND-NETLIST EXPAND-SPEC 
+GET-CHANGED-PORTS GET-INPUT-STATES GET-MODULE GET-PRIMITIVE INSERT-EVENT KEYWORD? MERGE-EVENTS 
+MODULE-BODY MODULE-PORTS NIL? #:OP349 #:OP349 #:OP349 #:OP349 #:OP349 #:OP349 #:OP349 #:OP349 #:OP349 
+#:OP373 #:OP373 #:OP373 #:OP373 #:OP373 #:OP373 #:OP373 #:OP373 #:OP373 PARSE-CONNECTIONS PMAPCAT 
+QUALIFY-NAME REGISTER-CONNECTIVITY REGISTER-MODULE REGISTER-PRIMITIVE RESOLVE-NODE #:RESULT-384 
+#:RESULT-387 #:RESULT-395 #:RESULT-398 #:RESULT-401 #:RESULT-416 #:RESULT-416 #:RESULT-416 
+#:RESULT-416 RUN-SIMULATION SORT-BY #:START-383 #:START-386 #:START-394 #:START-397 #:START-400 
+#:START-415 #:START-415 #:START-415 #:START-415 STR UPDATE #:VAL347 #:VAL347 #:VAL347 #:VAL347 
+#:VAL347 #:VAL347 #:VAL348 #:VAL348 #:VAL348 #:VAL348 #:VAL348 #:VAL348 #:VAL350 #:VAL350 #:VAL350 
+#:VAL350 #:VAL350 #:VAL350 #:VAL351 #:VAL351 #:VAL351 #:VAL351 #:VAL351 #:VAL351 #:VAL352 #:VAL352 
+#:VAL352 #:VAL352 #:VAL352 #:VAL352 #:VAL353 #:VAL353 #:VAL353 #:VAL353 #:VAL353 #:VAL353 #:VAL354 
+#:VAL354 #:VAL354 #:VAL354 #:VAL354 #:VAL354 #:VAL355 #:VAL355 #:VAL355 #:VAL355 #:VAL355 #:VAL355 
+#:VAL356 #:VAL356 #:VAL356 #:VAL356 #:VAL356 #:VAL356 #:VAL357 #:VAL357 #:VAL357 #:VAL357 #:VAL357 
+#:VAL357 #:VAL358 #:VAL358 #:VAL358 #:VAL358 #:VAL358 #:VAL358 #:VAL359 #:VAL359 #:VAL359 #:VAL359 
+#:VAL359 #:VAL359 #:VAL360 #:VAL360 #:VAL360 #:VAL360 #:VAL360 #:VAL360 #:VAL361 #:VAL361 #:VAL361 
+#:VAL361 #:VAL361 #:VAL361 #:VAL362 #:VAL362 #:VAL362 #:VAL362 #:VAL362 #:VAL362 #:VAL363 #:VAL363 
+#:VAL363 #:VAL363 #:VAL363 #:VAL363 #:VAL364 #:VAL364 #:VAL364 #:VAL364 #:VAL364 #:VAL364 #:VAL365 
+#:VAL365 #:VAL365 #:VAL365 #:VAL365 #:VAL365 #:VAL366 #:VAL366 #:VAL366 #:VAL366 #:VAL366 #:VAL366 
+#:VAL367 #:VAL367 #:VAL367 #:VAL367 #:VAL367 #:VAL367 #:VAL368 #:VAL368 #:VAL368 #:VAL368 #:VAL368 
+#:VAL368 #:VAL369 #:VAL369 #:VAL369 #:VAL369 #:VAL369 #:VAL369 #:VAL370 #:VAL370 #:VAL370 #:VAL370 
+#:VAL370 #:VAL370 #:VAL371 #:VAL371 #:VAL371 #:VAL371 #:VAL371 #:VAL371 #:VAL372 #:VAL372 #:VAL372 
+#:VAL372 #:VAL372 #:VAL372 #:VAL374 #:VAL374 #:VAL374 #:VAL374 #:VAL374 #:VAL374 #:VAL375 #:VAL375 
+#:VAL375 #:VAL375 #:VAL375 #:VAL375 #:VAL376 #:VAL376 #:VAL376 #:VAL376 #:VAL376 #:VAL376 #:VAL377 
+#:VAL377 #:VAL377 #:VAL377 #:VAL377 #:VAL377 #:VAL378 #:VAL378 #:VAL378 #:VAL378 #:VAL378 #:VAL378 
+#:VAL379 #:VAL379 #:VAL379 #:VAL379 #:VAL379 #:VAL379 #:VAL380 #:VAL380 #:VAL380 #:VAL380 #:VAL380 
+#:VAL380 #:VAL381 #:VAL381 #:VAL381 #:VAL381 #:VAL381 #:VAL381 #:VAL382 #:VAL382 #:VAL382 #:VAL382 
+#:VAL382 #:VAL382 #:VAL389 #:VAL389 #:VAL389 #:VAL389 #:VAL389 #:VAL389 #:VAL390 #:VAL390 #:VAL390 
+#:VAL390 #:VAL390 #:VAL390 #:VAL391 #:VAL391 #:VAL391 #:VAL391 #:VAL391 #:VAL391 #:VAL392 #:VAL392 
+#:VAL392 #:VAL392 #:VAL392 #:VAL392 #:VAL393 #:VAL393 #:VAL393 #:VAL393 #:VAL393 #:VAL393 #:VAL403 
+#:VAL403 #:VAL403 #:VAL403 #:VAL403 #:VAL403 #:VAL404 #:VAL404 #:VAL404 #:VAL404 #:VAL404 #:VAL404 
+#:VAL405 #:VAL405 #:VAL405 #:VAL405 #:VAL405 #:VAL405 #:VAL406 #:VAL406 #:VAL406 #:VAL406 #:VAL406 
+#:VAL406 #:VAL406 #:VAL406 #:VAL406 #:VAL406 #:VAL406 #:VAL406 #:VAL406 #:VAL406 #:VAL406 #:VAL406 
+#:VAL406 #:VAL406 #:VAL406 #:VAL406 #:VAL406 #:VAL406 #:VAL406 #:VAL406 #:VAL407 #:VAL407 #:VAL407 
+#:VAL407 #:VAL407 #:VAL407 #:VAL407 #:VAL407 #:VAL407 #:VAL407 #:VAL407 #:VAL407 #:VAL407 #:VAL407 
+#:VAL407 #:VAL407 #:VAL407 #:VAL407 #:VAL407 #:VAL407 #:VAL407 #:VAL407 #:VAL407 #:VAL407 #:VAL408 
+#:VAL408 #:VAL408 #:VAL408 #:VAL408 #:VAL408 #:VAL408 #:VAL408 #:VAL408 #:VAL408 #:VAL408 #:VAL408 
+#:VAL408 #:VAL408 #:VAL408 #:VAL408 #:VAL408 #:VAL408 #:VAL408 #:VAL408 #:VAL408 #:VAL408 #:VAL408 
+#:VAL408 #:VAL409 #:VAL409 #:VAL409 #:VAL409 #:VAL409 #:VAL409 #:VAL409 #:VAL409 #:VAL409 #:VAL409 
+#:VAL409 #:VAL409 #:VAL409 #:VAL409 #:VAL409 #:VAL409 #:VAL409 #:VAL409 #:VAL409 #:VAL409 #:VAL409 
+#:VAL409 #:VAL409 #:VAL409 #:VAL410 #:VAL410 #:VAL410 #:VAL410 #:VAL410 #:VAL410 #:VAL410 #:VAL410 
+#:VAL410 #:VAL410 #:VAL410 #:VAL410 #:VAL410 #:VAL410 #:VAL410 #:VAL410 #:VAL410 #:VAL410 #:VAL410 
+#:VAL410 #:VAL410 #:VAL410 #:VAL410 #:VAL410 #:VAL411 #:VAL411 #:VAL411 #:VAL411 #:VAL411 #:VAL411 
+#:VAL412 #:VAL412 #:VAL412 #:VAL412 #:VAL412 #:VAL412 #:VAL413 #:VAL413 #:VAL413 #:VAL413 #:VAL413 
+#:VAL413 #:VAL414 #:VAL414 #:VAL414 #:VAL414 #:VAL414 #:VAL414 #:VAL418 #:VAL418 #:VAL418 #:VAL418 
+#:VAL418 #:VAL418 #:VAL419 #:VAL419 #:VAL419 #:VAL419 #:VAL419 #:VAL419
+;   caught 585 WARNING conditions
+;   caught 202 STYLE-WARNING conditions
+
+
+; wrote C:/Users/frank/Projects/FOL/fol/fol-code/lsim.fasl
+; compilation finished in 0:00:00.497
+WARNING: redefining COMMON-LISP-USER::COMPUTE-NEXT-STATE in DEFUN
+
+Error running lsim.fol: The function COMMON-LISP-USER::SWAP! is undefined.

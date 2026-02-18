@@ -18,7 +18,7 @@
    <uuid>
    ;; Type mapping
    fol-type-class
-   
+
    ;; Type predicates
    <bool>? <char>? <string>? <re-pattern>? <symbol>? <keyword>?
    <number>? <complex>? <real>? <float>? <single-float>? <double-float>?
@@ -51,8 +51,6 @@
    <number>? <integer>? <float>? <rational>? <real>? <ratio>? <complex>?
    <single-float>? <double-float>? <fixnum>? <bignum>?
    <fn>?
-   ;; Numeric predicates
-   zero? odd? even?
    ;; Symbol construction
    symbol keyword find-keyword gensym
    ;; Equality
@@ -209,7 +207,18 @@
    agent-error
    restart-agent
    set-error-handler!
-   set-error-mode!))
+   set-error-mode!
+   ;; Thread
+   <thread>
+   run
+   start
+   suspend
+   resume
+   halt
+   thread-join
+   ;; Thread Pool
+   submit-work
+   wait-for-work))
 
 (defpackage fol.compiler.persistent
   (:use cl)
@@ -331,9 +340,10 @@
   (:use cl)
   (:shadow format reverse replace char)
   (:import-from cl-ppcre)
+  (:import-from uuid make-uuid-from-string)
   (:export
    ;; String concatenation and manipulation
-   str subs join split split-lines
+   str subs split split-lines
    ;; Trimming (Clojure-style)
    trim triml trimr trim-newline
    ;; Case conversion (Clojure-style)
@@ -343,13 +353,13 @@
    ;; Predicates (Clojure-style)
    starts-with? ends-with? includes? blank?
    ;; Comparison and formatting
-   compare size format
+   compare format
    ;; Character functions (Clojure-style)
    char char-name-string char-escape-string
    ;; Escaping
    escape
    ;; Generic Clojure-style functions (with regex support)
-   replace replace-first reverse index-of last-index-of
+   replace-first reverse index-of last-index-of
    ;; Parsing
    parse-boolean parse-uuid
    ;; Regular expressions (Clojure-style)
@@ -359,20 +369,23 @@
 
 (defpackage fol.compiler.collection-functions
   (:use cl)
-  (:shadow vector set list list* nth push pop replace union intersection subseq find)
+  (:shadow vector set list list* nth push pop union intersection subseq find)
   (:shadowing-import-from fol.compiler.collections
                           ;; Import high-level accessors that are defined in collections
                           first rest get assoc dissoc conj size empty? count update merge)
   (:import-from fol.compiler.collections
                 ;; Constructor generic
                 make
+                ;; Base class (needed for method specializers)
+                <collection>
                 ;; Class name symbols (needed for make dispatch)
                 <vector> <dict> <ordered-dict> <array-dict> <set> <bag>
                 <ordered-set> <sorted-set> <sorted-dict> <int-dict> <priority-dict>
-                <int-set> <dense-int-set> <deque> <list> <lazy-seq> <array> <deque>
-                <lazy-seq> <ordered-set> <sorted-set> <int-set> <dense-int-set>)
+                <int-set> <dense-int-set> <deque> <list> <lazy-seq> <array>)
   (:import-from fol.compiler.string-functions
                 index-of last-index-of)
+  (:import-from fol.compiler.merged-functions
+                replace)
   (:import-from fol.compiler.destructure
                 fol-type-to-cl-type)
   (:export
@@ -403,13 +416,15 @@
    ;; Collection predicates
    distinct? every? not-every? not-any?
    ;; Collection transfer
-   into
+ into
    ;; List/vector operations
    list* nth peek push pop
    ;; Nested associative operations
    assoc-in update-in
    ;; Vector-specific
-   subvec replace rseq reduce-kv
+   subvec rseq reduce-kv
+   ;; Merged functions
+   replace
    ;; Search (re-exported from string-functions)
    index-of last-index-of
    ;; Set operations
@@ -432,8 +447,10 @@
                 storage-items ordered-dict-key-order
                 list-first list-rest realize-lazy-seq lazy-seq-realized-p)
   (:shadowing-import-from fol.compiler.collection-functions
-                get into)
+                          get)
   (:import-from fol.compiler.primitives truthy?)
+  (:import-from fol.compiler.mutable
+                agent send send-off <agent>)
   (:export
    ;; Core higher-order functions
    map mapv filter filterv reduce pmap
@@ -479,9 +496,12 @@
    ;; Sequence coercions
    seq sequence
    ;; Generative sequences
-   repeat range repeatedly iterate iteration
+ repeat range repeatedly iterate iteration
    ;; I/O and tree sequences
-   file-seq line-seq tree-seq iterator-seq enumeration-seq))
+   file-seq line-seq tree-seq iterator-seq enumeration-seq
+   ;; Transducer infrastructure (shared with transducers)
+   reduced reduced? unreduced ensure-reduced
+   completing transduce))
 
 (defpackage fol.compiler.arithmetic-functions
   (:use cl)
@@ -581,15 +601,26 @@
    make-cl-dict
    make-cl-set))
 
+(defpackage fol.compiler.reader
+  (:use cl)
+  (:export
+   ;; Readtable
+   *fol-readtable*
+   ;; Reader entry points
+   fol-read
+   fol-read-from-string))
+
 (defpackage fol.compiler
   (:use cl)
-  (:shadow macroexpand-1 macroexpand macroexpand-all)
+  (:shadow macroexpand-1 macroexpand macroexpand-all compile-file)
   ; (:import-from fol.reader fol-read fol-read-from-string *fol-readtable*)
   ; (:import-from fol.wrappers wrap unwrap fol-value truthy?)
   ; (:import-from fol.classes val)
   ; (:import-from fol.collection
   ;               <vector> <dict> <set> <list>
   ;               size get seq)
+  (:import-from fol.compiler.reader
+                fol-read fol-read-from-string *fol-readtable*)
   (:import-from fol.compiler.ast
                 ast-node ast-node-p
                 make-literal-node make-symbol-ref-node make-call-node
@@ -613,19 +644,40 @@
    macro-p
    macroexpand-1
    macroexpand
-   macroexpand-all))
+   macroexpand-all
+   ;; Special forms
+   fn
+   defn
+   defmacro
+   defclass
+   defgeneric
+   defmethod
+   loop
+   recur
+   binding
+   swap!
+   def
+   defdynamic
+   definline
+   letfn
+   quote
+   if
+ do
+   bind
+   cond
+   case))
 
 (defpackage fol.macros
   (:use cl)
-  (:shadow when case cond assert time do dotimes)
+  (:shadow when assert time do dotimes)
   (:import-from fol.compiler register-macro)
   (:export
    ;; Conditional macros
-   when when-not if-not cond case condp
+   when when-not if-not condp
    ;; Binding macros
    when-let if-let when-some if-some when-first
    ;; Loop macros
-   while dotimes doseq for
+ while dotimes doseq for
    ;; Threading macros
    -> ->> as-> cond-> cond->> some-> some->>
    ;; Dynamic binding
@@ -635,14 +687,6 @@
    ;; Utilities
    time comment assert doc lazy-cat delay))
 
-(defpackage fol.compiler.reader
-  (:use cl)
-  (:export
-   ;; Readtable
-   *fol-readtable*
-   ;; Reader entry points
-   fol-read
-   fol-read-from-string))
 
 (defpackage fol.compiler.streams
   (:use cl)
@@ -673,61 +717,71 @@
 
 (defpackage fol.compiler.io
   (:use cl)
-  (:shadow read read-line print format close delete-file pprint)
+  (:shadow read read-line print close delete-file pprint)
+  (:import-from fol.macros with-open with-in-str with-out-str)
   (:export
-    ;; Core IO
-    spit slurp
-    ;; Printing
-    pr prn print printf println newline print-table
-    pprint cl-format format
-    ;; String IO
-    with-out-str pr-str prn-str print-str println-str
-    with-in-str
-    ;; Reading
-    read-line read line-seq
-    ;; Resource management
-    with-open flush close
-    ;; File system
-    file copy delete-file resource
-    as-file as-url as-relative-path
-    ;; Tap system
-    tap> add-tap remove-tap))
+   ;; Core IO
+   spit slurp
+   ;; Printing
+   pr prn print printf println newline print-table
+   pprint cl-format
+   ;; String IO
+   pr-str prn-str print-str println-str
+   ;; Reading
+   read-line read line-seq
+   ;; Resource management
+   flush close
+   ;; File system
+   file copy delete-file resource
+   as-file as-url as-relative-path
+   ;; Tap system
+   tap> add-tap remove-tap
+   ;; Macros (re-exported from fol.macros)
+   with-open with-in-str with-out-str))
 
-(defpackage fol.walk
-  (:use cl)
-  (:import-from fol.compiler.collections
-                <collection> <vector> <dict> <set> <list>
-                collection-seq storage-items make)
-  (:export
-   walk prewalk postwalk
-   prewalk-demo prewalk-replace
-   postwalk-demo postwalk-replace))
 
 (defpackage fol.compiler.relational
   (:use cl)
-  (:shadow union intersection set)
   (:import-from fol.compiler.collections
                 <set> <collection> <dict> <ordered-dict> <sorted-dict>
                 collection-seq collection-conj make)
   (:shadowing-import-from fol.compiler.collection-functions
-                get assoc dissoc empty? conj into empty vec size
-                select-keys rename-keys vals merge contains? first disj)
+                          get assoc dissoc empty? conj empty vec size
+                          select-keys rename-keys vals merge contains? first disj)
   (:shadowing-import-from fol.compiler.seq-functions
-                reduce filter map keys)
+                          reduce filter map keys sort into)
   (:export
-   join select project union difference intersection index rename diff))
- 
- (defpackage fol.compiler.transducers
-   (:use cl)
-   (:shadow map mapcat filter remove replace sequence)
-   (:import-from fol.compiler.primitives truthy?)
-   (:export
-    map mapcat filter remove take take-while take-nth drop drop-while replace
-    partition-by partition-all keep keep-indexed map-indexed distinct
-    interpose cat dedupe random-sample halt-when
-    transduce
-    reduced reduced? ensure-reduced unreduced completing
-    into sequence eduction))
+   project index rename diff))
+
+(defpackage fol.compiler.merged-functions
+  (:use cl)
+  (:shadow replace)
+  (:export join replace))
+
+
+(defpackage fol.compiler.transducers
+  (:use cl)
+  (:shadow replace)
+  ;; Re-export unified functions from seq-functions (same symbol objects)
+  (:shadowing-import-from fol.compiler.seq-functions
+                          map mapcat filter remove sequence
+                          reduce)
+  (:import-from fol.compiler.seq-functions
+                take take-while take-nth drop drop-while
+                partition-by partition-all keep keep-indexed map-indexed distinct
+                interpose dedupe random-sample
+              into
+                reduced reduced? ensure-reduced unreduced completing transduce)
+  (:import-from fol.compiler.primitives truthy?)
+  (:export
+   ;; Unified functions (re-exported from seq-functions)
+   map mapcat filter remove take take-while take-nth drop drop-while
+   partition-by partition-all keep keep-indexed map-indexed distinct
+   interpose dedupe random-sample
+ into sequence
+   reduced reduced? ensure-reduced unreduced completing transduce
+   ;; Transducer-only functions
+   replace cat halt-when eduction))
 
 (defpackage fol.compiler.misc-functions
   (:use cl)
@@ -738,14 +792,56 @@
    ;; Symbol interning
    intern))
 
+(defpackage fol.compiler.mutable
+  (:use cl)
+  (:shadow atom)
+  (:export
+   ;; Atom class
+   <atom>
+   <atom>?
+   atom
+   atom-validator atom-watches
+   ;; Atom operations
+   deref
+   reset!
+   swap!
+   compare-and-set!
+   ;; Refs
+   <ref>
+   <ref>?
+   ref
+   ref-validator ref-watches
+   ;; Ref operations
+   ref-set
+   alter
+   commute
+   ensure
+   dosync
+   ;; Agents
+   <agent>
+   <agent>?
+   agent
+   agent-validator agent-watches
+   ;; Agent operations
+   send
+   send-off
+   await
+   agent-error
+   restart-agent
+   set-error-handler!
+   set-error-mode!))
+
 (defpackage fol.compiler.mutable-functions
   (:use cl)
   (:shadowing-import-from fol.compiler.mutable atom)
   (:import-from fol.compiler.mutable
                 <atom> deref reset! swap! compare-and-set!
+                atom-validator atom-watches
                 <ref> ref ref-set alter commute ensure dosync
+                ref-validator ref-watches
                 <agent> agent send send-off await agent-error restart-agent
-                set-error-handler! set-error-mode!)
+                set-error-handler! set-error-mode!
+                agent-validator agent-watches)
   (:export
    ;; Re-export primitives
    atom deref reset! swap! compare-and-set!
@@ -761,7 +857,37 @@
    ;; Parallel processing
    pcalls pvalues pmap seque
    ;; Thread bindings
-   bound-fn bound-fn* get-thread-bindings push-thread-bindings pop-thread-bindings thread-bound?))
+   bound-fn bound-fn* get-thread-bindings push-thread-bindings pop-thread-bindings thread-bound?
+   ;; STM
+   sync io!
+   ;; Validators & Watchers
+   set-validator! get-validator add-watch remove-watch
+   ;; Ref History (stubs)
+   ref-history-count ref-min-history ref-max-history
+   ;; Agent Extensions
+   send-via set-agent-send-executor! set-agent-send-off-executor!
+   await-for shutdown-agents error-handler error-mode *agent* release-pending-sends))
+
+(defpackage fol.repl
+  (:use cl)
+  (:import-from fol.compiler
+                compile-string)
+  (:shadowing-import-from fol.compiler
+                          compile-file)
+  (:import-from fol.compiler.reader
+                fol-read-from-string
+                *fol-readtable*)
+  (:import-from fol.compiler.streams
+                *in* *out*)
+  (:import-from fol.compiler.primitives
+                fol-value)
+  (:export
+   repl
+   compile-fol-string
+   compile-fol-file
+   run-fol-string
+   run-fol-file))
+
 
 (defpackage fol.compiler.tests
   (:use cl fiveam)
@@ -773,3 +899,156 @@
   (:import-from fol.compiler
                 compile-form compile-string)
   (:export run-compiler-tests))
+
+;;; ---------------------------------------------------------------------------
+;;; FOL Core Package
+;;;
+;;; Unified namespace for FOL programming.  Uses CL and all FOL packages
+;;; (except fol.compiler.ast and fol.compiler.tests).  All inter-package
+;;; and CL symbol conflicts are resolved via shadowing imports.
+;;; Symbols are re-exported programmatically in fol-core.lisp.
+;;; ---------------------------------------------------------------------------
+
+(defpackage fol.core
+
+  ;; ---- Type predicates (prefer primitive-functions over both primitives
+  ;;       and collections, which export overlapping predicate names) --------
+  (:shadowing-import-from fol.compiler.primitive-functions
+                          ;; NOTE: <re-pattern>? and <uuid>? are only in primitives (no conflict)
+                          ;; Primitive type predicates (conflict with primitives)
+                          <bool>? <char>? <string>? <symbol>? <keyword>?
+                          <number>? <complex>? <real>? <float>? <single-float>? <double-float>?
+                          <rational>? <ratio>? <integer>? <fixnum>? <bignum>?
+                          ;; Collection type predicates (conflict with collections)
+                          <collection>? <unordered-collection>? <ordered-collection>?
+                          <dict>? <ordered-dict>? <array-dict>? <sorted-dict>? <int-dict>? <priority-dict>?
+                          <set>? <ordered-set>? <sorted-set>? <int-set>? <dense-int-set>?
+                          <vector>? <list>? <lazy-seq>? <deque>? <bag>?
+                          ;; Symbol constructors (shadow cl:symbol cl:keyword cl:gensym)
+                          symbol keyword gensym)
+
+  ;; ---- Arithmetic & type conversions (shadow CL math) ---------------------
+  (:shadowing-import-from fol.compiler.arithmetic-functions
+                          ;; Type conversions (prefer over primitives)
+                          <complex> <single-float> <double-float>
+                          ;; Arithmetic operators
+                          + - * /
+                          ;; Math functions
+                          abs sin cos tan asin acos atan
+                          sinh cosh tanh asinh acosh atanh
+                          exp sqrt expt
+                          ;; Rational/complex
+                          rationalize numerator denominator
+                          ;; GCD/LCM
+                          gcd lcm)
+
+  ;; ---- Comparison operators (shadow CL) -----------------------------------
+  (:shadowing-import-from fol.compiler.compareops
+                          < > <= >= = /= min max)
+
+  ;; ---- Collection class symbols (shadow cl:array-dimension) ----------------
+  (:shadowing-import-from fol.compiler.collections
+                          array-dimension)
+
+  ;; ---- Collection core ops (shadow CL; prefer over string-functions,
+  ;;       transducers) ------------------------------------------------------
+  (:shadowing-import-from fol.compiler.collection-functions
+                          vector set list list* nth push pop
+                          first rest get assoc count merge
+                          find subseq
+                          find subseq
+                          union intersection
+
+                          size)
+
+  ;; ---- Merged functions (shadow CL) ---------------------------------------
+  (:shadowing-import-from fol.compiler.merged-functions
+                          replace)
+
+  ;; ---- Sequence ops (shadow CL; prefer over transducers,
+  ;;       mutable-functions, io) --------------------------------------------
+  (:shadowing-import-from fol.compiler.seq-functions
+                          map reduce remove some every
+                          sort cons butlast third second last
+                          reverse sequence
+                          filter mapcat
+                          take take-while take-nth drop drop-while
+                          partition-by partition-all
+                          keep keep-indexed map-indexed
+                          distinct interpose dedupe random-sample
+                        into
+                          pmap seque)
+
+  ;; ---- Logic operators (shadow cl:not cl:and cl:or) -----------------------
+  (:shadowing-import-from fol.compiler.logical-operation-functions
+                          not and or)
+
+  ;; ---- Function combinators (shadow CL) -----------------------------------
+  (:shadowing-import-from fol.compiler.functional
+                          identity constantly complement apply)
+
+  ;; ---- Mutable operations (shadow cl:atom; prefer over fol.compiler) ------
+  (:shadowing-import-from fol.compiler.mutable-functions
+                          atom swap!)
+
+  ;; ---- IO operations (shadow CL; prefer over string-functions for format) -
+  (:shadowing-import-from fol.compiler.io
+                          print pprint
+                          read-line read line-seq
+                          close delete-file)
+
+  ;; ---- String functions (shadow cl:char; prefer over relational for join) -
+  (:shadowing-import-from fol.compiler.string-functions
+                          char format)
+
+  ;; ---- Compiler special forms (shadow CL special operators) ---------------
+  (:shadowing-import-from fol.compiler
+                          compile-file macroexpand-1 macroexpand
+                          defmacro defclass defgeneric defmethod
+                          loop quote if do
+                          cond case)
+
+  ;; ---- User-facing macros (shadow CL; prefer over compiler for
+  ;;       cond/case/binding, over metadata for doc) -------------------------
+  (:shadowing-import-from fol.macros
+                          when dotimes time assert
+                          binding doc)
+
+  ;; ---- Bitwise operations (shadow CL bit-array functions) -----------------
+  (:shadowing-import-from fol.compiler.bitwise-operation-functions
+                          bit-nand bit-nor bit-andc1 bit-andc2 bit-orc1 bit-orc2)
+
+  ;; ---- Misc (shadow cl:intern) --------------------------------------------
+  (:shadowing-import-from fol.compiler.misc-functions
+                          intern)
+
+  ;; ---- Use all FOL packages (conflicts resolved above) --------------------
+  (:use cl
+        fol.compiler.primitives
+        fol.compiler.primitive-functions
+        fol.compiler.compareops
+        fol.compiler.destructure
+        fol.compiler.mutable
+        fol.compiler.persistent
+        fol.compiler.collections
+        fol.compiler.string-functions
+        fol.compiler.collection-functions
+        fol.compiler.seq-functions
+        fol.compiler.arithmetic-functions
+        fol.compiler.bitwise-operation-functions
+        fol.compiler.logical-operation-functions
+        fol.compiler.functional
+        fol.compiler.metadata
+        fol.compiler.cl-utils
+        fol.compiler.reader
+        fol.compiler
+        fol.macros
+        fol.compiler.streams
+        fol.compiler.io
+        fol.compiler.relational
+        fol.compiler.transducers
+        fol.compiler.merged-functions
+        fol.compiler.misc-functions
+        fol.compiler.mutable-functions
+        fol.compiler.merged-functions
+        fol.repl))
