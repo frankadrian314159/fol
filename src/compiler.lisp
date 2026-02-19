@@ -50,13 +50,7 @@
     (string (fol.compiler.ast:make-literal-node :value form :form form))
     (character (fol.compiler.ast:make-literal-node :value form :form form))
     (symbol (fol.compiler.ast:make-symbol-ref-node :name form :form form))
-    (cons
-      (when (symbolp (car form))
-            (format t "~&Parse-compound: Op=~S Name=~S Special=~A~%"
-              (car form)
-              (symbol-name (car form))
-              (special-form-p (car form))))
-      (parse-compound form))
+    (cons (parse-compound form))
     (t (cond
         ;; FOL vector literal [a b c]
         ((fol-vector-p form)
@@ -452,7 +446,7 @@
   (destructuring-bind (op name params &rest body) form
     (declare (ignore op))
     (let ((param-vec (if (listp params)
-                         (apply #'fol.compiler.collection-functions:vec params)
+                         (apply #'fol.compiler.collection-functions:vector params)
                          params)))
       (fol.compiler.ast:make-defn-node
         :name name
@@ -952,18 +946,19 @@
      ;; Runtime dispatch: funcall if function, get/nth if dict/vector/set
      ((and (fol.compiler.ast:symbol-ref-node-p operator)
            (member (fol.compiler.ast:symbol-ref-node-name operator) *lexical-vars*))
-       (let ((emitted-args (mapcar #'emit-node args))
-             (gop (gensym "OP")))
-         `(let ((,gop ,(emit-node operator)))
-            (cond
-             ((functionp ,gop) (funcall ,gop ,@emitted-args))
-             ((typep ,gop 'fol.compiler.collections:<dict>)
-               (fol.compiler.collection-functions:get ,gop ,@emitted-args))
-             ((typep ,gop 'fol.compiler.collections:<vector>)
-               (fol.compiler.collection-functions:nth ,gop ,@emitted-args))
-             ((typep ,gop 'fol.compiler.collections:<set>)
-               (fol.compiler.collection-functions:get ,gop ,@emitted-args))
-             (t (error "Value ~S is not callable or a collection" ,gop))))))
+        (let ((emitted-args (mapcar #'emit-node args))
+              (gop (gensym "OP")))
+          `(let ((,gop ,(emit-node operator)))
+             (cond
+               ((functionp ,gop) (funcall ,gop ,@emitted-args))
+               ,@(when emitted-args
+                   `(((typep ,gop 'fol.compiler.collections:<dict>)
+                      (fol.compiler.collection-functions:get ,gop ,@emitted-args))
+                     ((typep ,gop 'fol.compiler.collections:<vector>)
+                      (fol.compiler.collection-functions:nth ,gop ,@emitted-args))
+                     ((typep ,gop 'fol.compiler.collections:<set>)
+                      (fol.compiler.collection-functions:get ,gop ,@emitted-args))))
+               (t (error "Value ~S is not callable or a collection" ,gop))))))
 
      ;; Normal function call - operator is a lambda, nested call, or literal
      ;; Collection literals as operators -> use accessor
@@ -991,17 +986,19 @@
              `(,sym ,@emitted-args)
              (let ((gval (gensym "VAL")))
                (pushnew sym *extra-special-vars*)
-               `(if (cl:fboundp ',sym)
-                    (,sym ,@emitted-args)
-                    (let ((,gval ,sym))
-                      (cl:cond
-                       ((cl:typep ,gval 'fol.compiler.collections:<dict>)
-                        (fol.compiler.collection-functions:get ,gval ,@emitted-args))
-                       ((cl:typep ,gval 'fol.compiler.collections:<vector>)
-                        (fol.compiler.collection-functions:nth ,gval ,@emitted-args))
-                       ((cl:typep ,gval 'fol.compiler.collections:<set>)
-                        (fol.compiler.collection-functions:get ,gval ,@emitted-args))
-                       (t (cl:error "~S is not a function or collection" ',sym)))))))))
+                `(if (cl:fboundp ',sym)
+                     (,sym ,@emitted-args)
+                     (let ((,gval ,sym))
+                       (cl:cond
+                        ((cl:functionp ,gval) (cl:funcall ,gval ,@emitted-args))
+                        ,@(when emitted-args
+                            `(((cl:typep ,gval 'fol.compiler.collections:<dict>)
+                               (fol.compiler.collection-functions:get ,gval ,@emitted-args))
+                              ((cl:typep ,gval 'fol.compiler.collections:<vector>)
+                               (fol.compiler.collection-functions:nth ,gval ,@emitted-args))
+                              ((cl:typep ,gval 'fol.compiler.collections:<set>)
+                               (fol.compiler.collection-functions:get ,gval ,@emitted-args))))
+                        (t (cl:error "~S is not a function or collection" ',sym)))))))))
 
      ;; Invalid function call - operator is not callable
      (t
@@ -1616,7 +1613,8 @@
    emits a fixed-arity defun to avoid &rest consing overhead.
    Uses consistent parameter names across clauses when possible to avoid
    unnecessary gensyms and LET bindings (Bug #4 fix)."
-  (let* ((analyzed
+  (let* ((*extra-special-vars* nil)
+          (analyzed
           (loop for clause in clauses
                 for (param-vec . body-nodes) = clause
                 for param-list = (fol-vector-to-list param-vec)
@@ -1684,11 +1682,13 @@
                                  ,@(if bindings
                                        `((let ,bindings ,@emitted-body))
                                        emitted-body)))))
-          `(cl:defun ,name ,param-syms
-             (cl:cond
-               ,@cond-clauses
-               (t (error "No matching method clause for ~A with arguments: ~S"
-                    ',name (list ,@param-syms))))))
+           `(cl:defun ,name ,param-syms
+              ,@(when *extra-special-vars*
+                  `((cl:declare (cl:special ,@(remove-duplicates *extra-special-vars*)))))
+              (cl:cond
+                ,@cond-clauses
+                (t (error "No matching method clause for ~A with arguments: ~S"
+                     ',name (list ,@param-syms))))))
         ;; &rest path for mixed arities
         (let* ((args-sym (gensym "ARGS"))
                (cond-clauses
@@ -1710,11 +1710,13 @@
                       collect `(,check
                                  (let ,bindings
                                    ,@emitted-body)))))
-          `(defun ,name (&rest ,args-sym)
-             (cond
-              ,@cond-clauses
-              (t (error "No matching method clause for ~A with ~D arguments: ~S"
-                   ',name (length ,args-sym) ,args-sym))))))))
+           `(defun ,name (&rest ,args-sym)
+              ,@(when *extra-special-vars*
+                  `((cl:declare (cl:special ,@(remove-duplicates *extra-special-vars*)))))
+              (cond
+               ,@cond-clauses
+               (t (error "No matching method clause for ~A with ~D arguments: ~S"
+                    ',name (length ,args-sym) ,args-sym))))))))
 
 (defun emit-defmethod (node)
   "Emit a defmethod node as CL code.
@@ -1722,27 +1724,30 @@
    Multi-clause or predicate dispatch: defun with cond dispatcher."
   (let ((name (fol.compiler.ast:defmethod-node-name node))
         (clauses (fol.compiler.ast:defmethod-node-clauses node)))
-    (if (= (length clauses) 1)
-        ;; Single clause - check if it has specializers
-        (let* ((clause (first clauses))
-               (param-vec (car clause))
-               (body-nodes (cdr clause))
-               (param-list (fol-vector-to-list param-vec))
-               (has-specializers (some (lambda (p) (listp p)) param-list)))
-          (if has-specializers
-              ;; Has type/pred specializers - emit dispatched defun
-              (compile-defmethod-clauses name clauses)
-              ;; Simple params - emit CL defmethod
-              (multiple-value-bind (regular-params rest-param)
-                  (fol.compiler.destructure:parse-params param-list)
-                (let* ((lambda-list (if rest-param
-                                        (append regular-params (list '&rest rest-param))
-                                        regular-params))
-                       (emitted-body (mapcar #'emit-node body-nodes)))
-                  `(defmethod ,name ,lambda-list
-                     ,@emitted-body)))))
-        ;; Multi-clause: emit dispatched defun
-        (compile-defmethod-clauses name clauses))))
+       (let ((*extra-special-vars* nil))
+         (if (= (length clauses) 1)
+             ;; Single clause - check if it has specializers
+             (let* ((clause (first clauses))
+                    (param-vec (car clause))
+                    (body-nodes (cdr clause))
+                    (param-list (fol-vector-to-list param-vec))
+                    (has-specializers (some (lambda (p) (listp p)) param-list)))
+               (if has-specializers
+                   ;; Has type/pred specializers - emit dispatched defun
+                   (compile-defmethod-clauses name clauses)
+                   ;; Simple params - emit CL defmethod
+                   (multiple-value-bind (regular-params rest-param)
+                       (fol.compiler.destructure:parse-params param-list)
+                     (let* ((lambda-list (if rest-param
+                                             (append regular-params (list '&rest rest-param))
+                                             regular-params))
+                            (emitted-body (mapcar #'emit-node body-nodes)))
+                       `(defmethod ,name ,lambda-list
+                          ,@(when *extra-special-vars*
+                              `((cl:declare (cl:special ,@(remove-duplicates *extra-special-vars*)))))
+                          ,@emitted-body)))))
+             ;; Multi-clause: emit dispatched defun
+             (compile-defmethod-clauses name clauses)))))
 
 (defun emit-def (node)
   "Emit a def node as CL defvar."
@@ -2038,11 +2043,15 @@
            (pkg-def `(cl:defpackage ,name ,@final-options))
            (pkg-switch `(cl:in-package ,name))
            (emitted-body (mapcar #'emit-node body)))
-      `(cl:progn
-         ,pkg-def
-         ,pkg-switch
-         ,@emitted-body
-         (cl:in-package :fol.core)))))
+       (if body
+           `(cl:progn
+              ,pkg-def
+              ,pkg-switch
+              ,@emitted-body
+              (cl:in-package :fol.core))
+           `(cl:progn
+              ,pkg-def
+              ,pkg-switch)))))
 
 (defun emit-node (node)
   "Emit a Common Lisp form from an AST node."

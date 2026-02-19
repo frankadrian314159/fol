@@ -1043,3 +1043,65 @@
          (val (eval code)))
     (is (null (fol.compiler:compilation-result-errors result)))
     (is (eql 42 val))))
+
+;;; ---------------------------------------------------------------------------
+;;; New Transpiler Features (defun, progn unwrapping, SPECIALs)
+;;; ---------------------------------------------------------------------------
+
+(test compile-defun-handles-list-params
+  "(defun f (a b) ...) converts to defn-node and compiles to defun."
+  (let* ((result (fol.compiler:compile-form '(defun add-simple (a b) (+ a b))))
+         (code (fol.compiler:compilation-result-code result)))
+    (is (null (fol.compiler:compilation-result-errors result)))
+    (is (eq 'cl:defun (first code)))
+    (is (eq 'add-simple (second code)))
+    (is (equal '(a b) (third code)))))
+
+(test compile-defun-evaluates
+  "A compiled defun executes correctly."
+  (let* ((result (fol.compiler:compile-form '(defun square-simple (x) (* x x))))
+         (code (fol.compiler:compilation-result-code result)))
+    (eval code)
+    (is (= 64 (cl:funcall 'square-simple 8)))))
+
+(test compile-file-unwraps-progn
+  "compile-file unwraps top-level PROGN forms."
+  (let ((temp-fol "temp_progn.fol")
+        (temp-lisp "temp_progn.lisp"))
+    (with-open-file (out temp-fol :direction :output :if-exists :supersede)
+      (format out "(do (def x 1) (def y 2))"))
+    (unwind-protect
+         (progn
+           (fol.compiler:compile-file temp-fol :output temp-lisp)
+           (with-open-file (in temp-lisp :direction :input)
+             (let ((forms (loop for f = (read in nil :eof) until (eq f :eof) collect f)))
+               ;; Should see two defvars, not one progn
+               (is (some (lambda (f) (and (consp f) (eq (car f) 'defvar) (eq (second f) 'x))) forms))
+               (is (some (lambda (f) (and (consp f) (eq (car f) 'defvar) (eq (second f) 'y))) forms))
+               (is (not (some (lambda (f) (and (consp f) (eq (car f) 'cl:progn))) forms))))))
+      (when (probe-file temp-fol) (delete-file temp-fol))
+      (when (probe-file temp-lisp) (delete-file temp-lisp)))))
+
+(test compile-adds-special-declarations
+  "Compiler adds SPECIAL declarations for dynamic variables."
+  (let* ((result (fol.compiler:compile-form
+                  (fol-form '(defn uses-special #(x)
+                               (def *my-dyn* 100)
+                               (+ x *my-dyn*)))))
+         (code (fol.compiler:compilation-result-code result)))
+    (is (null (fol.compiler:compilation-result-errors result)))
+    ;; The body of the generated lambda or defun should contain a declare special
+    (is (find 'declare (flatten-form code)))
+    (is (find 'special (flatten-form code)))
+    (is (find '*my-dyn* (flatten-form code)))))
+
+(test compile-runtime-fallback-no-args
+  "Runtime fallback for 0-arg call uses funcall, not get/nth."
+  (let* ((result (fol.compiler:compile-form
+                  (fol-form '(do (def my-fn (fn #() 42)) (my-fn)))))
+         (code (fol.compiler:compilation-result-code result)))
+    (is (null (fol.compiler:compilation-result-errors result)))
+    ;; Should NOT find GET or NTH in the zero-arg call part
+    (let ((call-form (first (last (fol.compiler:compilation-result-code result)))))
+      (is (not (find 'fol.compiler.collection-functions:get (flatten-form call-form))))
+      (is (not (find 'fol.compiler.collection-functions:nth (flatten-form call-form)))))))
