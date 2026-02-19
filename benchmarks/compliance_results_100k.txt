@@ -1,0 +1,122 @@
+To load "bordeaux-threads":
+  Load 1 ASDF system:
+    bordeaux-threads
+; Loading "bordeaux-threads"
+
+To load "usocket":
+  Load 1 ASDF system:
+    usocket
+; Loading "usocket"
+
+To load "cl-json":
+  Load 1 ASDF system:
+    cl-json
+; Loading "cl-json"
+
+To load "flexi-streams":
+  Load 1 ASDF system:
+    flexi-streams
+; Loading "flexi-streams"
+
+To load "fiveam":
+  Load 1 ASDF system:
+    fiveam
+; Loading "fiveam"
+
+To load "closer-mop":
+  Load 1 ASDF system:
+    closer-mop
+; Loading "closer-mop"
+
+To load "cl-ppcre":
+  Load 1 ASDF system:
+    cl-ppcre
+; Loading "cl-ppcre"
+..
+To load "fset":
+  Load 1 ASDF system:
+    fset
+; Loading "fset"
+..
+To load "sycamore":
+  Load 1 ASDF system:
+    sycamore
+; Loading "sycamore"
+
+WARNING: redefining IRONCLAD:BLOCK-LENGTH in DEFGENERIC
+
+Exported 56 type symbols and 610 other symbols from 31 packages.
+System.Management.Automation.RemoteException
+; file: C:/Users/frank/AppData/Local/Temp/fol_bench_two_2118413421.lisp
+; in: DEFUN RESTRICTED-SYMBOL?
+;     (|compliance|::TRADE |compliance|::A0)
+; 
+; caught STYLE-WARNING:
+;   The variable TRADE is defined but never used.
+; 
+; caught STYLE-WARNING:
+;   The variable TRADE is defined but never used.
+; 
+; compilation unit finished
+;   caught 2 STYLE-WARNING conditions
+System.Management.Automation.RemoteException
+; file: C:/Users/frank/AppData/Local/Temp/fol_bench_two_2118413421.lisp
+; in: DEFUN HIGH-VALUE?
+;     (|compliance|::TRADE |compliance|::A0)
+; 
+; caught STYLE-WARNING:
+;   The variable TRADE is defined but never used.
+; 
+; caught STYLE-WARNING:
+;   The variable TRADE is defined but never used.
+; 
+; compilation unit finished
+;   caught 2 STYLE-WARNING conditions
+System.Management.Automation.RemoteException
+; file: C:/Users/frank/AppData/Local/Temp/fol_bench_two_2118413421.lisp
+; in: DEFUN IS-BUY-SIDE-TRADE?
+;     (|compliance|::TRADE |compliance|::A0)
+; 
+; caught STYLE-WARNING:
+;   The variable TRADE is defined but never used.
+; 
+; caught STYLE-WARNING:
+;   The variable TRADE is defined but never used.
+; 
+; compilation unit finished
+;   caught 2 STYLE-WARNING conditions
+System.Management.Automation.RemoteException
+; file: C:/Users/frank/AppData/Local/Temp/fol_bench_two_2118413421.lisp
+; in: DEFUN IS-PENNY-STOCK?
+;     (|compliance|::TRADE |compliance|::A0)
+; 
+; caught STYLE-WARNING:
+;   The variable TRADE is defined but never used.
+; 
+; caught STYLE-WARNING:
+;   The variable TRADE is defined but never used.
+; 
+; compilation unit finished
+;   caught 2 STYLE-WARNING conditions
+WARNING: redefining |compliance|:VALIDATE-TRADE in DEFUN
+WARNING: FOL.BENCHMARKS also exports the following symbols:
+  (FOL.BENCHMARKS:COUNT-SLOC FOL.BENCHMARKS:RUN-ONE FOL.BENCHMARKS:RUN-TWO)
+See also:
+  The ANSI Standard, Macro DEFPACKAGE
+  The SBCL Manual, Variable SB-EXT:*ON-PACKAGE-VARIANCE*
+===================================================
+Comparing RUN-TRANSPILED-COMPLIANCE vs RUN-CL-COMPLIANCE
+Iterations: 100000
+--- RUN-TRANSPILED-COMPLIANCE ---
+Time: 1.23 s (Total), 12.32 us (Avg)
+Memory: 753.57 MB (Total), 7.72 KB (Avg)
+--- RUN-CL-COMPLIANCE ---
+LOC: 0
+Time: 128.68 ms (Total), 1.29 us (Avg)
+Memory: 79.53 MB (Total), 2606039/3125 B (Avg)
+--- Comparison (RUN-TRANSPILED-COMPLIANCE vs RUN-CL-COMPLIANCE) ---
+Time Diff: 1.10 s (9.58x)
+  Result: RUN-CL-COMPLIANCE was faster by 1.10 s
+Memory Diff: 674.04 MB (9.48x)
+  Result: RUN-CL-COMPLIANCE used less memory by 674.04 MB
+===================================================

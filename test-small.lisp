@@ -1,5 +1,0 @@
-(require :asdf)
-(push (truename "src/") asdf:*central-registry*)
-(asdf:load-system :fol-compiler)
-(fol.compiler:compile-file "test.fol" :output "test_out.lisp")
-(sb-ext:quit)

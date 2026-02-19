@@ -1,7 +1,0 @@
-(require :asdf)
-(load "src/fol-compiler.asd")
-(asdf:load-system :fol-compiler/tests)
-(format t "Running replace-tests...~%")
-(if (fiveam:run! 'fol.compiler.tests::replace-tests)
-    (uiop:quit 0)
-    (uiop:quit 1))
