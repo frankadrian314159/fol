@@ -26,8 +26,6 @@
    <uuid>?
    ;; Constructor generic
    make
-   ;; Value unwrapping
-   fol-value
    ;;
    truthy? falsy?))
 
@@ -125,6 +123,7 @@
    unquote-splicing-node unquote-splicing-node-p unquote-splicing-node-expr make-unquote-splicing-node
    case-node case-node-p case-node-expr case-node-clauses make-case-node
    env-node env-node-p make-env-node
+   in-package-node in-package-node-p in-package-node-name in-package-node-options in-package-node-body make-in-package-node
    swap-node swap-node-p swap-node-atom-expr swap-node-fn-expr swap-node-args make-swap-node
    ;; Functional special forms
    defn-private-node defn-private-node-p defn-private-node-name defn-private-node-clauses make-defn-private-node
@@ -173,7 +172,9 @@
    emit-fixed-arity-param-bindings
    ;; Macro lambda list
    emit-macro-lambda-list
-   convert-macro-param))
+   convert-macro-param
+   ;; Hooks
+   *emit-predicate-hook*))
 
 (defpackage fol.compiler.mutable
   (:use cl)
@@ -183,6 +184,7 @@
    <atom>
    <atom>?
    atom
+   atom-validator atom-watches
    ;; Atom operations
    deref
    reset!
@@ -192,6 +194,8 @@
    <ref>
    <ref>?
    ref
+   ref-validator ref-watches
+   ;; Ref operations
    ref-set
    alter
    commute
@@ -201,6 +205,8 @@
    <agent>
    <agent>?
    agent
+   agent-validator agent-watches
+   ;; Agent operations
    send
    send-off
    await
@@ -367,6 +373,22 @@
    ;; Other
    str-reverse))
 
+(defpackage fol.compiler.merged-functions
+  (:use cl)
+  (:shadow replace map remove)
+  (:export
+   ;; Polymorphic functions
+   join replace
+   ;; Higher-order collection functions
+   map mapcat filter remove keep
+   take drop take-while drop-while
+   ;; Indexed and deduplication
+   map-indexed keep-indexed distinct dedupe
+   ;; Partitioning, interpose, take-nth
+   take-nth interpose partition-by partition-all
+   ;; Reduced (transducer infrastructure)
+   reduced reduced? unreduced ensure-reduced))
+
 (defpackage fol.compiler.collection-functions
   (:use cl)
   (:shadow vector set list list* nth push pop union intersection subseq find)
@@ -384,8 +406,8 @@
                 <int-set> <dense-int-set> <deque> <list> <lazy-seq> <array>)
   (:import-from fol.compiler.string-functions
                 index-of last-index-of)
-  (:import-from fol.compiler.merged-functions
-                replace)
+  (:shadowing-import-from fol.compiler.merged-functions
+                          replace)
   (:import-from fol.compiler.destructure
                 fol-type-to-cl-type)
   (:export
@@ -439,7 +461,14 @@
 
 (defpackage fol.compiler.seq-functions
   (:use cl)
-  (:shadow map reduce remove some every count sequence sort reverse cons butlast third second last)
+  (:shadow reduce some every count sequence sort reverse cons butlast third second last)
+  (:shadowing-import-from fol.compiler.merged-functions
+                          map remove)
+  (:import-from fol.compiler.merged-functions
+                mapcat filter keep take drop take-while drop-while
+                map-indexed keep-indexed distinct dedupe
+                take-nth interpose partition-by partition-all
+                reduced reduced? unreduced ensure-reduced)
   (:import-from fol.compiler.collections
                 collection-seq collection-conj make
                 <vector> <list> <lazy-seq> <collection>
@@ -508,7 +537,7 @@
   (:shadow + - * / abs exp sqrt min max gcd lcm
            sin cos tan asin acos atan sinh cosh tanh asinh acosh atanh
            expt rationalize numerator denominator)
-  (:import-from fol.compiler.primitives <number> <integer> <float> <ratio> <bool> fol-value)
+  (:import-from fol.compiler.primitives <number> <integer> <float> <ratio> <bool>)
   (:export
    ;; Dyadic primitives
    %+ %- %* %/
@@ -541,7 +570,7 @@
   (:use cl)
   (:shadow logand logior logxor lognot ash logbitp logcount
            bit-nand bit-nor bit-andc1 bit-andc2 bit-orc1 bit-orc2)
-  (:import-from fol.compiler.primitives <integer> fol-value)
+  (:import-from fol.compiler.primitives <integer>)
   (:export
    ;; Unary
    bitnot
@@ -557,7 +586,7 @@
 (defpackage fol.compiler.logical-operation-functions
   (:use cl)
   (:shadow and or not)
-  (:import-from fol.compiler.primitives <bool> <integer> fol-value)
+  (:import-from fol.compiler.primitives <bool> <integer>)
   (:export
    ;; Dyadic primitives
    %and %or %xor
@@ -613,12 +642,6 @@
 (defpackage fol.compiler
   (:use cl)
   (:shadow macroexpand-1 macroexpand macroexpand-all compile-file)
-  ; (:import-from fol.reader fol-read fol-read-from-string *fol-readtable*)
-  ; (:import-from fol.wrappers wrap unwrap fol-value truthy?)
-  ; (:import-from fol.classes val)
-  ; (:import-from fol.collection
-  ;               <vector> <dict> <set> <list>
-  ;               size get seq)
   (:import-from fol.compiler.reader
                 fol-read fol-read-from-string *fol-readtable*)
   (:import-from fol.compiler.ast
@@ -753,12 +776,6 @@
   (:export
    project index rename diff))
 
-(defpackage fol.compiler.merged-functions
-  (:use cl)
-  (:shadow replace)
-  (:export join replace))
-
-
 (defpackage fol.compiler.transducers
   (:use cl)
   (:shadow replace)
@@ -791,45 +808,6 @@
    defonce
    ;; Symbol interning
    intern))
-
-(defpackage fol.compiler.mutable
-  (:use cl)
-  (:shadow atom)
-  (:export
-   ;; Atom class
-   <atom>
-   <atom>?
-   atom
-   atom-validator atom-watches
-   ;; Atom operations
-   deref
-   reset!
-   swap!
-   compare-and-set!
-   ;; Refs
-   <ref>
-   <ref>?
-   ref
-   ref-validator ref-watches
-   ;; Ref operations
-   ref-set
-   alter
-   commute
-   ensure
-   dosync
-   ;; Agents
-   <agent>
-   <agent>?
-   agent
-   agent-validator agent-watches
-   ;; Agent operations
-   send
-   send-off
-   await
-   agent-error
-   restart-agent
-   set-error-handler!
-   set-error-mode!))
 
 (defpackage fol.compiler.mutable-functions
   (:use cl)
@@ -879,8 +857,6 @@
                 *fol-readtable*)
   (:import-from fol.compiler.streams
                 *in* *out*)
-  (:import-from fol.compiler.primitives
-                fol-value)
   (:export
    repl
    compile-fol-string
@@ -956,9 +932,7 @@
                           vector set list list* nth push pop
                           first rest get assoc count merge
                           find subseq
-                          find subseq
                           union intersection
-
                           size)
 
   ;; ---- Merged functions (shadow CL) ---------------------------------------
@@ -1050,5 +1024,4 @@
         fol.compiler.merged-functions
         fol.compiler.misc-functions
         fol.compiler.mutable-functions
-        fol.compiler.merged-functions
         fol.repl))

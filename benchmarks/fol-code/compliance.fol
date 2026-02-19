@@ -2,9 +2,9 @@
 ;;; Compliance Module - Trade validation with predicate dispatch
 ;;; =============================================================================
 
-(module "compliance"
+(in-package "compliance"
   ;; Export the public API
-  (export <trade> validate-trade trade-symbol trade-amount trade-price trade-side)
+  (:export <trade> validate-trade trade-symbol trade-amount trade-price trade-side)
 
   ;; 1. Define the Trade class
   ;;    Inherits from <persistent-object> for immutability
@@ -20,7 +20,7 @@
   ;; 2. Define custom predicates for business logic
   ;;    These functions return true/false based on the trade object
   (defn restricted-symbol?
-      ([(trade (-> (trade-symbol) (#{AMZN GOOG META MSFT})))] t)
+      ([(trade (-> (trade-symbol) (#{'AMZN 'GOOG 'META 'MSFT})))] t)
       ([trade] nil))
 
   (defn high-value?
@@ -66,14 +66,15 @@
 ;;; Test Module - Tests for the compliance system
 ;;; =============================================================================
 
-(module "test-compliance"
+(in-package "test-compliance"
   ;; Import the compliance module
-  (use-module "compliance")
+  (:use :cl "compliance")
 
   ;; Create test trades
   (def t1 (make '<trade> :symbol 'NU :amount 100 :price 18.00 :side :buy))
   (def t2 (make '<trade> :symbol 'GOOG :amount 50 :price 150.00 :side :sell))
   (def t3 (make '<trade> :symbol 'IBM  :amount 10000 :price 150.00 :side :buy))
+  (def t4 (make '<trade> :symbol 'F :amount 1000 :price 12.00 :side :buy))
 
   ;; Run tests
   (print (str "T1: " (validate-trade t1)))
@@ -82,5 +83,8 @@
   (print (str "T2: " (validate-trade t2)))
   ;; => T2: {:status :rejected :reason "Symbol GOOG is on the restricted list"}
 
-  (print (str "T3: " (validate-trade t3))))
+  (print (str "T3: " (validate-trade t3)))
   ;; => T3: {:status :manual-review :reason "Trade value exceeds $1M limit"}
+
+  (print (str "T4: " (validate-trade t4))))
+  ;; => T4: {:status :warning :reason "High risk penny stock purchase" :trade #<TRADE {10053B2983}>}

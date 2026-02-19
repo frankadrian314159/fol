@@ -32,7 +32,7 @@
                         (:file "logical-operation-functions" :depends-on ("package" "primitives"))
                         (:file "string-functions" :depends-on ("package"))
                         (:file "cl-utils" :depends-on ("package"))
-                        (:file "seq-functions" :depends-on ("package" "primitives" "collections"))
+                        (:file "seq-functions" :depends-on ("package" "primitives" "collections" "merged-functions"))
                         (:file "reader" :depends-on ("package" "collections" "collection-functions"))
                         (:file "mutable" :depends-on ("package"))
                         (:file "mutable-functions" :depends-on ("package" "mutable"))
@@ -43,7 +43,7 @@
                         (:file "transducers" :depends-on ("package" "primitives" "collections" "collection-functions" "seq-functions"))
                         (:file "metadata" :depends-on ("package" "persistence" "collections"))
                         (:file "misc-functions" :depends-on ("package"))
-                        (:file "merged-functions" :depends-on ("package" "string-functions" "relational"))
+                        (:file "merged-functions" :depends-on ("package" "string-functions" "collections" "primitives" "collection-functions"))
                         (:file "compiler" :depends-on ("package" "primitives" "ast" "destructure" "persistence" "collections" "collection-functions" "seq-functions" "reader"))
                         (:file "macros" :depends-on ("compiler" "package" "primitives" "collections" "collection-functions" "seq-functions" "streams" "metadata" "mutable"))
                         (:file "repl" :depends-on ("compiler" "reader" "package"))
@@ -54,7 +54,7 @@
                                                                  "string-functions" "cl-utils" "seq-functions" "reader"
                                                                  "mutable" "mutable-functions" "streams" "functional"
                                                                  "relational" "io" "transducers" "metadata"
-                                                                 "misc-functions" "compiler" "macros" "repl")))
+                                                                 "misc-functions" "merged-functions" "compiler" "macros" "repl")))
            :in-order-to ((test-op (test-op "fol-compiler/all-tests"))))
 
 (defsystem "fol-compiler/tests"

@@ -34,7 +34,7 @@
 ;;; ---------------------------------------------------------------------------
 
 (defclass <bool> (standard-object)
-  ()
+    ()
   (:documentation "Boolean type. Represented as CL generalized booleans."))
 
 ;;; ---------------------------------------------------------------------------
@@ -42,7 +42,7 @@
 ;;; ---------------------------------------------------------------------------
 
 (defclass <char> (standard-object)
-  ()
+    ()
   (:documentation "Character type. Represented as CL characters."))
 
 ;;; ---------------------------------------------------------------------------
@@ -50,19 +50,19 @@
 ;;; ---------------------------------------------------------------------------
 
 (defclass <string> (standard-object)
-  ()
+    ()
   (:documentation "String type. Represented as CL strings."))
 
 (defclass <re-pattern> (<string>)
-  ()
+    ()
   (:documentation "Regular expression pattern. A string subtype."))
 
 (defclass <symbol> (<string>)
-  ()
+    ()
   (:documentation "Symbol type. Represented as CL symbols."))
 
 (defclass <keyword> (<symbol>)
-  ()
+    ()
   (:documentation "Keyword type. A symbol subtype for CL keywords."))
 
 ;;; ---------------------------------------------------------------------------
@@ -70,47 +70,47 @@
 ;;; -------------------------------------------------------------------
 
 (defclass <number> (standard-object)
-  ()
+    ()
   (:documentation "Base number type. Represented as CL numbers."))
 
 (defclass <complex> (<number>)
-  ()
+    ()
   (:documentation "Complex number type."))
 
 (defclass <real> (<number>)
-  ()
+    ()
   (:documentation "Real number type."))
 
 (defclass <float> (<real>)
-  ()
+    ()
   (:documentation "Floating-point number type."))
 
 (defclass <single-float> (<float>)
-  ()
+    ()
   (:documentation "Single-precision floating-point type."))
 
 (defclass <double-float> (<float>)
-  ()
+    ()
   (:documentation "Double-precision floating-point type."))
 
 (defclass <rational> (<real>)
-  ()
+    ()
   (:documentation "Rational number type."))
 
 (defclass <ratio> (<rational>)
-  ()
+    ()
   (:documentation "Ratio type (exact fractions)."))
 
 (defclass <integer> (<rational>)
-  ()
+    ()
   (:documentation "Integer type."))
 
 (defclass <fixnum> (<integer>)
-  ()
+    ()
   (:documentation "Fixnum type (machine-word integers)."))
 
 (defclass <bignum> (<integer>)
-  ()
+    ()
   (:documentation "Bignum type (arbitrary-precision integers)."))
 
 ;;; ---------------------------------------------------------------------------
@@ -118,7 +118,7 @@
 ;;; ---------------------------------------------------------------------------
 
 (defclass <uuid> (standard-object)
-  ()
+    ()
   (:documentation "UUID type."))
 
 ;;; ---------------------------------------------------------------------------
@@ -129,65 +129,55 @@
   "Return the FOL primitive class corresponding to a CL value.
    Used by compiled code for type dispatch and predicates."
   (typecase value
-    ((eql t)            (find-class '<bool>))
-    ((eql nil)          (find-class '<bool>))
-    (keyword            (find-class '<keyword>))
-    (symbol             (find-class '<symbol>))
-    (character          (find-class '<char>))
-    (string             (find-class '<string>))
-    ((complex *)        (find-class '<complex>))
-    (single-float       (find-class '<single-float>))
-    (double-float       (find-class '<double-float>))
-    (float              (find-class '<float>))
-    (ratio              (find-class '<ratio>))
-    (fixnum             (find-class '<fixnum>))
-    (bignum             (find-class '<bignum>))
-    ((integer *)        (find-class '<integer>))
-    ((rational *)       (find-class '<rational>))
-    ((real *)           (find-class '<real>))
-    (number             (find-class '<number>))
-    (<re-pattern>       (find-class '<re-pattern>))
-    (<uuid>             (find-class '<uuid>)) 
-    (t                  nil)))
+    ((eql t) (find-class '<bool>))
+    ((eql nil) (find-class '<bool>))
+    (keyword (find-class '<keyword>))
+    (symbol (find-class '<symbol>))
+    (character (find-class '<char>))
+    (string (find-class '<string>))
+    ((complex *) (find-class '<complex>))
+    (single-float (find-class '<single-float>))
+    (double-float (find-class '<double-float>))
+    (float (find-class '<float>))
+    (ratio (find-class '<ratio>))
+    (fixnum (find-class '<fixnum>))
+    (bignum (find-class '<bignum>))
+    ((integer *) (find-class '<integer>))
+    ((rational *) (find-class '<rational>))
+    ((real *) (find-class '<real>))
+    (number (find-class '<number>))
+    (<re-pattern> (find-class '<re-pattern>))
+    (<uuid> (find-class '<uuid>))
+    (t nil)))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Type predicates for compiled code
 ;;; ---------------------------------------------------------------------------
 
-    (defun <bool>? (obj) (typep obj 'boolean))
-    (defun <char>? (obj) (characterp obj))
-    (defun <string>? (obj) (stringp obj))
-    (defun <keyword>? (obj) (keywordp obj))
-    (defun <symbol>? (obj) (symbolp obj))
-    (defun <complex>? (obj) (complexp obj))
-    (defun <float>? (obj) (floatp obj))
-    (defun <single-float>? (obj) (typep obj 'single-float))
-    (defun <double-float>? (obj) (typep obj 'double-float))
-    (defun <ratio>? (obj) (typep obj 'ratio))
-    (defun <fixnum>? (obj) (typep obj 'fixnum))
-    (defun <bignum>? (obj) (typep obj 'bignum))
-    (defun <integer>? (obj) (integerp obj))
-    (defun <rational>? (obj) (rationalp obj))
-    (defun <real>? (obj) (realp obj))
-    (defun <number>? (obj) (numberp obj))
-    (defun <re-pattern>? (obj) (typep obj (find-class '<re-pattern>)))
-    (defun <uuid>? (obj) (typep obj (find-class '<uuid>)))
+(defun <bool>? (obj) (typep obj 'boolean))
+(defun <char>? (obj) (characterp obj))
+(defun <string>? (obj) (stringp obj))
+(defun <keyword>? (obj) (keywordp obj))
+(defun <symbol>? (obj) (symbolp obj))
+(defun <complex>? (obj) (complexp obj))
+(defun <float>? (obj) (floatp obj))
+(defun <single-float>? (obj) (typep obj 'single-float))
+(defun <double-float>? (obj) (typep obj 'double-float))
+(defun <ratio>? (obj) (typep obj 'ratio))
+(defun <fixnum>? (obj) (typep obj 'fixnum))
+(defun <bignum>? (obj) (typep obj 'bignum))
+(defun <integer>? (obj) (integerp obj))
+(defun <rational>? (obj) (rationalp obj))
+(defun <real>? (obj) (realp obj))
+(defun <number>? (obj) (numberp obj))
+(defun <re-pattern>? (obj) (typep obj (find-class '<re-pattern>)))
+(defun <uuid>? (obj) (typep obj (find-class '<uuid>)))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Utility predicates
 ;;; ---------------------------------------------------------------------------
-    (defun truthy? (obj) (not (null obj)))
-    (defun falsy? (obj) (null obj))
-
-;;; ---------------------------------------------------------------------------
-;;; Value unwrapping (identity function in current architecture)
-;;; ---------------------------------------------------------------------------
-    (defun fol-value (obj)
-      "Extract the underlying CL value from a FOL object.
-       In the current compiler architecture, FOL primitives ARE native CL values,
-       so this is an identity function. Provided for compatibility with
-       arithmetic/bitwise/logical function files that may wrap/unwrap values."
-      obj)
+(defun truthy? (obj) (not (null obj)))
+(defun falsy? (obj) (null obj))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Constructor generic

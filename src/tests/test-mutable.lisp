@@ -331,7 +331,7 @@
                                                (let ((v1 (fol.compiler.mutable:deref r1)))
                                                  (when (> v1 0)
                                                        (fol.compiler.mutable:alter r1 #'1-)
-                                                       (fol.compiler.mutable:alter r2 #'1+))))))))))
+                                                       (fol.compiler.mutable:alter r2 #'1+)))))))))
                    (fol.compiler.mutable:start thr)
                    thr))))
     (dolist (th threads)

@@ -1174,7 +1174,6 @@
         (vector)
         (make-instance 'fol.compiler.collections:<vector>
           :items (fset:subseq items start actual-end)))))
-:items (fset:subseq items start actual-end)))))
 
 ;;; ===========================================================================
 ;;; Set Operations

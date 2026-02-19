@@ -34,7 +34,7 @@
                  (shiftf *** ** * (first values))
 
                  ;; Print primary result
-                 (format out "~&~A~%" (fol.compiler.primitives:fol-value (first values)))))
+                 (format out "~&~A~%" (first values))))
 
            (error (e)
              (format out "~&Error: ~A~%" e))))))))

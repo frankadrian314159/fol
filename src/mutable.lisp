@@ -462,53 +462,53 @@
 ;;; Method Implementations
 ;;; ---------------------------------------------------------------------------
 
-(defmethod run ((t <thread>))
-  (let ((user-fn (thread-fn t))
-        (binds (thread-bindings t)))
+(defmethod run ((thd <thread>))
+  (let ((user-fn (thread-fn thd))
+        (binds (thread-bindings thd)))
     (let ((vars (mapcar #'car binds))
           (vals (mapcar #'cdr binds)))
       (progv vars vals
         (funcall user-fn)))))
 
-(defmethod start ((t <thread>))
-  (bordeaux-threads:with-lock-held ((thread-lock t))
-    (unless (eq (thread-state t) :new)
+(defmethod start ((thd <thread>))
+  (bordeaux-threads:with-lock-held ((thread-lock thd))
+    (unless (eq (thread-state thd) :new)
       (error "Thread has already been started.")))
 
-  (setf (thread-state t) :running)
-  (setf (thread-native t)
+  (setf (thread-state thd) :running)
+  (setf (thread-native thd)
     (bordeaux-threads:make-thread
       (lambda ()
         (unwind-protect
-            (run t)
-          (setf (thread-state t) :terminated)))
-      :name (string (thread-name t)))))
+            (run thd)
+          (setf (thread-state thd) :terminated)))
+      :name (string (thread-name thd)))))
 
-(defmethod suspend ((t <thread>))
-  (bordeaux-threads:with-lock-held ((thread-lock t))
-    (when (eq (thread-state t) :running)
-          (setf (thread-state t) :suspended)
+(defmethod suspend ((thd <thread>))
+  (bordeaux-threads:with-lock-held ((thread-lock thd))
+    (when (eq (thread-state thd) :running)
+          (setf (thread-state thd) :suspended)
           (bordeaux-threads:interrupt-thread
-            (thread-native t)
+            (thread-native thd)
             (lambda ()
-              (bordeaux-threads:with-lock-held ((thread-lock t))
-                (loop while (eq (thread-state t) :suspended)
-                      do (bordeaux-threads:condition-wait (thread-resume-cv t) (thread-lock t)))))))))
+              (bordeaux-threads:with-lock-held ((thread-lock thd))
+                (loop while (eq (thread-state thd) :suspended)
+                      do (bordeaux-threads:condition-wait (thread-resume-cv thd) (thread-lock thd)))))))))
 
-(defmethod resume ((t <thread>))
-  (bordeaux-threads:with-lock-held ((thread-lock t))
-    (when (eq (thread-state t) :suspended)
-          (setf (thread-state t) :running)
-          (bordeaux-threads:condition-notify (thread-resume-cv t)))))
+(defmethod resume ((thd <thread>))
+  (bordeaux-threads:with-lock-held ((thread-lock thd))
+    (when (eq (thread-state thd) :suspended)
+          (setf (thread-state thd) :running)
+          (bordeaux-threads:condition-notify (thread-resume-cv thd)))))
 
-(defmethod halt ((t <thread>))
-  (let ((native (thread-native t)))
+(defmethod halt ((thd <thread>))
+  (let ((native (thread-native thd)))
     (when (and native (bordeaux-threads:thread-alive-p native))
-          (setf (thread-state t) :terminated)
+          (setf (thread-state thd) :terminated)
           (bordeaux-threads:destroy-thread native))))
 
-(defmethod thread-join ((t <thread>))
-  (let ((native (thread-native t)))
+(defmethod thread-join ((thd <thread>))
+  (let ((native (thread-native thd)))
     (when native
           (bordeaux-threads:join-thread native))))
 
@@ -664,196 +664,196 @@
     (let ((thread (make-instance '<thread>
                     :fn (lambda () (%agent-worker ag))
                     :name "fol-agent-worker")))
-      (start thread)))
+      (start thread))))
 
-  ;;; ---------------------------------------------------------------------------
-  ;;; Send / Send-off
-  ;;; ---------------------------------------------------------------------------
+;;; ---------------------------------------------------------------------------
+;;; Send / Send-off
+;;; ---------------------------------------------------------------------------
 
-  (defun send (ag fn &rest args)
-    "Dispatch an action to agent AG.  The action is (FN current-value ARGS...).
+(defun send (ag fn &rest args)
+  "Dispatch an action to agent AG.  The action is (FN current-value ARGS...).
    Returns the agent immediately.  The action will be executed asynchronously
    on a background thread.  Actions are serialized per-agent.
    Signals an error if the agent is in :fail mode with a cached error."
-    (let ((action (if args
-                      (lambda (val) (apply fn val args))
-                      fn)))
-      (bordeaux-threads:with-lock-held ((agent-lock ag))
-        (when (and (eq (agent-error-mode ag) :fail)
-                   (agent-error-val ag))
-              (error "Agent is in error state: ~A. Use restart-agent to clear."
-                (agent-error-val ag)))
-        (setf (agent-queue ag)
-          (nconc (agent-queue ag) (cl:list action)))
-        (%ensure-agent-running ag)))
-    ag)
+  (let ((action (if args
+                    (lambda (val) (apply fn val args))
+                    fn)))
+    (bordeaux-threads:with-lock-held ((agent-lock ag))
+      (when (and (eq (agent-error-mode ag) :fail)
+                 (agent-error-val ag))
+            (error "Agent is in error state: ~A. Use restart-agent to clear."
+              (agent-error-val ag)))
+      (setf (agent-queue ag)
+        (nconc (agent-queue ag) (cl:list action)))
+      (%ensure-agent-running ag)))
+  ag)
 
-  (defun send-off (ag fn &rest args)
-    "Like SEND, but intended for potentially blocking I/O actions.
+(defun send-off (ag fn &rest args)
+  "Like SEND, but intended for potentially blocking I/O actions.
    In this implementation, send-off behaves identically to send
    (both use a dedicated thread per agent).  The API distinction is
    preserved for future pool-based optimization."
-    (apply #'send ag fn args))
+  (apply #'send ag fn args))
 
-  ;;; ---------------------------------------------------------------------------
-  ;;; Await
-  ;;; ---------------------------------------------------------------------------
+;;; ---------------------------------------------------------------------------
+;;; Await
+;;; ---------------------------------------------------------------------------
 
-  (defun await (ag &key (timeout nil))
-    "Block until all currently pending actions on agent AG have completed.
+(defun await (ag &key (timeout nil))
+  "Block until all currently pending actions on agent AG have completed.
    If TIMEOUT is provided (in seconds), returns NIL on timeout, T on completion.
    If no timeout, blocks indefinitely and returns T."
-    (bordeaux-threads:with-lock-held ((agent-lock ag))
-      (loop until (agent-idle-p ag)
-            do (if timeout
-                   (progn
-                    (bordeaux-threads:condition-wait
-                      (agent-idle-cv ag) (agent-lock ag)
-                      :timeout timeout)
-                    (unless (agent-idle-p ag)
-                      (return-from await nil)))
-                   (bordeaux-threads:condition-wait
-                     (agent-idle-cv ag) (agent-lock ag)))))
-    t)
+  (bordeaux-threads:with-lock-held ((agent-lock ag))
+    (loop until (agent-idle-p ag)
+          do (if timeout
+                 (progn
+                  (bordeaux-threads:condition-wait
+                    (agent-idle-cv ag) (agent-lock ag)
+                    :timeout timeout)
+                  (unless (agent-idle-p ag)
+                    (return-from await nil)))
+                 (bordeaux-threads:condition-wait
+                   (agent-idle-cv ag) (agent-lock ag)))))
+  t)
 
-  ;;; ---------------------------------------------------------------------------
-  ;;; Error management
-  ;;; ---------------------------------------------------------------------------
+;;; ---------------------------------------------------------------------------
+;;; Error management
+;;; ---------------------------------------------------------------------------
 
-  (defun agent-error (ag)
-    "Return the cached error from the last failed action on AG, or NIL."
-    (agent-error-val ag))
+(defun agent-error (ag)
+  "Return the cached error from the last failed action on AG, or NIL."
+  (agent-error-val ag))
 
-  (defun restart-agent (ag new-value &key clear-actions)
-    "Clear the error state of AG and set its value to NEW-VALUE.
+(defun restart-agent (ag new-value &key clear-actions)
+  "Clear the error state of AG and set its value to NEW-VALUE.
    If CLEAR-ACTIONS is true, also discard all pending actions.
    Returns AG."
-    (bordeaux-threads:with-lock-held ((agent-lock ag))
-      (setf (agent-error-val ag) nil
-        (agent-value ag) new-value)
-      (when clear-actions
-            (setf (agent-queue ag) nil))
-      (when (agent-queue ag)
-            (%ensure-agent-running ag)))
-    ag)
+  (bordeaux-threads:with-lock-held ((agent-lock ag))
+    (setf (agent-error-val ag) nil
+      (agent-value ag) new-value)
+    (when clear-actions
+          (setf (agent-queue ag) nil))
+    (when (agent-queue ag)
+          (%ensure-agent-running ag)))
+  ag)
 
-  (defun set-error-handler! (ag handler)
-    "Set the error handler for agent AG.
+(defun set-error-handler! (ag handler)
+  "Set the error handler for agent AG.
    HANDLER is a function of (agent error).  Returns AG."
-    (bordeaux-threads:with-lock-held ((agent-lock ag))
-      (setf (agent-error-handler ag) handler))
-    ag)
+  (bordeaux-threads:with-lock-held ((agent-lock ag))
+    (setf (agent-error-handler ag) handler))
+  ag)
 
-  (defun set-error-mode! (ag mode)
-    "Set the error mode for agent AG.  MODE is :FAIL or :CONTINUE.
+(defun set-error-mode! (ag mode)
+  "Set the error mode for agent AG.  MODE is :FAIL or :CONTINUE.
    Returns AG."
-    (unless (member mode '(:fail :continue))
-      (error "Invalid error-mode ~S. Must be :FAIL or :CONTINUE." mode))
-    (bordeaux-threads:with-lock-held ((agent-lock ag))
-      (setf (agent-error-mode ag) mode))
-    ag)
+  (unless (member mode '(:fail :continue))
+    (error "Invalid error-mode ~S. Must be :FAIL or :CONTINUE." mode))
+  (bordeaux-threads:with-lock-held ((agent-lock ag))
+    (setf (agent-error-mode ag) mode))
+  ag)
 
-  ;;; ---------------------------------------------------------------------------
-  ;;; Agent printer
-  ;;; ---------------------------------------------------------------------------
+;;; ---------------------------------------------------------------------------
+;;; Agent printer
+;;; ---------------------------------------------------------------------------
 
-  (defmethod print-object ((obj <agent>) stream)
-    "Print an agent as #<AGENT value> or #<AGENT value ERROR: ...>."
-    (print-unreadable-object (obj stream :type nil)
-      (let ((err (agent-error-val obj)))
-        (if err
-            (format stream "AGENT ~S" (agent-value obj))))))
+(defmethod print-object ((obj <agent>) stream)
+  "Print an agent as #<AGENT value> or #<AGENT value ERROR: ...>."
+  (print-unreadable-object (obj stream :type nil)
+    (let ((err (agent-error-val obj)))
+      (if err
+          (format stream "AGENT ~S" (agent-value obj))))))
 
-  ;;; =========================================================================
-  ;;; Thread Pool
-  ;;; =========================================================================
+;;; =========================================================================
+;;; Thread Pool
+;;; =========================================================================
 
-  (defvar *thread-pool-size* 16
-          "Number of worker threads in the global thread pool.")
+(defvar *thread-pool-size* 16
+        "Number of worker threads in the global thread pool.")
 
-  (defvar *work-queue* nil
-          "Queue of work items to be processed by worker threads.")
+(defvar *work-queue* nil
+        "Queue of work items to be processed by worker threads.")
 
-  (defvar *work-queue-lock* (bordeaux-threads:make-lock "work-queue-lock")
-          "Lock protecting the work queue.")
+(defvar *work-queue-lock* (bordeaux-threads:make-lock "work-queue-lock")
+        "Lock protecting the work queue.")
 
-  (defvar *work-queue-condvar* (bordeaux-threads:make-condition-variable :name "work-queue-condvar")
-          "Condition variable for signaling work availability.")
+(defvar *work-queue-condvar* (bordeaux-threads:make-condition-variable :name "work-queue-condvar")
+        "Condition variable for signaling work availability.")
 
-  (defvar *worker-threads* nil
-          "Vector of worker threads (each is a <thread> instance).")
+(defvar *worker-threads* nil
+        "Vector of worker threads (each is a <thread> instance).")
 
-  (defvar *thread-pool-shutdown* nil
-          "Flag indicating thread pool should shut down.")
+(defvar *thread-pool-shutdown* nil
+        "Flag indicating thread pool should shut down.")
 
-  (defstruct work-item
-    "A unit of work for the thread pool."
-    (fn nil :type function)
-    (args nil :type list)
-    (result-box nil :type cons) ; cons cell to store result
-    (done-lock nil)
-    (done-condvar nil))
+(defstruct work-item
+  "A unit of work for the thread pool."
+  (fn nil :type function)
+  (args nil :type list)
+  (result-box nil :type cons) ; cons cell to store result
+  (done-lock nil)
+  (done-condvar nil))
 
-  (defun %worker-thread-loop ()
-    "Main loop for worker threads. Pulls work from queue and executes it."
-    (loop
-     (let ((work nil))
-       ;; Get work from queue
-       (bordeaux-threads:with-lock-held (*work-queue-lock*)
-         (loop while (and (null *work-queue*) (not *thread-pool-shutdown*))
-               do (bordeaux-threads:condition-wait *work-queue-condvar* *work-queue-lock*))
-         (when *thread-pool-shutdown*
-               (return-from %worker-thread-loop))
-         (when *work-queue*
-               (setf work (pop *work-queue*))))
+(defun %worker-thread-loop ()
+  "Main loop for worker threads. Pulls work from queue and executes it."
+  (loop
+   (let ((work nil))
+     ;; Get work from queue
+     (bordeaux-threads:with-lock-held (*work-queue-lock*)
+       (loop while (and (null *work-queue*) (not *thread-pool-shutdown*))
+             do (bordeaux-threads:condition-wait *work-queue-condvar* *work-queue-lock*))
+       (when *thread-pool-shutdown*
+             (return-from %worker-thread-loop))
+       (when *work-queue*
+             (setf work (pop *work-queue*))))
 
-       ;; Execute work
-       (when work
-             (let ((result (handler-case
-                               (apply (work-item-fn work) (work-item-args work))
-                             (error (e)
-                               (format *error-output* "~&Worker thread error: ~A~%" e)
-                               :error))))
-               ;; Store result and signal completion
-               (setf (car (work-item-result-box work)) result)
-               (bordeaux-threads:with-lock-held ((work-item-done-lock work))
-                 (bordeaux-threads:condition-notify (work-item-done-condvar work))))))))
+     ;; Execute work
+     (when work
+           (let ((result (handler-case
+                             (apply (work-item-fn work) (work-item-args work))
+                           (error (e)
+                             (format *error-output* "~&Worker thread error: ~A~%" e)
+                             :error))))
+             ;; Store result and signal completion
+             (setf (car (work-item-result-box work)) result)
+             (bordeaux-threads:with-lock-held ((work-item-done-lock work))
+               (bordeaux-threads:condition-notify (work-item-done-condvar work))))))))
 
-  (defun initialize-thread-pool ()
-    "Initialize the global thread pool with worker threads."
-    (unless *worker-threads*
-      (setf *work-queue* nil)
-      (setf *work-queue-lock* (bordeaux-threads:make-lock "work-queue-lock"))
-      (setf *work-queue-condvar* (bordeaux-threads:make-condition-variable :name "work-queue-condvar"))
-      (setf *thread-pool-shutdown* nil)
-      (setf *worker-threads*
-        (make-array *thread-pool-size*
-          :initial-contents
-          (loop for i from 0 below *thread-pool-size*
-                collect (let ((thread (make-instance '<thread>
-                                        :fn #'%worker-thread-loop
-                                        :name (format nil "worker-~D" i))))
-                          (start thread)
-                          thread))))))
+(defun initialize-thread-pool ()
+  "Initialize the global thread pool with worker threads."
+  (unless *worker-threads*
+    (setf *work-queue* nil)
+    (setf *work-queue-lock* (bordeaux-threads:make-lock "work-queue-lock"))
+    (setf *work-queue-condvar* (bordeaux-threads:make-condition-variable :name "work-queue-condvar"))
+    (setf *thread-pool-shutdown* nil)
+    (setf *worker-threads*
+      (make-array *thread-pool-size*
+        :initial-contents
+        (loop for i from 0 below *thread-pool-size*
+              collect (let ((thread (make-instance '<thread>
+                                      :fn #'%worker-thread-loop
+                                      :name (format nil "worker-~D" i))))
+                        (start thread)
+                        thread))))))
 
-  (defun submit-work (fn args)
-    "Submit work to the thread pool. Returns a work-item that can be waited on."
-    (initialize-thread-pool) ; Ensure pool is initialized
-    (let ((work (make-work-item
-                 :fn fn
-                 :args args
-                 :result-box (cons nil nil)
-                 :done-lock (bordeaux-threads:make-lock)
-                 :done-condvar (bordeaux-threads:make-condition-variable))))
-      (bordeaux-threads:with-lock-held (*work-queue-lock*)
-        (setf *work-queue* (nconc *work-queue* (list work)))
-        (bordeaux-threads:condition-notify *work-queue-condvar*))
-      work))
+(defun submit-work (fn args)
+  "Submit work to the thread pool. Returns a work-item that can be waited on."
+  (initialize-thread-pool) ; Ensure pool is initialized
+  (let ((work (make-work-item
+               :fn fn
+               :args args
+               :result-box (cons nil nil)
+               :done-lock (bordeaux-threads:make-lock)
+               :done-condvar (bordeaux-threads:make-condition-variable))))
+    (bordeaux-threads:with-lock-held (*work-queue-lock*)
+      (setf *work-queue* (nconc *work-queue* (list work)))
+      (bordeaux-threads:condition-notify *work-queue-condvar*))
+    work))
 
-  (defun wait-for-work (work-item)
-    "Wait for a work item to complete and return its result."
-    (bordeaux-threads:with-lock-held ((work-item-done-lock work-item))
-      (loop while (null (car (work-item-result-box work-item)))
-            do (bordeaux-threads:condition-wait (work-item-done-condvar work-item)
-                                                (work-item-done-lock work-item))))
-    (car (work-item-result-box work-item)))
+(defun wait-for-work (work-item)
+  "Wait for a work item to complete and return its result."
+  (bordeaux-threads:with-lock-held ((work-item-done-lock work-item))
+    (loop while (null (car (work-item-result-box work-item)))
+          do (bordeaux-threads:condition-wait (work-item-done-condvar work-item)
+                                              (work-item-done-lock work-item))))
+  (car (work-item-result-box work-item)))
