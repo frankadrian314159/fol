@@ -8,7 +8,7 @@
 
 (defun get-bytes-consed ()
   "Returns total bytes consed so far (SBCL specific)."
-  #+sbcl (sb-vm:bytes-consed-between-gcs)
+  #+sbcl (sb-vm::bytes-consed-between-gcs)
   #-sbcl 0) ;; Fallback to 0 if not SBCL
 
 (defun count-sloc (file-path)

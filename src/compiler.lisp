@@ -446,6 +446,19 @@
         :body (mapcar #'parse-form body)
         :form form))))
 
+(defun parse-defun (form)
+  "Parse a defun form: (defun name (params) body ...).
+   Converts to a defn-node for consistency, handling list params."
+  (destructuring-bind (op name params &rest body) form
+    (declare (ignore op))
+    (let ((param-vec (if (listp params)
+                         (apply #'fol.compiler.collection-functions:vec params)
+                         params)))
+      (fol.compiler.ast:make-defn-node
+        :name name
+        :clauses (list (cons param-vec (mapcar #'parse-form body)))
+        :form form))))
+
 (defun parse-defn (form)
   "Parse a defn form into a defn-node.
    Supported syntaxes:
@@ -778,6 +791,7 @@
   (setf (gethash "DEFMETHOD" special-forms) #'parse-defmethod)
   (setf (gethash "DEF" special-forms) #'parse-def)
   (setf (gethash "DEFN" special-forms) #'parse-defn)
+  (setf (gethash "DEFUN" special-forms) #'parse-defun)
   (setf (gethash "LOOP" special-forms) #'parse-loop)
   (setf (gethash "RECUR" special-forms) #'parse-recur)
   (setf (gethash "HANDLER-CASE" special-forms) #'parse-handler-case)
@@ -888,17 +902,27 @@
    needs funcall (Lisp-2 semantics). Bound dynamically during code emission.")
 
 (defvar *letfn-fns* nil
-        "Set of function names bound in an enclosing letfn (CL labels) form.
+  "Set of function names bound in an enclosing letfn (CL labels) form.
    Calls to these names are emitted as direct function calls since labels
    puts them in the function slot, not the value slot.")
+
+(defvar *extra-special-vars* nil
+  "Set of symbols that should be declared SPECIAL in the current function scope.
+   Used to silence warnings for dynamic variable usage and late-bound functions.")
 
 (defun emit-literal (node)
   "Emit a literal value. Self-evaluating forms compile to themselves."
   (fol.compiler.ast:literal-node-value node))
 
 (defun emit-symbol-ref (node)
-  "Emit a symbol reference. Compiles to the CL symbol itself."
-  (fol.compiler.ast:symbol-ref-node-name node))
+  "Emit a symbol reference. Compiles to the CL symbol itself.
+   Tracks non-lexical symbols for SPECIAL declarations."
+  (let ((name (fol.compiler.ast:symbol-ref-node-name node)))
+    (unless (or (cl:member name *lexical-vars*)
+                (cl:constantp name)
+                (cl:eq (cl:symbol-package name) (cl:find-package :cl)))
+      (pushnew name *extra-special-vars*))
+    name))
 
 (defun emit-call (node)
   "Emit a function call node.
@@ -966,17 +990,18 @@
                  (eq (symbol-package sym) (find-package :cl)))
              `(,sym ,@emitted-args)
              (let ((gval (gensym "VAL")))
-               `(if (fboundp ',sym)
+               (pushnew sym *extra-special-vars*)
+               `(if (cl:fboundp ',sym)
                     (,sym ,@emitted-args)
                     (let ((,gval ,sym))
-                      (cond
-                       ((typep ,gval 'fol.compiler.collections:<dict>)
-                         (fol.compiler.collection-functions:get ,gval ,@emitted-args))
-                       ((typep ,gval 'fol.compiler.collections:<vector>)
-                         (fol.compiler.collection-functions:nth ,gval ,@emitted-args))
-                       ((typep ,gval 'fol.compiler.collections:<set>)
-                         (fol.compiler.collection-functions:get ,gval ,@emitted-args))
-                       (t (error "~S is not a function or collection" ',sym)))))))))
+                      (cl:cond
+                       ((cl:typep ,gval 'fol.compiler.collections:<dict>)
+                        (fol.compiler.collection-functions:get ,gval ,@emitted-args))
+                       ((cl:typep ,gval 'fol.compiler.collections:<vector>)
+                        (fol.compiler.collection-functions:nth ,gval ,@emitted-args))
+                       ((cl:typep ,gval 'fol.compiler.collections:<set>)
+                        (fol.compiler.collection-functions:get ,gval ,@emitted-args))
+                       (t (cl:error "~S is not a function or collection" ',sym)))))))))
 
      ;; Invalid function call - operator is not callable
      (t
@@ -1066,7 +1091,8 @@
          (lambda (fn-name extra-args arg-expr)
            (emit-node
              (parse-form
-               (list* fn-name arg-expr extra-args))))))
+               (list* fn-name arg-expr extra-args)))))
+        (*extra-special-vars* nil))
     (if (= (length clauses) 1)
         (compile-fn-single-clause (first clauses))
         (compile-fn-multi-clause clauses))))
@@ -1132,8 +1158,12 @@
                (body-with-ignore
                 (if all-wildcards
                     `((cl:declare (cl:ignorable ,@all-wildcards)) ,@body-with-as)
-                    body-with-as)))
-          `(cl:lambda ,lambda-list ,@body-with-ignore))))))
+                    body-with-as))
+               (body-with-special
+                (if *extra-special-vars*
+                    `((cl:declare (cl:special ,@(remove-duplicates *extra-special-vars*))) ,@body-with-ignore)
+                    body-with-ignore)))
+          `(cl:lambda ,lambda-list ,@body-with-special))))))
 
 (defun compile-fn-multi-clause (clauses)
   "Compile multiple fn clauses into a dispatcher lambda.
@@ -1203,6 +1233,8 @@
                            (cl:let ,bindings
                              ,@emitted-body)))))
     `(cl:lambda ,param-syms
+       ,@(when *extra-special-vars*
+               `((cl:declare (cl:special ,@(remove-duplicates *extra-special-vars*)))))
        (cl:cond
          ,@cond-clauses
          (cl:t (cl:error "No matching fn clause for arguments: ~S"
@@ -1236,6 +1268,8 @@
                            (cl:let ,bindings
                              ,@emitted-body)))))
     `(cl:lambda (&rest ,args-sym)
+       ,@(when *extra-special-vars*
+               `((cl:declare (cl:special ,@(remove-duplicates *extra-special-vars*)))))
        (cl:cond
          ,@cond-clauses
          (cl:t (cl:error "No matching fn clause for ~D arguments: ~S"
@@ -1714,6 +1748,7 @@
   "Emit a def node as CL defvar."
   (let ((name (fol.compiler.ast:def-node-name node))
         (value (fol.compiler.ast:def-node-value node)))
+    (pushnew name *extra-special-vars*)
     (if value
         `(defvar ,name ,(emit-node value))
         `(defvar ,name))))
@@ -2089,23 +2124,32 @@
    Otherwise writes to a temporary .lisp file and calls CL:COMPILE-FILE.
    Returns the pathname of the compiled file (fasl)."
   (let* ((source-path (truename path))
-         (lisp-path (make-pathname :type "lisp" :defaults (if output output source-path)))
-         (fasl-path (make-pathname :type "fasl" :defaults lisp-path)))
+         (lisp-path (make-pathname :type "lisp" :defaults (if output output source-path))))
 
     (with-open-file (in source-path :direction :input)
       (with-open-file (out lisp-path :direction :output :if-exists :supersede)
         ;; Bind readtable and package for reading
         (let ((*readtable* *fol-readtable*)
-              (*package* (find-package :fol.core))) ;; Or current package? usually fol.core
+              (*package* (find-package :fol.core))
+              (*print-circle* t))
           ;; Emit package declaration so cl:compile-file uses correct package
-          (format out "~&(in-package :fol.core)~%")
+          (format out "~&;;; Transpiled from ~A~%" (file-namestring source-path))
+          (format out "(in-package :fol.core)~%")
 
           (loop for form = (fol-read in nil :eof)
                 until (eq form :eof)
                 do (let ((result (compile-form form)))
                      (if (compilation-result-errors result)
-                         (error "Compilation error: ~A" (compilation-result-errors result))
-                         (print (compilation-result-code result) out)))))))
+                         (error "Compilation error in ~A: ~A" path (compilation-result-errors result))
+                         (let ((code (compilation-result-code result)))
+                           (labels ((emit-flat (form)
+                                      (if (and (consp form) (eq (car form) 'cl:progn))
+                                          (mapc #'emit-flat (cdr form))
+                                          (progn
+                                            (terpri out)
+                                            (prin1 form out)
+                                            (terpri out)))))
+                             (emit-flat code)))))))))
 
     ;; Make sure to compile the generated Lisp file
     (cl:compile-file lisp-path)))

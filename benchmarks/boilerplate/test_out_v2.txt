@@ -1,0 +1,73 @@
+To load "bordeaux-threads":
+  Load 1 ASDF system:
+    bordeaux-threads
+; Loading "bordeaux-threads"
+
+To load "usocket":
+  Load 1 ASDF system:
+    usocket
+; Loading "usocket"
+
+To load "cl-json":
+  Load 1 ASDF system:
+    cl-json
+; Loading "cl-json"
+
+To load "flexi-streams":
+  Load 1 ASDF system:
+    flexi-streams
+; Loading "flexi-streams"
+
+To load "fiveam":
+  Load 1 ASDF system:
+    fiveam
+; Loading "fiveam"
+
+To load "closer-mop":
+  Load 1 ASDF system:
+    closer-mop
+; Loading "closer-mop"
+
+To load "cl-ppcre":
+  Load 1 ASDF system:
+    cl-ppcre
+; Loading "cl-ppcre"
+..
+To load "fset":
+  Load 1 ASDF system:
+    fset
+; Loading "fset"
+..
+To load "sycamore":
+  Load 1 ASDF system:
+    sycamore
+; Loading "sycamore"
+
+sbcl : 
+At C:\Users\frank\Projects\FOL\fol\benchmarks\boilerplate\run-one.ps1:26 char:5
++     sbcl --noinform --load $TempFile --eval $EvalCmd 2>&1 | Out-File  ...
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+debugger invoked on a SB-C::INPUT-ERROR-IN-LOAD in thread
+#<THREAD tid=59332 "main thread" RUNNING {1100030003}>:
+  READ error during LOAD:
+
+    Symbol "REPEAT" not found in the COMMON-LISP package.
+
+      Line: 110, Column: 20, File-Position: 4932
+
+      Stream: #<SB-INT:FORM-TRACKING-STREAM for "file C:\\Users\\frank\\AppData\\Local\\Temp\\fol_bench_one_1158300558.lisp" {1102E046F3}>
+
+Type HELP for debugger help, or (SB-EXT:EXIT) to exit from SBCL.
+
+restarts (invokable by number or by possibly-abbreviated name):
+  0: [ABORT   ] Abort loading file "C:\\Users\\frank\\AppData\\Local\\Temp\\fol_bench_one_1158300558.lisp".
+  1: [CONTINUE] Ignore runtime option --load "C:\\Users\\frank\\AppData\\Local\\Temp\\fol_bench_one_1158300558.lisp".
+  2:            Skip rest of --eval and --load options.
+  3:            Skip to toplevel READ/EVAL/PRINT loop.
+  4: [EXIT    ] Exit SBCL (calling #'EXIT, killing the process).
+
+(SB-C:COMPILER-ERROR SB-C::INPUT-ERROR-IN-LOAD :CONDITION #<SB-INT:SIMPLE-READER-PACKAGE-ERROR "Symbol ~S not found in the ~A package." {1103771313}> :STREAM #<SB-INT:FORM-TRACKING-STREAM for "file C:\\Users\\frank\\AppData\\Local\\Temp\\fol_bench_one_1158300558.lisp" {1102E046F3}>)
+0] 

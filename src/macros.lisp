@@ -23,6 +23,35 @@
   "Evaluates test. If logical false, evaluates then; otherwise evaluates else."
   `(if ,test ,else ,then))
 
+; (defmacro cond (&rest clauses)
+;   "Takes a set of test/expr pairs. Evaluates each test one at a time.
+;    If a test returns logical true, cond evaluates and returns the value
+;    of the corresponding expr and doesn't evaluate any of the other tests
+;    or exprs. If no test returns true, returns nil."
+;   (cl:when clauses
+;     (let ((clause (first clauses)))
+;       (destructuring-bind (test expr) clause
+;         `(if ,test
+;              ,expr
+;              ,(cl:when (rest clauses)
+;                 `(cond ,@(rest clauses))))))))
+
+; (defmacro case (expr &rest clauses)
+;   "Takes an expression and a set of value/expr pairs.
+;    Compares expr (an evaluated expression) to each value (unevaluated constants).
+;    If they match, evaluates corresponding expr. If no clause matches,
+;    evaluates the default clause (marked with :default or :else), or returns nil."
+;   (let ((g (gensym "CASE-EXPR-"))
+;         (result nil))
+;     (loop for clause-pair on clauses by #'cddr
+;           for value = (first clause-pair)
+;           for body = (second clause-pair)
+;           do (cond
+;               ((or (eq value :default) (eq value :else))
+;                 (setf result body))
+;               (t
+;                 (setf result `(if (=? ,g ,value) ,body ,result)))))
+;     `(bind ,(list g expr) ,result)))
 
 (defmacro condp (pred expr &rest clauses)
   "Takes a binary predicate, an expression, and a set of value/result pairs.
@@ -280,42 +309,37 @@
 
 (defmacro with-open (bindings &body body)
   "Evaluates body in a try expression with bindings (like let), and ensures
-   that close is called on each binding at the end."
+   that close is called on each binding at the end.
+   Bindings are ((var expr) ...) like CL let."
   (if (null bindings)
-      `(do ,@body)
-      (let ((binding (first bindings))
-            (value (second bindings))
-            (rest-bindings (cddr bindings)))
-        `(bind ,(list binding value)
-               (handler-case
-                   (with-open ,rest-bindings ,@body)
-                 (t (e)
-                    (stream-close ,binding)
-                    (error e))
-                 (:no-error (result)
-                            (stream-close ,binding)
-                            result))))))
+      `(progn ,@body)
+      (destructuring-bind (var expr) (first bindings)
+        `(let ((,var ,expr))
+           (unwind-protect
+               (with-open ,(rest bindings) ,@body)
+             (stream-close ,var))))))
 
 (defmacro with-in-str (s &body body)
   "Evaluates body with *in* bound to a fresh string input stream initialized with string s."
   (let ((stream (gensym "STREAM-")))
-    `(bind ,(list stream `(fol.compiler.streams:string-input-stream ,s))
-           (binding ,(list '*in* stream)
-                    ,@body))))
+    `(let ((,stream (fol.compiler.streams:string-input-stream ,s)))
+       (let ((fol.compiler.streams:*in* ,stream))
+         ,@body))))
 
 (defmacro with-out-str (&body body)
   "Evaluates body with *out* bound to a fresh string output stream.
    Returns the string created by any output during body."
   (let ((stream (gensym "STREAM-")))
-    `(bind ,(list stream '(fol.compiler.streams:string-output-stream))
-           (binding ,(list '*out* stream)
-                    (do ,@body (fol.compiler.streams:get-output-string ,stream))))))
+    `(let ((,stream (fol.compiler.streams:string-output-stream)))
+       (let ((fol.compiler.streams:*out* ,stream))
+         ,@body
+         (fol.compiler.streams:get-output-string ,stream)))))
 
 (defmacro with-precision (precision &body body)
   "Sets the precision for floating point operations within body.
    Note: This is a stub implementation."
   (declare (ignore precision))
-  `(do ,@body))
+  `(progn ,@body))
 
 (defmacro with-local-vars (bindings &body body)
   "Creates local mutable variables for use within body.
@@ -382,6 +406,8 @@
   (fol.compiler:register-macro 'when (macro-function 'when))
   (fol.compiler:register-macro 'when-not (macro-function 'when-not))
   (fol.compiler:register-macro 'if-not (macro-function 'if-not))
+  (fol.compiler:register-macro 'cond (macro-function 'cond))
+  (fol.compiler:register-macro 'case (macro-function 'case))
   (fol.compiler:register-macro 'condp (macro-function 'condp))
   (fol.compiler:register-macro 'when-let (macro-function 'when-let))
   (fol.compiler:register-macro 'if-let (macro-function 'if-let))

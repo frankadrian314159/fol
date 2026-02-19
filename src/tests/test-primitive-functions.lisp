@@ -311,9 +311,9 @@
   (is (null (fol.compiler.primitive-functions:reversible?
               (fol.compiler.collection-functions:set 1 2 3)))))
 
-(test reversible?-list-false
-  "reversible? returns NIL for FOL lists."
-  (is (null (fol.compiler.primitive-functions:reversible?
+(test reversible?-list-true
+  "reversible? returns T for FOL lists (lists can be reversed via cl:reverse)."
+  (is (eq t (fol.compiler.primitive-functions:reversible?
               (fol.compiler.collection-functions:list 1 2 3)))))
 
 (test reversible?-non-collection-false

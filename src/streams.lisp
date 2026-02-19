@@ -231,6 +231,10 @@
   "Read a line from the underlying CL input stream."
   (read-line (input-stream-stream s) nil nil))
 
+(defmethod stream-read-line ((s cl:stream))
+  "Read a line from a CL stream."
+  (read-line s nil nil))
+
 ;;; =========================================================================
 ;;; Protocol — Output Methods
 ;;; =========================================================================

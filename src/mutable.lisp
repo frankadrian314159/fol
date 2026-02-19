@@ -762,6 +762,7 @@
   (print-unreadable-object (obj stream :type nil)
     (let ((err (agent-error-val obj)))
       (if err
+          (format stream "AGENT ~S ERROR: ~A" (agent-value obj) err)
           (format stream "AGENT ~S" (agent-value obj))))))
 
 ;;; =========================================================================
@@ -840,11 +841,11 @@
   "Submit work to the thread pool. Returns a work-item that can be waited on."
   (initialize-thread-pool) ; Ensure pool is initialized
   (let ((work (make-work-item
-               :fn fn
-               :args args
-               :result-box (cons nil nil)
-               :done-lock (bordeaux-threads:make-lock)
-               :done-condvar (bordeaux-threads:make-condition-variable))))
+                :fn fn
+                :args args
+                :result-box (cons nil nil)
+                :done-lock (bordeaux-threads:make-lock)
+                :done-condvar (bordeaux-threads:make-condition-variable))))
     (bordeaux-threads:with-lock-held (*work-queue-lock*)
       (setf *work-queue* (nconc *work-queue* (list work)))
       (bordeaux-threads:condition-notify *work-queue-condvar*))

@@ -369,12 +369,12 @@
       ;; (repeat x) form - return a <lazy-seq> that yields x forever
       (labels ((make-repeat-seq (val)
                                 (fol.compiler.collections:make
-                                 'fol.compiler.collections:<lazy-seq>
-                                 (lambda ()
-                                   (make-instance 'fol.compiler.collections:<list>
-                                     :first-elem val
-                                     :rest-list (make-repeat-seq val)
-                                     :list-size 1)))))
+                                  'fol.compiler.collections:<lazy-seq>
+                                  (lambda ()
+                                    (make-instance 'fol.compiler.collections:<list>
+                                      :first-elem val
+                                      :rest-list (make-repeat-seq val)
+                                      :list-size 1)))))
         (make-repeat-seq n-or-x))))
 
 ;;; ---------------------------------------------------------------------------
@@ -425,12 +425,12 @@
       (let ((f n-or-fn))
         (labels ((make-rep-seq ()
                                (fol.compiler.collections:make
-                                'fol.compiler.collections:<lazy-seq>
-                                (lambda ()
-                                  (make-instance 'fol.compiler.collections:<list>
-                                    :first-elem (funcall f)
-                                    :rest-list (make-rep-seq)
-                                    :list-size 1)))))
+                                 'fol.compiler.collections:<lazy-seq>
+                                 (lambda ()
+                                   (make-instance 'fol.compiler.collections:<list>
+                                     :first-elem (funcall f)
+                                     :rest-list (make-rep-seq)
+                                     :list-size 1)))))
           (make-rep-seq)))))
 
 ;;; ---------------------------------------------------------------------------
@@ -446,12 +446,12 @@
      (take 4 (iterate (fn [x] (* x 2)) 1)) => [1 2 4 8]"
   (labels ((make-iter-seq (val)
                           (fol.compiler.collections:make
-                           'fol.compiler.collections:<lazy-seq>
-                           (lambda ()
-                             (make-instance 'fol.compiler.collections:<list>
-                               :first-elem val
-                               :rest-list (make-iter-seq (funcall f val))
-                               :list-size 1)))))
+                            'fol.compiler.collections:<lazy-seq>
+                            (lambda ()
+                              (make-instance 'fol.compiler.collections:<list>
+                                :first-elem val
+                                :rest-list (make-iter-seq (funcall f val))
+                                :list-size 1)))))
     (make-iter-seq x)))
 
 ;;; ---------------------------------------------------------------------------
@@ -512,10 +512,16 @@
       (nreverse result))))
 
 ;;; ---------------------------------------------------------------------------
-;;; line-seq - lazy seq of lines from a stream
-;;; ---------------------------------------------------------------------------
-
-
+(defun line-seq (rdr)
+  "Returns the lines of text from rdr as a vector of strings."
+  (let ((lines '()))
+    (cl:loop
+      for line = (fol.compiler.streams:stream-read-line rdr)
+      while line
+      do (push line lines))
+    (apply #'fol.compiler.collections:make
+      'fol.compiler.collections:<vector>
+      (nreverse lines))))
 ;;; ---------------------------------------------------------------------------
 ;;; tree-seq - depth-first tree traversal
 ;;; ---------------------------------------------------------------------------
@@ -727,10 +733,10 @@
     (let ((d (fol.compiler.collections:make 'fol.compiler.collections:<dict>)))
       (maphash (lambda (k vs)
                  (setf d (fol.compiler.collection-functions:assoc
-                          d k
-                          (apply #'fol.compiler.collections:make
-                            'fol.compiler.collections:<vector>
-                            (nreverse vs)))))
+                             d k
+                           (apply #'fol.compiler.collections:make
+                             'fol.compiler.collections:<vector>
+                             (nreverse vs)))))
                buckets)
       d)))
 
@@ -744,7 +750,7 @@
    Examples:
      (split-at 3 [1 2 3 4 5])  => [[1 2 3] [4 5]]"
   (fol.compiler.collections:make 'fol.compiler.collections:<vector>
-                                 (take n coll) (drop n coll)))
+    (take n coll) (drop n coll)))
 
 ;;; ---------------------------------------------------------------------------
 ;;; split-with - split by predicate
@@ -756,8 +762,8 @@
    Examples:
      (split-with even? [2 4 1 2 3])  => [[2 4] [1 2 3]]"
   (fol.compiler.collections:make 'fol.compiler.collections:<vector>
-                                 (take-while pred coll)
-                                 (drop-while pred coll)))
+    (take-while pred coll)
+    (drop-while pred coll)))
 
 ;;; ---------------------------------------------------------------------------
 ;;; shuffle - randomly reorder elements
@@ -918,13 +924,13 @@
           (error "cycle: cannot cycle an empty collection"))
     (labels ((make-cycle (remaining full-seq)
                          (fol.compiler.collections:make
-                          'fol.compiler.collections:<lazy-seq>
-                          (let ((r remaining) (f full-seq))
-                            (lambda ()
-                              (make-instance 'fol.compiler.collections:<list>
-                                :first-elem (cl:first r)
-                                :rest-list (make-cycle (or (cl:rest r) f) f)
-                                :list-size 1))))))
+                           'fol.compiler.collections:<lazy-seq>
+                           (let ((r remaining) (f full-seq))
+                             (lambda ()
+                               (make-instance 'fol.compiler.collections:<list>
+                                 :first-elem (cl:first r)
+                                 :rest-list (make-cycle (or (cl:rest r) f) f)
+                                 :list-size 1))))))
       (make-cycle seq seq))))
 
 ;;; ---------------------------------------------------------------------------
@@ -1017,12 +1023,12 @@
 ;;; ---------------------------------------------------------------------------
 
 (defun seque (n-or-coll &optional (coll nil coll-p))
-  "Returns a lazy sequence backed by the given sequence and a blocking buffer.
-   Uses an agent to buffer elements asynchronously.
-   
+  "Returns a vector backed by an asynchronous buffered queue.
+   Uses an agent to buffer elements asynchronously, then collects into a vector.
+
    (seque s)       => uses default buffer size 100
    (seque n s)     => uses buffer size n
-   
+
    Examples:
      (seque [1 2 3])
      (seque 5 (range 100))"
@@ -1036,23 +1042,23 @@
 
       ;; Start the producer agent
       (send-off ag
-                (lambda (state)
-                  (declare (ignore state))
-                  ;; Iterate and push to queue (blocks if full)
-                  (run! (lambda (x) (bq-put bq x)) s)
-                  ;; Push EOS
-                  (bq-put bq eos)
-                  nil))
+          (lambda (state)
+            (declare (ignore state))
+            ;; Iterate and push to queue (blocks if full)
+            (run! (lambda (x) (bq-put bq x)) s)
+            ;; Push EOS
+            (bq-put bq eos)
+            nil))
 
-      ;; Return lazy sequence consuming the queue
-      (labels ((drain ()
-                      (fol.compiler.collection-functions:lazy-seq
-                       (lambda ()
-                         (let ((x (bq-take bq)))
-                           (if (eq x eos)
-                               nil
-                               (cl:cons x (drain))))))))
-        (drain)))))
+      ;; Drain the queue into a vector
+      (let ((result '()))
+        (cl:loop
+          for x = (bq-take bq)
+          until (eq x eos)
+          do (push x result))
+        (apply #'fol.compiler.collections:make
+          'fol.compiler.collections:<vector>
+          (nreverse result))))))
 
 ;;; ===========================================================================
 ;;; Element Accessors

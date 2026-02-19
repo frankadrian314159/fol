@@ -127,6 +127,10 @@
                          stream)
     format-string args))
 
+(defun format (format-string &rest args)
+  "Returns a formatted string."
+  (apply #'cl:format nil format-string args))
+
 
 ;;; String IO
 
@@ -162,7 +166,7 @@
   (let ((line (read-line rdr nil nil)))
     (if line
         (fol.compiler.collection-functions:lazy-seq
-         (lambda () (cons line (line-seq rdr))))
+          (lambda () (cons line (line-seq rdr))))
         nil)))
 
 

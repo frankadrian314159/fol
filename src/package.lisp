@@ -349,7 +349,7 @@
   (:import-from uuid make-uuid-from-string)
   (:export
    ;; String concatenation and manipulation
-   str subs split split-lines
+   str size subs split split-lines
    ;; Trimming (Clojure-style)
    trim triml trimr trim-newline
    ;; Case conversion (Clojure-style)
@@ -391,7 +391,7 @@
 
 (defpackage fol.compiler.collection-functions
   (:use cl)
-  (:shadow vector set list list* nth push pop union intersection subseq find)
+  (:shadow vector set list list* nth push pop union intersection difference subseq find)
   (:shadowing-import-from fol.compiler.collections
                           ;; Import high-level accessors that are defined in collections
                           first rest get assoc dissoc conj size empty? count update merge)
@@ -690,27 +690,6 @@
    cond
    case))
 
-(defpackage fol.macros
-  (:use cl)
-  (:shadow when assert time do dotimes)
-  (:import-from fol.compiler register-macro)
-  (:export
-   ;; Conditional macros
-   when when-not if-not condp
-   ;; Binding macros
-   when-let if-let when-some if-some when-first
-   ;; Loop macros
- while dotimes doseq for
-   ;; Threading macros
-   -> ->> as-> cond-> cond->> some-> some->>
-   ;; Dynamic binding
-   binding with-redefs with-redefs-fn
-   ;; Resource management
-   with-open with-in-str with-out-str with-precision with-local-vars
-   ;; Utilities
-   time comment assert doc lazy-cat delay))
-
-
 (defpackage fol.compiler.streams
   (:use cl)
   (:export
@@ -738,15 +717,38 @@
    ;; Global vars
    *in* *out* *err*))
 
+(defpackage fol.macros
+  (:use cl)
+  (:shadow when assert time do dotimes)
+  (:import-from fol.compiler register-macro)
+  (:import-from fol.compiler.streams
+                stream-close *in* *out*)
+  (:export
+   ;; Conditional macros
+   when when-not if-not condp
+   ;; Binding macros
+   when-let if-let when-some if-some when-first
+   ;; Loop macros
+ while dotimes doseq for
+   ;; Threading macros
+   -> ->> as-> cond-> cond->> some-> some->>
+   ;; Dynamic binding
+   binding with-redefs with-redefs-fn
+   ;; Resource management
+   with-open with-in-str with-out-str with-precision with-local-vars
+   ;; Utilities
+   time comment assert doc lazy-cat delay))
+
+
 (defpackage fol.compiler.io
   (:use cl)
-  (:shadow read read-line print close delete-file pprint)
+  (:shadow read read-line print format close delete-file pprint)
   (:import-from fol.macros with-open with-in-str with-out-str)
   (:export
    ;; Core IO
    spit slurp
    ;; Printing
-   pr prn print printf println newline print-table
+   pr prn print format printf println newline print-table
    pprint cl-format
    ;; String IO
    pr-str prn-str print-str println-str
@@ -770,7 +772,8 @@
                 collection-seq collection-conj make)
   (:shadowing-import-from fol.compiler.collection-functions
                           get assoc dissoc empty? conj empty vec size
-                          select-keys rename-keys vals merge contains? first disj)
+                          select-keys rename-keys vals merge contains? first disj
+                          union intersection difference)
   (:shadowing-import-from fol.compiler.seq-functions
                           reduce filter map keys sort into)
   (:export

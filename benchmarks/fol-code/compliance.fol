@@ -46,21 +46,21 @@
   (defmethod validate-trade
       ;; Rule 1: Block restricted symbols immediately
       ([(trd (restricted-symbol?))]
-          {:status :rejected
-           :reason (str "Symbol " (trade-symbol trd) " is on the restricted list")})
+          [:status :rejected
+           :reason (str "Symbol " (trade-symbol trd) " is on the restricted list")])
       ;; Rule 2: Flag high value trades for manual review
       ([(trd (high-value?))]
-          {:status :manual-review
-           :reason "Trade value exceeds $1M limit"})
+          [:status :manual-review
+           :reason "Trade value exceeds $1M limit"])
       ;; Rule 3: Warn on penny stock purchases
       ([(trd (penny-stock-buy?))]
-          {:status :warning
+          [:status :warning
            :reason "High risk penny stock purchase"
-           :trade trd})
+           :trade trd])
       ;; Rule 4: Standard approval (Catch-all)
       ([trd]
-          {:status :approved
-           :id (gensym "TRD")})))
+          [:status :approved
+           :id (gensym "TRD")])))
 
 ;;; =============================================================================
 ;;; Test Module - Tests for the compliance system
@@ -70,21 +70,25 @@
   ;; Import the compliance module
   (:use :cl "compliance")
 
-  ;; Create test trades
-  (def t1 (make '<trade> :symbol 'NU :amount 100 :price 18.00 :side :buy))
-  (def t2 (make '<trade> :symbol 'GOOG :amount 50 :price 150.00 :side :sell))
-  (def t3 (make '<trade> :symbol 'IBM  :amount 10000 :price 150.00 :side :buy))
-  (def t4 (make '<trade> :symbol 'F :amount 1000 :price 12.00 :side :buy))
+  (defun compliance ()
+    ;; Create test trades
+    (def t1 (make '<trade> :symbol 'NU :amount 100 :price 18.00 :side :buy))
+    (def t2 (make '<trade> :symbol 'GOOG :amount 50 :price 150.00 :side :sell))
+    (def t3 (make '<trade> :symbol 'IBM  :amount 10000 :price 150.00 :side :buy))
+    (def t4 (make '<trade> :symbol 'F :amount 1000 :price 12.00 :side :buy))
 
-  ;; Run tests
-  (print (str "T1: " (validate-trade t1)))
-  ;; => T1: {:status :approved :id TRD123}
+    ;; Run tests
+    (print (str "T1: " (validate-trade t1)))
+    ;; => T1: [:status :approved :id TRD123]
 
-  (print (str "T2: " (validate-trade t2)))
-  ;; => T2: {:status :rejected :reason "Symbol GOOG is on the restricted list"}
+    (print (str "T2: " (validate-trade t2)))
+    ;; => T2: [:status :rejected :reason "Symbol GOOG is on the restricted list"]
 
-  (print (str "T3: " (validate-trade t3)))
-  ;; => T3: {:status :manual-review :reason "Trade value exceeds $1M limit"}
+    (print (str "T3: " (validate-trade t3)))
+    ;; => T3: []:status :manual-review :reason "Trade value exceeds $1M limit"]
 
-  (print (str "T4: " (validate-trade t4))))
-  ;; => T4: {:status :warning :reason "High risk penny stock purchase" :trade #<TRADE {10053B2983}>}
+    (print (str "T4: " (validate-trade t4)))))
+    ;; => T4: []:status :warning :reason "High risk penny stock purchase" :trade #<TRADE {10053B2983}>]
+
+  (compliance)
+

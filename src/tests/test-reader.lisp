@@ -413,3 +413,71 @@
       (is (char= (first seq) #\a))
       (is (char= (second seq) #\x))
       (is (char= (third seq) #\z)))))
+
+;;; ---------------------------------------------------------------------------
+;;; Anonymous function shorthand: #(...)
+;;; ---------------------------------------------------------------------------
+
+(test read-fn-shorthand-simple
+  "#(f %1) reads as (fn [%1] (f %1))."
+  (let ((result (fol.compiler.reader:fol-read-from-string "#(f %1)")))
+    (is (consp result))
+    (is (string= "FN" (symbol-name (car result))))
+    (let ((params (second result))
+          (body (third result)))
+      (is (fol.compiler.collections:<vector>? params))
+      (let ((p-list (fol.compiler.collections:collection-seq params)))
+        (is (= 1 (length p-list)))
+        (is (string= "%1" (symbol-name (first p-list)))))
+      ;; body should be the list (+ %1 1) if input was #(+ % 1)
+      ;; wait, for #(f %1) it is (f %1)
+      (is (consp body))
+      (is (equal 'f (car body)))
+      (is (string= "%1" (symbol-name (second body)))))))
+
+(test read-fn-shorthand-percent
+  "#(+ % 1) reads as (fn [%1] (+ %1 1))."
+  (let ((result (fol.compiler.reader:fol-read-from-string "#(+ % 1)")))
+    (let ((params (second result))
+          (body (third result)))
+      (is (string= "%1" (symbol-name (first (fol.compiler.collections:collection-seq params)))))
+      (is (consp body))
+      (is (equal '+ (car body)))
+      (is (string= "%1" (symbol-name (second body)))))))
+
+(test read-fn-shorthand-multi-param
+  "#(+ %1 %3) reads as (fn [%1 %2 %3] (+ %1 %3))."
+  (let* ((result (fol.compiler.reader:fol-read-from-string "#(+ %1 %3)"))
+         (params (fol.compiler.collections:collection-seq (second result))))
+    (is (= 3 (length params)))
+    (is (string= "%1" (symbol-name (first params))))
+    (is (string= "%2" (symbol-name (second params))))
+    (is (string= "%3" (symbol-name (third params))))))
+
+(test read-fn-shorthand-rest
+  "#(f %&) reads as (fn [& %&] (f %&))."
+  (let* ((result (fol.compiler.reader:fol-read-from-string "#(f %&)"))
+         (params (fol.compiler.collections:collection-seq (second result))))
+    (is (= 2 (length params)))
+    (is (string= "&" (symbol-name (first params))))
+    (is (string= "%&" (symbol-name (second params))))))
+
+(test read-fn-shorthand-mixed
+  "#(+ %1 %&) reads as (fn [%1 & %&] (+ %1 %&))."
+  (let* ((result (fol.compiler.reader:fol-read-from-string "#(+ %1 %&)"))
+         (params (fol.compiler.collections:collection-seq (second result))))
+    (is (= 3 (length params)))
+    (is (string= "%1" (symbol-name (first params))))
+    (is (string= "&" (symbol-name (second params))))
+    (is (string= "%&" (symbol-name (third params))))))
+
+(test read-fn-shorthand-nested-coll
+  "#([%1 %2]) reads as (fn [%1 %2] ([%1 %2]))."
+  (let* ((result (fol.compiler.reader:fol-read-from-string "#([%1 %2])"))
+         (params (fol.compiler.collections:collection-seq (second result)))
+         (body (third result)))
+    (is (= 2 (length params)))
+    (is (fol.compiler.collections:<vector>? body))
+    (let ((v-seq (fol.compiler.collections:collection-seq body)))
+      (is (string= "%1" (symbol-name (first v-seq))))
+      (is (string= "%2" (symbol-name (second v-seq)))))))

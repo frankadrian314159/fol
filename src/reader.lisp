@@ -217,6 +217,66 @@
     (let ((target (read stream t nil t)))
       (list 'fol.compiler.metadata:with-meta target meta-expr))))
 
+(defun read-fol-fn-shorthand (stream sub-char arg)
+  "Read a FOL anonymous function shorthand: #(f %1 %2 ...)
+   Expands to (fn [%1 %2 ...] (f %1 %2 ...)).
+   % or %1 refers to the first argument, %2 to the second, etc.
+   %& refers to the rest arguments."
+  (declare (ignore sub-char arg))
+  (let* ((body-forms (read-delimited-list #\) stream t))
+         (max-param 0)
+         (has-rest nil))
+    (labels ((scan (form)
+                   (cond
+                    ((symbolp form)
+                      (let ((name (symbol-name form)))
+                        (cond
+                         ((string= name "%") (setf max-param (max max-param 1)))
+                         ((and (> (length name) 1)
+                               (char= (char name 0) #\%)
+                               (digit-char-p (char name 1))
+                               (every #'digit-char-p (subseq name 1)))
+                           (setf max-param (max max-param (parse-integer (subseq name 1)))))
+                         ((string= name "%&") (setf has-rest t)))))
+                    ((consp form)
+                      (scan (car form))
+                      (scan (cdr form)))
+                    ;; Handle FOL collection literals if they've been read already
+                    ((typep form '(or fol.compiler.collections:<vector>
+                                      fol.compiler.collections:<dict>
+                                      fol.compiler.collections:<set>))
+                      (let ((items (fol.compiler.collections:collection-seq form)))
+                        (dolist (item items)
+                          (if (consp item)
+                              (progn (scan (car item)) (scan (cdr item)))
+                              (scan item)))))
+                    (t nil))))
+      (dolist (f body-forms) (scan f)))
+    (let (params)
+      ;; Use *package* to ensure symbols match what was read in body-forms
+      (loop for i from 1 to max-param
+            do (push (intern (format nil "%~D" i) *package*) params))
+      (setf params (nreverse params))
+      (let ((final-params params))
+        (when has-rest
+              (setf final-params (append final-params (list (intern "&" *package*)
+                                                            (intern "%&" *package*)))))
+
+        ;; Substitution in body: replace % with %1
+        (labels ((subst-percent (form)
+                                (cond
+                                 ((and (symbolp form) (string= (symbol-name form) "%"))
+                                   (intern "%1" *package*))
+                                 ((consp form)
+                                   (cons (subst-percent (car form))
+                                         (subst-percent (cdr form))))
+                                 (t form))))
+          (let ((final-body (mapcar #'subst-percent body-forms)))
+            `(fn ,(apply #'fol.compiler.collection-functions:vector final-params)
+                 ,(if (= (length final-body) 1)
+                      (car final-body)
+                      final-body))))))))
+
 ;;; ============================================================================
 ;;; Syntax-quote and Auto-gensym Support
 ;;; ============================================================================
@@ -354,6 +414,9 @@
 
 ;;; #{ for sets
 (set-dispatch-macro-character #\# #\{ #'read-fol-set *fol-readtable*)
+
+;;; #( for anonymous function shorthand
+(set-dispatch-macro-character #\# #\( #'read-fol-fn-shorthand *fol-readtable*)
 
 ;;; #M for bags (multisets)
 (set-dispatch-macro-character #\# #\M #'read-fol-bag *fol-readtable*)

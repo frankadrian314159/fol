@@ -551,14 +551,16 @@
     (if found value default)))
 
 (defmethod get ((coll fol.compiler.collections:<sorted-dict>) key &optional default)
-  (multiple-value-bind (value found)
+  (multiple-value-bind (value found-key found-p)
       (sycamore:tree-map-find (fol.compiler.collections:storage-items coll) key)
-    (if found value default)))
+    (declare (ignore found-key))
+    (if found-p value default)))
 
 (defmethod get ((coll fol.compiler.collections:<int-dict>) key &optional default)
-  (multiple-value-bind (value found)
+  (multiple-value-bind (value found-key found-p)
       (sycamore:tree-map-find (fol.compiler.collections:storage-items coll) key)
-    (if found value default)))
+    (declare (ignore found-key))
+    (if found-p value default)))
 
 (defmethod get ((coll fol.compiler.collections:<priority-dict>) key &optional default)
   (multiple-value-bind (value found)
@@ -1253,20 +1255,25 @@
 ;;; union - Set union
 ;;; ---------------------------------------------------------------------------
 
-(defgeneric union (set1 set2)
-  (:documentation "Returns a new set that is the union of SET1 and SET2.
-   (union #{1 2} #{2 3}) => #{1 2 3}"))
+(defgeneric binary-union (set1 set2)
+  (:documentation "Returns a new set that is the union of SET1 and SET2."))
 
-(defmethod union ((s1 fol.compiler.collections:<set>)
-                  (s2 fol.compiler.collections:<set>))
+(defun union (set1 &rest others)
+  "Returns the union of set1 and all OTHERS. Supports multiple arguments."
+  (if others
+      (reduce #'binary-union others :initial-value set1)
+      set1))
+
+(defmethod binary-union ((s1 fol.compiler.collections:<set>)
+                         (s2 fol.compiler.collections:<set>))
   "Union of two hash-sets."
   (make-instance 'fol.compiler.collections:<set>
     :items (sycamore:hash-set-union
              (fol.compiler.collections:storage-items s1)
              (fol.compiler.collections:storage-items s2))))
 
-(defmethod union ((s1 fol.compiler.collections:<ordered-set>)
-                  (s2 fol.compiler.collections:<ordered-set>))
+(defmethod binary-union ((s1 fol.compiler.collections:<ordered-set>)
+                         (s2 fol.compiler.collections:<ordered-set>))
   "Union of two ordered-sets. Elements from s1 come first, then novel elements from s2."
   (let* ((store1 (fol.compiler.collections:storage-items s1))
          (store2 (fol.compiler.collections:storage-items s2))
@@ -1281,8 +1288,8 @@
     (make-instance 'fol.compiler.collections:<ordered-set>
       :items (cons hset-result seq-result))))
 
-(defmethod union ((s1 fol.compiler.collections:<sorted-set>)
-                  (s2 fol.compiler.collections:<sorted-set>))
+(defmethod binary-union ((s1 fol.compiler.collections:<sorted-set>)
+                         (s2 fol.compiler.collections:<sorted-set>))
   "Union of two sorted tree-sets."
   (make-instance 'fol.compiler.collections:<sorted-set>
     :items (sycamore:tree-set-union
@@ -1290,8 +1297,8 @@
              (fol.compiler.collections:storage-items s2))
     :compare (fol.compiler.collections:comparator-compare s1)))
 
-(defmethod union ((s1 fol.compiler.collections:<int-set>)
-                  (s2 fol.compiler.collections:<int-set>))
+(defmethod binary-union ((s1 fol.compiler.collections:<int-set>)
+                         (s2 fol.compiler.collections:<int-set>))
   "Union of two int-sets."
   (make-instance 'fol.compiler.collections:<int-set>
     :items (sycamore:tree-set-union
@@ -1303,20 +1310,25 @@
 ;;; difference - Set difference
 ;;; ---------------------------------------------------------------------------
 
-(defgeneric difference (set1 set2)
-  (:documentation "Returns a new set containing elements in SET1 but not in SET2.
-   (difference #{1 2 3} #{2 3 4}) => #{1}"))
+(defgeneric binary-difference (set1 set2)
+  (:documentation "Returns a new set containing elements in SET1 but not in SET2."))
 
-(defmethod difference ((s1 fol.compiler.collections:<set>)
-                       (s2 fol.compiler.collections:<set>))
+(defun difference (set1 &rest others)
+  "Returns the difference of set1 and all OTHERS (elements in s1 not in others)."
+  (if others
+      (reduce #'binary-difference others :initial-value set1)
+      set1))
+
+(defmethod binary-difference ((s1 fol.compiler.collections:<set>)
+                              (s2 fol.compiler.collections:<set>))
   "Difference of two hash-sets."
   (make-instance 'fol.compiler.collections:<set>
     :items (sycamore:hash-set-difference
              (fol.compiler.collections:storage-items s1)
              (fol.compiler.collections:storage-items s2))))
 
-(defmethod difference ((s1 fol.compiler.collections:<ordered-set>)
-                       (s2 fol.compiler.collections:<ordered-set>))
+(defmethod binary-difference ((s1 fol.compiler.collections:<ordered-set>)
+                              (s2 fol.compiler.collections:<ordered-set>))
   "Difference of two ordered-sets. Preserves insertion order from s1."
   (let* ((store1 (fol.compiler.collections:storage-items s1))
          (store2 (fol.compiler.collections:storage-items s2))
@@ -1327,8 +1339,8 @@
     (make-instance 'fol.compiler.collections:<ordered-set>
       :items (cons hset-result seq-result))))
 
-(defmethod difference ((s1 fol.compiler.collections:<sorted-set>)
-                       (s2 fol.compiler.collections:<sorted-set>))
+(defmethod binary-difference ((s1 fol.compiler.collections:<sorted-set>)
+                              (s2 fol.compiler.collections:<sorted-set>))
   "Difference of two sorted tree-sets."
   (make-instance 'fol.compiler.collections:<sorted-set>
     :items (sycamore:tree-set-difference
@@ -1336,8 +1348,8 @@
              (fol.compiler.collections:storage-items s2))
     :compare (fol.compiler.collections:comparator-compare s1)))
 
-(defmethod difference ((s1 fol.compiler.collections:<int-set>)
-                       (s2 fol.compiler.collections:<int-set>))
+(defmethod binary-difference ((s1 fol.compiler.collections:<int-set>)
+                              (s2 fol.compiler.collections:<int-set>))
   "Difference of two int-sets."
   (make-instance 'fol.compiler.collections:<int-set>
     :items (sycamore:tree-set-difference
@@ -1349,20 +1361,25 @@
 ;;; intersection - Set intersection
 ;;; ---------------------------------------------------------------------------
 
-(defgeneric intersection (set1 set2)
-  (:documentation "Returns a new set containing elements common to SET1 and SET2.
-   (intersection #{1 2 3} #{2 3 4}) => #{2 3}"))
+(defgeneric binary-intersection (set1 set2)
+  (:documentation "Returns a new set containing elements common to SET1 and SET2."))
 
-(defmethod intersection ((s1 fol.compiler.collections:<set>)
-                         (s2 fol.compiler.collections:<set>))
+(defun intersection (set1 &rest others)
+  "Returns the intersection of set1 and all OTHERS. Supports multiple arguments."
+  (if others
+      (reduce #'binary-intersection others :initial-value set1)
+      set1))
+
+(defmethod binary-intersection ((s1 fol.compiler.collections:<set>)
+                                (s2 fol.compiler.collections:<set>))
   "Intersection of two hash-sets."
   (make-instance 'fol.compiler.collections:<set>
     :items (sycamore:hash-set-intersection
              (fol.compiler.collections:storage-items s1)
              (fol.compiler.collections:storage-items s2))))
 
-(defmethod intersection ((s1 fol.compiler.collections:<ordered-set>)
-                         (s2 fol.compiler.collections:<ordered-set>))
+(defmethod binary-intersection ((s1 fol.compiler.collections:<ordered-set>)
+                                (s2 fol.compiler.collections:<ordered-set>))
   "Intersection of two ordered-sets. Preserves insertion order from s1."
   (let* ((store1 (fol.compiler.collections:storage-items s1))
          (store2 (fol.compiler.collections:storage-items s2))
@@ -1373,8 +1390,8 @@
     (make-instance 'fol.compiler.collections:<ordered-set>
       :items (cons hset-result seq-result))))
 
-(defmethod intersection ((s1 fol.compiler.collections:<sorted-set>)
-                         (s2 fol.compiler.collections:<sorted-set>))
+(defmethod binary-intersection ((s1 fol.compiler.collections:<sorted-set>)
+                                (s2 fol.compiler.collections:<sorted-set>))
   "Intersection of two sorted tree-sets."
   (make-instance 'fol.compiler.collections:<sorted-set>
     :items (sycamore:tree-set-intersection
@@ -1382,8 +1399,8 @@
              (fol.compiler.collections:storage-items s2))
     :compare (fol.compiler.collections:comparator-compare s1)))
 
-(defmethod intersection ((s1 fol.compiler.collections:<int-set>)
-                         (s2 fol.compiler.collections:<int-set>))
+(defmethod binary-intersection ((s1 fol.compiler.collections:<int-set>)
+                                (s2 fol.compiler.collections:<int-set>))
   "Intersection of two int-sets."
   (make-instance 'fol.compiler.collections:<int-set>
     :items (sycamore:tree-set-intersection
@@ -1577,6 +1594,35 @@
       (sycamore:tree-map-find (fol.compiler.collections:storage-items d) key)
     (declare (ignore val found-key))
     (if found-p t nil)))
+
+(defmethod contains? ((s fol.compiler.collections:<set>) element)
+  "Returns T if set S contains ELEMENT."
+  (if (sycamore:hash-set-find (fol.compiler.collections:storage-items s) element) t nil))
+
+(defmethod contains? ((s fol.compiler.collections:<sorted-set>) element)
+  "Returns T if sorted-set S contains ELEMENT."
+  (if (sycamore:tree-set-find (fol.compiler.collections:storage-items s) element) t nil))
+
+(defgeneric subset? (coll1 coll2)
+  (:documentation "Returns T if every element in COLL1 is also in COLL2."))
+
+(defmethod subset? ((s1 fol.compiler.collections:<set>) (s2 fol.compiler.collections:<set>))
+  (sycamore:hash-set-subset-p (fol.compiler.collections:storage-items s1)
+                              (fol.compiler.collections:storage-items s2)))
+
+(defmethod subset? ((s1 fol.compiler.collections:<sorted-set>) (s2 fol.compiler.collections:<sorted-set>))
+  (sycamore:tree-set-subset-p (fol.compiler.collections:storage-items s1)
+                              (fol.compiler.collections:storage-items s2)))
+
+(defgeneric superset? (coll1 coll2)
+  (:documentation "Returns T if every element in COLL2 is also in COLL1."))
+
+(defmethod superset? ((s1 fol.compiler.collections:<set>) (s2 fol.compiler.collections:<set>))
+  (subset? s2 s1))
+
+(defmethod superset? ((s1 fol.compiler.collections:<sorted-set>) (s2 fol.compiler.collections:<sorted-set>))
+  (subset? s2 s1))
+
 
 ;;; ---------------------------------------------------------------------------
 ;;; find - Look up a key and return the map entry

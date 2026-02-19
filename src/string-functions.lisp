@@ -23,6 +23,11 @@
                 (t (prin1-to-string arg))))
         args)))
 
+(defun size (s)
+  "Return the length of string S.
+   Example: (size \"hello\") => 5"
+  (length s))
+
 (defun subs (s start &optional end)
   "Return substring of S from START to END (exclusive).
    If END is omitted, returns from START to end of string.

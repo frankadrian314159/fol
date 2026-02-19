@@ -39,13 +39,13 @@
                         (:file "streams" :depends-on ("package"))
                         (:file "functional" :depends-on ("package"))
                         (:file "relational" :depends-on ("package" "collections" "collection-functions" "seq-functions"))
+                        (:file "io" :depends-on ("package" "streams" "string-functions"))
                         (:file "transducers" :depends-on ("package" "primitives" "collections" "collection-functions" "seq-functions"))
                         (:file "metadata" :depends-on ("package" "persistence" "collections"))
                         (:file "misc-functions" :depends-on ("package"))
                         (:file "merged-functions" :depends-on ("package" "string-functions" "collections" "primitives" "collection-functions"))
                         (:file "compiler" :depends-on ("package" "primitives" "ast" "destructure" "persistence" "collections" "collection-functions" "seq-functions" "reader"))
                         (:file "macros" :depends-on ("compiler" "package" "primitives" "collections" "collection-functions" "seq-functions" "streams" "metadata" "mutable"))
-                        (:file "io" :depends-on ("package" "streams" "string-functions" "macros"))
                         (:file "repl" :depends-on ("compiler" "reader" "package"))
                         (:file "fol-core" :depends-on ("package" "compareops" "primitives" "collections"
                                                                  "primitive-functions" "ast" "destructure" "persistence"
