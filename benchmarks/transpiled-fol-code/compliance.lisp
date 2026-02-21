@@ -145,7 +145,7 @@
   (*
    (IF (FBOUNDP 'TRADE-PRICE)
        (TRADE-PRICE . #1=(TRADE))
-       (LET ((#2=#:VAL383 TRADE-PRICE))
+       (LET ((#2=#:VAL494 TRADE-PRICE))
          (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
                ((TYPEP #2# . #3=('<DICT>)) (GET #2# . #1#))
                ((TYPEP #2# . #4=('<VECTOR>)) (NTH #2# . #1#))
@@ -155,7 +155,7 @@
                        'TRADE-PRICE)))))
    (IF (FBOUNDP 'TRADE-AMOUNT)
        (TRADE-AMOUNT . #7=(TRADE))
-       (LET ((#8=#:VAL384 TRADE-AMOUNT))
+       (LET ((#8=#:VAL495 TRADE-AMOUNT))
          (COND ((FUNCTIONP #8#) (FUNCALL #8# . #7#))
                ((TYPEP #8# . #3#) (GET #8# . #7#))
                ((TYPEP #8# . #4#) (NTH #8# . #7#))
@@ -167,7 +167,7 @@
   (CONTAINS? (SET :META :GOOG :MSFT :AMZN)
              (IF (FBOUNDP 'TRADE-SYMBOL)
                  (TRADE-SYMBOL . #1=(TRADE))
-                 (LET ((#2=#:VAL385 TRADE-SYMBOL))
+                 (LET ((#2=#:VAL496 TRADE-SYMBOL))
                    (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
                          ((TYPEP #2# '<DICT>) (GET #2# . #1#))
                          ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -181,7 +181,7 @@
   (>
    (IF (FBOUNDP 'TRADE-TOTAL-PRICE)
        (TRADE-TOTAL-PRICE . #1=(TRADE))
-       (LET ((#2=#:VAL386 TRADE-TOTAL-PRICE))
+       (LET ((#2=#:VAL497 TRADE-TOTAL-PRICE))
          (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
                ((TYPEP #2# '<DICT>) (GET #2# . #1#))
                ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -196,7 +196,7 @@
   (=
    (IF (FBOUNDP 'TRADE-SIDE)
        (TRADE-SIDE . #1=(TRADE))
-       (LET ((#2=#:VAL387 TRADE-SIDE))
+       (LET ((#2=#:VAL498 TRADE-SIDE))
          (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
                ((TYPEP #2# '<DICT>) (GET #2# . #1#))
                ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -209,7 +209,7 @@
   (<
    (IF (FBOUNDP 'TRADE-PRICE)
        (TRADE-PRICE . #1=(TRADE))
-       (LET ((#2=#:VAL388 TRADE-PRICE))
+       (LET ((#2=#:VAL499 TRADE-PRICE))
          (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
                ((TYPEP #2# '<DICT>) (GET #2# . #1#))
                ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -222,7 +222,7 @@
   (AND
    (IF (FBOUNDP 'IS-BUY-SIDE-TRADE?)
        (IS-BUY-SIDE-TRADE? . #1=(TRADE))
-       (LET ((#2=#:VAL389 IS-BUY-SIDE-TRADE?))
+       (LET ((#2=#:VAL500 IS-BUY-SIDE-TRADE?))
          (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
                ((TYPEP #2# . #3=('<DICT>)) (GET #2# . #1#))
                ((TYPEP #2# . #4=('<VECTOR>)) (NTH #2# . #1#))
@@ -232,7 +232,7 @@
                        'IS-BUY-SIDE-TRADE?)))))
    (IF (FBOUNDP 'IS-PENNY-STOCK?)
        (IS-PENNY-STOCK? . #7=(TRADE))
-       (LET ((#8=#:VAL390 IS-PENNY-STOCK?))
+       (LET ((#8=#:VAL501 IS-PENNY-STOCK?))
          (COND ((FUNCTIONP #8#) (FUNCALL #8# . #7#))
                ((TYPEP #8# . #3#) (GET #8# . #7#))
                ((TYPEP #8# . #4#) (NTH #8# . #7#))
@@ -245,7 +245,7 @@
   (IF (TRUTHY?
        (IF (FBOUNDP 'RESTRICTED-SYMBOL?)
            (RESTRICTED-SYMBOL? . #1=(TRD))
-           (LET ((#2=#:VAL391 RESTRICTED-SYMBOL?))
+           (LET ((#2=#:VAL502 RESTRICTED-SYMBOL?))
              (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
                    ((TYPEP #2# . #3=('<DICT>)) (GET #2# . #1#))
                    ((TYPEP #2# . #4=('<VECTOR>)) (NTH #2# . #1#))
@@ -257,7 +257,7 @@
             (STR "Symbol "
                  (IF (FBOUNDP 'TRADE-SYMBOL)
                      (TRADE-SYMBOL . #7=(TRD))
-                     (LET ((#8=#:VAL392 TRADE-SYMBOL))
+                     (LET ((#8=#:VAL503 TRADE-SYMBOL))
                        (COND ((FUNCTIONP #8#) (FUNCALL #8# . #7#))
                              ((TYPEP #8# . #3#) (GET #8# . #7#))
                              ((TYPEP #8# . #4#) (NTH #8# . #7#))
@@ -267,7 +267,7 @@
       (IF (TRUTHY?
            (IF (FBOUNDP 'HIGH-VALUE?)
                (HIGH-VALUE? . #9=(TRD))
-               (LET ((#10=#:VAL393 HIGH-VALUE?))
+               (LET ((#10=#:VAL504 HIGH-VALUE?))
                  (COND ((FUNCTIONP #10#) (FUNCALL #10# . #9#))
                        ((TYPEP #10# . #3#) (GET #10# . #9#))
                        ((TYPEP #10# . #4#) (NTH #10# . #9#))
@@ -278,7 +278,7 @@
           (IF (TRUTHY?
                (IF (FBOUNDP 'PENNY-STOCK-BUY?)
                    (PENNY-STOCK-BUY? . #11=(TRD))
-                   (LET ((#12=#:VAL394 PENNY-STOCK-BUY?))
+                   (LET ((#12=#:VAL505 PENNY-STOCK-BUY?))
                      (COND ((FUNCTIONP #12#) (FUNCALL #12# . #11#))
                            ((TYPEP #12# . #3#) (GET #12# . #11#))
                            ((TYPEP #12# . #4#) (NTH #12# . #11#))
@@ -419,7 +419,7 @@
             (STR "T1: "
                  (IF (FBOUNDP 'VALIDATE-TRADE)
                      (VALIDATE-TRADE . #1=(T1))
-                     (LET ((#2=#:VAL395 VALIDATE-TRADE))
+                     (LET ((#2=#:VAL506 VALIDATE-TRADE))
                        (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
                              ((TYPEP #2# . #3=('<DICT>)) (GET #2# . #1#))
                              ((TYPEP #2# . #4=('<VECTOR>)) (NTH #2# . #1#))
@@ -431,7 +431,7 @@
             (STR "T2: "
                  (IF (FBOUNDP 'VALIDATE-TRADE)
                      (VALIDATE-TRADE . #7=(T2))
-                     (LET ((#8=#:VAL396 VALIDATE-TRADE))
+                     (LET ((#8=#:VAL507 VALIDATE-TRADE))
                        (COND ((FUNCTIONP #8#) (FUNCALL #8# . #7#))
                              ((TYPEP #8# . #3#) (GET #8# . #7#))
                              ((TYPEP #8# . #4#) (NTH #8# . #7#))
@@ -441,7 +441,7 @@
             (STR "T3: "
                  (IF (FBOUNDP 'VALIDATE-TRADE)
                      (VALIDATE-TRADE . #9=(T3))
-                     (LET ((#10=#:VAL397 VALIDATE-TRADE))
+                     (LET ((#10=#:VAL508 VALIDATE-TRADE))
                        (COND ((FUNCTIONP #10#) (FUNCALL #10# . #9#))
                              ((TYPEP #10# . #3#) (GET #10# . #9#))
                              ((TYPEP #10# . #4#) (NTH #10# . #9#))
@@ -451,7 +451,7 @@
             (STR "T4: "
                  (IF (FBOUNDP 'VALIDATE-TRADE)
                      (VALIDATE-TRADE . #11=(T4))
-                     (LET ((#12=#:VAL398 VALIDATE-TRADE))
+                     (LET ((#12=#:VAL509 VALIDATE-TRADE))
                        (COND ((FUNCTIONP #12#) (FUNCALL #12# . #11#))
                              ((TYPEP #12# . #3#) (GET #12# . #11#))
                              ((TYPEP #12# . #4#) (NTH #12# . #11#))
@@ -468,17 +468,17 @@
                    :BUY)))
         (LET ((T4
                (MAKE '<TRADE> :SYMBOL :F :AMOUNT 1000 :PRICE 12.0 :SIDE :BUY)))
-          (BLOCK LOOP-BLOCK-5
+          (BLOCK LOOP-BLOCK-9
             (LET ((I 0))
               (TAGBODY
-               LOOP-5
-                (LET ((RESULT-5
+               LOOP-9
+                (LET ((RESULT-9
                        (PROGN
                         (IF (TRUTHY? (< I 1000))
                             (PROGN
                              (IF (FBOUNDP 'VALIDATE-TRADE)
                                  (VALIDATE-TRADE . #1=(T1))
-                                 (LET ((#2=#:VAL399 VALIDATE-TRADE))
+                                 (LET ((#2=#:VAL510 VALIDATE-TRADE))
                                    (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
                                          ((TYPEP #2# . #3=('<DICT>))
                                           (GET #2# . #1#))
@@ -492,7 +492,7 @@
                                            'VALIDATE-TRADE)))))
                              (IF (FBOUNDP 'VALIDATE-TRADE)
                                  (VALIDATE-TRADE . #7=(T2))
-                                 (LET ((#8=#:VAL400 VALIDATE-TRADE))
+                                 (LET ((#8=#:VAL511 VALIDATE-TRADE))
                                    (COND ((FUNCTIONP #8#) (FUNCALL #8# . #7#))
                                          ((TYPEP #8# . #3#) (GET #8# . #7#))
                                          ((TYPEP #8# . #4#) (NTH #8# . #7#))
@@ -500,7 +500,7 @@
                                          (T (ERROR #6# 'VALIDATE-TRADE)))))
                              (IF (FBOUNDP 'VALIDATE-TRADE)
                                  (VALIDATE-TRADE . #9=(T3))
-                                 (LET ((#10=#:VAL401 VALIDATE-TRADE))
+                                 (LET ((#10=#:VAL512 VALIDATE-TRADE))
                                    (COND
                                     ((FUNCTIONP #10#) (FUNCALL #10# . #9#))
                                     ((TYPEP #10# . #3#) (GET #10# . #9#))
@@ -509,13 +509,13 @@
                                     (T (ERROR #6# 'VALIDATE-TRADE)))))
                              (IF (FBOUNDP 'VALIDATE-TRADE)
                                  (VALIDATE-TRADE . #11=(T4))
-                                 (LET ((#12=#:VAL402 VALIDATE-TRADE))
+                                 (LET ((#12=#:VAL513 VALIDATE-TRADE))
                                    (COND
                                     ((FUNCTIONP #12#) (FUNCALL #12# . #11#))
                                     ((TYPEP #12# . #3#) (GET #12# . #11#))
                                     ((TYPEP #12# . #4#) (NTH #12# . #11#))
                                     ((TYPEP #12# . #5#) (GET #12# . #11#))
                                     (T (ERROR #6# 'VALIDATE-TRADE)))))
-                             (PROGN (PSETQ I (+ I 1)) (GO LOOP-5)))
+                             (PROGN (PSETQ I (+ I 1)) (GO LOOP-9)))
                             NIL))))
-                  (RETURN-FROM LOOP-BLOCK-5 RESULT-5))))))))))
+                  (RETURN-FROM LOOP-BLOCK-9 RESULT-9))))))))))

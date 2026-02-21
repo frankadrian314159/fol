@@ -1,8 +1,8 @@
-;;; Transpiled from lsim.fol
+;;; Transpiled from plsim.fol
 (in-package :fol.core)
 
-(DEFPACKAGE "LSIM"
-  (:USE "FOL.CORE" "CL")
+(DEFPACKAGE "PLSIM"
+  (:USE "FOL.LIB.REDUCERS" "FOL.CORE" "CL")
   (:SHADOWING-IMPORT-FROM :FOL.CORE
                           "*"
                           "TIME"
@@ -130,7 +130,7 @@
            RUNLSIM
            DISPLAYLSIM))
 
-(IN-PACKAGE "LSIM")
+(IN-PACKAGE "PLSIM")
 
 (DEFVAR *CIRCUIT-MODULES* (ATOM (DICT)))
 
@@ -197,7 +197,7 @@
   (LET ((LOGIC-FN
          (IF (FBOUNDP 'COMPONENT-LOGIC-FN)
              (COMPONENT-LOGIC-FN . #1=(COMP))
-             (LET ((#2=#:VAL271 COMPONENT-LOGIC-FN))
+             (LET ((#2=#:VAL311 COMPONENT-LOGIC-FN))
                (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
                      ((TYPEP #2# . #3=('<DICT>)) (GET #2# . #1#))
                      ((TYPEP #2# . #4=('<VECTOR>)) (NTH #2# . #1#))
@@ -208,14 +208,14 @@
     (LET ((DELAYS
            (IF (FBOUNDP 'COMPONENT-DELAYS)
                (COMPONENT-DELAYS . #7=(COMP))
-               (LET ((#8=#:VAL272 COMPONENT-DELAYS))
+               (LET ((#8=#:VAL312 COMPONENT-DELAYS))
                  (COND ((FUNCTIONP #8#) (FUNCALL #8# . #7#))
                        ((TYPEP #8# . #3#) (GET #8# . #7#))
                        ((TYPEP #8# . #4#) (NTH #8# . #7#))
                        ((TYPEP #8# . #5#) (GET #8# . #7#))
                        (T (ERROR #6# 'COMPONENT-DELAYS)))))))
       (LET ((NEW-STATES
-             (LET ((#9=#:OP273 LOGIC-FN))
+             (LET ((#9=#:OP313 LOGIC-FN))
                (COND ((FUNCTIONP #9#) (FUNCALL #9# . #10=(INPUT-STATES)))
                      ((TYPEP #9# . #3#) (GET #9# . #10#))
                      ((TYPEP #9# . #4#) (NTH #9# . #10#))
@@ -239,7 +239,7 @@
                    OUT-PORT)))
          (IF (FBOUNDP 'COMPONENT-OUTPUTS)
              (COMPONENT-OUTPUTS . #11=(COMP))
-             (LET ((#12=#:VAL274 COMPONENT-OUTPUTS))
+             (LET ((#12=#:VAL314 COMPONENT-OUTPUTS))
                (COND ((FUNCTIONP #12#) (FUNCALL #12# . #11#))
                      ((TYPEP #12# . #3#) (GET #12# . #11#))
                      ((TYPEP #12# . #4#) (NTH #12# . #11#))
@@ -264,7 +264,7 @@
                    :INPUTS (SET :IN) :OUTPUTS (SET :OUT) :DELAYS
                    (DICT :IN (DICT :OUT 1)) :LOGIC-FN
                    (LAMBDA (S) (DICT :OUT (BITXOR (GET S :IN) 1)))))))
-    (LET ((#2=#:VAL275 REGISTER-PRIMITIVE))
+    (LET ((#2=#:VAL315 REGISTER-PRIMITIVE))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -283,7 +283,7 @@
                    (LAMBDA (S)
                      (DICT :OUT
                            (BITXOR (BITAND (GET S :IN1) (GET S :IN2)) 1)))))))
-    (LET ((#2=#:VAL276 REGISTER-PRIMITIVE))
+    (LET ((#2=#:VAL316 REGISTER-PRIMITIVE))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -302,7 +302,7 @@
                    (LAMBDA (S)
                      (DICT :OUT
                            (BITXOR (BITOR (GET S :IN1) (GET S :IN2)) 1)))))))
-    (LET ((#2=#:VAL277 REGISTER-PRIMITIVE))
+    (LET ((#2=#:VAL317 REGISTER-PRIMITIVE))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -320,7 +320,7 @@
                    (DICT :IN2 (DICT :OUT 3) :IN1 (DICT :OUT 3)) :LOGIC-FN
                    (LAMBDA (S)
                      (DICT :OUT (BITAND (GET S :IN1) (GET S :IN2))))))))
-    (LET ((#2=#:VAL278 REGISTER-PRIMITIVE))
+    (LET ((#2=#:VAL318 REGISTER-PRIMITIVE))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -338,7 +338,7 @@
                    (DICT :IN2 (DICT :OUT 3) :IN1 (DICT :OUT 3)) :LOGIC-FN
                    (LAMBDA (S)
                      (DICT :OUT (BITOR (GET S :IN1) (GET S :IN2))))))))
-    (LET ((#2=#:VAL279 REGISTER-PRIMITIVE))
+    (LET ((#2=#:VAL319 REGISTER-PRIMITIVE))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -356,7 +356,7 @@
                    (DICT :IN2 (DICT :OUT 3) :IN1 (DICT :OUT 3)) :LOGIC-FN
                    (LAMBDA (S)
                      (DICT :OUT (BITXOR (GET S :IN1) (GET S :IN2))))))))
-    (LET ((#2=#:VAL280 REGISTER-PRIMITIVE))
+    (LET ((#2=#:VAL320 REGISTER-PRIMITIVE))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -375,7 +375,7 @@
                    (LAMBDA (S)
                      (DICT :OUT
                            (BITXOR (BITXOR (GET S :IN1) (GET S :IN2)) 1)))))))
-    (LET ((#2=#:VAL281 REGISTER-PRIMITIVE))
+    (LET ((#2=#:VAL321 REGISTER-PRIMITIVE))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -396,7 +396,7 @@
                      CONNS :INPUTS (SET :IN) :OUTPUTS (SET :OUT) :DELAYS
                      (DICT :IN (DICT :OUT D)) :LOGIC-FN
                      (LAMBDA (S) (DICT :OUT (GET S :IN))))))))
-    (LET ((#2=#:VAL282 REGISTER-PRIMITIVE))
+    (LET ((#2=#:VAL322 REGISTER-PRIMITIVE))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -417,7 +417,7 @@
         (GET BINDINGS KW)
         (IF (FBOUNDP 'QUALIFY-NAME)
             (QUALIFY-NAME . #1=(PREFIX NODE-SYM))
-            (LET ((#2=#:VAL283 QUALIFY-NAME))
+            (LET ((#2=#:VAL323 QUALIFY-NAME))
               (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
                     ((TYPEP #2# '<DICT>) (GET #2# . #1#))
                     ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -428,11 +428,11 @@
 
 (DEFUN PARSE-CONNECTIONS (ARGS PREFIX BINDINGS)
   (DECLARE (SPECIAL RESOLVE-NODE))
-  (BLOCK LOOP-BLOCK-1
+  (BLOCK LOOP-BLOCK-3
     (LET ((REM ARGS) (ACC (DICT)))
       (TAGBODY
-       LOOP-1
-        (LET ((RESULT-1
+       LOOP-3
+        (LET ((RESULT-3
                (PROGN
                 (IF (TRUTHY? (EMPTY? REM))
                     ACC
@@ -442,7 +442,7 @@
                                (IF (FBOUNDP 'RESOLVE-NODE)
                                    (RESOLVE-NODE
                                     . #1=(NODE-SYM PREFIX BINDINGS))
-                                   (LET ((#2=#:VAL284 RESOLVE-NODE))
+                                   (LET ((#2=#:VAL324 RESOLVE-NODE))
                                      (COND
                                       ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
                                       (T
@@ -452,8 +452,8 @@
                           (PROGN
                            (PSETQ REM (REST (REST REM))
                                   ACC (ASSOC ACC PORT RESOLVED))
-                           (GO LOOP-1)))))))))
-          (RETURN-FROM LOOP-BLOCK-1 RESULT-1))))))
+                           (GO LOOP-3)))))))))
+          (RETURN-FROM LOOP-BLOCK-3 RESULT-3))))))
 
 (DEFUN EXPAND-SPEC (SPEC PREFIX BINDINGS)
   (DECLARE
@@ -476,7 +476,7 @@
               (LET ((FULL-NAME
                      (IF (FBOUNDP 'QUALIFY-NAME)
                          (QUALIFY-NAME . #1=(PREFIX NAME))
-                         (LET ((#2=#:VAL285 QUALIFY-NAME))
+                         (LET ((#2=#:VAL325 QUALIFY-NAME))
                            (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
                                  ((TYPEP #2# . #3=('<DICT>)) (GET #2# . #1#))
                                  ((TYPEP #2# . #4=('<VECTOR>)) (NTH #2# . #1#))
@@ -488,13 +488,13 @@
                 (LET ((RESOLVED-CONNS
                        (IF (FBOUNDP 'PARSE-CONNECTIONS)
                            (PARSE-CONNECTIONS . #7=(ARGS PREFIX BINDINGS))
-                           (LET ((#8=#:VAL286 PARSE-CONNECTIONS))
+                           (LET ((#8=#:VAL326 PARSE-CONNECTIONS))
                              (COND ((FUNCTIONP #8#) (FUNCALL #8# . #7#))
                                    (T (ERROR #6# 'PARSE-CONNECTIONS)))))))
                   (LET ((MODULE-DEF
                          (IF (FBOUNDP 'GET-MODULE)
                              (GET-MODULE . #9=(TYPE))
-                             (LET ((#10=#:VAL287 GET-MODULE))
+                             (LET ((#10=#:VAL327 GET-MODULE))
                                (COND ((FUNCTIONP #10#) (FUNCALL #10# . #9#))
                                      ((TYPEP #10# . #3#) (GET #10# . #9#))
                                      ((TYPEP #10# . #4#) (NTH #10# . #9#))
@@ -503,7 +503,7 @@
                     (LET ((PRIMITIVE-FACTORY
                            (IF (FBOUNDP 'GET-PRIMITIVE)
                                (GET-PRIMITIVE . #11=(TYPE))
-                               (LET ((#12=#:VAL288 GET-PRIMITIVE))
+                               (LET ((#12=#:VAL328 GET-PRIMITIVE))
                                  (COND ((FUNCTIONP #12#) (FUNCALL #12# . #11#))
                                        ((TYPEP #12# . #3#) (GET #12# . #11#))
                                        ((TYPEP #12# . #4#) (NTH #12# . #11#))
@@ -513,7 +513,7 @@
                           (LET ((BODY
                                  (IF (FBOUNDP 'MODULE-BODY)
                                      (MODULE-BODY . #13=(MODULE-DEF))
-                                     (LET ((#14=#:VAL289 MODULE-BODY))
+                                     (LET ((#14=#:VAL329 MODULE-BODY))
                                        (COND
                                         ((FUNCTIONP #14#)
                                          (FUNCALL #14# . #13#))
@@ -529,7 +529,7 @@
                                            (EXPAND-SPEC
                                             . #15=(CHILD-SPEC FULL-NAME
                                                    RESOLVED-CONNS))
-                                           (LET ((#16=#:VAL290 EXPAND-SPEC))
+                                           (LET ((#16=#:VAL330 EXPAND-SPEC))
                                              (COND
                                               ((FUNCTIONP #16#)
                                                (FUNCALL #16# . #15#))
@@ -537,7 +537,7 @@
                              (VECTOR) BODY))
                           (IF (TRUTHY? PRIMITIVE-FACTORY)
                               (VECTOR
-                               (LET ((#17=#:OP291 PRIMITIVE-FACTORY))
+                               (LET ((#17=#:OP331 PRIMITIVE-FACTORY))
                                  (COND
                                   ((FUNCTIONP #17#)
                                    (FUNCALL #17# FULL-NAME PARAM
@@ -557,7 +557,7 @@
   (LET ((DEF
          (IF (FBOUNDP 'GET-MODULE)
              (GET-MODULE . #1=(TOP-MODULE-NAME))
-             (LET ((#2=#:VAL292 GET-MODULE))
+             (LET ((#2=#:VAL332 GET-MODULE))
                (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
                      ((TYPEP #2# . #3=('<DICT>)) (GET #2# . #1#))
                      ((TYPEP #2# . #4=('<VECTOR>)) (NTH #2# . #1#))
@@ -571,7 +571,7 @@
                (REDUCE (LAMBDA (ACC P) (ASSOC ACC (FIND-KEYWORD P) P)) (DICT)
                        (IF (FBOUNDP 'MODULE-PORTS)
                            (MODULE-PORTS . #7=(DEF))
-                           (LET ((#8=#:VAL293 MODULE-PORTS))
+                           (LET ((#8=#:VAL333 MODULE-PORTS))
                              (COND ((FUNCTIONP #8#) (FUNCALL #8# . #7#))
                                    ((TYPEP #8# . #3#) (GET #8# . #7#))
                                    ((TYPEP #8# . #4#) (NTH #8# . #7#))
@@ -583,13 +583,13 @@
              (CONCAT ACC
                      (IF (FBOUNDP 'EXPAND-SPEC)
                          (EXPAND-SPEC . #9=(SPEC NIL TOP-BINDINGS))
-                         (LET ((#10=#:VAL294 EXPAND-SPEC))
+                         (LET ((#10=#:VAL334 EXPAND-SPEC))
                            (COND ((FUNCTIONP #10#) (FUNCALL #10# . #9#))
                                  (T (ERROR #6# 'EXPAND-SPEC)))))))
            (VECTOR)
            (IF (FBOUNDP 'MODULE-BODY)
                (MODULE-BODY . #11=(DEF))
-               (LET ((#12=#:VAL295 MODULE-BODY))
+               (LET ((#12=#:VAL335 MODULE-BODY))
                  (COND ((FUNCTIONP #12#) (FUNCALL #12# . #11#))
                        ((TYPEP #12# . #3#) (GET #12# . #11#))
                        ((TYPEP #12# . #4#) (NTH #12# . #11#))
@@ -605,7 +605,7 @@
             (GET
              (IF (FBOUNDP 'COMPONENT-CONNECTIONS)
                  (COMPONENT-CONNECTIONS . #1=(COMP))
-                 (LET ((#2=#:VAL296 COMPONENT-CONNECTIONS))
+                 (LET ((#2=#:VAL336 COMPONENT-CONNECTIONS))
                    (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
                          ((TYPEP #2# . #3=('<DICT>)) (GET #2# . #1#))
                          ((TYPEP #2# . #4=('<VECTOR>)) (NTH #2# . #1#))
@@ -625,7 +625,7 @@
    (COLLECTION-SEQ
     (IF (FBOUNDP 'COMPONENT-INPUTS)
         (COMPONENT-INPUTS . #7=(COMP))
-        (LET ((#8=#:VAL297 COMPONENT-INPUTS))
+        (LET ((#8=#:VAL337 COMPONENT-INPUTS))
           (COND ((FUNCTIONP #8#) (FUNCALL #8# . #7#))
                 ((TYPEP #8# . #3#) (GET #8# . #7#))
                 ((TYPEP #8# . #4#) (NTH #8# . #7#))
@@ -644,7 +644,7 @@
             (GET
              (IF (FBOUNDP 'COMPONENT-CONNECTIONS)
                  (COMPONENT-CONNECTIONS . #1=(COMP))
-                 (LET ((#2=#:VAL298 COMPONENT-CONNECTIONS))
+                 (LET ((#2=#:VAL338 COMPONENT-CONNECTIONS))
                    (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
                          ((TYPEP #2# . #3=('<DICT>)) (GET #2# . #1#))
                          ((TYPEP #2# . #4=('<VECTOR>)) (NTH #2# . #1#))
@@ -657,7 +657,7 @@
    (DICT)
    (IF (FBOUNDP 'COMPONENT-INPUTS)
        (COMPONENT-INPUTS . #7=(COMP))
-       (LET ((#8=#:VAL299 COMPONENT-INPUTS))
+       (LET ((#8=#:VAL339 COMPONENT-INPUTS))
          (COND ((FUNCTIONP #8#) (FUNCALL #8# . #7#))
                ((TYPEP #8# . #3#) (GET #8# . #7#))
                ((TYPEP #8# . #4#) (NTH #8# . #7#))
@@ -673,7 +673,7 @@
             (GET
              (IF (FBOUNDP 'COMPONENT-CONNECTIONS)
                  (COMPONENT-CONNECTIONS . #1=(COMP))
-                 (LET ((#2=#:VAL300 COMPONENT-CONNECTIONS))
+                 (LET ((#2=#:VAL340 COMPONENT-CONNECTIONS))
                    (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
                          ((TYPEP #2# . #3=('<DICT>)) (GET #2# . #1#))
                          ((TYPEP #2# . #4=('<VECTOR>)) (NTH #2# . #1#))
@@ -685,7 +685,7 @@
        (CONTAINS? CHANGED-NODES NODE)))
    (IF (FBOUNDP 'COMPONENT-INPUTS)
        (COMPONENT-INPUTS . #7=(COMP))
-       (LET ((#8=#:VAL301 COMPONENT-INPUTS))
+       (LET ((#8=#:VAL341 COMPONENT-INPUTS))
          (COND ((FUNCTIONP #8#) (FUNCALL #8# . #7#))
                ((TYPEP #8# . #3#) (GET #8# . #7#))
                ((TYPEP #8# . #4#) (NTH #8# . #7#))
@@ -693,14 +693,14 @@
                (T (ERROR #6# 'COMPONENT-INPUTS)))))))
 
 (DEFUN RUN-SIMULATION (NETLIST INITIAL-EVENTS MAX-TIME MONITORED-NODES)
-  (DECLARE (SPECIAL MERGE-EVENTS))
+  (DECLARE (SPECIAL MERGE-EVENTS PREDUCE))
   (LET ((CONNECTIVITY
          (REDUCE
           (LAMBDA (ACC C)
             (DECLARE (SPECIAL REGISTER-CONNECTIVITY))
             (IF (FBOUNDP 'REGISTER-CONNECTIVITY)
                 (REGISTER-CONNECTIVITY . #1=(C ACC))
-                (LET ((#2=#:VAL302 REGISTER-CONNECTIVITY))
+                (LET ((#2=#:VAL342 REGISTER-CONNECTIVITY))
                   (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
                         ((TYPEP #2# . #3=('<DICT>)) (GET #2# . #1#))
                         ((TYPEP #2# . #4=('<VECTOR>)) (NTH #2# . #1#))
@@ -709,14 +709,14 @@
                          (ERROR #6="~S is not a function or collection"
                                 'REGISTER-CONNECTIVITY))))))
           (DICT) NETLIST)))
-    (BLOCK LOOP-BLOCK-2
+    (BLOCK LOOP-BLOCK-4
       (LET ((QUEUE (SORT-BY :TIME INITIAL-EVENTS))
             (NODE-VALUES (DICT))
             (EVENT-HISTORY (DICT))
             (CURRENT-TIME 0))
         (TAGBODY
-         LOOP-2
-          (LET ((RESULT-2
+         LOOP-4
+          (LET ((RESULT-4
                  (PROGN
                   (IF (TRUTHY? (OR (EMPTY? QUEUE) (> CURRENT-TIME MAX-TIME)))
                       EVENT-HISTORY
@@ -766,178 +766,232 @@
                                                  COMPS)))
                                             (SET) CHANGED-NODES)))
                                       (LET ((NEW-EVENTS
-                                             (REDUCE
-                                              (LAMBDA (ACC COMP)
-                                                (DECLARE
-                                                 (SPECIAL COMPUTE-NEXT-STATE
-                                                  GET-CHANGED-PORTS
-                                                  GET-INPUT-STATES))
-                                                (LET ((INPUT-STATES
-                                                       (IF (FBOUNDP
-                                                            'GET-INPUT-STATES)
-                                                           (GET-INPUT-STATES
-                                                            . #7=(COMP
-                                                                  NEW-NODE-VALUES))
-                                                           (LET ((#8=#:VAL303
-                                                                  GET-INPUT-STATES))
-                                                             (COND
-                                                              ((FUNCTIONP #8#)
-                                                               (FUNCALL #8#
-                                                                        . #7#))
-                                                              ((TYPEP #8#
-                                                                      . #3#)
-                                                               (GET #8# . #7#))
-                                                              ((TYPEP #8#
-                                                                      . #4#)
-                                                               (NTH #8# . #7#))
-                                                              ((TYPEP #8#
-                                                                      . #5#)
-                                                               (GET #8# . #7#))
-                                                              (T
-                                                               (ERROR #6#
-                                                                      'GET-INPUT-STATES)))))))
-                                                  (LET ((CHANGED-PORTS
-                                                         (IF (FBOUNDP
-                                                              'GET-CHANGED-PORTS)
-                                                             (GET-CHANGED-PORTS
-                                                              . #9=(COMP
-                                                                    CHANGED-NODES))
-                                                             (LET ((#10=#:VAL304
-                                                                    GET-CHANGED-PORTS))
-                                                               (COND
-                                                                ((FUNCTIONP
-                                                                  #10#)
-                                                                 (FUNCALL #10#
-                                                                          . #9#))
-                                                                ((TYPEP #10#
-                                                                        . #3#)
-                                                                 (GET #10#
-                                                                      . #9#))
-                                                                ((TYPEP #10#
-                                                                        . #4#)
-                                                                 (NTH #10#
-                                                                      . #9#))
-                                                                ((TYPEP #10#
-                                                                        . #5#)
-                                                                 (GET #10#
-                                                                      . #9#))
-                                                                (T
-                                                                 (ERROR #6#
-                                                                        'GET-CHANGED-PORTS)))))))
-                                                    (LET ((RESULTS
-                                                           (IF (FBOUNDP
-                                                                'COMPUTE-NEXT-STATE)
-                                                               (COMPUTE-NEXT-STATE
-                                                                . #11=(COMP
-                                                                       INPUT-STATES
-                                                                       CHANGED-PORTS))
-                                                               (LET ((#12=#:VAL305
-                                                                      COMPUTE-NEXT-STATE))
-                                                                 (COND
-                                                                  ((FUNCTIONP
-                                                                    #12#)
-                                                                   (FUNCALL
-                                                                    #12#
-                                                                    . #11#))
-                                                                  (T
-                                                                   (ERROR #6#
-                                                                          'COMPUTE-NEXT-STATE)))))))
-                                                      (REDUCE
-                                                       (LAMBDA (A RES)
-                                                         (DECLARE
-                                                          (SPECIAL
-                                                           COMPONENT-CONNECTIONS))
-                                                         (LET ((OUT-NODE
-                                                                (GET
-                                                                 (IF (FBOUNDP
-                                                                      'COMPONENT-CONNECTIONS)
-                                                                     (COMPONENT-CONNECTIONS
-                                                                      . #13=(COMP))
-                                                                     (LET ((#14=#:VAL306
-                                                                            COMPONENT-CONNECTIONS))
-                                                                       (COND
-                                                                        ((FUNCTIONP
-                                                                          #14#)
-                                                                         (FUNCALL
-                                                                          #14#
-                                                                          . #13#))
-                                                                        ((TYPEP
-                                                                          #14#
-                                                                          . #3#)
-                                                                         (GET
-                                                                          #14#
-                                                                          . #13#))
-                                                                        ((TYPEP
-                                                                          #14#
-                                                                          . #4#)
-                                                                         (NTH
-                                                                          #14#
-                                                                          . #13#))
-                                                                        ((TYPEP
-                                                                          #14#
-                                                                          . #5#)
-                                                                         (GET
-                                                                          #14#
-                                                                          . #13#))
-                                                                        (T
-                                                                         (ERROR
-                                                                          #6#
-                                                                          'COMPONENT-CONNECTIONS)))))
-                                                                 (GET RES
-                                                                      :PORT))))
-                                                           (LET ((CURRENT-VAL
-                                                                  (GET
-                                                                   NEW-NODE-VALUES
-                                                                   OUT-NODE
-                                                                   -1)))
-                                                             (IF (TRUTHY?
-                                                                  (/=
-                                                                   (GET RES
-                                                                        :VALUE)
-                                                                   CURRENT-VAL))
-                                                                 (CONJ A
-                                                                       (DICT
-                                                                        :NODE
-                                                                        OUT-NODE
-                                                                        :VALUE
-                                                                        (GET
-                                                                         RES
-                                                                         :VALUE)
-                                                                        :TIME
-                                                                        (+
-                                                                         EVENT-TIME
-                                                                         (GET
-                                                                          RES
-                                                                          :DELAY))))
-                                                                 A))))
-                                                       ACC RESULTS)))))
-                                              (SET) AFFECTED-COMPS)))
+                                             (IF (FBOUNDP 'PREDUCE)
+                                                 (PREDUCE
+                                                  . #7=((LAMBDA (&REST ARGS)
+                                                          (DECLARE
+                                                           (SPECIAL
+                                                            COMPUTE-NEXT-STATE
+                                                            GET-CHANGED-PORTS
+                                                            GET-INPUT-STATES))
+                                                          (COND
+                                                           ((COMMON-LISP:=
+                                                             (LENGTH ARGS) 0)
+                                                            (LET ()
+                                                              (VECTOR)))
+                                                           ((COMMON-LISP:=
+                                                             (LENGTH ARGS) 2)
+                                                            (LET ((ACC
+                                                                   (COMMON-LISP:NTH
+                                                                    0 ARGS))
+                                                                  (COMP
+                                                                   (COMMON-LISP:NTH
+                                                                    1 ARGS)))
+                                                              (LET ((INPUT-STATES
+                                                                     (IF (FBOUNDP
+                                                                          'GET-INPUT-STATES)
+                                                                         (GET-INPUT-STATES
+                                                                          . #8=(COMP
+                                                                                NEW-NODE-VALUES))
+                                                                         (LET ((#9=#:VAL343
+                                                                                GET-INPUT-STATES))
+                                                                           (COND
+                                                                            ((FUNCTIONP
+                                                                              #9#)
+                                                                             (FUNCALL
+                                                                              #9#
+                                                                              . #8#))
+                                                                            ((TYPEP
+                                                                              #9#
+                                                                              . #3#)
+                                                                             (GET
+                                                                              #9#
+                                                                              . #8#))
+                                                                            ((TYPEP
+                                                                              #9#
+                                                                              . #4#)
+                                                                             (NTH
+                                                                              #9#
+                                                                              . #8#))
+                                                                            ((TYPEP
+                                                                              #9#
+                                                                              . #5#)
+                                                                             (GET
+                                                                              #9#
+                                                                              . #8#))
+                                                                            (T
+                                                                             (ERROR
+                                                                              #6#
+                                                                              'GET-INPUT-STATES)))))))
+                                                                (LET ((CHANGED-PORTS
+                                                                       (IF (FBOUNDP
+                                                                            'GET-CHANGED-PORTS)
+                                                                           (GET-CHANGED-PORTS
+                                                                            . #10=(COMP
+                                                                                   CHANGED-NODES))
+                                                                           (LET ((#11=#:VAL344
+                                                                                  GET-CHANGED-PORTS))
+                                                                             (COND
+                                                                              ((FUNCTIONP
+                                                                                #11#)
+                                                                               (FUNCALL
+                                                                                #11#
+                                                                                . #10#))
+                                                                              ((TYPEP
+                                                                                #11#
+                                                                                . #3#)
+                                                                               (GET
+                                                                                #11#
+                                                                                . #10#))
+                                                                              ((TYPEP
+                                                                                #11#
+                                                                                . #4#)
+                                                                               (NTH
+                                                                                #11#
+                                                                                . #10#))
+                                                                              ((TYPEP
+                                                                                #11#
+                                                                                . #5#)
+                                                                               (GET
+                                                                                #11#
+                                                                                . #10#))
+                                                                              (T
+                                                                               (ERROR
+                                                                                #6#
+                                                                                'GET-CHANGED-PORTS)))))))
+                                                                  (LET ((RESULTS
+                                                                         (IF (FBOUNDP
+                                                                              'COMPUTE-NEXT-STATE)
+                                                                             (COMPUTE-NEXT-STATE
+                                                                              . #12=(COMP
+                                                                                     INPUT-STATES
+                                                                                     CHANGED-PORTS))
+                                                                             (LET ((#13=#:VAL345
+                                                                                    COMPUTE-NEXT-STATE))
+                                                                               (COND
+                                                                                ((FUNCTIONP
+                                                                                  #13#)
+                                                                                 (FUNCALL
+                                                                                  #13#
+                                                                                  . #12#))
+                                                                                (T
+                                                                                 (ERROR
+                                                                                  #6#
+                                                                                  'COMPUTE-NEXT-STATE)))))))
+                                                                    (REDUCE
+                                                                     (LAMBDA
+                                                                         (A
+                                                                          RES)
+                                                                       (DECLARE
+                                                                        (SPECIAL
+                                                                         COMPONENT-CONNECTIONS))
+                                                                       (LET ((OUT-NODE
+                                                                              (GET
+                                                                               (IF (FBOUNDP
+                                                                                    'COMPONENT-CONNECTIONS)
+                                                                                   (COMPONENT-CONNECTIONS
+                                                                                    . #14=(COMP))
+                                                                                   (LET ((#15=#:VAL346
+                                                                                          COMPONENT-CONNECTIONS))
+                                                                                     (COND
+                                                                                      ((FUNCTIONP
+                                                                                        #15#)
+                                                                                       (FUNCALL
+                                                                                        #15#
+                                                                                        . #14#))
+                                                                                      ((TYPEP
+                                                                                        #15#
+                                                                                        . #3#)
+                                                                                       (GET
+                                                                                        #15#
+                                                                                        . #14#))
+                                                                                      ((TYPEP
+                                                                                        #15#
+                                                                                        . #4#)
+                                                                                       (NTH
+                                                                                        #15#
+                                                                                        . #14#))
+                                                                                      ((TYPEP
+                                                                                        #15#
+                                                                                        . #5#)
+                                                                                       (GET
+                                                                                        #15#
+                                                                                        . #14#))
+                                                                                      (T
+                                                                                       (ERROR
+                                                                                        #6#
+                                                                                        'COMPONENT-CONNECTIONS)))))
+                                                                               (GET
+                                                                                RES
+                                                                                :PORT))))
+                                                                         (LET ((CURRENT-VAL
+                                                                                (GET
+                                                                                 NEW-NODE-VALUES
+                                                                                 OUT-NODE
+                                                                                 -1)))
+                                                                           (IF (TRUTHY?
+                                                                                (/=
+                                                                                 (GET
+                                                                                  RES
+                                                                                  :VALUE)
+                                                                                 CURRENT-VAL))
+                                                                               (CONJ
+                                                                                A
+                                                                                (DICT
+                                                                                 :NODE
+                                                                                 OUT-NODE
+                                                                                 :VALUE
+                                                                                 (GET
+                                                                                  RES
+                                                                                  :VALUE)
+                                                                                 :TIME
+                                                                                 (+
+                                                                                  EVENT-TIME
+                                                                                  (GET
+                                                                                   RES
+                                                                                   :DELAY))))
+                                                                               A))))
+                                                                     ACC
+                                                                     RESULTS))))))
+                                                           (T
+                                                            (ERROR
+                                                             "No matching fn clause for ~D arguments: ~S"
+                                                             (LENGTH ARGS)
+                                                             ARGS))))
+                                                        (VECTOR) AFFECTED-COMPS
+                                                        10000))
+                                                 (LET ((#16=#:VAL347 PREDUCE))
+                                                   (COND
+                                                    ((FUNCTIONP #16#)
+                                                     (FUNCALL #16# . #7#))
+                                                    (T
+                                                     (ERROR #6# 'PREDUCE)))))))
                                         (PROGN
                                          (PSETQ QUEUE
                                                   (IF (FBOUNDP 'MERGE-EVENTS)
                                                       (MERGE-EVENTS
-                                                       . #15=(REMAINING
+                                                       . #17=(REMAINING
                                                               NEW-EVENTS))
-                                                      (LET ((#16=#:VAL307
+                                                      (LET ((#18=#:VAL348
                                                              MERGE-EVENTS))
                                                         (COND
-                                                         ((FUNCTIONP #16#)
-                                                          (FUNCALL #16#
-                                                                   . #15#))
-                                                         ((TYPEP #16# . #3#)
-                                                          (GET #16# . #15#))
-                                                         ((TYPEP #16# . #4#)
-                                                          (NTH #16# . #15#))
-                                                         ((TYPEP #16# . #5#)
-                                                          (GET #16# . #15#))
+                                                         ((FUNCTIONP #18#)
+                                                          (FUNCALL #18#
+                                                                   . #17#))
+                                                         ((TYPEP #18# . #3#)
+                                                          (GET #18# . #17#))
+                                                         ((TYPEP #18# . #4#)
+                                                          (NTH #18# . #17#))
+                                                         ((TYPEP #18# . #5#)
+                                                          (GET #18# . #17#))
                                                          (T
                                                           (ERROR #6#
                                                                  'MERGE-EVENTS)))))
                                                 NODE-VALUES NEW-NODE-VALUES
                                                 EVENT-HISTORY NEW-EVENT-HISTORY
                                                 CURRENT-TIME EVENT-TIME)
-                                         (GO LOOP-2)))))))))))))))
-            (RETURN-FROM LOOP-BLOCK-2 RESULT-2)))))))
+                                         (GO LOOP-4)))))))))))))))
+            (RETURN-FROM LOOP-BLOCK-4 RESULT-4)))))))
 
 (DEFVAR *SIM-MONITORED* (ATOM (SET)))
 
@@ -957,7 +1011,7 @@
            (DECLARE (SPECIAL MERGE-EVENTS))
            (IF (FBOUNDP 'MERGE-EVENTS)
                (MERGE-EVENTS . #1=(E EVENTS))
-               (LET ((#2=#:VAL308 MERGE-EVENTS))
+               (LET ((#2=#:VAL349 MERGE-EVENTS))
                  (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
                        ((TYPEP #2# '<DICT>) (GET #2# . #1#))
                        ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -973,7 +1027,7 @@
   (LET ((NETLIST
          (IF (FBOUNDP 'EXPAND-NETLIST)
              (EXPAND-NETLIST . #1=(MODULE-NAME))
-             (LET ((#2=#:VAL309 EXPAND-NETLIST))
+             (LET ((#2=#:VAL350 EXPAND-NETLIST))
                (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
                      ((TYPEP #2# '<DICT>) (GET #2# . #1#))
                      ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -987,7 +1041,7 @@
                  (RUN-SIMULATION
                   . #4=(NETLIST (DEREF *SIM-EVENTS*) TIME
                         (DEREF *SIM-MONITORED*)))
-                 (LET ((#5=#:VAL310 RUN-SIMULATION))
+                 (LET ((#5=#:VAL351 RUN-SIMULATION))
                    (COND ((FUNCTIONP #5#) (FUNCALL #5# . #4#))
                          (T (ERROR #3# 'RUN-SIMULATION))))))
      :SIMULATION-COMPLETE)))

@@ -1,7 +1,7 @@
-;;; Transpiled from 8x32-900.fol
+;;; Transpiled from 8x32-900-p.fol
 (in-package :fol.core)
 
-(DEFPACKAGE "LSIM"
+(DEFPACKAGE "PLSIM"
   (:USE "FOL.CORE" "CL")
   (:SHADOWING-IMPORT-FROM :FOL.CORE
                           "*"
@@ -113,7 +113,7 @@
                           "EXP"
                           "SYMBOL"))
 
-(IN-PACKAGE "LSIM")
+(IN-PACKAGE "PLSIM")
 
 (IF (FBOUNDP 'REGISTER-MODULE)
     (REGISTER-MODULE
@@ -122,7 +122,7 @@
                  :BODY
                  (VECTOR (VECTOR 'NAND 'NAND1 :IN1 'S :IN2 'QBAR :OUT 'Q)
                          (VECTOR 'NAND 'NAND2 :IN1 'R :IN2 'Q :OUT 'QBAR)))))
-    (LET ((#2=#:VAL470 REGISTER-MODULE))
+    (LET ((#2=#:VAL482 REGISTER-MODULE))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -138,7 +138,7 @@
                          (VECTOR 'NAND 'NAND2 :IN1 'S :IN2 'CLK :OUT 'R)
                          (VECTOR 'SR-LATCH 'LATCH :R 'R :S 'S :Q 'Q :QBAR
                                  'QBAR)))))
-    (LET ((#2=#:VAL471 REGISTER-MODULE))
+    (LET ((#2=#:VAL483 REGISTER-MODULE))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -211,7 +211,7 @@
                           'QBAR30)
                   (VECTOR 'D-LATCH 'BIT31 :CLK 'CLK :D 'D31 :Q 'Q31 :QBAR
                           'QBAR31)))))
-    (LET ((#2=#:VAL472 REGISTER-MODULE))
+    (LET ((#2=#:VAL484 REGISTER-MODULE))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -268,7 +268,7 @@
                           'S2Q19 :Q20 'S2Q20 :Q21 'S2Q21 :Q22 'S2Q22 :Q23
                           'S2Q23 :Q24 'S2Q24 :Q25 'S2Q25 :Q26 'S2Q26 :Q27
                           'S2Q27 :Q28 'S2Q28 :Q29 'S2Q29 :Q30 'S2Q30 :Q31
-                          'S2Q31)
+                          'S3Q31)
                   (VECTOR 'REGISTER-32BIT 'REG3 :CLK 'CLK :D0 'S2Q0 :D1 'S2Q1
                           :D2 'S2Q2 :D3 'S2Q3 :D4 'S2Q4 :D5 'S2Q5 :D6 'S2Q6 :D7
                           'S2Q7 :D8 'S2Q8 :D9 'S2Q9 :D10 'S2Q10 :D11 'S2Q11
@@ -347,7 +347,7 @@
                           :Q18 'Q18 :Q19 'Q19 :Q20 'Q20 :Q21 'Q21 :Q22 'Q22
                           :Q23 'Q23 :Q24 'Q24 :Q25 'Q25 :Q26 'Q26 :Q27 'Q27
                           :Q28 'Q28 :Q29 'Q29 :Q30 'Q30 :Q31 'Q31)))))
-    (LET ((#2=#:VAL473 REGISTER-MODULE))
+    (LET ((#2=#:VAL485 REGISTER-MODULE))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -359,7 +359,7 @@
      . #1=('Q0 'Q1 'Q2 'Q3 'Q4 'Q5 'Q6 'Q7 'Q8 'Q9 'Q10 'Q11 'Q12 'Q13 'Q14
            'Q15 'Q16 'Q17 'Q18 'Q19 'Q20 'Q21 'Q22 'Q23 'Q24 'Q25 'Q26 'Q27
            'Q28 'Q29 'Q30 'Q31))
-    (LET ((#2=#:VAL474 MONITOR))
+    (LET ((#2=#:VAL486 MONITOR))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             (T (ERROR "~S is not a function or collection" 'MONITOR)))))
 
@@ -399,7 +399,7 @@
              (DICT :NODE 'D29 :VALUE 0 :TIME TIME-VAL)
              (DICT :NODE 'D30 :VALUE 1 :TIME TIME-VAL)
              (DICT :NODE 'D31 :VALUE 0 :TIME TIME-VAL)))
-      (LET ((#2=#:VAL475 ADDEVENTS))
+      (LET ((#2=#:VAL487 ADDEVENTS))
         (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
               (T (ERROR "~S is not a function or collection" 'ADDEVENTS))))))
 
@@ -421,7 +421,7 @@
              (DICT :NODE 'D11 :VALUE 1 :TIME TIME-VAL)
              (DICT :NODE 'D12 :VALUE 0 :TIME TIME-VAL)
              (DICT :NODE 'D13 :VALUE 1 :TIME TIME-VAL)
-             (DICT :NODE 'D14 :VALUE 0 :TIME TIME-VAL)
+             (DICT :NODE 'D14 :VALUE 1 :TIME TIME-VAL)
              (DICT :NODE 'D15 :VALUE 1 :TIME TIME-VAL)
              (DICT :NODE 'D16 :VALUE 0 :TIME TIME-VAL)
              (DICT :NODE 'D17 :VALUE 1 :TIME TIME-VAL)
@@ -439,24 +439,24 @@
              (DICT :NODE 'D29 :VALUE 1 :TIME TIME-VAL)
              (DICT :NODE 'D30 :VALUE 0 :TIME TIME-VAL)
              (DICT :NODE 'D31 :VALUE 1 :TIME TIME-VAL)))
-      (LET ((#2=#:VAL476 ADDEVENTS))
+      (LET ((#2=#:VAL488 ADDEVENTS))
         (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
               (T (ERROR "~S is not a function or collection" 'ADDEVENTS))))))
 
 (DEFUN SETUP-SIMULATION ()
   (DECLARE (SPECIAL ADDEVENTS ADD-P2 ADD-P1))
-  (BLOCK LOOP-BLOCK-5
+  (BLOCK LOOP-BLOCK-7
     (LET ((K 0))
       (TAGBODY
-       LOOP-5
-        (LET ((RESULT-5
+       LOOP-7
+        (LET ((RESULT-7
                (PROGN
                 (IF (TRUTHY? (< K 90))
                     (PROGN
                      (IF (TRUTHY? (= (MOD K 2) 0))
                          (IF (FBOUNDP 'ADD-P1)
                              (ADD-P1 . #1=((* K 10)))
-                             (LET ((#2=#:VAL477 ADD-P1))
+                             (LET ((#2=#:VAL489 ADD-P1))
                                (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
                                      ((TYPEP #2# . #3=('<DICT>))
                                       (GET #2# . #1#))
@@ -470,20 +470,20 @@
                                        'ADD-P1)))))
                          (IF (FBOUNDP 'ADD-P2)
                              (ADD-P2 . #7=((* K 10)))
-                             (LET ((#8=#:VAL478 ADD-P2))
+                             (LET ((#8=#:VAL490 ADD-P2))
                                (COND ((FUNCTIONP #8#) (FUNCALL #8# . #7#))
                                      ((TYPEP #8# . #3#) (GET #8# . #7#))
                                      ((TYPEP #8# . #4#) (NTH #8# . #7#))
                                      ((TYPEP #8# . #5#) (GET #8# . #7#))
                                      (T (ERROR #6# 'ADD-P2))))))
-                     (PROGN (PSETQ K (+ K 1)) (GO LOOP-5)))
+                     (PROGN (PSETQ K (+ K 1)) (GO LOOP-7)))
                     NIL))))
-          (RETURN-FROM LOOP-BLOCK-5 RESULT-5)))))
-  (BLOCK LOOP-BLOCK-6
+          (RETURN-FROM LOOP-BLOCK-7 RESULT-7)))))
+  (BLOCK LOOP-BLOCK-8
     (LET ((K 0))
       (TAGBODY
-       LOOP-6
-        (LET ((RESULT-6
+       LOOP-8
+        (LET ((RESULT-8
                (PROGN
                 (IF (TRUTHY? (< K 90))
                     (PROGN
@@ -492,19 +492,19 @@
                           . #9=((DICT :NODE 'CLK :VALUE 1 :TIME (+ 3 (* K 10)))
                                 (DICT :NODE 'CLK :VALUE 0 :TIME
                                       (+ 8 (* K 10)))))
-                         (LET ((#10=#:VAL479 ADDEVENTS))
+                         (LET ((#10=#:VAL491 ADDEVENTS))
                            (COND ((FUNCTIONP #10#) (FUNCALL #10# . #9#))
                                  ((TYPEP #10# . #3#) (GET #10# . #9#))
                                  ((TYPEP #10# . #4#) (NTH #10# . #9#))
                                  ((TYPEP #10# . #5#) (GET #10# . #9#))
                                  (T (ERROR #6# 'ADDEVENTS)))))
-                     (PROGN (PSETQ K (+ K 1)) (GO LOOP-6)))
+                     (PROGN (PSETQ K (+ K 1)) (GO LOOP-8)))
                     NIL))))
-          (RETURN-FROM LOOP-BLOCK-6 RESULT-6))))))
+          (RETURN-FROM LOOP-BLOCK-8 RESULT-8))))))
 
 (IF (FBOUNDP 'SETUP-SIMULATION)
     (SETUP-SIMULATION)
-    (LET ((#1=#:VAL480 SETUP-SIMULATION))
+    (LET ((#1=#:VAL492 SETUP-SIMULATION))
       (COND ((FUNCTIONP #1#) (FUNCALL #1#))
             (T
              (ERROR "~S is not a function or collection" 'SETUP-SIMULATION)))))
@@ -513,7 +513,7 @@
   (DECLARE (SPECIAL RUNLSIM))
   (IF (FBOUNDP 'RUNLSIM)
       (RUNLSIM . #1=('TOP8X32 900))
-      (LET ((#2=#:VAL481 RUNLSIM))
+      (LET ((#2=#:VAL493 RUNLSIM))
         (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
               ((TYPEP #2# '<DICT>) (GET #2# . #1#))
               ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))

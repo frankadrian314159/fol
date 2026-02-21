@@ -1243,13 +1243,10 @@
                               signature param-syms)
                 for bindings = (fol.compiler.destructure:emit-fixed-arity-param-bindings
                                  stripped param-syms)
-                  ;; Track bound vars from destructuring
-                for bound-vars = (mapcar #'car bindings)
-                for *lexical-vars* = (append bound-vars *lexical-vars*)
-                for emitted-body = (mapcar #'emit-node body-nodes)
                 collect `(,check
                            (cl:let ,bindings
-                             ,@emitted-body)))))
+                             ,@(let ((*lexical-vars* (append (mapcar #'car bindings) *lexical-vars*)))
+                                 (mapcar #'emit-node body-nodes)))))))
     `(cl:lambda ,param-syms
        ,@(when *extra-special-vars*
                `((cl:declare (cl:special ,@(remove-duplicates *extra-special-vars*)))))
@@ -1278,13 +1275,10 @@
                                    stripped args-sym)
                                  (fol.compiler.destructure:emit-rest-param-binding
                                    rest-param arity args-sym))
-                  ;; Track bound vars from destructuring
-                for bound-vars = (mapcar #'car bindings)
-                for *lexical-vars* = (append bound-vars *lexical-vars*)
-                for emitted-body = (mapcar #'emit-node body-nodes)
                 collect `(,check
                            (cl:let ,bindings
-                             ,@emitted-body)))))
+                             ,@(let ((*lexical-vars* (append (mapcar #'car bindings) *lexical-vars*)))
+                                 (mapcar #'emit-node body-nodes)))))))
     `(cl:lambda (&rest ,args-sym)
        ,@(when *extra-special-vars*
                `((cl:declare (cl:special ,@(remove-duplicates *extra-special-vars*)))))

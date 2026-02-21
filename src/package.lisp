@@ -852,6 +852,17 @@
    send-via set-agent-send-executor! set-agent-send-off-executor!
    await-for shutdown-agents error-handler error-mode *agent* release-pending-sends))
 
+(defpackage fol.lib.reducers
+  (:use cl)
+  (:shadow reduce)
+  (:shadowing-import-from fol.compiler.collection-functions
+                          count size)
+  (:import-from fol.compiler.mutable
+                submit-work wait-for-work)
+  (:import-from fol.compiler.collections
+                collection-seq)
+  (:export preduce fold))
+
 (defpackage fol.repl
   (:use cl)
   (:import-from fol.compiler

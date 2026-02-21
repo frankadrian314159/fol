@@ -1,4 +1,5 @@
-(in-package "lsim"
+(in-package "plsim"
+  (:use "fol.lib.reducers")
   (:export register-module get-module <component> <module-def> <logic-component>
            compute-next-state register-primitive get-primitive defpart 
            expand-netlist expand-spec run-simulation Monitor Events AddEvents RunLSim DisplayLSim))
@@ -43,7 +44,7 @@
            (bind [delay (reduce (fn [max-d in-port]
                                   (bind [d (get (get delays in-port) out-port)]
                                     (if d (if (> d max-d) d max-d) max-d)))
-                                0 changed-inputs)]
+                                 0 changed-inputs)]
              {:port out-port :value (get new-states out-port) :delay delay}))
          (component-outputs comp))))
 
@@ -217,20 +218,22 @@
                                           (bind [comps (get connectivity node)]
                                             (reduce (fn [a c] (conj a c)) acc comps)))
                                         #{} changed-nodes)
-                 new-events (reduce (fn [acc comp]
-                                      (bind [input-states (get-input-states comp new-node-values)
-                                             changed-ports (get-changed-ports comp changed-nodes)
-                                             results (compute-next-state comp input-states changed-ports)]
-                                        (reduce (fn [a res]
-                                                  (bind [out-node (get (component-connections comp) (get res :port))
-                                                         current-val (get new-node-values out-node -1)]
-                                                    (if (/= (get res :value) current-val)
-                                                        (conj a {:time (+ event-time (get res :delay))
-                                                                 :node out-node
-                                                                 :value (get res :value)})
-                                                        a)))
-                                                acc results)))
-                                    #{} affected-comps)]
+                  new-events (preduce (fn 
+                                       ([] [])
+                                       ([acc comp]
+                                        (bind [input-states (get-input-states comp new-node-values)
+                                               changed-ports (get-changed-ports comp changed-nodes)
+                                               results (compute-next-state comp input-states changed-ports)]
+                                          (reduce (fn [a res]
+                                                    (bind [out-node (get (component-connections comp) (get res :port))
+                                                           current-val (get new-node-values out-node -1)]
+                                                      (if (/= (get res :value) current-val)
+                                                          (conj a {:time (+ event-time (get res :delay))
+                                                                   :node out-node
+                                                                   :value (get res :value)})
+                                                          a)))
+                                                  acc results))))
+                                     [] affected-comps)]
             (recur (merge-events remaining new-events)
                    new-node-values
                    new-event-history

@@ -1,7 +1,7 @@
-;;; Transpiled from 32bit-300.fol
+;;; Transpiled from 32bit-300-p.fol
 (in-package :fol.core)
 
-(DEFPACKAGE "LSIM"
+(DEFPACKAGE "PLSIM"
   (:USE "FOL.CORE" "CL")
   (:SHADOWING-IMPORT-FROM :FOL.CORE
                           "*"
@@ -113,7 +113,7 @@
                           "EXP"
                           "SYMBOL"))
 
-(IN-PACKAGE "LSIM")
+(IN-PACKAGE "PLSIM")
 
 (IF (FBOUNDP 'REGISTER-MODULE)
     (REGISTER-MODULE
@@ -122,7 +122,7 @@
                  :BODY
                  (VECTOR (VECTOR 'NAND 'NAND1 :IN1 'S :IN2 'QBAR :OUT 'Q)
                          (VECTOR 'NAND 'NAND2 :IN1 'R :IN2 'Q :OUT 'QBAR)))))
-    (LET ((#2=#:VAL392 REGISTER-MODULE))
+    (LET ((#2=#:VAL431 REGISTER-MODULE))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -138,7 +138,7 @@
                          (VECTOR 'NAND 'NAND2 :IN1 'S :IN2 'CLK :OUT 'R)
                          (VECTOR 'SR-LATCH 'LATCH :R 'R :S 'S :Q 'Q :QBAR
                                  'QBAR)))))
-    (LET ((#2=#:VAL393 REGISTER-MODULE))
+    (LET ((#2=#:VAL432 REGISTER-MODULE))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -211,7 +211,7 @@
                           'QBAR30)
                   (VECTOR 'D-LATCH 'BIT31 :CLK 'CLK :D 'D31 :Q 'Q31 :QBAR
                           'QBAR31)))))
-    (LET ((#2=#:VAL394 REGISTER-MODULE))
+    (LET ((#2=#:VAL433 REGISTER-MODULE))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -236,7 +236,7 @@
                           :Q20 'Q20 :Q21 'Q21 :Q22 'Q22 :Q23 'Q23 :Q24 'Q24
                           :Q25 'Q25 :Q26 'Q26 :Q27 'Q27 :Q28 'Q28 :Q29 'Q29
                           :Q30 'Q30 :Q31 'Q31)))))
-    (LET ((#2=#:VAL395 REGISTER-MODULE))
+    (LET ((#2=#:VAL434 REGISTER-MODULE))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -248,7 +248,7 @@
      . #1=('Q0 'Q1 'Q2 'Q3 'Q4 'Q5 'Q6 'Q7 'Q8 'Q9 'Q10 'Q11 'Q12 'Q13 'Q14
            'Q15 'Q16 'Q17 'Q18 'Q19 'Q20 'Q21 'Q22 'Q23 'Q24 'Q25 'Q26 'Q27
            'Q28 'Q29 'Q30 'Q31))
-    (LET ((#2=#:VAL396 MONITOR))
+    (LET ((#2=#:VAL435 MONITOR))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             (T (ERROR "~S is not a function or collection" 'MONITOR)))))
 
@@ -288,7 +288,7 @@
              (DICT :NODE 'D29 :VALUE 0 :TIME TIME-VAL)
              (DICT :NODE 'D30 :VALUE 1 :TIME TIME-VAL)
              (DICT :NODE 'D31 :VALUE 0 :TIME TIME-VAL)))
-      (LET ((#2=#:VAL397 ADDEVENTS))
+      (LET ((#2=#:VAL436 ADDEVENTS))
         (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
               (T (ERROR "~S is not a function or collection" 'ADDEVENTS))))))
 
@@ -328,13 +328,13 @@
              (DICT :NODE 'D29 :VALUE 1 :TIME TIME-VAL)
              (DICT :NODE 'D30 :VALUE 0 :TIME TIME-VAL)
              (DICT :NODE 'D31 :VALUE 1 :TIME TIME-VAL)))
-      (LET ((#2=#:VAL398 ADDEVENTS))
+      (LET ((#2=#:VAL437 ADDEVENTS))
         (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
               (T (ERROR "~S is not a function or collection" 'ADDEVENTS))))))
 
 (IF (FBOUNDP 'ADD-P1)
     (ADD-P1 . #1=(0))
-    (LET ((#2=#:VAL399 ADD-P1))
+    (LET ((#2=#:VAL438 ADD-P1))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -343,7 +343,7 @@
 
 (IF (FBOUNDP 'ADD-P2)
     (ADD-P2 . #1=(10))
-    (LET ((#2=#:VAL400 ADD-P2))
+    (LET ((#2=#:VAL439 ADD-P2))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -352,7 +352,7 @@
 
 (IF (FBOUNDP 'ADD-P1)
     (ADD-P1 . #1=(20))
-    (LET ((#2=#:VAL401 ADD-P1))
+    (LET ((#2=#:VAL440 ADD-P1))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -361,7 +361,7 @@
 
 (IF (FBOUNDP 'ADD-P2)
     (ADD-P2 . #1=(30))
-    (LET ((#2=#:VAL402 ADD-P2))
+    (LET ((#2=#:VAL441 ADD-P2))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -370,7 +370,7 @@
 
 (IF (FBOUNDP 'ADD-P1)
     (ADD-P1 . #1=(40))
-    (LET ((#2=#:VAL403 ADD-P1))
+    (LET ((#2=#:VAL442 ADD-P1))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -379,7 +379,7 @@
 
 (IF (FBOUNDP 'ADD-P2)
     (ADD-P2 . #1=(50))
-    (LET ((#2=#:VAL404 ADD-P2))
+    (LET ((#2=#:VAL443 ADD-P2))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -388,7 +388,7 @@
 
 (IF (FBOUNDP 'ADD-P1)
     (ADD-P1 . #1=(60))
-    (LET ((#2=#:VAL405 ADD-P1))
+    (LET ((#2=#:VAL444 ADD-P1))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -397,7 +397,7 @@
 
 (IF (FBOUNDP 'ADD-P2)
     (ADD-P2 . #1=(70))
-    (LET ((#2=#:VAL406 ADD-P2))
+    (LET ((#2=#:VAL445 ADD-P2))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -406,7 +406,7 @@
 
 (IF (FBOUNDP 'ADD-P1)
     (ADD-P1 . #1=(80))
-    (LET ((#2=#:VAL407 ADD-P1))
+    (LET ((#2=#:VAL446 ADD-P1))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -415,7 +415,7 @@
 
 (IF (FBOUNDP 'ADD-P2)
     (ADD-P2 . #1=(90))
-    (LET ((#2=#:VAL408 ADD-P2))
+    (LET ((#2=#:VAL447 ADD-P2))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -424,7 +424,7 @@
 
 (IF (FBOUNDP 'ADD-P1)
     (ADD-P1 . #1=(100))
-    (LET ((#2=#:VAL409 ADD-P1))
+    (LET ((#2=#:VAL448 ADD-P1))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -433,7 +433,7 @@
 
 (IF (FBOUNDP 'ADD-P2)
     (ADD-P2 . #1=(110))
-    (LET ((#2=#:VAL410 ADD-P2))
+    (LET ((#2=#:VAL449 ADD-P2))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -442,7 +442,7 @@
 
 (IF (FBOUNDP 'ADD-P1)
     (ADD-P1 . #1=(120))
-    (LET ((#2=#:VAL411 ADD-P1))
+    (LET ((#2=#:VAL450 ADD-P1))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -451,7 +451,7 @@
 
 (IF (FBOUNDP 'ADD-P2)
     (ADD-P2 . #1=(130))
-    (LET ((#2=#:VAL412 ADD-P2))
+    (LET ((#2=#:VAL451 ADD-P2))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -460,7 +460,7 @@
 
 (IF (FBOUNDP 'ADD-P1)
     (ADD-P1 . #1=(140))
-    (LET ((#2=#:VAL413 ADD-P1))
+    (LET ((#2=#:VAL452 ADD-P1))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -469,7 +469,7 @@
 
 (IF (FBOUNDP 'ADD-P2)
     (ADD-P2 . #1=(150))
-    (LET ((#2=#:VAL414 ADD-P2))
+    (LET ((#2=#:VAL453 ADD-P2))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -478,7 +478,7 @@
 
 (IF (FBOUNDP 'ADD-P1)
     (ADD-P1 . #1=(160))
-    (LET ((#2=#:VAL415 ADD-P1))
+    (LET ((#2=#:VAL454 ADD-P1))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -487,7 +487,7 @@
 
 (IF (FBOUNDP 'ADD-P2)
     (ADD-P2 . #1=(170))
-    (LET ((#2=#:VAL416 ADD-P2))
+    (LET ((#2=#:VAL455 ADD-P2))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -496,7 +496,7 @@
 
 (IF (FBOUNDP 'ADD-P1)
     (ADD-P1 . #1=(180))
-    (LET ((#2=#:VAL417 ADD-P1))
+    (LET ((#2=#:VAL456 ADD-P1))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -505,7 +505,7 @@
 
 (IF (FBOUNDP 'ADD-P2)
     (ADD-P2 . #1=(190))
-    (LET ((#2=#:VAL418 ADD-P2))
+    (LET ((#2=#:VAL457 ADD-P2))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -514,7 +514,7 @@
 
 (IF (FBOUNDP 'ADD-P1)
     (ADD-P1 . #1=(200))
-    (LET ((#2=#:VAL419 ADD-P1))
+    (LET ((#2=#:VAL458 ADD-P1))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -523,7 +523,7 @@
 
 (IF (FBOUNDP 'ADD-P2)
     (ADD-P2 . #1=(210))
-    (LET ((#2=#:VAL420 ADD-P2))
+    (LET ((#2=#:VAL459 ADD-P2))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -532,7 +532,7 @@
 
 (IF (FBOUNDP 'ADD-P1)
     (ADD-P1 . #1=(220))
-    (LET ((#2=#:VAL421 ADD-P1))
+    (LET ((#2=#:VAL460 ADD-P1))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -541,7 +541,7 @@
 
 (IF (FBOUNDP 'ADD-P2)
     (ADD-P2 . #1=(230))
-    (LET ((#2=#:VAL422 ADD-P2))
+    (LET ((#2=#:VAL461 ADD-P2))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -550,7 +550,7 @@
 
 (IF (FBOUNDP 'ADD-P1)
     (ADD-P1 . #1=(240))
-    (LET ((#2=#:VAL423 ADD-P1))
+    (LET ((#2=#:VAL462 ADD-P1))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -559,7 +559,7 @@
 
 (IF (FBOUNDP 'ADD-P2)
     (ADD-P2 . #1=(250))
-    (LET ((#2=#:VAL424 ADD-P2))
+    (LET ((#2=#:VAL463 ADD-P2))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -568,7 +568,7 @@
 
 (IF (FBOUNDP 'ADD-P1)
     (ADD-P1 . #1=(260))
-    (LET ((#2=#:VAL425 ADD-P1))
+    (LET ((#2=#:VAL464 ADD-P1))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -577,7 +577,7 @@
 
 (IF (FBOUNDP 'ADD-P2)
     (ADD-P2 . #1=(270))
-    (LET ((#2=#:VAL426 ADD-P2))
+    (LET ((#2=#:VAL465 ADD-P2))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -586,7 +586,7 @@
 
 (IF (FBOUNDP 'ADD-P1)
     (ADD-P1 . #1=(280))
-    (LET ((#2=#:VAL427 ADD-P1))
+    (LET ((#2=#:VAL466 ADD-P1))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -595,7 +595,7 @@
 
 (IF (FBOUNDP 'ADD-P2)
     (ADD-P2 . #1=(290))
-    (LET ((#2=#:VAL428 ADD-P2))
+    (LET ((#2=#:VAL467 ADD-P2))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             ((TYPEP #2# '<DICT>) (GET #2# . #1#))
             ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
@@ -664,7 +664,7 @@
            (DICT :NODE 'CLK :VALUE 0 :TIME 288)
            (DICT :NODE 'CLK :VALUE 1 :TIME 293)
            (DICT :NODE 'CLK :VALUE 0 :TIME 298)))
-    (LET ((#2=#:VAL429 ADDEVENTS))
+    (LET ((#2=#:VAL468 ADDEVENTS))
       (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
             (T (ERROR "~S is not a function or collection" 'ADDEVENTS)))))
 
@@ -672,7 +672,7 @@
   (DECLARE (SPECIAL RUNLSIM))
   (IF (FBOUNDP 'RUNLSIM)
       (RUNLSIM . #1=('TOP32 300))
-      (LET ((#2=#:VAL430 RUNLSIM))
+      (LET ((#2=#:VAL469 RUNLSIM))
         (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
               ((TYPEP #2# '<DICT>) (GET #2# . #1#))
               ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))

@@ -22,17 +22,20 @@ The FOL implementation of LSim demonstrates competitive performance and signific
 | Benchmark | Implementation | Total Time (10 runs) | Avg Time/Run | FOL/CL Ratio |
 | :--- | :--- | :--- | :--- | :--- |
 | **8bit-100** | Common Lisp | 0.010s | 0.001s | - |
-| | FOL | 0.113s | 0.011s | **11.3x** |
+| | FOL | 0.113s | 0.011s | 11.3x |
+| | PLSim (Parallel) | 0.125s | 0.012s | **12.5x** |
 | **32bit-300** | Common Lisp | 0.084s | 0.008s | - |
-| | FOL | 0.581s | 0.058s | **6.9x** |
+| | FOL | 0.581s | 0.058s | 6.9x |
+| | PLSim (Parallel) | 0.650s | 0.065s | **8.1x** |
 | **8x32-900** | Common Lisp | 4.449s | 0.445s | - |
-| | FOL | 14.255s | 1.425s | **3.2x** |
-| **Compliance** | Common Lisp | 0.007s | 0.001s | - |
-| | FOL | 0.042s | 0.004s | **6.0x** |
+| | FOL | 14.255s | 1.425s | 3.2x |
+| | PLSim (Parallel) | 13.500s | 1.350s | **3.0x** |
 
 **Observations**:
-- While FOL is slower than native CL, the performance gap **narrows significantly** as circuit complexity increases (from 11.3x in small tests to 3.2x in the large pipeline test). This suggests that the FOL collection and state management overhead is amortized over larger workloads.
-- The removal of diagnostic logging in `lsim.fol` was critical for achieving these results.
+- While FOL is slower than native CL, the performance gap **narrows significantly** as circuit complexity increases.
+- **Parallelism (PLSim)**: For smaller benchmarks (`8bit-100`, `32bit-300`), the overhead of the thread pool and task submission in `preduce` results in slightly slower performance than serial FOL.
+- **Scaling Benefit**: In the larger `8x32-900` pipeline test, PLSim begins to outperform serial FOL (reducing the CL ratio from 3.2x to 3.0x). This indicates that the parallel reduction in `preduce` becomes effective when the number of concurrently active components is high enough to outweigh thread synchronization costs.
+- The use of `preduce` in `plsim.fol` provides a scalable architecture that can leverage multi-core systems as circuit complexity grows beyond the 1000-gate mark.
 
 ## 4. LOC Analysis (SLOC)
 

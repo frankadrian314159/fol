@@ -1,0 +1,23 @@
+(require :asdf)
+(asdf:load-asd (merge-pathnames "src/fol-compiler.asd" (sb-ext:native-pathname "c:/Users/frank/Projects/FOL/fol/")))
+(asdf:load-system :fol-compiler)
+(asdf:load-system :fol-compiler/tests/lib)
+
+(in-package :cl-user)
+
+(defun test-fold ()
+  (let ((add-fn (lambda (&optional (x nil x-p) (y nil y-p))
+                  (cond ((and (not x-p) (not y-p)) 0)
+                        (t (+ x y))))))
+    (format t "Testing fold serial...~%")
+    (let ((res (fol.lib.reducers:fold add-fn add-fn '(1 2 3 4) 10)))
+      (format t "Result: ~S~%" res))
+    (format t "Testing fold parallel...~%")
+    (let ((res (fol.lib.reducers:fold add-fn add-fn (loop for i from 1 to 100 collect i) 10)))
+      (format t "Result: ~S~%" res)))
+  (format t "Testing submit-work...~%")
+  (let ((work (fol.compiler.mutable:submit-work (lambda (x) (* x x)) '(10))))
+    (format t "Work result: ~S~%" (fol.compiler.mutable:wait-for-work work))))
+
+(test-fold)
+(sb-ext:exit)
