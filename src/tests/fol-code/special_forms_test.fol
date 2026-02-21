@@ -1,0 +1,37 @@
+;;; Special Forms Tests
+
+;;; defn and function calls
+(defn add-two [x y] (+ x y))
+(assert (= (add-two 5 3) 8) "defn single clause")
+
+;;; Multi-clause defn
+(defn multi-arity 
+  ([] :zero)
+  ([x] :one)
+  ([x y] :two))
+
+(assert (= (multi-arity) :zero) "multi-arity zero")
+(assert (= (multi-arity 1) :one) "multi-arity one")
+(assert (= (multi-arity 1 2) :two) "multi-arity two")
+
+;;; if
+(assert (= (if true :a :b) :a) "if true")
+(assert (= (if false :a :b) :b) "if false")
+(assert (= (if nil :a :b) :b) "if nil")
+
+;;; bind (let)
+(assert (= (bind [x 10 y 20] (+ x y)) 30) "bind simple")
+(assert (= (bind [x 10 y (+ x 5)] y) 15) "bind sequential (CL-style let is actually parallel, but FOL bind is sequential)")
+
+;;; loop / recur
+(assert (= (loop [i 0 acc 0]
+             (if (< i 5)
+                 (recur (inc i) (+ acc i))
+                 acc))
+           10) "loop/recur sum")
+
+;;; fn (anonymous function)
+(assert (= ((fn [x] (* x x)) 4) 16) "fn simple")
+
+;;; do
+(assert (= (do 1 2 3) 3) "do")

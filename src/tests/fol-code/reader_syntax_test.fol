@@ -1,0 +1,35 @@
+;;; Reader Syntax Tests
+;;; These test that the reader correctly interprets various literals.
+
+(assert (= [1 2 3] (vector 1 2 3)) "vector literal read")
+(assert (= {:a 1 :b 2} (dict :a 1 :b 2)) "dict literal read")
+(assert (= #{1 2 3} (set 1 2 3)) "set literal read")
+(assert (= #M{1 1 2} (bag 1 1 2)) "bag literal read")
+(assert (= #Q[1 2 3] (deque 1 2 3)) "deque literal read")
+
+;;; Character literals
+(assert (char= \a #\a) "char literal \a")
+(assert (char= \newline #\Newline) "char literal \newline")
+(assert (char= \space #\Space) "char literal \space")
+(assert (char= \u0041 #\A) "char literal \u0041")
+
+;;; Numeric literals
+(assert (= 0xff 255) "hex literal")
+(assert (= 0o77 63) "octal literal")
+(assert (= 2r1010 10) "binary literal")
+(assert (= 16rff 255) "radix 16 literal")
+
+;;; Regex
+(assert (string= #"abc" "abc") "regex literal reads as string")
+
+;;; Deref shorthand
+(defn test-deref []
+  (bind [a (atom 42)]
+    (assert (= @a 42) "@a shorthand")))
+
+(test-deref)
+
+;;; Anonymous function shorthand
+(assert (= (#(+ %1 %2) 5 3) 8) "#(+ %1 %2)")
+(assert (= (#(+ % 1) 5) 6) "#(+ % 1)")
+(assert (= (#(apply vector %&) 1 2 3) [1 2 3]) "#(apply vector %&)")

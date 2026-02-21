@@ -82,6 +82,10 @@
            :description "Tests for mutable functions (futures, promises, atom extensions)."
            :in compiler-tests)
 
+(def-suite fol-level-tests
+           :description "End-to-end tests written in FOL syntax."
+           :in compiler-tests)
+
 
 (defun fol-form (form)
   "Recursively convert CL vectors in FORM to FOL <vector> instances.

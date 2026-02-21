@@ -71,7 +71,7 @@
                                `(if (,gpred ,test-val ,gexpr)
                                     ,result
                                     ,(build-condp (cddr clauses))))))))
-      `(bind ,(list gpred pred gexpr expr) ,(build-condp clauses)))))
+      `(bind ,(cl:list gpred pred gexpr expr) ,(build-condp clauses)))))
 
 ;;; ===========================================================================
 ;;; Binding Macros
@@ -80,40 +80,40 @@
 (defmacro when-let (bindings &body body)
   "Evaluates test. If logical true, binds it to binding and evaluates body in implicit do."
   (destructuring-bind (binding test) (ensure-list bindings)
-    `(bind ,(list binding test)
+    `(bind ,(cl:list binding test)
            (when ,binding ,@body))))
 
 (defmacro if-let (bindings then &optional else)
   "Evaluates test. If logical true, binds it to binding and evaluates then;
    otherwise evaluates else."
   (destructuring-bind (binding test) (ensure-list bindings)
-    `(bind ,(list binding test)
+    `(bind ,(cl:list binding test)
            (if ,binding ,then ,else))))
 
 (defmacro when-some (bindings &body body)
   "Like when-let, but specifically checks that binding is not nil (using some?)."
   (destructuring-bind (binding test) (ensure-list bindings)
     (let ((g (gensym "SOME-")))
-      `(bind ,(list g test)
+      `(bind ,(cl:list g test)
              (when (fol.compiler.primitive-functions:some? ,g)
-                   (bind ,(list binding g) ,@body))))))
+                   (bind ,(cl:list binding g) ,@body))))))
 
 (defmacro if-some (bindings then &optional else)
   "Like if-let, but specifically checks that binding is not nil (using some?)."
   (destructuring-bind (binding test) (ensure-list bindings)
     (let ((g (gensym "SOME-")))
-      `(bind ,(list g test)
+      `(bind ,(cl:list g test)
              (if (fol.compiler.primitive-functions:some? ,g)
-                 (bind ,(list binding g) ,then)
+                 (bind ,(cl:list binding g) ,then)
                  ,else)))))
 
 (defmacro when-first (bindings &body body)
   "Binds the first element of a sequence to binding and evaluates body if sequence is non-empty."
   (destructuring-bind (binding seq-expr) (ensure-list bindings)
     (let ((s (gensym "SEQ-")))
-      `(bind ,(list s `(seq ,seq-expr))
+      `(bind ,(cl:list s `(seq ,seq-expr))
              (when ,s
-                   (bind ,(list binding `(first ,s))
+                   (bind ,(cl:list binding `(first ,s))
                          ,@body))))))
 
 ;;; ===========================================================================
@@ -123,7 +123,7 @@
 (defmacro while (test &body body)
   "Repeatedly executes body while test expression is true."
   (let ((loop-name (gensym "WHILE-")))
-    `(loop ,(vector loop-name nil)
+    `(loop ,(cl:list loop-name nil)
            (when ,test ,@body (recur nil)))))
 
 (defmacro dotimes (bindings &body body)
@@ -132,10 +132,10 @@
   (destructuring-bind (name n) (ensure-list bindings)
     (let ((max (gensym "MAX-"))
           (i (gensym "I-")))
-      `(bind ,(vector max n)
-             (loop ,(vector i 0)
+      `(bind ,(cl:list max n)
+             (loop ,(cl:list i 0)
                    (when (< ,i ,max)
-                         (bind ,(vector name i)
+                         (bind ,(cl:list name i)
                                ,@body
                                (recur (inc ,i)))))))))
 
@@ -144,9 +144,9 @@
    bindings is [name seq-expr], where name is bound to each element."
   (destructuring-bind (name seq-expr) (ensure-list bindings)
     (let ((s (gensym "SEQ-")))
-      `(loop ,(vector s `(seq ,seq-expr))
+      `(loop ,(cl:list s `(seq ,seq-expr))
              (when ,s
-                   (bind ,(vector name `(first ,s))
+                   (bind ,(cl:list name `(first ,s))
                          ,@body
                          (recur (rest ,s))))))))
 
@@ -158,14 +158,14 @@
     (let ((result (gensym "RESULT-"))
           (s (gensym "SEQ-"))
           (item (gensym "ITEM-")))
-      `(bind ,(list result '(fol.compiler.collection-functions:vector))
-             (loop ,(fol.compiler.collection-functions:vector
-                     s `(fol.compiler.collection-functions:vec ,seq-expr)
+      `(bind ,(cl:list result '(fol.compiler.collection-functions:vector))
+             (loop ,(cl:list
+                     s `(fol.compiler.seq-functions:seq ,seq-expr)
                      result result)
-                   (if ,s
+                   (if (fol.compiler.primitives:truthy? ,s)
                        (do
-                        (bind ,(list item `(first ,s))
-                              (bind ,(list name item)
+                        (bind ,(cl:list item `(first ,s))
+                              (bind ,(cl:list name item)
                                     (recur (rest ,s)
                                            (conj ,result (do ,@body))))))
                        ,result))))))
@@ -205,67 +205,67 @@
   (if (null forms)
       expr
       (let ((result expr))
-        (dolist (form forms)
-          (setf result `(bind ,(list name result) ,form)))
+        (cl:dolist (form forms)
+          (cl:setf result `(bind ,(cl:list name result) ,form)))
         result)))
 
 (defmacro cond-> (expr &rest clauses)
   "Conditional thread-first. Takes an expression and a set of test/form pairs.
    Threads expr through each form for which the corresponding test is true."
-  (let ((g (gensym "EXPR-"))
-        (result expr))
+  (let ((result expr))
     (loop for (test form) on clauses by #'cddr
-          do (let ((threaded (if (consp form)
-                                 `(,(first form) ,g ,@(rest form))
-                                 `(,form ,g))))
-               (setf result
-                 `(bind ,(list g result)
-                        (if ,test ,threaded ,g)))))
+          do (let ((g (gensym "EXPR-")))
+               (let ((threaded (if (cl:consp form)
+                                   `(,(cl:first form) ,g ,@(cl:rest form))
+                                   `(,form ,g))))
+                 (setf result
+                   `(bind ,(cl:list g result)
+                          (if ,test ,threaded ,g))))))
     result))
 
 (defmacro cond->> (expr &rest clauses)
   "Conditional thread-last. Takes an expression and a set of test/form pairs.
    Threads expr through each form (as last arg) for which the corresponding test is true."
-  (let ((g (gensym "EXPR-"))
-        (result expr))
+  (let ((result expr))
     (loop for (test form) on clauses by #'cddr
-          do (let ((threaded (if (consp form)
-                                 `(,(first form) ,@(rest form) ,g)
-                                 `(,form ,g))))
-               (setf result
-                 `(bind ,(list g result)
-                        (if ,test ,threaded ,g)))))
+          do (let ((g (gensym "EXPR-")))
+               (let ((threaded (if (cl:consp form)
+                                   `(,(cl:first form) ,@(cl:rest form) ,g)
+                                   `(,form ,g))))
+                 (setf result
+                   `(bind ,(cl:list g result)
+                          (if ,test ,threaded ,g))))))
     result))
 
 (defmacro some-> (expr &rest forms)
   "Nil-safe thread-first. Like ->, but returns nil as soon as any intermediate
    result is nil."
-  (if (null forms)
+    (cl:if (cl:null forms)
       expr
-      (let ((g (gensym "EXPR-"))
+      (cl:let ((g (cl:gensym "EXPR-"))
             (result expr))
-        (dolist (form forms)
-          (let ((threaded (if (consp form)
-                              `(,(first form) ,g ,@(rest form))
+        (cl:dolist (form forms)
+          (cl:let ((threaded (cl:if (cl:consp form)
+                              `(,(cl:first form) ,g ,@(cl:rest form))
                               `(,form ,g))))
-            (setf result
-              `(bind ,(list g result)
+            (cl:setf result
+              `(bind ,(cl:list g result)
                      (when (fol.compiler.primitive-functions:some? ,g) ,threaded)))))
         result)))
 
 (defmacro some->> (expr &rest forms)
   "Nil-safe thread-last. Like ->>, but returns nil as soon as any intermediate
    result is nil."
-  (if (null forms)
+    (cl:if (cl:null forms)
       expr
-      (let ((g (gensym "EXPR-"))
+      (cl:let ((g (cl:gensym "EXPR-"))
             (result expr))
-        (dolist (form forms)
-          (let ((threaded (if (consp form)
-                              `(,(first form) ,@(rest form) ,g)
+        (cl:dolist (form forms)
+          (cl:let ((threaded (cl:if (cl:consp form)
+                              `(,(cl:first form) ,@(cl:rest form) ,g)
                               `(,form ,g))))
-            (setf result
-              `(bind ,(list g result)
+            (cl:setf result
+              `(bind ,(cl:list g result)
                      (when (fol.compiler.primitive-functions:some? ,g) ,threaded)))))
         result)))
 
@@ -273,17 +273,17 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun ensure-list (x)
     (cond
-     ((listp x) x)
-     ((vectorp x) (coerce x 'list))
-     ((typep x 'fol.compiler.collections:<collection>)
+     ((cl:listp x) x)
+     ((cl:vectorp x) (cl:coerce x 'cl:list))
+     ((cl:typep x 'fol.compiler.collections:<collection>)
        (fol.compiler.collections:collection-seq x))
      ;; Fallback: try to treat as collection if standard-object
-     ((typep x 'standard-object)
-       (handler-case
+     ((cl:typep x 'cl:standard-object)
+       (cl:handler-case
            (fol.compiler.collections:collection-seq x)
-         (error (e)
-           (error "ensure-list failed on standard-object ~S: ~A" x e))))
-     (t (error "ensure-list: Expected a sequence, got ~S of type ~S" x (type-of x))))))
+         (cl:error (e)
+           (cl:error "ensure-list failed on standard-object ~S: ~A" x e))))
+     (cl:t (cl:error "ensure-list: Expected a sequence, got ~S of type ~S" x (cl:type-of x))))))
 
 ;;; ===========================================================================
 ;;; Dynamic Binding Macros
@@ -299,8 +299,8 @@
 
 (defmacro with-redefs-fn (bindings-fn &body body)
   "Like with-redefs but takes a function that returns the bindings map."
-  (let ((bindings-var (gensym "BINDINGS-")))
-    `(bind ,(list bindings-var `(,bindings-fn))
+  (cl:let ((bindings-var (cl:gensym "BINDINGS-")))
+    `(bind ,(cl:list bindings-var `(,bindings-fn))
            (with-redefs ,bindings-var ,@body))))
 
 ;;; ===========================================================================
@@ -344,9 +344,9 @@
 (defmacro with-local-vars (bindings &body body)
   "Creates local mutable variables for use within body.
    bindings is a list of [name initial-value ...] pairs."
-  (let ((pairs (loop for (var val) on (coerce bindings 'list) by #'cddr
-                     collect (list var val))))
-    `(bind ,(apply #'list (mapcan (lambda (pair) (list (first pair) `(atom ,(second pair)))) pairs))
+  (cl:let ((pairs (cl:loop for (var val) on (cl:coerce bindings 'cl:list) by #'cl:cddr
+                      collect (cl:list var val))))
+    `(bind ,(cl:apply #'cl:list (cl:mapcan (cl:lambda (pair) (cl:list (cl:first pair) `(atom ,(cl:second pair)))) pairs))
            ,@body)))
 
 ;;; ===========================================================================
@@ -355,16 +355,16 @@
 
 (defmacro time (&body body)
   "Evaluates body, prints the time it took to execute, and returns the result."
-  (let ((start (gensym "START-"))
-        (result (gensym "RESULT-"))
-        (end (gensym "END-")))
-    `(bind ,(list start '(cl:get-internal-real-time))
-           (bind ,(list result `(do ,@body))
-                 (bind ,(list end '(cl:get-internal-real-time))
-                       (cl:format t "Elapsed time: ~,3f ms~%"
-                         (cl:* (cl:/ (cl:- ,end ,start)
-                                 cl:internal-time-units-per-second)
-                           1000.0))
+  (cl:let ((start (cl:gensym "START-"))
+        (end (cl:gensym "END-"))
+        (result (cl:gensym "RESULT-")))
+    `(bind ,(cl:list start '(cl:get-internal-real-time))
+           (bind ,(cl:list result `(do ,@body))
+                 (bind ,(cl:list end '(cl:get-internal-real-time))
+                       (cl:format cl:t "Elapsed time: ~,3F msecs~%"
+                                      (cl:* (cl:/ (cl:coerce (cl:- ,end ,start) 'cl:float)
+                                                  (cl:coerce cl:internal-time-units-per-second 'cl:float))
+                                            1000.0))
                        ,result)))))
 
 (defmacro comment (&rest _)

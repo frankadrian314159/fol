@@ -1,0 +1,43 @@
+;;; Macros Tests
+
+;;; Thread-first (->)
+(assert (= (-> 5 (+ 3) (* 2)) 16) "thread-first")
+
+;;; Thread-last (->>)
+(assert (= (->> 5 (+ 3) (* 2)) 16) "thread-last")
+
+;;; when
+(assert (= (when true :a) :a) "when true")
+(assert (= (when false :a) nil) "when false")
+
+;;; if-let
+(assert (= (if-let [x 10] x :fail) 10) "if-let success")
+(assert (= (if-let [x nil] x :fail) :fail) "if-let fail")
+
+;;; when-let
+(assert (= (when-let [x 10] x) 10) "when-let success")
+(assert (= (when-let [x nil] x) nil) "when-let fail")
+
+;;; dotimes
+(assert (= (bind [res (atom [])]
+             (dotimes [i 3]
+               (swap! res conj i))
+             @res)
+           [0 1 2]) "dotimes")
+
+;;; for (currently eager vector)
+(assert (= (for [x [1 2 3]] (* x 2)) [2 4 6]) "for comprehension")
+
+;;; cond->
+(assert (= (cond-> 1
+             true (+ 1)
+             false (+ 10)
+             (= 2 2) (* 3))
+           6) "cond->")
+
+;;; cond->>
+(assert (= (cond->> 1
+             true (+ 1)
+             false (+ 10)
+             (= 2 2) (- 10))
+           8) "cond->>") ; (- 10 2) = 8

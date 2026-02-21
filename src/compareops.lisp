@@ -36,6 +36,10 @@
 (defmethod %= ((a symbol) (b symbol))
   (eq a b))
 
+(defmethod %= ((a cons) (b cons))
+  (and (%= (car a) (car b))
+       (%= (cdr a) (cdr b))))
+
 ;;; --- Default: not equal ---
 
 (defmethod %= (a b)

@@ -1,8 +1,0 @@
-(require :asdf)
-(pushnew (truename "src/") asdf:*central-registry*)
-(asdf:load-system :fol-compiler)
-(let ((result (fol.compiler:compile-file "benchmarks/fol-code/compliance.fol" :output "benchmarks/transpiled-fol-code/compliance.lisp")))
-  (format t "Result: ~A~%" result)
-  (when (fol.compiler:compilation-result-errors result)
-    (format t "Errors: ~A~%" (fol.compiler:compilation-result-errors result))))
-(sb-ext:exit :code 0)

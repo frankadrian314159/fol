@@ -1,0 +1,18 @@
+;;; Negative Tests (Runtime Errors)
+
+(assert 
+ (handler-case 
+  (/ 1 0)
+  (cl:division-by-zero (e) true))
+ "catch division by zero")
+
+(assert
+ (handler-case
+  (nth [1 2] 5)
+  (cl:error (e) true)
+  (:default nil))
+ "catch vector bounds error (if it throws)")
+
+;;; Note: Compilation errors cannot be tested within a FOL file easily 
+;;; as they prevent the file from being fully loaded/transpiled.
+;;; Those are better tested at the Lisp level.

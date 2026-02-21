@@ -37,6 +37,9 @@
     ()
   (:documentation "Boolean type. Represented as CL generalized booleans."))
 
+(cl:defvar true cl:t)
+(cl:defvar false cl:nil)
+
 ;;; ---------------------------------------------------------------------------
 ;;; Character
 ;;; ---------------------------------------------------------------------------

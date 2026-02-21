@@ -52,6 +52,18 @@
     (symbol (fol.compiler.ast:make-symbol-ref-node :name form :form form))
     (cons (parse-compound form))
     (t (cond
+        ;; FOL bag literal #M{a b c}
+        ((typep form 'fol.compiler.collections:<bag>)
+          (fol.compiler.ast:make-call-node
+            :operator (fol.compiler.ast:make-symbol-ref-node :name 'fol.compiler.collection-functions:bag :form form)
+            :args (mapcar #'parse-form (fol.compiler.collections:collection-seq form))
+            :form form))
+        ;; FOL deque literal #Q[a b c]
+        ((typep form 'fol.compiler.collections:<deque>)
+          (fol.compiler.ast:make-call-node
+            :operator (fol.compiler.ast:make-symbol-ref-node :name 'fol.compiler.collection-functions:deque :form form)
+            :args (mapcar #'parse-form (fol.compiler.collections:collection-seq form))
+            :form form))
         ;; FOL vector literal [a b c]
         ((fol-vector-p form)
           (fol.compiler.ast:make-vector-node

@@ -547,41 +547,41 @@
 (defmethod get ((coll fol.compiler.collections:<dict>) key &optional default)
   (multiple-value-bind (value found)
       (sycamore:hash-map-find (fol.compiler.collections:storage-items coll) key)
-    (if found value default)))
+    (values (if found value default) found)))
 
 (defmethod get ((coll fol.compiler.collections:<ordered-dict>) key &optional default)
   (multiple-value-bind (value found)
       (sycamore:hash-map-find (fol.compiler.collections:storage-items coll) key)
-    (if found value default)))
+    (values (if found value default) found)))
 
 (defmethod get ((coll fol.compiler.collections:<sorted-dict>) key &optional default)
   (multiple-value-bind (value found-key found-p)
       (sycamore:tree-map-find (fol.compiler.collections:storage-items coll) key)
     (declare (ignore found-key))
-    (if found-p value default)))
+    (values (if found-p value default) found-p)))
 
 (defmethod get ((coll fol.compiler.collections:<int-dict>) key &optional default)
   (multiple-value-bind (value found-key found-p)
       (sycamore:tree-map-find (fol.compiler.collections:storage-items coll) key)
     (declare (ignore found-key))
-    (if found-p value default)))
+    (values (if found-p value default) found-p)))
 
 (defmethod get ((coll fol.compiler.collections:<priority-dict>) key &optional default)
   (multiple-value-bind (value found)
       (sycamore:hash-map-find (fol.compiler.collections:storage-items coll) key)
-    (if found value default)))
+    (values (if found value default) found)))
 
 (defmethod get ((coll fol.compiler.collections:<vector>) index &optional default)
   (let ((items (fol.compiler.collections:storage-items coll)))
     (if (and (cl:integerp index) (cl:>= index 0) (cl:< index (fset:size items)))
-        (fset:lookup items index)
-        default)))
+        (cl:values (fset:lookup items index) t)
+        (cl:values default nil))))
 
 (defmethod get ((coll fol.compiler.collections:<array>) index &optional default)
   (let ((items (fol.compiler.collections:storage-items coll)))
     (if (and (cl:integerp index) (cl:>= index 0) (cl:< index (cl:array-total-size items)))
-        (cl:row-major-aref items index)
-        default)))
+        (cl:values (cl:row-major-aref items index) t)
+        (cl:values default nil))))
 
 (defmethod get ((coll fol.compiler.collections:<array>) (indices cl:cons) &optional default)
   "Access a multi-dimensional array element by a list of indices.
@@ -596,13 +596,34 @@
 
 (defmethod get ((coll fol.compiler.collections:<set>) element &optional default)
   (if (sycamore:hash-set-find (fol.compiler.collections:storage-items coll) element)
-      element
-      default))
+      (values element t)
+      (values default nil)))
 
 (defmethod get ((coll fol.compiler.collections:<sorted-set>) element &optional default)
   (if (sycamore:tree-set-find (fol.compiler.collections:storage-items coll) element)
-      element
-      default))
+      (values element t)
+      (values default nil)))
+
+(defmethod get ((coll fol.compiler.collections:<bag>) element &optional default)
+  (multiple-value-bind (value found)
+      (sycamore:hash-map-find (fol.compiler.collections:storage-items coll) element)
+    (values (if found value default) found)))
+
+(defmethod get ((coll fol.compiler.collections:<deque>) index &optional default)
+  (let ((items (fol.compiler.collections:storage-items coll)))
+    (if (and (cl:integerp index) (cl:>= index 0) (cl:< index (fset:size items)))
+        (cl:values (fset:lookup items index) t)
+        (cl:values default nil))))
+
+(defmethod get ((coll fol.compiler.collections:<list>) index &optional default)
+  "Get element by index (linear time)."
+  (let ((i 0)
+        (curr coll))
+    (cl:loop
+      (when (cl:null curr) (cl:return (cl:values default nil)))
+      (when (cl:= i index) (cl:return (cl:values (fol.compiler.collections:list-first curr) t)))
+      (cl:incf i)
+      (setf curr (fol.compiler.collections:list-rest curr)))))
 
 (defmethod get ((coll <persistent-object>) key &optional default)
   "Get slot/attribute value from a persistent object. 
@@ -2119,3 +2140,51 @@
   "Add VALUE to the front of the deque."
   (make-instance 'fol.compiler.collections:<deque>
     :items (fset:with-first (fol.compiler.collections:storage-items coll) value)))
+
+;;; ============================================================================
+;;; Equality for FOL Collections
+;;; ============================================================================
+
+(defmethod %= ((a fol.compiler.collections:<vector>) (b fol.compiler.collections:<vector>))
+  (cl:and (cl:= (size a) (size b))
+          (cl:every #'%=
+                    (fol.compiler.collections:collection-seq a)
+                    (fol.compiler.collections:collection-seq b))))
+
+(defmethod %= ((a fol.compiler.collections:<deque>) (b fol.compiler.collections:<deque>))
+  (cl:and (cl:= (size a) (size b))
+          (cl:every #'%=
+                    (fol.compiler.collections:collection-seq a)
+                    (fol.compiler.collections:collection-seq b))))
+
+(defmethod %= ((a fol.compiler.collections:<list>) (b fol.compiler.collections:<list>))
+  (cl:and (cl:= (size a) (size b))
+          (cl:every #'%=
+                    (fol.compiler.collections:collection-seq a)
+                    (fol.compiler.collections:collection-seq b))))
+
+(defmethod %= ((a fol.compiler.collections:<dict>) (b fol.compiler.collections:<dict>))
+  (cl:and (cl:= (size a) (size b))
+          (cl:every (cl:lambda (pair)
+                      (cl:multiple-value-bind (val found) (get a (cl:car pair))
+                        (cl:and found (%= val (cl:cdr pair)))))
+                    (fol.compiler.collections:collection-seq b))))
+
+(defmethod %= ((a fol.compiler.collections:<set>) (b fol.compiler.collections:<set>))
+  (cl:and (cl:= (size a) (size b))
+          (cl:every (cl:lambda (x)
+                      (cl:multiple-value-bind (val found) (get a x)
+                        (cl:declare (cl:ignore val))
+                        found))
+                    (fol.compiler.collections:collection-seq b))))
+
+(defmethod %= ((a fol.compiler.collections:<bag>) (b fol.compiler.collections:<bag>))
+  (cl:and (cl:= (size a) (size b))
+          (cl:every (cl:lambda (element)
+                      (cl:multiple-value-bind (count-a found-a) (get a element)
+                        (cl:multiple-value-bind (count-b found-b) (get b element)
+                          (cl:and found-a found-b (cl:= count-a count-b)))))
+                    (fol.compiler.collections:collection-seq b))))
+
+(defmethod %/= ((a fol.compiler.collections:<collection>) (b fol.compiler.collections:<collection>))
+  (cl:not (%= a b)))

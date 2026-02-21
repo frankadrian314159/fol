@@ -1,6 +1,0 @@
-(require :asdf)
-(pushnew (truename "src/") asdf:*central-registry*)
-(asdf:load-system :fol-compiler)
-(format t "count bound in collections: ~S~%" (fboundp 'fol.compiler.collections:count))
-(format t "count bound in collection-functions: ~S~%" (fboundp 'fol.compiler.collection-functions:count))
-(sb-ext:exit)

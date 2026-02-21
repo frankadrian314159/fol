@@ -28,7 +28,8 @@
    ;; Constructor generic
    make
    ;;
-   truthy? falsy?))
+   truthy? falsy?
+   true false))
 
 (defpackage fol.compiler.primitive-functions
   (:use cl)
@@ -245,7 +246,7 @@
   (:shadow vector set list count array-dimension first rest get assoc dissoc conj size merge)
   (:import-from fol.compiler.primitives make)
   (:import-from fol.compiler.persistent persistent-class)
-  (:shadowing-import-from fol.compiler.compareops < >)
+  (:shadowing-import-from fol.compiler.compareops < > %= %/=)
   (:export
    ;; Base class
    <collection>
@@ -393,6 +394,7 @@
 (defpackage fol.compiler.collection-functions
   (:use cl)
   (:shadow vector set list list* nth push pop union intersection difference subseq find)
+  (:shadowing-import-from fol.compiler.compareops %= %/=)
   (:shadowing-import-from fol.compiler.collections
                           ;; Import high-level accessors that are defined in collections
                           first rest get assoc dissoc conj size empty? count update merge)
@@ -723,9 +725,14 @@
 (defpackage fol.macros
   (:use cl)
   (:shadow when assert time do dotimes)
+  (:shadowing-import-from fol.compiler.collection-functions vector list first rest)
   (:import-from fol.compiler register-macro)
   (:import-from fol.compiler.streams
                 stream-close *in* *out*)
+  (:import-from fol.compiler.primitives truthy? true false)
+  (:import-from fol.compiler.arithmetic-functions inc)
+  (:import-from fol.compiler.collection-functions conj vec)
+  (:import-from fol.compiler.seq-functions seq)
   (:export
    ;; Conditional macros
    when when-not if-not condp
@@ -855,7 +862,7 @@
 (defpackage fol.lib.reducers
   (:use cl)
   (:shadow reduce)
-  (:shadowing-import-from fol.compiler.collection-functions
+  (:shadowing-import-from fol.compiler.collections
                           count size)
   (:import-from fol.compiler.mutable
                 submit-work wait-for-work)
@@ -929,11 +936,19 @@
                           ;; Math functions
                           abs sin cos tan asin acos atan
                           sinh cosh tanh asinh acosh atanh
-                          exp sqrt expt
+                          exp sqrt expt inc dec
                           ;; Rational/complex
                           rationalize numerator denominator
                           ;; GCD/LCM
-                          gcd lcm)
+                          gcd lcm
+                          ;; Predicates
+                          odd? even? zero? positive? negative?)
+
+  ;; ---- Primitive type constants & predicates -------------------------------
+  (:import-from fol.compiler.primitives
+                true false)
+  (:import-from fol.compiler.primitive-functions
+                instance? nil? some?)
 
   ;; ---- Comparison operators (shadow CL) -----------------------------------
   (:shadowing-import-from fol.compiler.compareops
@@ -947,6 +962,8 @@
   ;;       transducers) ------------------------------------------------------
   (:shadowing-import-from fol.compiler.collection-functions
                           vector set list list* nth push pop
+                          dict bag deque ordered-dict ordered-set sorted-set sorted-dict
+                          int-set int-dict priority-dict dense-int-set
                           first rest get assoc count merge
                           find subseq
                           union intersection
