@@ -1,0 +1,292 @@
+(in-package "lsim")
+
+;; 8x32 pipeline: 8 cascaded 32-bit registers (1024 NAND gates)
+
+;; Module definitions
+(register-module 'sr-latch
+  (make '<module-def>
+    :name 'sr-latch
+    :ports ['r 's 'q 'qbar]
+    :body [['nand 'nand1 :in1 's :in2 'qbar :out 'q]
+           ['nand 'nand2 :in1 'r :in2 'q :out 'qbar]]))
+
+(register-module 'd-latch
+  (make '<module-def>
+    :name 'd-latch
+    :ports ['clk 'd 'q 'qbar]
+    :body [['nand 'nand1 :in1 'd :in2 'clk :out 's]
+           ['nand 'nand2 :in1 's :in2 'clk :out 'r]
+           ['sr-latch 'latch :r 'r :s 's :q 'q :qbar 'qbar]]))
+
+(register-module 'register-32bit
+  (make '<module-def>
+    :name 'register-32bit
+    :ports ['clk
+            'd0  'd1  'd2  'd3  'd4  'd5  'd6  'd7
+            'd8  'd9  'd10 'd11 'd12 'd13 'd14 'd15
+            'd16 'd17 'd18 'd19 'd20 'd21 'd22 'd23
+            'd24 'd25 'd26 'd27 'd28 'd29 'd30 'd31
+            'q0  'q1  'q2  'q3  'q4  'q5  'q6  'q7
+            'q8  'q9  'q10 'q11 'q12 'q13 'q14 'q15
+            'q16 'q17 'q18 'q19 'q20 'q21 'q22 'q23
+            'q24 'q25 'q26 'q27 'q28 'q29 'q30 'q31]
+    :body [['d-latch 'bit0  :clk 'clk :d 'd0  :q 'q0  :qbar 'qbar0]
+           ['d-latch 'bit1  :clk 'clk :d 'd1  :q 'q1  :qbar 'qbar1]
+           ['d-latch 'bit2  :clk 'clk :d 'd2  :q 'q2  :qbar 'qbar2]
+           ['d-latch 'bit3  :clk 'clk :d 'd3  :q 'q3  :qbar 'qbar3]
+           ['d-latch 'bit4  :clk 'clk :d 'd4  :q 'q4  :qbar 'qbar4]
+           ['d-latch 'bit5  :clk 'clk :d 'd5  :q 'q5  :qbar 'qbar5]
+           ['d-latch 'bit6  :clk 'clk :d 'd6  :q 'q6  :qbar 'qbar6]
+           ['d-latch 'bit7  :clk 'clk :d 'd7  :q 'q7  :qbar 'qbar7]
+           ['d-latch 'bit8  :clk 'clk :d 'd8  :q 'q8  :qbar 'qbar8]
+           ['d-latch 'bit9  :clk 'clk :d 'd9  :q 'q9  :qbar 'qbar9]
+           ['d-latch 'bit10 :clk 'clk :d 'd10 :q 'q10 :qbar 'qbar10]
+           ['d-latch 'bit11 :clk 'clk :d 'd11 :q 'q11 :qbar 'qbar11]
+           ['d-latch 'bit12 :clk 'clk :d 'd12 :q 'q12 :qbar 'qbar12]
+           ['d-latch 'bit13 :clk 'clk :d 'd13 :q 'q13 :qbar 'qbar13]
+           ['d-latch 'bit14 :clk 'clk :d 'd14 :q 'q14 :qbar 'qbar14]
+           ['d-latch 'bit15 :clk 'clk :d 'd15 :q 'q15 :qbar 'qbar15]
+           ['d-latch 'bit16 :clk 'clk :d 'd16 :q 'q16 :qbar 'qbar16]
+           ['d-latch 'bit17 :clk 'clk :d 'd17 :q 'q17 :qbar 'qbar17]
+           ['d-latch 'bit18 :clk 'clk :d 'd18 :q 'q18 :qbar 'qbar18]
+           ['d-latch 'bit19 :clk 'clk :d 'd19 :q 'q19 :qbar 'qbar19]
+           ['d-latch 'bit20 :clk 'clk :d 'd20 :q 'q20 :qbar 'qbar20]
+           ['d-latch 'bit21 :clk 'clk :d 'd21 :q 'q21 :qbar 'qbar21]
+           ['d-latch 'bit22 :clk 'clk :d 'd22 :q 'q22 :qbar 'qbar22]
+           ['d-latch 'bit23 :clk 'clk :d 'd23 :q 'q23 :qbar 'qbar23]
+           ['d-latch 'bit24 :clk 'clk :d 'd24 :q 'q24 :qbar 'qbar24]
+           ['d-latch 'bit25 :clk 'clk :d 'd25 :q 'q25 :qbar 'qbar25]
+           ['d-latch 'bit26 :clk 'clk :d 'd26 :q 'q26 :qbar 'qbar26]
+           ['d-latch 'bit27 :clk 'clk :d 'd27 :q 'q27 :qbar 'qbar27]
+           ['d-latch 'bit28 :clk 'clk :d 'd28 :q 'q28 :qbar 'qbar28]
+           ['d-latch 'bit29 :clk 'clk :d 'd29 :q 'q29 :qbar 'qbar29]
+           ['d-latch 'bit30 :clk 'clk :d 'd30 :q 'q30 :qbar 'qbar30]
+           ['d-latch 'bit31 :clk 'clk :d 'd31 :q 'q31 :qbar 'qbar31]]))
+
+;; Top module: 8 cascaded 32-bit registers
+;; reg0 inputs from external d0-d31, outputs to s0q0-s0q31
+;; reg1 inputs from s0q*, outputs to s1q*
+;; ...
+;; reg7 inputs from s6q*, outputs to final q0-q31
+(register-module 'top8x32
+  (make '<module-def>
+    :name 'top8x32
+    :ports []
+    :body [
+      ;; Stage 0: external inputs -> s0q*
+      ['register-32bit 'reg0 :clk 'clk
+       :d0  'd0   :d1  'd1   :d2  'd2   :d3  'd3
+       :d4  'd4   :d5  'd5   :d6  'd6   :d7  'd7
+       :d8  'd8   :d9  'd9   :d10 'd10  :d11 'd11
+       :d12 'd12  :d13 'd13  :d14 'd14  :d15 'd15
+       :d16 'd16  :d17 'd17  :d18 'd18  :d19 'd19
+       :d20 'd20  :d21 'd21  :d22 'd22  :d23 'd23
+       :d24 'd24  :d25 'd25  :d26 'd26  :d27 'd27
+       :d28 'd28  :d29 'd29  :d30 'd30  :d31 'd31
+       :q0  's0q0  :q1  's0q1  :q2  's0q2  :q3  's0q3
+       :q4  's0q4  :q5  's0q5  :q6  's0q6  :q7  's0q7
+       :q8  's0q8  :q9  's0q9  :q10 's0q10 :q11 's0q11
+       :q12 's0q12 :q13 's0q13 :q14 's0q14 :q15 's0q15
+       :q16 's0q16 :q17 's0q17 :q18 's0q18 :q19 's0q19
+       :q20 's0q20 :q21 's0q21 :q22 's0q22 :q23 's0q23
+       :q24 's0q24 :q25 's0q25 :q26 's0q26 :q27 's0q27
+       :q28 's0q28 :q29 's0q29 :q30 's0q30 :q31 's0q31]
+
+      ;; Stage 1: s0q* -> s1q*
+      ['register-32bit 'reg1 :clk 'clk
+       :d0  's0q0  :d1  's0q1  :d2  's0q2  :d3  's0q3
+       :d4  's0q4  :d5  's0q5  :d6  's0q6  :d7  's0q7
+       :d8  's0q8  :d9  's0q9  :d10 's0q10 :d11 's0q11
+       :d12 's0q12 :d13 's0q13 :d14 's0q14 :d15 's0q15
+       :d16 's0q16 :d17 's0q17 :d18 's0q18 :d19 's0q19
+       :d20 's0q20 :d21 's0q21 :d22 's0q22 :d23 's0q23
+       :d24 's0q24 :d25 's0q25 :d26 's0q26 :d27 's0q27
+       :d28 's0q28 :d29 's0q29 :d30 's0q30 :d31 's0q31
+       :q0  's1q0  :q1  's1q1  :q2  's1q2  :q3  's1q3
+       :q4  's1q4  :q5  's1q5  :q6  's1q6  :q7  's1q7
+       :q8  's1q8  :q9  's1q9  :q10 's1q10 :q11 's1q11
+       :q12 's1q12 :q13 's1q13 :q14 's1q14 :q15 's1q15
+       :q16 's1q16 :q17 's1q17 :q18 's1q18 :q19 's1q19
+       :q20 's1q20 :q21 's1q21 :q22 's1q22 :q23 's1q23
+       :q24 's1q24 :q25 's1q25 :q26 's1q26 :q27 's1q27
+       :q28 's1q28 :q29 's1q29 :q30 's1q30 :q31 's1q31]
+
+      ;; Stage 2: s1q* -> s2q*
+      ['register-32bit 'reg2 :clk 'clk
+       :d0  's1q0  :d1  's1q1  :d2  's1q2  :d3  's1q3
+       :d4  's1q4  :d5  's1q5  :d6  's1q6  :d7  's1q7
+       :d8  's1q8  :d9  's1q9  :d10 's1q10 :d11 's1q11
+       :d12 's1q12 :d13 's1q13 :d14 's1q14 :d15 's1q15
+       :d16 's1q16 :d17 's1q17 :d18 's1q18 :d19 's1q19
+       :d20 's1q20 :d21 's1q21 :d22 's1q22 :d23 's1q23
+       :d24 's1q24 :d25 's1q25 :d26 's1q26 :d27 's1q27
+       :d28 's1q28 :d29 's1q29 :d30 's1q30 :d31 's1q31
+       :q0  's2q0  :q1  's2q1  :q2  's2q2  :q3  's2q3
+       :q4  's2q4  :q5  's2q5  :q6  's2q6  :q7  's2q7
+       :q8  's2q8  :q9  's2q9  :q10 's2q10 :q11 's2q11
+       :q12 's2q12 :q13 's2q13 :q14 's2q14 :q15 's2q15
+       :q16 's2q16 :q17 's2q17 :q18 's2q18 :q19 's2q19
+       :q20 's2q20 :q21 's2q21 :q22 's2q22 :q23 's2q23
+       :q24 's2q24 :q25 's2q25 :q26 's2q26 :q27 's2q27
+       :q28 's2q28 :q29 's2q29 :q30 's2q30 :q31 's2q31]
+
+      ;; Stage 3: s2q* -> s3q*
+      ['register-32bit 'reg3 :clk 'clk
+       :d0  's2q0  :d1  's2q1  :d2  's2q2  :d3  's2q3
+       :d4  's2q4  :d5  's2q5  :d6  's2q6  :d7  's2q7
+       :d8  's2q8  :d9  's2q9  :d10 's2q10 :d11 's2q11
+       :d12 's2q12 :d13 's2q13 :d14 's2q14 :d15 's2q15
+       :d16 's2q16 :d17 's2q17 :d18 's2q18 :d19 's2q19
+       :d20 's2q20 :d21 's2q21 :d22 's2q22 :d23 's2q23
+       :d24 's2q24 :d25 's2q25 :d26 's2q26 :d27 's2q27
+       :d28 's2q28 :d29 's2q29 :d30 's2q30 :d31 's2q31
+       :q0  's3q0  :q1  's3q1  :q2  's3q2  :q3  's3q3
+       :q4  's3q4  :q5  's3q5  :q6  's3q6  :q7  's3q7
+       :q8  's3q8  :q9  's3q9  :q10 's3q10 :q11 's3q11
+       :q12 's3q12 :q13 's3q13 :q14 's3q14 :q15 's3q15
+       :q16 's3q16 :q17 's3q17 :q18 's3q18 :q19 's3q19
+       :q20 's3q20 :q21 's3q21 :q22 's3q22 :q23 's3q23
+       :q24 's3q24 :q25 's3q25 :q26 's3q26 :q27 's3q27
+       :q28 's3q28 :q29 's3q29 :q30 's3q30 :q31 's3q31]
+
+      ;; Stage 4: s3q* -> s4q*
+      ['register-32bit 'reg4 :clk 'clk
+       :d0  's3q0  :d1  's3q1  :d2  's3q2  :d3  's3q3
+       :d4  's3q4  :d5  's3q5  :d6  's3q6  :d7  's3q7
+       :d8  's3q8  :d9  's3q9  :d10 's3q10 :d11 's3q11
+       :d12 's3q12 :d13 's3q13 :d14 's3q14 :d15 's3q15
+       :d16 's3q16 :d17 's3q17 :d18 's3q18 :d19 's3q19
+       :d20 's3q20 :d21 's3q21 :d22 's3q22 :d23 's3q23
+       :d24 's3q24 :d25 's3q25 :d26 's3q26 :d27 's3q27
+       :d28 's3q28 :d29 's3q29 :d30 's3q30 :d31 's3q31
+       :q0  's4q0  :q1  's4q1  :q2  's4q2  :q3  's4q3
+       :q4  's4q4  :q5  's4q5  :q6  's4q6  :q7  's4q7
+       :q8  's4q8  :q9  's4q9  :q10 's4q10 :q11 's4q11
+       :q12 's4q12 :q13 's4q13 :q14 's4q14 :q15 's4q15
+       :q16 's4q16 :q17 's4q17 :q18 's4q18 :q19 's4q19
+       :q20 's4q20 :q21 's4q21 :q22 's4q22 :q23 's4q23
+       :q24 's4q24 :q25 's4q25 :q26 's4q26 :q27 's4q27
+       :q28 's4q28 :q29 's4q29 :q30 's4q30 :q31 's4q31]
+
+      ;; Stage 5: s4q* -> s5q*
+      ['register-32bit 'reg5 :clk 'clk
+       :d0  's4q0  :d1  's4q1  :d2  's4q2  :d3  's4q3
+       :d4  's4q4  :d5  's4q5  :d6  's4q6  :d7  's4q7
+       :d8  's4q8  :d9  's4q9  :d10 's4q10 :d11 's4q11
+       :d12 's4q12 :d13 's4q13 :d14 's4q14 :d15 's4q15
+       :d16 's4q16 :d17 's4q17 :d18 's4q18 :d19 's4q19
+       :d20 's4q20 :d21 's4q21 :d22 's4q22 :d23 's4q23
+       :d24 's4q24 :d25 's4q25 :d26 's4q26 :d27 's4q27
+       :d28 's4q28 :d29 's4q29 :d30 's4q30 :d31 's4q31
+       :q0  's5q0  :q1  's5q1  :q2  's5q2  :q3  's5q3
+       :q4  's5q4  :q5  's5q5  :q6  's5q6  :q7  's5q7
+       :q8  's5q8  :q9  's5q9  :q10 's5q10 :q11 's5q11
+       :q12 's5q12 :q13 's5q13 :q14 's5q14 :q15 's5q15
+       :q16 's5q16 :q17 's5q17 :q18 's5q18 :q19 's5q19
+       :q20 's5q20 :q21 's5q21 :q22 's5q22 :q23 's5q23
+       :q24 's5q24 :q25 's5q25 :q26 's5q26 :q27 's5q27
+       :q28 's5q28 :q29 's5q29 :q30 's5q30 :q31 's5q31]
+
+      ;; Stage 6: s5q* -> s6q*
+      ['register-32bit 'reg6 :clk 'clk
+       :d0  's5q0  :d1  's5q1  :d2  's5q2  :d3  's5q3
+       :d4  's5q4  :d5  's5q5  :d6  's5q6  :d7  's5q7
+       :d8  's5q8  :d9  's5q9  :d10 's5q10 :d11 's5q11
+       :d12 's5q12 :d13 's5q13 :d14 's5q14 :d15 's5q15
+       :d16 's5q16 :d17 's5q17 :d18 's5q18 :d19 's5q19
+       :d20 's5q20 :d21 's5q21 :d22 's5q22 :d23 's5q23
+       :d24 's5q24 :d25 's5q25 :d26 's5q26 :d27 's5q27
+       :d28 's5q28 :d29 's5q29 :d30 's5q30 :d31 's5q31
+       :q0  's6q0  :q1  's6q1  :q2  's6q2  :q3  's6q3
+       :q4  's6q4  :q5  's6q5  :q6  's6q6  :q7  's6q7
+       :q8  's6q8  :q9  's6q9  :q10 's6q10 :q11 's6q11
+       :q12 's6q12 :q13 's6q13 :q14 's6q14 :q15 's6q15
+       :q16 's6q16 :q17 's6q17 :q18 's6q18 :q19 's6q19
+       :q20 's6q20 :q21 's6q21 :q22 's6q22 :q23 's6q23
+       :q24 's6q24 :q25 's6q25 :q26 's6q26 :q27 's6q27
+       :q28 's6q28 :q29 's6q29 :q30 's6q30 :q31 's6q31]
+
+      ;; Stage 7: s6q* -> final outputs q*
+      ['register-32bit 'reg7 :clk 'clk
+       :d0  's6q0  :d1  's6q1  :d2  's6q2  :d3  's6q3
+       :d4  's6q4  :d5  's6q5  :d6  's6q6  :d7  's6q7
+       :d8  's6q8  :d9  's6q9  :d10 's6q10 :d11 's6q11
+       :d12 's6q12 :d13 's6q13 :d14 's6q14 :d15 's6q15
+       :d16 's6q16 :d17 's6q17 :d18 's6q18 :d19 's6q19
+       :d20 's6q20 :d21 's6q21 :d22 's6q22 :d23 's6q23
+       :d24 's6q24 :d25 's6q25 :d26 's6q26 :d27 's6q27
+       :d28 's6q28 :d29 's6q29 :d30 's6q30 :d31 's6q31
+       :q0  'q0  :q1  'q1  :q2  'q2  :q3  'q3
+       :q4  'q4  :q5  'q5  :q6  'q6  :q7  'q7
+       :q8  'q8  :q9  'q9  :q10 'q10 :q11 'q11
+       :q12 'q12 :q13 'q13 :q14 'q14 :q15 'q15
+       :q16 'q16 :q17 'q17 :q18 'q18 :q19 'q19
+       :q20 'q20 :q21 'q21 :q22 'q22 :q23 'q23
+       :q24 'q24 :q25 'q25 :q26 'q26 :q27 'q27
+       :q28 'q28 :q29 'q29 :q30 'q30 :q31 'q31]]))
+
+;; Monitor final outputs (reg7 outputs)
+(Monitor 'q0  'q1  'q2  'q3  'q4  'q5  'q6  'q7
+         'q8  'q9  'q10 'q11 'q12 'q13 'q14 'q15
+         'q16 'q17 'q18 'q19 'q20 'q21 'q22 'q23
+         'q24 'q25 'q26 'q27 'q28 'q29 'q30 'q31)
+
+;; Pattern 1: even bits = 1, odd bits = 0
+(defn add-p1 [time-val]
+  (AddEvents
+    {:time time-val :node 'd0  :value 1} {:time time-val :node 'd1  :value 0}
+    {:time time-val :node 'd2  :value 1} {:time time-val :node 'd3  :value 0}
+    {:time time-val :node 'd4  :value 1} {:time time-val :node 'd5  :value 0}
+    {:time time-val :node 'd6  :value 1} {:time time-val :node 'd7  :value 0}
+    {:time time-val :node 'd8  :value 1} {:time time-val :node 'd9  :value 0}
+    {:time time-val :node 'd10 :value 1} {:time time-val :node 'd11 :value 0}
+    {:time time-val :node 'd12 :value 1} {:time time-val :node 'd13 :value 0}
+    {:time time-val :node 'd14 :value 1} {:time time-val :node 'd15 :value 0}
+    {:time time-val :node 'd16 :value 1} {:time time-val :node 'd17 :value 0}
+    {:time time-val :node 'd18 :value 1} {:time time-val :node 'd19 :value 0}
+    {:time time-val :node 'd20 :value 1} {:time time-val :node 'd21 :value 0}
+    {:time time-val :node 'd22 :value 1} {:time time-val :node 'd23 :value 0}
+    {:time time-val :node 'd24 :value 1} {:time time-val :node 'd25 :value 0}
+    {:time time-val :node 'd26 :value 1} {:time time-val :node 'd27 :value 0}
+    {:time time-val :node 'd28 :value 1} {:time time-val :node 'd29 :value 0}
+    {:time time-val :node 'd30 :value 1} {:time time-val :node 'd31 :value 0}))
+
+;; Pattern 2: even bits = 0, odd bits = 1
+(defn add-p2 [time-val]
+  (AddEvents
+    {:time time-val :node 'd0  :value 0} {:time time-val :node 'd1  :value 1}
+    {:time time-val :node 'd2  :value 0} {:time time-val :node 'd3  :value 1}
+    {:time time-val :node 'd4  :value 0} {:time time-val :node 'd5  :value 1}
+    {:time time-val :node 'd6  :value 0} {:time time-val :node 'd7  :value 1}
+    {:time time-val :node 'd8  :value 0} {:time time-val :node 'd9  :value 1}
+    {:time time-val :node 'd10 :value 0} {:time time-val :node 'd11 :value 1}
+    {:time time-val :node 'd12 :value 0} {:time time-val :node 'd13 :value 1}
+    {:time time-val :node 'd14 :value 0} {:time time-val :node 'd15 :value 1}
+    {:time time-val :node 'd16 :value 0} {:time time-val :node 'd17 :value 1}
+    {:time time-val :node 'd18 :value 0} {:time time-val :node 'd19 :value 1}
+    {:time time-val :node 'd20 :value 0} {:time time-val :node 'd21 :value 1}
+    {:time time-val :node 'd22 :value 0} {:time time-val :node 'd23 :value 1}
+    {:time time-val :node 'd24 :value 0} {:time time-val :node 'd25 :value 1}
+    {:time time-val :node 'd26 :value 0} {:time time-val :node 'd27 :value 1}
+    {:time time-val :node 'd28 :value 0} {:time time-val :node 'd29 :value 1}
+    {:time time-val :node 'd30 :value 0} {:time time-val :node 'd31 :value 1}))
+
+;; Data events: alternate patterns every 10 time steps for 900 steps (90 changes)
+(defn setup-simulation []
+  (loop [k 0]
+    (if (< k 90)
+      (do (if (= (mod k 2) 0) (add-p1 (* k 10)) (add-p2 (* k 10)))
+          (recur (+ k 1)))))
+
+  ;; Clock events: high at 3+10k, low at 8+10k, for k=0..89
+  (loop [k 0]
+    (if (< k 90)
+      (do (AddEvents {:time (+ 3 (* k 10)) :node 'clk :value 1}
+                     {:time (+ 8 (* k 10)) :node 'clk :value 0})
+          (recur (+ k 1))))))
+
+(setup-simulation)
+
+;; Run simulation
+(defn run-bench []
+  (RunLSim 'top8x32 900))

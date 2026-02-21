@@ -1,94 +1,81 @@
 ;;; =============================================================================
-;;; Compliance Module - Trade validation with predicate dispatch
+;;; Compliance Module - Trade validation
 ;;; =============================================================================
 
 (in-package "compliance"
-  ;; Export the public API
-  (:export <trade> validate-trade trade-symbol trade-amount trade-price trade-side)
+  (:export <trade> validate-trade trade-symbol trade-amount trade-price trade-side))
 
-  ;; 1. Define the Trade class
-  ;;    Inherits from <persistent-object> for immutability
-  (defclass <trade> [<persistent-object>]
-    [[symbol :initarg :symbol :accessor trade-symbol]
-     [amount :initarg :amount :accessor trade-amount]
-     [price  :initarg :price  :accessor trade-price]
-     [side   :initarg :side   :accessor trade-side]]) ; :buy or :sell
+;; 1. Define the Trade class
+(defclass <trade> []
+  [[symbol :initarg :symbol :accessor trade-symbol]
+   [amount :initarg :amount :accessor trade-amount]
+   [price  :initarg :price  :accessor trade-price]
+   [side   :initarg :side   :accessor trade-side]])
 
-  (defn trade-total-price [trade]
-    (* (trade-price trade) (trade-amount trade)))
+(defn trade-total-price [trade]
+  (* (trade-price trade) (trade-amount trade)))
 
-  ;; 2. Define custom predicates for business logic
-  ;;    These functions return true/false based on the trade object
-  (defn restricted-symbol?
-      ([(trade (-> (trade-symbol) (#{'AMZN 'GOOG 'META 'MSFT})))] t)
-      ([trade] nil))
+;; 2. Define custom predicates
+(defn restricted-symbol? [trade]
+  (contains? #{:AMZN :GOOG :META :MSFT} (trade-symbol trade)))
 
-  (defn high-value?
-      ([(trade (-> (trade-total-price) (> 1000000.00)))] t)
-      ([trade] nil))
+(defn high-value? [trade]
+  (> (trade-total-price trade) 1000000.00))
 
-  (defn is-buy-side-trade?
-      ([(trade (-> (trade-side) (= :buy)))] t)
-      ([trade] nil))
+(defn is-buy-side-trade? [trade]
+  (= (trade-side trade) :buy))
 
-  (defn is-penny-stock?
-      ([(trade (-> (trade-price) (< 5.00)))] t)
-      ([trade] nil))
+(defn is-penny-stock? [trade]
+  (< (trade-price trade) 5.00))
 
-  (defn penny-stock-buy? [trade]
-    (and (is-buy-side-trade? trade) (is-penny-stock? trade)))
+(defn penny-stock-buy? [trade]
+  (and (is-buy-side-trade? trade) (is-penny-stock? trade)))
 
-  ;; 3. Define the generic function for compliance checking
-  (defgeneric validate-trade [trade])
-
-  ;; 4. Define methods using Predicate Specializers
-  ;;    Syntax: (var predicate-fn)
-  (defmethod validate-trade
-      ;; Rule 1: Block restricted symbols immediately
-      ([(trd (restricted-symbol?))]
-          [:status :rejected
-           :reason (str "Symbol " (trade-symbol trd) " is on the restricted list")])
-      ;; Rule 2: Flag high value trades for manual review
-      ([(trd (high-value?))]
-          [:status :manual-review
-           :reason "Trade value exceeds $1M limit"])
-      ;; Rule 3: Warn on penny stock purchases
-      ([(trd (penny-stock-buy?))]
-          [:status :warning
+(defn validate-trade [trd]
+  (cond
+    ((restricted-symbol? trd)
+     (make '<list> :status :rejected
+           :reason (str "Symbol " (trade-symbol trd) " is on the restricted list")))
+    ((high-value? trd)
+     (make '<list> :status :manual-review
+           :reason "Trade value exceeds $1M limit"))
+    ((penny-stock-buy? trd)
+     (make '<list> :status :warning
            :reason "High risk penny stock purchase"
-           :trade trd])
-      ;; Rule 4: Standard approval (Catch-all)
-      ([trd]
-          [:status :approved
-           :id (gensym "TRD")])))
+           :trade trd))
+    (:else
+     (make '<list> :status :approved
+           :id (gensym "TRD")))))
 
 ;;; =============================================================================
-;;; Test Module - Tests for the compliance system
+;;; Test Module
 ;;; =============================================================================
 
 (in-package "test-compliance"
-  ;; Import the compliance module
-  (:use :cl "compliance")
+  (:use "cl" "compliance"))
 
-  (defun compliance ()
-    ;; Create test trades
-    (def t1 (make '<trade> :symbol 'NU :amount 100 :price 18.00 :side :buy))
-    (def t2 (make '<trade> :symbol 'GOOG :amount 50 :price 150.00 :side :sell))
-    (def t3 (make '<trade> :symbol 'IBM  :amount 10000 :price 150.00 :side :buy))
-    (def t4 (make '<trade> :symbol 'F :amount 1000 :price 12.00 :side :buy))
+(defn compliance []
+  ;; Create test trades
+  (bind [t1 (make '<trade> :symbol :NU :amount 100 :price 18.00 :side :buy)
+         t2 (make '<trade> :symbol :GOOG :amount 50 :price 150.00 :side :sell)
+         t3 (make '<trade> :symbol :IBM  :amount 10000 :price 150.00 :side :buy)
+         t4 (make '<trade> :symbol :F :amount 1000 :price 12.00 :side :buy)]
 
     ;; Run tests
-    (print (str "T1: " (validate-trade t1)))
-    ;; => T1: [:status :approved :id TRD123]
+    (println (str "T1: " (validate-trade t1)))
+    (println (str "T2: " (validate-trade t2)))
+    (println (str "T3: " (validate-trade t3)))
+    (println (str "T4: " (validate-trade t4)))))
 
-    (print (str "T2: " (validate-trade t2)))
-    ;; => T2: [:status :rejected :reason "Symbol GOOG is on the restricted list"]
-
-    (print (str "T3: " (validate-trade t3)))
-    ;; => T3: []:status :manual-review :reason "Trade value exceeds $1M limit"]
-
-    (print (str "T4: " (validate-trade t4)))))
-    ;; => T4: []:status :warning :reason "High risk penny stock purchase" :trade #<TRADE {10053B2983}>]
-
-  (compliance)
-
+(defn run-bench []
+  (bind [t1 (make '<trade> :symbol :NU :amount 100 :price 18.00 :side :buy)
+         t2 (make '<trade> :symbol :GOOG :amount 50 :price 150.00 :side :sell)
+         t3 (make '<trade> :symbol :IBM  :amount 10000 :price 150.00 :side :buy)
+         t4 (make '<trade> :symbol :F :amount 1000 :price 12.00 :side :buy)]
+    (loop [i 0]
+      (if (< i 1000)
+          (do (validate-trade t1)
+              (validate-trade t2)
+              (validate-trade t3)
+              (validate-trade t4)
+              (recur (+ i 1)))))))

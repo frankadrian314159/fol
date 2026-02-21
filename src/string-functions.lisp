@@ -20,7 +20,7 @@
                 (string arg)
                 (character (string arg))
                 (null "")
-                (t (prin1-to-string arg))))
+                (t (princ-to-string arg))))
         args)))
 
 (defun size (s)

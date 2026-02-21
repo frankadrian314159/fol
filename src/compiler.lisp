@@ -339,31 +339,35 @@
    Each clause is a list starting with a param vector."
   (destructuring-bind (op name &rest args) form
     (declare (ignore op))
-    (labels ((parse-clause (clause)
-                           "Parse a single clause (list starting with a param vector) into (params . body-nodes)."
-                           (destructuring-bind (params &rest body) clause
-                             (cons params (mapcar #'parse-form body))))
-             (multi-clause-p (forms)
-                             "Check if FORMS looks like multi-clause: each is a list whose car is a vector."
-                             (and (>= (length forms) 1)
-                                  (listp (first forms))
-                                  (not (null (first forms)))
-                                  (fol-vector-p (first (first forms))))))
-      (cond
-       ;; Single clause: (defmethod name [params] body ...)
-       ((and (>= (length args) 1)
-             (fol-vector-p (first args)))
-         (fol.compiler.ast:make-defmethod-node
-           :name name
-           :clauses (list (cons (first args) (mapcar #'parse-form (rest args))))
-           :form form))
-       ;; Multi-clause: (defmethod name ([p1] b1 ...) ([p2] b2 ...) ...)
-       ((multi-clause-p args)
-         (fol.compiler.ast:make-defmethod-node
-           :name name
-           :clauses (mapcar #'parse-clause args)
-           :form form))
-       (t (error "Invalid defmethod form: ~S" form))))))
+    (let* ((qualifier (if (cl:keywordp (cl:first args)) (cl:first args) cl:nil))
+           (real-args (if qualifier (cl:rest args) args)))
+      (labels ((parse-clause (clause)
+                             "Parse a single clause (list starting with a param vector) into (params . body-nodes)."
+                             (destructuring-bind (params &rest body) clause
+                               (cons params (mapcar #'parse-form body))))
+               (multi-clause-p (forms)
+                               "Check if FORMS looks like multi-clause: each is a list whose car is a vector."
+                               (and (>= (length forms) 1)
+                                    (listp (first forms))
+                                    (not (null (first forms)))
+                                    (fol-vector-p (first (first forms))))))
+        (cond
+         ;; Single clause: (defmethod name [params] body ...)
+         ((and (>= (length real-args) 1)
+               (fol-vector-p (first real-args)))
+           (fol.compiler.ast:make-defmethod-node
+             :name name
+             :qualifier qualifier
+             :clauses (list (cons (first real-args) (mapcar #'parse-form (rest real-args))))
+             :form form))
+         ;; Multi-clause: (defmethod name ([p1] b1 ...) ([p2] b2 ...) ...)
+         ((multi-clause-p real-args)
+           (fol.compiler.ast:make-defmethod-node
+             :name name
+             :qualifier qualifier
+             :clauses (mapcar #'parse-clause real-args)
+             :form form))
+         (t (error "Invalid defmethod form: ~S" form)))))))
 
 (defun parse-def (form)
   "Parse a def form: (def name value) or (def name).
@@ -904,19 +908,36 @@
   "Set of symbols that should be declared SPECIAL in the current function scope.
    Used to silence warnings for dynamic variable usage and late-bound functions.")
 
+(defvar *file-function-defs* nil
+  "List of symbols defined as functions (defn/defgeneric) in the current compilation unit.
+   Used by emit-symbol-ref to emit function-namespace references for Lisp-1 compatibility.
+   Bound by compile-file; nil during individual compile-form calls.")
+
 (defun emit-literal (node)
   "Emit a literal value. Self-evaluating forms compile to themselves."
   (fol.compiler.ast:literal-node-value node))
 
 (defun emit-symbol-ref (node)
   "Emit a symbol reference. Compiles to the CL symbol itself.
-   Tracks non-lexical symbols for SPECIAL declarations."
+   Tracks non-lexical symbols for SPECIAL declarations.
+   For symbols known to be function definitions (defn/defgeneric) in the
+   current compilation unit, emits (cl:function name) for Lisp-1 compatibility."
   (let ((name (fol.compiler.ast:symbol-ref-node-name node)))
-    (unless (or (cl:member name *lexical-vars*)
-                (cl:constantp name)
-                (cl:eq (cl:symbol-package name) (cl:find-package :cl)))
-      (pushnew name *extra-special-vars*))
-    name))
+    (cond
+      ;; Lexical variables: always in value namespace
+      ((cl:member name *lexical-vars*) name)
+      ;; Constants (T, NIL, keywords, etc.): self-evaluating
+      ((cl:constantp name) name)
+      ;; CL package symbols: use as-is
+      ((cl:eq (cl:symbol-package name) (cl:find-package :cl))
+       name)
+      ;; Known function def in current file: emit #'name for Lisp-1 compatibility
+      ((cl:member name *file-function-defs* :test #'cl:string=)
+       `(cl:function ,name))
+      ;; Default: emit bare symbol, track for SPECIAL declaration
+      (t
+       (pushnew name *extra-special-vars*)
+       name))))
 
 (defun emit-call (node)
   "Emit a function call node.
@@ -951,7 +972,7 @@
           `(let ((,gop ,(emit-node operator)))
              (cond
                ((functionp ,gop) (funcall ,gop ,@emitted-args))
-               ,@(when emitted-args
+               ,@(when (cl:and emitted-args (cl:<= (cl:length emitted-args) 2))
                    `(((typep ,gop 'fol.compiler.collections:<dict>)
                       (fol.compiler.collection-functions:get ,gop ,@emitted-args))
                      ((typep ,gop 'fol.compiler.collections:<vector>)
@@ -991,7 +1012,7 @@
                      (let ((,gval ,sym))
                        (cl:cond
                         ((cl:functionp ,gval) (cl:funcall ,gval ,@emitted-args))
-                        ,@(when emitted-args
+                        ,@(when (cl:and emitted-args (cl:<= (cl:length emitted-args) 2))
                             `(((cl:typep ,gval 'fol.compiler.collections:<dict>)
                                (fol.compiler.collection-functions:get ,gval ,@emitted-args))
                               ((cl:typep ,gval 'fol.compiler.collections:<vector>)
@@ -1454,6 +1475,38 @@
          (emitted-body (mapcar #'emit-node body)))
     `(cl:defmacro ,name ,cl-lambda-list ,@emitted-body)))
 
+(defun emit-initform (value)
+  "Convert a FOL initform value to a CL form that produces it.
+   FOL collections from the reader need constructor calls since they
+   cannot be printed readably in standard CL syntax."
+  (cond
+    ((typep value 'fol.compiler.collections:<vector>)
+     (let ((elts (fol.compiler.collections:collection-seq value)))
+       `(fol.compiler.collection-functions:vector ,@elts)))
+    ((typep value 'fol.compiler.collections:<dict>)
+     (let ((pairs nil))
+       (dolist (entry (fol.compiler.collections:collection-seq value))
+         (push (cdr entry) pairs)
+         (push (car entry) pairs))
+       `(fol.compiler.collection-functions:dict ,@pairs)))
+    ((typep value 'fol.compiler.collections:<set>)
+     (let ((elts (fol.compiler.collections:collection-seq value)))
+       `(fol.compiler.collection-functions:set ,@elts)))
+    (t value)))
+
+(defun emit-slot-spec (slot-spec)
+  "Process a slot-spec, converting FOL collection initforms to CL constructor forms."
+  (let ((initform-pos (position :initform slot-spec)))
+    (if (and initform-pos (< (1+ initform-pos) (length slot-spec)))
+        (let* ((initform-val (nth (1+ initform-pos) slot-spec))
+               (emitted (emit-initform initform-val)))
+          (if (eq emitted initform-val)
+              slot-spec
+              (let ((result (copy-list slot-spec)))
+                (setf (nth (1+ initform-pos) result) emitted)
+                result)))
+        slot-spec)))
+
 (defun emit-defclass (node)
   "Emit a defclass node as CL defclass with persistent object support.
    All FOL classes inherit from <persistent-object> and use the persistent-class metaclass.
@@ -1495,23 +1548,21 @@
           (loop for slot in slots
                 for slot-spec = (if (listp slot) slot (list slot))
                 for accessor = (getf (rest slot-spec) :accessor)
-                collect (if accessor
-                            ;; Remove :accessor pair from slot spec
-                            (let ((result (copy-list slot-spec)))
-                              (remf (cdr result) :accessor)
-                              result)
-                            slot-spec))))
+                for processed = (emit-slot-spec
+                                  (if accessor
+                                      (let ((result (copy-list slot-spec)))
+                                        (remf (cdr result) :accessor)
+                                        result)
+                                      slot-spec))
+                collect processed)))
     `(cl:progn
        (cl:defclass ,name ,effective-supers
          ,clean-slots
          (:metaclass fol.compiler.persistent:persistent-class))
-       ;; Direct accessor functions (bypass MOP for fast reads)
        ,@(loop for (sname initarg accessor storage-key) in slot-infos
                  when accessor
                collect `(cl:defun ,accessor (object)
-                          (sycamore:hash-map-find
-                            (fol.compiler.persistent::%persistent-storage object)
-                            ,storage-key)))
+                          (fol.compiler.collection-functions:get object ,storage-key)))
        ;; Constructor
        (cl:defun ,constructor-name (&key ,@(mapcar #'first slot-infos))
          (cl:make-instance ',name
@@ -1526,6 +1577,9 @@
   (let ((name (fol.compiler.ast:defgeneric-node-name node))
         (lambda-lists (fol.compiler.ast:defgeneric-node-lambda-lists node))
         (options (fol.compiler.ast:defgeneric-node-options node)))
+    ;; Track this function for Lisp-1 compatibility in compile-file
+    (when *file-function-defs*
+      (pushnew name *file-function-defs* :test #'string=))
     (if (= (length lambda-lists) 1)
         ;; Single pattern
         (let ((params (fol.compiler.destructure:strip-specializers (first lambda-lists))))
@@ -1682,15 +1736,15 @@
                                  ,@(if bindings
                                        `((let ,bindings ,@emitted-body))
                                        emitted-body)))))
-           `(cl:defun ,name ,param-syms
+           `(cl:defmethod ,name ,param-syms
               ,@(when *extra-special-vars*
                   `((cl:declare (cl:special ,@(remove-duplicates *extra-special-vars*)))))
               (cl:cond
                 ,@cond-clauses
-                (t (error "No matching method clause for ~A with arguments: ~S"
-                     ',name (list ,@param-syms))))))
+                (t (cl:error "No matching method clause for ~A with arguments: ~S"
+                     ',name (cl:list ,@param-syms))))))
         ;; &rest path for mixed arities
-        (let* ((args-sym (gensym "ARGS"))
+        (let* ((args-sym (cl:gensym "ARGS"))
                (cond-clauses
                 (loop for c in sorted
                       for arity = (getf c :arity)
@@ -1701,28 +1755,29 @@
                       for body-nodes = (getf c :body-nodes)
                       for check = (fol.compiler.destructure:emit-clause-pattern-check
                                     signature arity has-rest args-sym)
-                      for bindings = (append
+                      for bindings = (cl:append
                                        (fol.compiler.destructure:emit-param-bindings
                                          stripped args-sym)
                                        (fol.compiler.destructure:emit-rest-param-binding
                                          rest-param arity args-sym))
                       for emitted-body = (mapcar #'emit-node body-nodes)
                       collect `(,check
-                                 (let ,bindings
+                                 (cl:let ,bindings
                                    ,@emitted-body)))))
-           `(defun ,name (&rest ,args-sym)
+           `(cl:defmethod ,name (&rest ,args-sym)
               ,@(when *extra-special-vars*
                   `((cl:declare (cl:special ,@(remove-duplicates *extra-special-vars*)))))
-              (cond
+              (cl:cond
                ,@cond-clauses
-               (t (error "No matching method clause for ~A with ~D arguments: ~S"
-                    ',name (length ,args-sym) ,args-sym))))))))
+                (t (cl:error "No matching method clause for ~A with ~D arguments: ~S"
+                    ',name (cl:length ,args-sym) ,args-sym))))))))
 
 (defun emit-defmethod (node)
   "Emit a defmethod node as CL code.
    Single-clause with type specializers: CL defmethod.
    Multi-clause or predicate dispatch: defun with cond dispatcher."
   (let ((name (fol.compiler.ast:defmethod-node-name node))
+        (qualifier (fol.compiler.ast:defmethod-node-qualifier node))
         (clauses (fol.compiler.ast:defmethod-node-clauses node)))
        (let ((*extra-special-vars* nil))
          (if (= (length clauses) 1)
@@ -1734,6 +1789,8 @@
                     (has-specializers (some (lambda (p) (listp p)) param-list)))
                (if has-specializers
                    ;; Has type/pred specializers - emit dispatched defun
+                   ;; TODO: Dispatched methods with qualifiers? 
+                   ;; CLOS doesn't support qualifiers on random functions.
                    (compile-defmethod-clauses name clauses)
                    ;; Simple params - emit CL defmethod
                    (multiple-value-bind (regular-params rest-param)
@@ -1742,10 +1799,15 @@
                                              (append regular-params (list '&rest rest-param))
                                              regular-params))
                             (emitted-body (mapcar #'emit-node body-nodes)))
-                       `(defmethod ,name ,lambda-list
-                          ,@(when *extra-special-vars*
-                              `((cl:declare (cl:special ,@(remove-duplicates *extra-special-vars*)))))
-                          ,@emitted-body)))))
+                       (if qualifier
+                           `(defmethod ,name ,qualifier ,lambda-list
+                              ,@(when *extra-special-vars*
+                                  `((cl:declare (cl:special ,@(remove-duplicates *extra-special-vars*)))))
+                              ,@emitted-body)
+                           `(defmethod ,name ,lambda-list
+                              ,@(when *extra-special-vars*
+                                  `((cl:declare (cl:special ,@(remove-duplicates *extra-special-vars*)))))
+                              ,@emitted-body))))))
              ;; Multi-clause: emit dispatched defun
              (compile-defmethod-clauses name clauses)))))
 
@@ -1800,6 +1862,9 @@
   (let* ((name (fol.compiler.ast:defn-node-name node))
          (clauses (fol.compiler.ast:defn-node-clauses node))
          (lambda-form (compile-fn clauses)))
+    ;; Track this function for Lisp-1 compatibility in compile-file
+    (when *file-function-defs*
+      (pushnew name *file-function-defs* :test #'string=))
     ;; lambda-form is (lambda params body...)
     ;; Extract params and body to create defun
     (let ((params (second lambda-form))
@@ -2023,16 +2088,19 @@
 (defun emit-in-package (node)
   "Emit in-package node as CL defpackage option.
    Ensures fol.core is used and CL is used with conflict resolution."
-  (let ((name (fol.compiler.ast:in-package-node-name node))
+  (let ((name (cl:string-upcase (cl:string (fol.compiler.ast:in-package-node-name node))))
         (options (fol.compiler.ast:in-package-node-options node))
         (body (fol.compiler.ast:in-package-node-body node)))
     (let* ((use-opt (find :use options :key #'first))
            (other-opts (remove :use options :key #'first))
-           (use-list (if use-opt (rest use-opt) nil))
+           (use-list (if use-opt
+                         (mapcar (lambda (x) (cl:string-upcase (cl:string x)))
+                                 (rest use-opt))
+                         nil))
            ;; Ensure :fol.core and :cl are present
            (new-use-list (cons :use
                                (remove-duplicates
-                                   (append use-list '(:fol.core :cl))
+                                   (append use-list '("FOL.CORE" "CL"))
                                  :test #'string-equal)))
            ;; Calculate conflicts between FOL.CORE and CL to auto-shadow
            (conflicts (loop for s being the external-symbols of (find-package :fol.core)
@@ -2127,38 +2195,107 @@
   (let ((form (fol-read-from-string source)))
     (compile-form form)))
 
+(cl:defun collect-fol-core-symbols (form)
+  "Walk a form tree and collect all symbols interned in the FOL.CORE package.
+   Used by compile-file to import these symbols into target packages so that
+   prin1 outputs them without package qualification."
+  (cl:let ((result cl:nil)
+           (fol-core-pkg (cl:find-package :fol.core)))
+    (cl:labels ((walk (x)
+                  (cl:cond
+                    ((cl:symbolp x)
+                     (cl:when (cl:eq (cl:symbol-package x) fol-core-pkg)
+                       (cl:pushnew x result)))
+                    ((cl:consp x)
+                     (walk (cl:car x))
+                     (walk (cl:cdr x)))
+                    ((cl:vectorp x)
+                     (cl:loop for elem across x do (walk elem))))))
+      (walk form))
+    result))
+
 (defun compile-file (path &key (output nil))
   "Read and compile a FOL source file.
    If OUTPUT is given, writes the generated CL code to that path.
    Otherwise writes to a temporary .lisp file and calls CL:COMPILE-FILE.
    Returns the pathname of the compiled file (fasl)."
   (let* ((source-path (truename path))
-         (lisp-path (make-pathname :type "lisp" :defaults (if output output source-path))))
+         (lisp-path (make-pathname :type "lisp" :defaults (if output output source-path)))
+         (created-packages nil))
 
     (with-open-file (in source-path :direction :input)
       (with-open-file (out lisp-path :direction :output :if-exists :supersede)
         ;; Bind readtable and package for reading
         (let ((*readtable* *fol-readtable*)
               (*package* (find-package :fol.core))
-              (*print-circle* t))
+              (*print-circle* t)
+              (*file-function-defs* (list t)))
           ;; Emit package declaration so cl:compile-file uses correct package
           (format out "~&;;; Transpiled from ~A~%" (file-namestring source-path))
           (format out "(in-package :fol.core)~%")
 
           (loop for form = (fol-read in nil :eof)
                 until (eq form :eof)
-                do (let ((result (compile-form form)))
-                     (if (compilation-result-errors result)
-                         (error "Compilation error in ~A: ~A" path (compilation-result-errors result))
-                         (let ((code (compilation-result-code result)))
-                           (labels ((emit-flat (form)
-                                      (if (and (consp form) (eq (car form) 'cl:progn))
-                                          (mapc #'emit-flat (cdr form))
-                                          (progn
-                                            (terpri out)
-                                            (prin1 form out)
-                                            (terpri out)))))
-                             (emit-flat code)))))))))
+                do (progn
+                     (when (cl:and (cl:consp form)
+                                   (cl:symbolp (cl:car form))
+                                   (cl:string-equal (cl:symbol-name (cl:car form)) "IN-PACKAGE"))
+                       (cl:let ((raw-name (cl:second form)))
+                         (cl:when (cl:or (cl:stringp raw-name) (cl:symbolp raw-name))
+                           (cl:let ((pkg-name (cl:string-upcase (cl:string raw-name))))
+                             (cl:let ((existing (cl:find-package pkg-name)))
+                               (cl:unless existing
+                                 (cl:push pkg-name created-packages))
+                               (cl:let ((pkg (cl:or existing
+                                                    (cl:let ((new-pkg (cl:make-package pkg-name :use cl:nil)))
+                                                    ;; Shadow-import FOL.CORE symbols that conflict with CL
+                                                    (cl:let ((fol-core (cl:find-package :fol.core)))
+                                                      (cl:loop for s being the external-symbols of fol-core
+                                                               when (cl:find-symbol (cl:symbol-name s) :common-lisp)
+                                                               do (cl:shadowing-import s new-pkg))
+                                                      (cl:use-package (cl:list fol-core (cl:find-package :cl)) new-pkg))
+                                                    new-pkg))))
+                               ;; Import all fol.core symbols from this form into the new package.
+                               ;; This ensures prin1 outputs them without package qualification,
+                               ;; so at load time they resolve correctly in the target package.
+                               (cl:let ((fol-syms (collect-fol-core-symbols form)))
+                                 (cl:dolist (s fol-syms)
+                                   (cl:multiple-value-bind (existing status)
+                                       (cl:find-symbol (cl:symbol-name s) pkg)
+                                     (cl:when (cl:or (cl:null status)
+                                                     (cl:eq existing s))
+                                       (cl:import s pkg)))))
+                               ;; Export symbols from :export clause so subsequent modules inherit them
+                               (cl:let ((export-opt (cl:find-if
+                                                     (cl:lambda (x)
+                                                       (cl:and (cl:consp x)
+                                                               (cl:string-equal (cl:car x) :export)))
+                                                     (cl:cddr form))))
+                                 (cl:when export-opt
+                                   (cl:dolist (s (cl:cdr export-opt))
+                                     (cl:when (cl:symbolp s)
+                                       (cl:let ((found (cl:find-symbol (cl:symbol-name s) pkg)))
+                                         (cl:when found
+                                           (cl:export found pkg)))))))
+                               (cl:setf cl:*package* pkg)))))))
+                     (let ((result (compile-form form)))
+                       (if (compilation-result-errors result)
+                           (error "Compilation error in ~A: ~A" path (compilation-result-errors result))
+                           (let ((code (compilation-result-code result)))
+                             (labels ((emit-flat (form)
+                                        (if (and (consp form) (eq (car form) 'cl:progn))
+                                            (mapc #'emit-flat (cdr form))
+                                            (progn
+                                              (terpri out)
+                                              (prin1 form out)
+                                              (terpri out)))))
+                               (emit-flat code))))))))))
+
+    ;; Delete packages created during transpilation to avoid name-conflicts
+    ;; when cl:compile-file processes the defpackage in the generated output
+    (cl:dolist (name (cl:reverse created-packages))
+      (cl:let ((pkg (cl:find-package name)))
+        (cl:when pkg (cl:delete-package pkg))))
 
     ;; Make sure to compile the generated Lisp file
     (cl:compile-file lisp-path)))

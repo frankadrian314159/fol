@@ -1,0 +1,2 @@
+(in-package :test)
+(defn hello [x] (println x))

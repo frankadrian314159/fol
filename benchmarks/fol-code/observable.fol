@@ -1,51 +1,57 @@
-;;; =============================================================================
-;;; Observable Slots - Change notification via MOP + predicate dispatch
-;;; Demonstrates synergy: MOP metaclass + persistent functional update
-;;;   + predicate dispatch on change events
-;;; =============================================================================
+(in-package "observable"
+  (:use "fol.core")
+  (:export <sensor> on-change run-bench))
 
-(module "observable"
-  (export <sensor> on-change)
+;; Domain class
+(defclass <sensor> [<persistent-object>]
+  [[name     :initarg :name]
+   [reading  :initarg :reading  :initform 0]
+   [status   :initarg :status   :initform :normal]])
 
-  ;; Domain class
-  (defclass <sensor> [<persistent-object>]
-    [[name     :initarg :name]
-     [reading  :initarg :reading  :initform 0]
-     [status   :initarg :status   :initform :normal]])
+;; A change event is a persistent map produced by the update protocol
+(defn make-change [obj slot old-val new-val]
+  {:object obj :slot slot :old old-val :new new-val})
 
-  ;; A change event is a persistent map produced by the update protocol
-  (defn make-change [obj slot old-val new-val]
-    {:object obj :slot slot :old old-val :new new-val})
+;; Generic update that produces a change event alongside the new object
+(defn updated [obj snext new-val]
+  (bind [old-val (get obj snext)
+         new-obj (assoc obj snext new-val)]
+    {:object new-obj
+     :change (make-change obj snext old-val new-val)}))
 
-  ;; Generic update that produces a change event alongside the new object
-  (defn updated [obj slot new-val]
-    (bind [old-val (slot slot obj)
-           new-obj (assoc obj slot new-val)]
-      {:object new-obj
-       :change (make-change obj slot old-val new-val)}))
+(defn spike? [ch]
+  (bind [change (get ch :change)]
+    (and (= (get change :slot) :reading)
+         (> (- (get change :new) (get change :old)) 50))))
 
-  ;; Predicate dispatch routes change notifications by content
-  (defgeneric on-change [change])
+(defn critical? [ch]
+  (bind [change (get ch :change)]
+    (and (= (get change :slot) :status)
+         (= (get change :new) :critical))))
 
-  ;; Spike detection: reading jumps by more than 50
-  (defmethod on-change
-    ([(c (-> :change (-> :slot (= :reading)))
-         (-> :change (-> (fn [ch] (> (- (:new ch) (:old ch)) 50)))))]
-     {:alert :spike
-      :message (str "Spike detected: "
-                    (:old (:change c)) " -> " (:new (:change c)))}))
+;; Predicate dispatch routes change notifications by content
+(defgeneric on-change [change])
 
-  ;; Status transition to :critical
-  (defmethod on-change
-    ([(c (-> :change (-> :slot (= :status)))
-         (-> :change (-> :new (= :critical))))]
-     {:alert :critical
-      :message "Sensor entered critical state"}))
+(defmethod on-change
+  ([(c (spike?))]
+   {:alert :spike
+    :message (str "Spike detected: "
+                  (get (get c :change) :old) " -> " (get (get c :change) :new))})
+  ([(c (critical?))]
+   {:alert :critical
+    :message "Sensor entered critical state"})
+  ([c]
+   {:alert :info
+    :message (str "Slot " (get (get c :change) :slot)
+                  " changed: " (get (get c :change) :old)
+                  " -> " (get (get c :change) :new))}))
 
-  ;; Default: log the change
-  (defmethod on-change
-    ([c]
-     {:alert :info
-      :message (str "Slot " (:slot (:change c))
-                    " changed: " (:old (:change c))
-                    " -> " (:new (:change c)))})))
+(defn run-bench [iterations]
+  (bind [sensor (make '<sensor> :name "S1" :reading 0 :status :normal)]
+    (loop [i 0 s sensor]
+      (if (< i iterations)
+        (bind [val (if (= (mod i 100) 0) 60 1)
+               res (updated s :reading (+ (get s :reading) val))]
+          (on-change res)
+          (recur (inc i) (get res :object)))
+        s))))

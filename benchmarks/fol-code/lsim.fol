@@ -1,317 +1,191 @@
-;; Electrical Netlist DSL for FOL
-;; Allows defining hierarchical components and expanding them into a flat netlist.
+(in-package "lsim"
+  (:export register-module get-module <component> <module-def> <logic-component>
+           compute-next-state register-primitive get-primitive defpart 
+           expand-netlist expand-spec run-simulation Monitor Events AddEvents RunLSim DisplayLSim))
 
-;; -----------------------------------------------------------------------------
-;; 1. Global Registry
-;; -----------------------------------------------------------------------------
+;; Electrical Netlist DSL for FOL
 
 (def *circuit-modules* (atom {}))
 
 (defn register-module [name def]
-  (swap! *circuit-modules* assoc name def))
+  (swap! *circuit-modules* (fn [m] (assoc m name def))))
 
 (defn get-module [name]
   (get @*circuit-modules* name))
 
-;; -----------------------------------------------------------------------------
-;; 2. Domain Classes
-;; -----------------------------------------------------------------------------
-
 (defclass <component> [<persistent-object>]
-  [[name :initarg :name :accessor component-name]
-   [type :initarg :type :accessor component-type]
-   [connections :initarg :connections :accessor component-connections]])
+  [[name :initarg :name] [type :initarg :type] [connections :initarg :connections]])
+
+(defn component-name [obj] (get obj :name))
+(defn component-type [obj] (get obj :type))
+(defn component-connections [obj] (get obj :connections))
 
 (defclass <module-def> [<persistent-object>]
-  [[name :initarg :name :accessor module-name]
-   [ports :initarg :ports :accessor module-ports]
-   [body :initarg :body :accessor module-body]])
+  [[name :initarg :name] [ports :initarg :ports] [body :initarg :body]])
 
-(defclass <logic-component> [<component>]
-  [[inputs :initarg :inputs :accessor component-inputs]
-   [outputs :initarg :outputs :accessor component-outputs]
-   [delays :initarg :delays :accessor component-delays]
-   [logic-fn :initarg :logic-fn :accessor component-logic-fn]])
+(defn module-name [obj] (get obj :name))
+(defn module-ports [obj] (get obj :ports))
+(defn module-body [obj] (get obj :body))
 
-(defgeneric compute-next-state [comp input-states changed-inputs])
+(defclass <logic-component> [<component> <persistent-object>]
+  [[inputs :initarg :inputs] [outputs :initarg :outputs] [delays :initarg :delays] [logic-fn :initarg :logic-fn]])
 
-(defmethod compute-next-state [(comp <logic-component>) input-states changed-inputs]
+(defn component-inputs [obj] (get obj :inputs))
+(defn component-outputs [obj] (get obj :outputs))
+(defn component-delays [obj] (get obj :delays))
+(defn component-logic-fn [obj] (get obj :logic-fn))
+
+(defn compute-next-state [comp input-states changed-inputs]
   (bind [logic-fn (component-logic-fn comp)
          delays (component-delays comp)
          new-states (logic-fn input-states)]
     (map (fn [out-port]
            (bind [delay (reduce (fn [max-d in-port]
                                   (bind [d (get (get delays in-port) out-port)]
-                                    (if (and d (> d max-d)) d max-d)))
-                                0
-                                changed-inputs)]
-             {:port out-port 
-              :value (get new-states out-port) 
-              :delay delay}))
+                                    (if d (if (> d max-d) d max-d) max-d)))
+                                0 changed-inputs)]
+             {:port out-port :value (get new-states out-port) :delay delay}))
          (component-outputs comp))))
-
-;; -----------------------------------------------------------------------------
-;; 2.5 Primitives Registry & Standard Gates
-;; -----------------------------------------------------------------------------
 
 (def *primitives* (atom {}))
 
 (defn register-primitive [name factory]
-  (swap! *primitives* assoc name factory))
+  (swap! *primitives* (fn [p] (assoc p name factory))))
 
-(defn get-primitive [name]
-  (get @*primitives* name))
+(defn get-primitive [type]
+  (get @*primitives* type))
 
 (register-primitive 'not
   (fn [name param conns]
-    (make <logic-component>
+    (make '<logic-component>
       :name name :type 'not :connections conns
       :inputs #{:in} :outputs #{:out}
       :delays {:in {:out 1}}
-      :logic-fn (fn [s] {:out (not (get s :in))}))))
+      :logic-fn (fn [s] {:out (bitxor (get s :in) 1)}))))
 
 (register-primitive 'nand
   (fn [name param conns]
-    (make <logic-component>
+    (make '<logic-component>
       :name name :type 'nand :connections conns
       :inputs #{:in1 :in2} :outputs #{:out}
       :delays {:in1 {:out 2} :in2 {:out 2}}
-      :logic-fn (fn [s] {:out (not (and (get s :in1) (get s :in2)))}))))
+      :logic-fn (fn [s] {:out (bitxor (bitand (get s :in1) (get s :in2)) 1)}))))
 
 (register-primitive 'nor
   (fn [name param conns]
-    (make <logic-component>
+    (make '<logic-component>
       :name name :type 'nor :connections conns
       :inputs #{:in1 :in2} :outputs #{:out}
       :delays {:in1 {:out 2} :in2 {:out 2}}
-      :logic-fn (fn [s] {:out (not (or (get s :in1) (get s :in2)))}))))
+      :logic-fn (fn [s] {:out (bitxor (bitor (get s :in1) (get s :in2)) 1)}))))
 
 (register-primitive 'and
   (fn [name param conns]
-    (make <logic-component>
+    (make '<logic-component>
       :name name :type 'and :connections conns
       :inputs #{:in1 :in2} :outputs #{:out}
       :delays {:in1 {:out 3} :in2 {:out 3}}
-      :logic-fn (fn [s] {:out (and (get s :in1) (get s :in2))}))))
+      :logic-fn (fn [s] {:out (bitand (get s :in1) (get s :in2))})) ))
 
 (register-primitive 'or
   (fn [name param conns]
-    (make <logic-component>
+    (make '<logic-component>
       :name name :type 'or :connections conns
       :inputs #{:in1 :in2} :outputs #{:out}
       :delays {:in1 {:out 3} :in2 {:out 3}}
-      :logic-fn (fn [s] {:out (or (get s :in1) (get s :in2))}))))
+      :logic-fn (fn [s] {:out (bitor (get s :in1) (get s :in2))})) ))
 
 (register-primitive 'xor
   (fn [name param conns]
-    (make <logic-component>
+    (make '<logic-component>
       :name name :type 'xor :connections conns
       :inputs #{:in1 :in2} :outputs #{:out}
       :delays {:in1 {:out 3} :in2 {:out 3}}
-      :logic-fn (fn [s] 
-                  (bind [a (get s :in1) b (get s :in2)]
-                    {:out (or (and a (not b)) (and (not a) b))})))))
+      :logic-fn (fn [s] {:out (bitxor (get s :in1) (get s :in2))})) ))
 
 (register-primitive 'xnor
   (fn [name param conns]
-    (make <logic-component>
+    (make '<logic-component>
       :name name :type 'xnor :connections conns
       :inputs #{:in1 :in2} :outputs #{:out}
       :delays {:in1 {:out 4} :in2 {:out 4}}
-      :logic-fn (fn [s] 
-                  (bind [a (get s :in1) b (get s :in2)]
-                    {:out (not (or (and a (not b)) (and (not a) b)))})))))
+      :logic-fn (fn [s] {:out (bitxor (bitxor (get s :in1) (get s :in2)) 1)}))))
 
 (register-primitive 'delay
   (fn [name param conns]
-    (bind [d (or param 0)]
-      (make <logic-component>
+    (bind [d (if param param 0)]
+      (make '<logic-component>
         :name name :type 'delay :connections conns
         :inputs #{:in} :outputs #{:out}
         :delays {:in {:out d}}
         :logic-fn (fn [s] {:out (get s :in)})))))
 
-;; -----------------------------------------------------------------------------
-;; 3. DSL Macros
-;; -----------------------------------------------------------------------------
-
-(defmacro defpart [name ports & body]
-  `(register-module ',name
-     (make <module-def>
-           :name ',name
-           :ports ',ports
-           :body ',body)))
-
-;; -----------------------------------------------------------------------------
-;; A -32-bit latch
-;; -----------------------------------------------------------------------------
-
-;; 32-bit register definition for lsim benchmark
-;; Using quoted lists instead of vectors to avoid symbol evaluation issues
-
-;; SR latch from NAND gates
-(register-module 'sr-latch
-  (make '<module-def>
-    :name 'sr-latch
-    :ports '(r s q qbar)
-    :body '((nand nand1 :in1 r :in2 qbar :out q)
-            (nand nand2 :in1 s :in2 q :out qbar))))
-
-;; D latch from SR latch
-(register-module 'd-latch
-  (make '<module-def>
-    :name 'd-latch
-    :ports '(clk d q qbar)
-    :body '((nand nand1 :in1 d :in2 clk :out s)
-            (nand nand2 :in1 s :in2 clk :out r)
-            (sr-latch latch :r r :s s :q q :qbar qbar))))
-
-;; 32-bit register from D latches
-(register-module 'register-32bit
-  (make '<module-def>
-    :name 'register-32bit
-    :ports '(clk d0 d1 d2 d3 d4 d5 d6 d7 d8 d9 d10 d11 d12 d13 d14 d15
-             d16 d17 d18 d19 d20 d21 d22 d23 d24 d25 d26 d27 d28 d29 d30 d31
-             q0 q1 q2 q3 q4 q5 q6 q7 q8 q9 q10 q11 q12 q13 q14 q15
-             q16 q17 q18 q19 q20 q21 q22 q23 q24 q25 q26 q27 q28 q29 q30 q31)
-    :body '((d-latch bit0 :clk clk :d d0 :q q0 :qbar qbar0)
-            (d-latch bit1 :clk clk :d d1 :q q1 :qbar qbar1)
-            (d-latch bit2 :clk clk :d d2 :q q2 :qbar qbar2)
-            (d-latch bit3 :clk clk :d d3 :q q3 :qbar qbar3)
-            (d-latch bit4 :clk clk :d d4 :q q4 :qbar qbar4)
-            (d-latch bit5 :clk clk :d d5 :q q5 :qbar qbar5)
-            (d-latch bit6 :clk clk :d d6 :q q6 :qbar qbar6)
-            (d-latch bit7 :clk clk :d d7 :q q7 :qbar qbar7)
-            (d-latch bit8 :clk clk :d d8 :q q8 :qbar qbar8)
-            (d-latch bit9 :clk clk :d d9 :q q9 :qbar qbar9)
-            (d-latch bit10 :clk clk :d d10 :q q10 :qbar qbar10)
-            (d-latch bit11 :clk clk :d d11 :q q11 :qbar qbar11)
-            (d-latch bit12 :clk clk :d d12 :q q12 :qbar qbar12)
-            (d-latch bit13 :clk clk :d d13 :q q13 :qbar qbar13)
-            (d-latch bit14 :clk clk :d d14 :q q14 :qbar qbar14)
-            (d-latch bit15 :clk clk :d d15 :q q15 :qbar qbar15)
-            (d-latch bit16 :clk clk :d d16 :q q16 :qbar qbar16)
-            (d-latch bit17 :clk clk :d d17 :q q17 :qbar qbar17)
-            (d-latch bit18 :clk clk :d d18 :q q18 :qbar qbar18)
-            (d-latch bit19 :clk clk :d d19 :q q19 :qbar qbar19)
-            (d-latch bit20 :clk clk :d d20 :q q20 :qbar qbar20)
-            (d-latch bit21 :clk clk :d d21 :q q21 :qbar qbar21)
-            (d-latch bit22 :clk clk :d d22 :q q22 :qbar qbar22)
-            (d-latch bit23 :clk clk :d d23 :q q23 :qbar qbar23)
-            (d-latch bit24 :clk clk :d d24 :q q24 :qbar qbar24)
-            (d-latch bit25 :clk clk :d d25 :q q25 :qbar qbar25)
-            (d-latch bit26 :clk clk :d d26 :q q26 :qbar qbar26)
-            (d-latch bit27 :clk clk :d d27 :q q27 :qbar qbar27)
-            (d-latch bit28 :clk clk :d d28 :q q28 :qbar qbar28)
-            (d-latch bit29 :clk clk :d d29 :q q29 :qbar qbar29)
-            (d-latch bit30 :clk clk :d d30 :q q30 :qbar qbar30)
-            (d-latch bit31 :clk clk :d d31 :q q31 :qbar qbar31))))
-
-;; -----------------------------------------------------------------------------
-;; 4. Expansion Logic
-;; -----------------------------------------------------------------------------
-
 (defn qualify-name [prefix name]
   (if (nil? prefix)
-    name
-    (symbol (str prefix "/" name))))
+      name
+      (symbol (str prefix "/" name))))
 
 (defn resolve-node [node-sym prefix bindings]
-  ;; If the node symbol is bound (passed from parent), use the binding.
-  ;; Otherwise, it is local to this scope, so qualify it with the prefix.
-  (if (contains? bindings node-sym)
-    (get bindings node-sym)
-    (qualify-name prefix node-sym)))
+  (bind [kw (find-keyword node-sym)]
+    (if (contains? bindings kw)
+        (get bindings kw)
+        (qualify-name prefix node-sym))))
 
 (defn parse-connections [args prefix bindings]
-  ;; args format: (:port1 node1 :port2 node2 ...)
-  ;; Returns map: {:port1 resolved-node1 ...}
   (loop [rem args
          acc {}]
     (if (empty? rem)
-      acc
-      (bind [port (first rem)
-             node-sym (second rem)
-             resolved (resolve-node node-sym prefix bindings)]
-        (recur (rest (rest rem))
-               (assoc acc port resolved))))))
+        acc
+        (bind [port (first rem)
+               node-sym (second rem)
+               resolved (resolve-node node-sym prefix bindings)]
+          (recur (rest (rest rem)) (assoc acc port resolved))))))
 
 (defn expand-spec [spec prefix bindings]
   (bind [type (first spec)
          name (second spec)
          raw-args (rest (rest spec))
-         ;; Check for optional parameter (non-keyword first arg)
-         has-param? (and (not (empty? raw-args)) 
-                         (not (keyword? (first raw-args))))
+         has-param? (and (not (empty? raw-args)) (not (<keyword>? (first raw-args))))
          param (if has-param? (first raw-args) nil)
          args (if has-param? (rest raw-args) raw-args)
-         
          full-name (qualify-name prefix name)
          resolved-conns (parse-connections args prefix bindings)
          module-def (get-module type)
          primitive-factory (get-primitive type)]
-    
     (cond
       (module-def
-       ;; It is a composite module: Expand recursively
-       (reduce (fn [acc child-spec]
-                 (concat acc (expand-spec child-spec full-name resolved-conns)))
-               []
-               (module-body module-def)))
-
+       (bind [body (module-body module-def)]
+         (reduce (fn [acc child-spec]
+                   (concat acc (expand-spec child-spec full-name resolved-conns)))
+                 [] body)))
       (primitive-factory
        [(primitive-factory full-name param resolved-conns)])
-
       (:else
-       [(make <component>
-              :name full-name
-              :type type
-              :connections resolved-conns)]))))
+       [(make '<component> :name full-name :type type :connections resolved-conns)]))))
 
 (defn expand-netlist [top-module-name]
   (bind [def (get-module top-module-name)]
     (if (nil? def)
-      (error (str "Module " top-module-name " not found"))
-      ;; For the top level, we bind ports to themselves (or global nodes)
-      (bind [top-bindings (reduce (fn [acc p] (assoc acc p p)) {} (module-ports def))]
-        (reduce (fn [acc spec]
-                  (concat acc (expand-spec spec nil top-bindings)))
-                []
-                (module-body def))))))
+        (error (str "Module " top-module-name " not found"))
+        (bind [top-bindings (reduce (fn [acc p] (assoc acc (find-keyword p) p)) {} (module-ports def))]
+          (reduce (fn [acc spec]
+                    (concat acc (expand-spec spec nil top-bindings)))
+                  [] (module-body def))))))
 
-;; -----------------------------------------------------------------------------
-;; 5. Simulation Engine
-;; -----------------------------------------------------------------------------
-
-(defgeneric register-connectivity [comp map])
-
-(defmethod register-connectivity [comp map]
-  map)
-
-(defmethod register-connectivity [(comp <logic-component>) map]
+(defn register-connectivity [comp map]
   (reduce (fn [acc port]
             (bind [node (get (component-connections comp) port)]
-              (update acc node (fn [comps] (conj (or comps []) comp)))))
-          map
-          (component-inputs comp)))
-
-(defn insert-event [queue event]
-  (if (empty? queue)
-    [event]
-    (bind [head (first queue)]
-      (if (< (:time event) (:time head))
-        (cons event queue)
-        (cons head (insert-event (rest queue) event))))))
+              (update acc node (fn [comps] (conj (if comps comps []) comp)))))
+          map (collection-seq (component-inputs comp))))
 
 (defn merge-events [queue new-events]
-  (reduce insert-event queue new-events))
+  (sort-by :time (concat queue new-events)))
 
 (defn get-input-states [comp node-values]
   (reduce (fn [acc port]
             (bind [node (get (component-connections comp) port)]
-              (assoc acc port (get node-values node))))
-          {}
-          (component-inputs comp)))
+              (assoc acc port (get node-values node 0))))
+          {} (component-inputs comp)))
 
 (defn get-changed-ports [comp changed-nodes]
   (filter (fn [port]
@@ -326,76 +200,56 @@
            event-history {}
            current-time 0]
       (if (or (empty? queue) (> current-time max-time))
-        event-history
-        (bind [event-time (:time (first queue))
-               batch (take-while (fn [x] (= (:time x) event-time)) queue)
-               remaining (drop-while (fn [x] (= (:time x) event-time)) queue)
-               
-               ;; Update state
-               updates (reduce (fn [acc evt] (assoc acc (:node evt) (:value evt))) {} batch)
-               new-node-values (merge node-values updates)
-               
-               ;; Update history
-               new-event-history (reduce (fn [acc evt]
-                                           (if (contains? monitored-nodes (:node evt))
-                                             (update acc (:node evt) 
-                                                     (fn [evts] (conj (or evts []) evt)))
-                                             acc))
-                                         event-history
-                                         batch)
-               changed-nodes (keys updates)
-               
-               ;; Find affected components
-               affected-comps (reduce (fn [acc node]
-                                        (reduce conj acc (get connectivity node)))
-                                      #{}
-                                      changed-nodes)
-               
-               ;; Compute new events (parallel processing)
-               new-events (pmapcat (fn [comp]
-                                     (bind [input-states (get-input-states comp new-node-values)
-                                            changed-ports (get-changed-ports comp (set changed-nodes))
-                                            results (compute-next-state comp input-states changed-ports)]
-                                       (map (fn [res]
-                                              {:time (+ event-time (:delay res))
-                                               :node (get (component-connections comp) (:port res))
-                                               :value (:value res)})
-                                            results)))
-                                   affected-comps)]
-          (recur (merge-events remaining new-events)
-                 new-node-values
-                 new-event-history
-                 event-time))))))
+          event-history
+          (bind [event-time (get (first queue) :time)
+                 batch (take-while (fn [x] (= (get x :time) event-time)) queue)
+                 remaining (drop-while (fn [x] (= (get x :time) event-time)) queue)
+                 updates (reduce (fn [acc evt] (assoc acc (get evt :node) (get evt :value))) {} batch)
+                 new-node-values (merge node-values updates)
+                 new-event-history (reduce (fn [acc evt]
+                                             (bind [node (get evt :node)]
+                                               (if (contains? monitored-nodes node)
+                                                   (update acc node (fn [evts] (conj (if evts evts []) evt)))
+                                                   acc)))
+                                           event-history batch)
+                 changed-nodes (reduce (fn [s k] (conj s k)) #{} (keys updates))
+                 affected-comps (reduce (fn [acc node]
+                                          (bind [comps (get connectivity node)]
+                                            (reduce (fn [a c] (conj a c)) acc comps)))
+                                        #{} changed-nodes)
+                 new-events (reduce (fn [acc comp]
+                                      (bind [input-states (get-input-states comp new-node-values)
+                                             changed-ports (get-changed-ports comp changed-nodes)
+                                             results (compute-next-state comp input-states changed-ports)]
+                                        (reduce (fn [a res]
+                                                  (bind [out-node (get (component-connections comp) (get res :port))
+                                                         current-val (get new-node-values out-node -1)]
+                                                    (if (/= (get res :value) current-val)
+                                                        (conj a {:time (+ event-time (get res :delay))
+                                                                 :node out-node
+                                                                 :value (get res :value)})
+                                                        a)))
+                                                acc results)))
+                                    [] affected-comps)]
+            (recur (merge-events remaining new-events)
+                   new-node-values
+                   new-event-history
+                   event-time))))))
 
-;; -----------------------------------------------------------------------------
-;; 6. Simulation Shell
-;; -----------------------------------------------------------------------------
-
-(def *sim-context* (atom {:monitored #{}
-                          :events []
-                          :history {}}))
+(def *sim-monitored* (atom #{}))
+(def *sim-events* (atom []))
+(def *sim-history* (atom {}))
 
 (defn Monitor [& nodes]
-  (swap! *sim-context* update :monitored (fn [s] (into (or s #{}) nodes))))
+  (swap! *sim-monitored* (fn [s] (reduce (fn [acc n] (conj acc n)) s nodes))))
 
-(defn Events [& events]
-  (swap! *sim-context* update :events (fn [q] (concat q events))))
+(defn AddEvents [& events]
+  (swap! *sim-events* (fn [e] (merge-events e events))))
 
-(defn Run [module-name time]
-  (bind [netlist (expand-netlist module-name)
-         initial-events (:events @*sim-context*)
-         monitored (:monitored @*sim-context*)
-         history (run-simulation netlist initial-events time monitored)]
-    (swap! *sim-context* assoc :history history)
+(defn RunLSim [module-name time]
+  (bind [netlist (expand-netlist module-name)]
+    (reset! *sim-history* (run-simulation netlist @*sim-events* time @*sim-monitored*))
     :simulation-complete))
 
-(defn Display [& nodes]
-  (bind [history (:history @*sim-context*)]
-    (map (fn [node]
-           (print (str "Events for " node ":"))
-           (bind [evts (get history node)]
-             (if (empty? evts)
-               (print "  (no events)")
-               (map (fn [e] (print (str "  T=" (:time e) " V=" (:value e))))
-                    evts))))
-         nodes)))
+(defn DisplayLSim []
+  @*sim-history*)

@@ -184,31 +184,45 @@
     (is (string= "a@b.com" (slot-value updated 'email)))))
 
 ;;; ---------------------------------------------------------------------------
-;;; Storage backing (Sycamore hash-map)
+;;; Massive Objects (Strategy 2: Vector)
 ;;; ---------------------------------------------------------------------------
 
-(test persistent-storage-is-sycamore-hash-map
-  "Internal storage is a Sycamore hash-map."
-  (let* ((p (make-instance '<test-point> :x 1 :y 2))
-         (storage (fol.compiler.persistent::%persistent-storage p)))
-    ;; Sycamore hash-map-find should work on the storage
-    (multiple-value-bind (val found)
-        (sycamore:hash-map-find storage :x)
-      (is (eq t found))
-      (is (eql 1 val)))))
+(defclass <massive-object> (fol.compiler.persistent:<persistent-object>)
+  ((s0 :initarg :s0) (s1 :initarg :s1) (s2 :initarg :s2) (s3 :initarg :s3) (s4 :initarg :s4)
+   (s5 :initarg :s5) (s6 :initarg :s6) (s7 :initarg :s7) (s8 :initarg :s8) (s9 :initarg :s9)
+   (s10 :initarg :s10) (s11 :initarg :s11) (s12 :initarg :s12) (s13 :initarg :s13) (s14 :initarg :s14)
+   (s15 :initarg :s15) (s16 :initarg :s16) (s17 :initarg :s17) (s18 :initarg :s18) (s19 :initarg :s19)
+   (s20 :initarg :s20) (s21 :initarg :s21) (s22 :initarg :s22) (s23 :initarg :s23) (s24 :initarg :s24)
+   (s25 :initarg :s25) (s26 :initarg :s26) (s27 :initarg :s27) (s28 :initarg :s28) (s29 :initarg :s29)
+   (s30 :initarg :s30) (s31 :initarg :s31) (s32 :initarg :s32) (s33 :initarg :s33) (s34 :initarg :s34))
+  (:metaclass fol.compiler.persistent:persistent-class))
 
-(test persistent-storage-keyword-keys
-  "Storage uses keyword symbols as keys."
-  (let* ((p (make-instance '<test-point> :x 1 :y 2))
-         (storage (fol.compiler.persistent::%persistent-storage p)))
-    (multiple-value-bind (val-x found-x)
-        (sycamore:hash-map-find storage :x)
-      (is (eq t found-x))
-      (is (eql 1 val-x)))
-    (multiple-value-bind (val-y found-y)
-        (sycamore:hash-map-find storage :y)
-      (is (eq t found-y))
-      (is (eql 2 val-y)))))
+(test massive-object-strategy
+  "Objects with > 32 slots use the persistent vector strategy."
+  (let ((m (make-instance '<massive-object> :s0 100 :s34 999)))
+    (is (eql 100 (slot-value m 's0)))
+    (is (eql 999 (slot-value m 's34)))
+    ;; Verify it used the vector
+    (is (not (null (fol.compiler.persistent::%persistent-vector m))))))
+
+(test massive-object-update
+  "Massive objects can be functionally updated."
+  (let* ((m1 (make-instance '<massive-object> :s0 100 :s34 999))
+         (m2 (fol.compiler.persistent:update-slot m1 's34 555)))
+    (is (eql 100 (slot-value m2 's0)))
+    (is (eql 555 (slot-value m2 's34)))
+    (is (eql 999 (slot-value m1 's34)))))
+
+;;; ---------------------------------------------------------------------------
+;;; Storage backing (Internal structure check)
+;;; ---------------------------------------------------------------------------
+
+(test persistent-storage-strategy-selection
+  "Small objects use native slots, large objects use vector."
+  (let ((p (make-instance '<test-point> :x 1 :y 2))
+        (m (make-instance '<massive-object> :s0 1)))
+    (is (null (fol.compiler.persistent::%persistent-vector p)))
+    (is (not (null (fol.compiler.persistent::%persistent-vector m))))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Validate-superclass

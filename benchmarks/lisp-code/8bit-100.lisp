@@ -1,0 +1,96 @@
+(in-package :lsim-cl)
+
+;; 8-bit register definition
+
+(register-module 'sr-latch
+  (make-instance 'module-def
+    :name 'sr-latch
+    :ports '(r s q qbar)
+    :body '((nand nand1 :in1 s :in2 qbar :out q)
+            (nand nand2 :in1 r :in2 q :out qbar))))
+
+(register-module 'd-latch
+  (make-instance 'module-def
+    :name 'd-latch
+    :ports '(clk d q qbar)
+    :body '((nand nand1 :in1 d :in2 clk :out s)
+            (nand nand2 :in1 s :in2 clk :out r)
+            (sr-latch latch :r r :s s :q q :qbar qbar))))
+
+(register-module 'register-8bit
+  (make-instance 'module-def
+    :name 'register-8bit
+    :ports '(clk d0 d1 d2 d3 d4 d5 d6 d7 q0 q1 q2 q3 q4 q5 q6 q7)
+    :body '((d-latch bit0 :clk clk :d d0 :q q0 :qbar qbar0)
+            (d-latch bit1 :clk clk :d d1 :q q1 :qbar qbar1)
+            (d-latch bit2 :clk clk :d d2 :q q2 :qbar qbar2)
+            (d-latch bit3 :clk clk :d d3 :q q3 :qbar qbar3)
+            (d-latch bit4 :clk clk :d d4 :q q4 :qbar qbar4)
+            (d-latch bit5 :clk clk :d d5 :q q5 :qbar qbar5)
+            (d-latch bit6 :clk clk :d d6 :q q6 :qbar qbar6)
+            (d-latch bit7 :clk clk :d d7 :q q7 :qbar qbar7))))
+
+;; Top module
+(register-module 'top
+  (make-instance 'module-def
+    :name 'top
+    :ports '()
+    :body '((register-8bit reg :clk clk
+             :d0 d0 :d1 d1 :d2 d2 :d3 d3 :d4 d4 :d5 d5 :d6 d6 :d7 d7
+             :q0 q0 :q1 q1 :q2 q2 :q3 q3 :q4 q4 :q5 q5 :q6 q6 :q7 q7))))
+
+;; Monitor outputs
+(monitor-nodes 'q0 'q1 'q2 'q3 'q4 'q5 'q6 'q7)
+
+;; Event setup
+(defun add-p1 (time-val)
+  (add-events
+   (make-sim-event :time time-val :node 'd0 :value 1)
+   (make-sim-event :time time-val :node 'd1 :value 0)
+   (make-sim-event :time time-val :node 'd2 :value 1)
+   (make-sim-event :time time-val :node 'd3 :value 0)
+   (make-sim-event :time time-val :node 'd4 :value 1)
+   (make-sim-event :time time-val :node 'd5 :value 0)
+   (make-sim-event :time time-val :node 'd6 :value 1)
+   (make-sim-event :time time-val :node 'd7 :value 0)))
+
+(defun add-p2 (time-val)
+  (add-events
+   (make-sim-event :time time-val :node 'd0 :value 0)
+   (make-sim-event :time time-val :node 'd1 :value 1)
+   (make-sim-event :time time-val :node 'd2 :value 0)
+   (make-sim-event :time time-val :node 'd3 :value 1)
+   (make-sim-event :time time-val :node 'd4 :value 0)
+   (make-sim-event :time time-val :node 'd5 :value 1)
+   (make-sim-event :time time-val :node 'd6 :value 0)
+   (make-sim-event :time time-val :node 'd7 :value 1)))
+
+(add-p1 0)  (add-p2 10) (add-p1 20) (add-p2 30) (add-p1 40)
+(add-p2 50) (add-p1 60) (add-p2 70) (add-p1 80) (add-p2 90)
+
+;; Clock events: start at 3, every 5 steps
+(add-events
+ (make-sim-event :time  3 :node 'clk :value 1)
+ (make-sim-event :time  8 :node 'clk :value 0)
+ (make-sim-event :time 13 :node 'clk :value 1)
+ (make-sim-event :time 18 :node 'clk :value 0)
+ (make-sim-event :time 23 :node 'clk :value 1)
+ (make-sim-event :time 28 :node 'clk :value 0)
+ (make-sim-event :time 33 :node 'clk :value 1)
+ (make-sim-event :time 38 :node 'clk :value 0)
+ (make-sim-event :time 43 :node 'clk :value 1)
+ (make-sim-event :time 48 :node 'clk :value 0)
+ (make-sim-event :time 53 :node 'clk :value 1)
+ (make-sim-event :time 58 :node 'clk :value 0)
+ (make-sim-event :time 63 :node 'clk :value 1)
+ (make-sim-event :time 68 :node 'clk :value 0)
+ (make-sim-event :time 73 :node 'clk :value 1)
+ (make-sim-event :time 78 :node 'clk :value 0)
+ (make-sim-event :time 83 :node 'clk :value 1)
+ (make-sim-event :time 88 :node 'clk :value 0)
+ (make-sim-event :time 93 :node 'clk :value 1)
+ (make-sim-event :time 98 :node 'clk :value 0))
+
+;; Run simulation
+(defun run-bench ()
+  (run-lsim 'top 100))

@@ -3,7 +3,7 @@
 ;;; Equivalent to fol-code/compliance.fol
 ;;; =============================================================================
 
-(defpackage :compliance
+(defpackage :compliance-cl
   (:use :cl)
   (:export #:trade
            #:make-trade
@@ -13,7 +13,7 @@
            #:trade-side
            #:validate-trade))
 
-(in-package :compliance)
+(in-package :compliance-cl)
 
 (declaim (optimize (speed 3) (debug 0)))
 
@@ -74,3 +74,43 @@
     (t
      (list :status :approved
            :id (gensym "TRD")))))
+
+;;; ---------------------------------------------------------------------------
+;;; 4. Run validation
+;;; ---------------------------------------------------------------------------
+
+(defpackage :test-compliance-cl
+  (:use :cl :compliance-cl))
+
+(in-package :test-compliance-cl)
+
+(defun compliance ()
+  ;; Create test trades
+  (defparameter t1 (make-trade :symbol :NU :amount 100 :price 18.00 :side :buy))
+  (defparameter t2 (make-trade :symbol :GOOG :amount 50 :price 150.00 :side :sell))
+  (defparameter t3 (make-trade :symbol :IBM  :amount 10000 :price 150.00 :side :buy))
+  (defparameter t4 (make-trade :symbol :F :amount 1000 :price 12.00 :side :buy))
+
+  ;; Run tests
+  (format t "T1: ~A~&" (validate-trade t1))
+  ;; => T1: (:status :approved :id TRD123)
+
+  (format t "T2: ~A~&" (validate-trade t2))
+  ;; => T2: (:status :rejected :reason "Symbol GOOG is on the restricted list")
+
+  (format t "T3: ~A~&" (validate-trade t3))
+  ;; => T3: (:status :manual-review :reason "Trade value exceeds $1M limit")
+
+  (format t "T4: ~A~&" (validate-trade t4)))
+  ;; => T4: (:status :warning :reason "High risk penny stock purchase")
+
+(defun run-bench ()
+  (let ((t1 (make-trade :symbol :NU :amount 100 :price 18.00 :side :buy))
+        (t2 (make-trade :symbol :GOOG :amount 50 :price 150.00 :side :sell))
+        (t3 (make-trade :symbol :IBM  :amount 10000 :price 150.00 :side :buy))
+        (t4 (make-trade :symbol :F :amount 1000 :price 12.00 :side :buy)))
+    (dotimes (i 1000)
+      (validate-trade t1)
+      (validate-trade t2)
+      (validate-trade t3)
+      (validate-trade t4))))

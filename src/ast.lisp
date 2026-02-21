@@ -226,6 +226,7 @@
   "Method definition: (defmethod name [params] body) or
    multi-clause: (defmethod name ([params1] body1) ([params2] body2) ...)."
   (name nil :read-only t)
+  (qualifier nil :read-only t)
   (clauses nil :read-only t)) ; list of (params . body-nodes), like fn-node
 
 ;;; ---------------------------------------------------------------------------

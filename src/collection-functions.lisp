@@ -214,6 +214,10 @@
   "Returns the number of elements in the string."
   (length collection))
 
+(defmethod count ((collection null))
+  "Returns 0 for nil (empty)."
+  0)
+
 (defmethod count ((collection t))
   "Returns the number of elements."
   1)
@@ -600,6 +604,16 @@
       element
       default))
 
+(defmethod get ((coll <persistent-object>) key &optional default)
+  "Get slot/attribute value from a persistent object. 
+   Works transparently for both native-slot and vector-backed objects.
+   Expects key to be a keyword symbol mapped to a slot."
+  (let* ((class (class-of coll))
+         (slot-name (fol.compiler.persistent::slot-name-from-keyword class key)))
+    (if (and slot-name (slot-boundp coll slot-name))
+        (slot-value coll slot-name)
+        default)))
+
 ;; CL hash-table: use gethash
 (defmethod get ((coll cl:hash-table) key &optional default)
   (cl:gethash key coll default))
@@ -638,6 +652,13 @@
       (if ivs
           (apply #'assoc new-coll ivs)
           new-coll))))
+
+(defmethod assoc ((coll <persistent-object>) key value &rest kvs)
+  "Update slots in a persistent object. Key should be a symbol (it will be converted to a keyword-indexed slot)."
+  (let ((new-coll (update-slot coll key value)))
+    (if kvs
+        (apply #'assoc new-coll kvs)
+        new-coll)))
 
 ;;; ---------------------------------------------------------------------------
 ;;; dissoc - Returns new collection with specified keys removed

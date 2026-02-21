@@ -1,0 +1,48 @@
+(in-package "event-sourcing"
+  (:use "fol.core")
+  (:export <account> apply-command replay-to run-bench))
+
+;; 1. Define the Account aggregate
+;;    Inherits from <persistent-object> for structural sharing
+(defclass <account> [<persistent-object>]
+  [[balance :initform 0]
+   [events  :initform []]])
+
+;; Helper for timestamping
+(defn now [] (get-internal-run-time))
+
+;; 2. Command dispatch via Generic Function
+(defgeneric apply-command [agg cmd])
+
+;; 3. Declarative Event Sourcing via :around method
+;;    Automatically intercepts all commands to build an immutable event log.
+;;    Recreated from Section 5.2 of els-2026-paper.tex
+(defmethod apply-command :around [agg cmd]
+  (bind [result (call-next-method)
+         event  {:command cmd :timestamp (now)}]
+    (assoc result :events (conj (get result :events) event))))
+
+;; 4. Command Predicates for Content-Based Routing
+(defn deposit? [cmd] (= (get cmd :type) :deposit))
+(defn withdraw? [cmd] (= (get cmd :type) :withdraw))
+
+;; 5. Command Implementation Methods
+(defmethod apply-command
+  ([agg (cmd (deposit?))]
+   (assoc agg :balance (+ (get agg :balance) (get cmd :amount))))
+  ([agg (cmd (withdraw?))]
+   (assoc agg :balance (- (get agg :balance) (get cmd :amount)))))
+
+;; 6. Replay Functionality
+;;    Replayed from benchmarks/clojure-code/event_sourcing.clj
+(defn replay-to [aggregate events]
+  (reduce apply-command aggregate events))
+
+;; 7. Benchmark Function
+(defn run-bench [iterations]
+  (bind [acc (make '<account>)
+         cmds (map (fn [i] 
+                     {:type (if (= (mod i 2) 0) :deposit :withdraw)
+                      :amount 10})
+                   (range iterations))]
+    (replay-to acc cmds)))

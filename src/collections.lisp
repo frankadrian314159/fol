@@ -78,6 +78,10 @@
 (defmethod collection-seq ((c cl:list))
   c)
 
+(defmethod make ((class (eql 'cl:cons)) &rest elements)
+  "Construct a CL list from elements. Supports type-preservation in seq functions."
+  elements)
+
 ;;; ============================================================================
 ;;; Collection Storage
 ;;; ============================================================================

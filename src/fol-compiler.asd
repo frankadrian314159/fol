@@ -26,7 +26,7 @@
                         (:file "destructure" :depends-on ("package"))
                         (:file "persistence" :depends-on ("package"))
 
-                        (:file "collection-functions" :depends-on ("package" "collections" "string-functions" "destructure"))
+                        (:file "collection-functions" :depends-on ("package" "collections" "string-functions" "persistence" "destructure"))
                         (:file "arithmetic-functions" :depends-on ("package" "primitives"))
                         (:file "bitwise-operation-functions" :depends-on ("package" "primitives"))
                         (:file "logical-operation-functions" :depends-on ("package" "primitives"))

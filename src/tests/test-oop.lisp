@@ -133,27 +133,27 @@
     (is (equal '(trade) (third code)))))
 
 (test compile-defmethod-single-specialized
-  "Single-clause defmethod with type specializer compiles to dispatched defun."
+  "Single-clause defmethod with type specializer compiles to dispatched defmethod."
   (let* ((result (fol.compiler:compile-form
                   (fol-form '(defmethod process #((x <number>)) x))))
          (code (fol.compiler:compilation-result-code result)))
     (is (null (fol.compiler:compilation-result-errors result)))
-    ;; Specialized params should produce a defun with dispatch
-    (is (eq 'defun (first code)))))
+    ;; Specialized params should produce a defmethod with dispatch
+    (is (eq 'defmethod (first code)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; defmethod - multi-clause
 ;;; ---------------------------------------------------------------------------
 
 (test compile-defmethod-multi-clause
-  "Multi-clause defmethod produces a defun with cond dispatch."
+  "Multi-clause defmethod produces a defmethod with cond dispatch."
   (let* ((result (fol.compiler:compile-form
                   (fol-form '(defmethod validate
                               (#((x <number>)) x)
                               (#(x) x)))))
          (code (fol.compiler:compilation-result-code result)))
     (is (null (fol.compiler:compilation-result-errors result)))
-    (is (eq 'defun (first code)))
+    (is (eq 'defmethod (first code)))
     (is (eq 'validate (second code)))
     ;; Same-arity clauses use fixed params (no &rest)
     (is (= 1 (length (third code))))
@@ -206,7 +206,7 @@
                               (#((x <number>)) (* x 2))))))
          (code (fol.compiler:compilation-result-code result)))
     (is (null (fol.compiler:compilation-result-errors result)))
-    (is (eq 'defun (first code)))
+    (is (eq 'defmethod (first code)))
     ;; Fixed params: exactly 1 param, no &rest
     (is (= 1 (length (third code))))
     (is (not (member '&rest (third code))))))
@@ -219,7 +219,7 @@
                               (#(a) a)))))
          (code (fol.compiler:compilation-result-code result)))
     (is (null (fol.compiler:compilation-result-errors result)))
-    (is (eq 'defun (first code)))
+    (is (eq 'defmethod (first code)))
     ;; Mixed arities require &rest
     (is (member '&rest (third code)))))
 

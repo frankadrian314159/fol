@@ -18,6 +18,7 @@
    <uuid>
    ;; Type mapping
    fol-type-class
+   fol-value
 
    ;; Type predicates
    <bool>? <char>? <string>? <re-pattern>? <symbol>? <keyword>?
@@ -102,7 +103,7 @@
    defclass-node defclass-node-p defclass-node-name defclass-node-superclasses defclass-node-slots
    defgeneric-node defgeneric-node-p defgeneric-node-name
    defgeneric-node-lambda-lists defgeneric-node-options
-   defmethod-node defmethod-node-p defmethod-node-name defmethod-node-clauses
+   defmethod-node defmethod-node-p defmethod-node-name defmethod-node-qualifier defmethod-node-clauses
    ;; Collection literals
    vector-node vector-node-p vector-node-elements
    dict-node dict-node-p dict-node-entries
@@ -232,7 +233,7 @@
    ;; Metaclass
    persistent-class
    ;; Base class
-   <persistent-object>
+   <persistent-object> %persistent-storage
    ;; Metadata
    %persistent-metadata
    ;; Functional update API
@@ -408,6 +409,8 @@
                 index-of last-index-of)
   (:shadowing-import-from fol.compiler.merged-functions
                           replace)
+  (:import-from fol.compiler.persistent
+                <persistent-object> %persistent-storage update-slot)
   (:import-from fol.compiler.destructure
                 fol-type-to-cl-type)
   (:export
@@ -537,7 +540,7 @@
   (:shadow + - * / abs exp sqrt min max gcd lcm
            sin cos tan asin acos atan sinh cosh tanh asinh acosh atanh
            expt rationalize numerator denominator)
-  (:import-from fol.compiler.primitives <number> <integer> <float> <ratio> <bool>)
+  (:import-from fol.compiler.primitives <number> <integer> <float> <ratio> <bool> fol-value)
   (:export
    ;; Dyadic primitives
    %+ %- %* %/
@@ -570,7 +573,7 @@
   (:use cl)
   (:shadow logand logior logxor lognot ash logbitp logcount
            bit-nand bit-nor bit-andc1 bit-andc2 bit-orc1 bit-orc2)
-  (:import-from fol.compiler.primitives <integer>)
+  (:import-from fol.compiler.primitives <integer> fol-value)
   (:export
    ;; Unary
    bitnot

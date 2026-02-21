@@ -125,6 +125,14 @@
 ;;; Type-of mapping: CL type specifier -> FOL class
 ;;; ---------------------------------------------------------------------------
 
+(defgeneric fol-value (obj)
+  (:documentation "Returns the underlying CL value of a FOL object.
+                   For native CL types, returns the object itself."))
+
+(defmethod fol-value (obj)
+  "Default: most values are its own representation."
+  obj)
+
 (defun fol-type-class (value)
   "Return the FOL primitive class corresponding to a CL value.
    Used by compiled code for type dispatch and predicates."

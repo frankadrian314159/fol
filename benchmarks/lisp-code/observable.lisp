@@ -3,7 +3,7 @@
 ;;; Equivalent to fol-code/observable.fol
 ;;; =============================================================================
 
-(defpackage :observable
+(defpackage :observable-cl
   (:use :cl)
   (:export #:sensor
            #:make-sensor
@@ -13,7 +13,7 @@
            #:update-sensor-slot
            #:on-change))
 
-(in-package :observable)
+(in-package :observable-cl)
 
 ;;; ---------------------------------------------------------------------------
 ;;; 1. Domain class

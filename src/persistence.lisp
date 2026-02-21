@@ -1,20 +1,16 @@
 ;;; FOL Compiler - Persistent Object System
 ;;;
-;;; Provides immutable objects with structural sharing via Sycamore hash-maps.
-;;; All FOL user-level classes inherit from <persistent-object>, storing
-;;; slot values in a Sycamore hash-map rather than standard CLOS slots.
+;;; Hybrid Strategy: native CLOS slots for objects with <= 32 slots,
+;;; persistent vector (FSet) for objects with > 32 slots.
 ;;;
-;;; Sycamore hash-map was selected after benchmarking against FSet wb-map
-;;; and Sycamore tree-map across 2, 5, 10, and 20 slot objects:
-;;;   - Value access: 2-6x faster than FSet
-;;;   - Construction: 2.4-3x faster than FSet
-;;;   - Functional update: 1.4-2.4x faster than FSet
+;;; This approach provides native memory access speeds for common small objects
+;;; while maintaining structural sharing and safe scaling for large ones.
+;;;
+;;; All FOL user-level classes inherit from <persistent-object>.
 ;;;
 ;;; Slot access is transparent through the MOP: standard slot-value and
 ;;; accessor functions work normally. Mutation is prevented after init;
 ;;; use update-slot/update-slots for functional updates.
-;;;
-;;; Keys are stored as keyword symbols for fast EQL-based lookup.
 
 (in-package :fol.compiler.persistent)
 
@@ -23,8 +19,16 @@
 ;;; ============================================================================
 
 (defclass persistent-class (standard-class)
-  ()
-  (:documentation "Metaclass for persistent objects whose slots are stored in a Sycamore hash-map."))
+  ((%slot-count :accessor persistent-class-slot-count
+                :initform 0
+                :documentation "Cached number of slots to determine storage strategy.")
+   (%overflow-indices :accessor persistent-class-overflow-indices 
+                      :initform nil
+                      :documentation "Hash table mapping overflow slots (>= 32) to FSet vector indices.")
+   (%keyword-to-slot :accessor persistent-class-keyword-to-slot
+                     :initform (make-hash-table :test 'eq)
+                     :documentation "Hash table mapping keywords to slot name symbols."))
+  (:documentation "Hybrid split layout metaclass: first 32 native slots, rest overflow to persistent vector."))
 
 (defmethod closer-mop:validate-superclass ((class persistent-class)
                                            (superclass standard-class))
@@ -34,18 +38,62 @@
                                            (superclass persistent-class))
   t)
 
-;;; Allow standard-class subclasses of persistent-class classes (for mutable classes like <lazy-seq>)
 (defmethod closer-mop:validate-superclass ((class standard-class)
                                            (superclass persistent-class))
   t)
+
+(defmethod closer-mop:compute-slots ((class persistent-class))
+  "Split layout: first 32 are native CLOS slots, the rest overflow to the vector."
+  (let* ((all-slots (call-next-method))
+         ;; Only count user slots (exclude internal ones)
+         (user-slots (remove-if (lambda (s) 
+                                  (member (closer-mop:slot-definition-name s)
+                                          '(%persistent-vector %metadata %persistent-storage)))
+                                all-slots))
+         (count (length user-slots))
+         (kw-map (make-hash-table :test 'eq)))
+    
+    (setf (persistent-class-slot-count class) count)
+    
+    ;; Populate keyword to slot name map for all slots (even overflow ones)
+    (dolist (slot user-slots)
+      (let ((name (closer-mop:slot-definition-name slot)))
+        (setf (gethash (intern (string name) :keyword) kw-map) name)))
+    (setf (persistent-class-keyword-to-slot class) kw-map)
+    
+    (if (<= count 32)
+        ;; All slots fit natively
+        all-slots
+        
+        ;; Split the slots
+        (let ((native-slots (subseq user-slots 0 32))
+              (overflow-slots (subseq user-slots 32))
+              (idx-map (make-hash-table :test 'eq)))
+          
+          ;; Map the overflow slots to 0-based FSet vector indices
+          (loop for slot in overflow-slots
+                for i from 0
+                do (setf (gethash (closer-mop:slot-definition-name slot) idx-map) i))
+          (setf (persistent-class-overflow-indices class) idx-map)
+          
+          ;; Return the 32 native slots PLUS the internal persistence slots
+          (append native-slots
+                  (remove-if-not (lambda (s) 
+                                   (member (closer-mop:slot-definition-name s)
+                                           '(%persistent-vector %metadata %persistent-storage)))
+                                 all-slots))))))
 
 ;;; ============================================================================
 ;;; Base Class
 ;;; ============================================================================
 
+(defvar *initializing-persistent-object* nil
+  "Bound to T during persistent object initialization to allow slot writes.")
+
 (defclass <persistent-object> (standard-object)
-  ((%persistent-storage :accessor %persistent-storage
-                        :documentation "Sycamore hash-map storing all slot values.")
+  ((%persistent-vector :accessor %persistent-vector
+                       :initform nil
+                       :documentation "FSet persistent sequence for wide objects.")
    (%metadata :accessor %persistent-metadata
               :initarg :metadata :initform nil
               :documentation "Optional metadata dict associated with this object."))
@@ -53,133 +101,156 @@
   (:documentation "Base class for objects with persistent (immutable) slot storage."))
 
 ;;; ============================================================================
-;;; Slot name to keyword conversion (cached)
-;;; ============================================================================
-
-(defvar *slot-key-cache* (make-hash-table :test 'eq)
-  "Cache mapping slot-definition-name symbols to keyword symbols.")
-
-(declaim (inline slot-key))
-(defun slot-key (slot-name)
-  "Convert a slot name symbol to a keyword for Sycamore hash-map lookup."
-  (or (gethash slot-name *slot-key-cache*)
-      (setf (gethash slot-name *slot-key-cache*)
-            (intern (string slot-name) :keyword))))
-
-;;; ============================================================================
 ;;; Initialization
 ;;; ============================================================================
 
-(defvar *initializing-persistent-object* nil
-  "Bound to T during persistent object initialization to allow slot writes.")
-
-(defmethod initialize-instance :around ((object <persistent-object>) &rest initargs)
-  "Allow slot writes during initialization."
+(defmethod initialize-instance :around ((object <persistent-object>) &rest initargs &key &allow-other-keys)
+  "Allow slot writes during initialization. &allow-other-keys permits overflow initargs
+   for objects with > 32 slots (whose overflow slots are not in the effective-slots list)."
   (declare (ignore initargs))
   (let ((*initializing-persistent-object* t))
     (call-next-method)))
 
 (defmethod initialize-instance :after ((object <persistent-object>) &rest initargs)
-  "Populate the Sycamore hash-map from initargs and initforms."
-  (let ((storage (sycamore:make-hash-map))
-        (class (class-of object)))
-    (dolist (slot (closer-mop:class-slots class))
-      (let* ((slot-name (closer-mop:slot-definition-name slot))
-             (keyword (slot-key slot-name))
-             (init-value (getf initargs keyword :not-found)))
-        (unless (member slot-name '(%persistent-storage %metadata))
-          (cond
-            ((not (eq init-value :not-found))
-             (setf storage (sycamore:hash-map-insert storage keyword init-value)))
-            ((closer-mop:slot-definition-initfunction slot)
-             (setf storage (sycamore:hash-map-insert
-                            storage
-                            keyword
-                            (funcall (closer-mop:slot-definition-initfunction slot)))))))))
-    (setf (%persistent-storage object) storage)))
+  "Populate the overflow FSet vector from initargs."
+  (let* ((class (class-of object))
+         (count (persistent-class-slot-count class)))
+    (when (> count 32)
+      ;; Only allocate a vector size of (total - 32)
+      (let ((vec (fset:convert 'fset:seq (cl:make-list (- count 32) :initial-element :unbound))))
+        (maphash (lambda (slot-name idx)
+                   (let* ((kw (intern (string slot-name) :keyword))
+                          (init-val (getf initargs kw :not-found)))
+                     (unless (eq init-val :not-found)
+                       (setf vec (fset:with vec idx init-val)))))
+                 (persistent-class-overflow-indices class))
+        (let ((*initializing-persistent-object* t))
+          (setf (%persistent-vector object) vec))))))
 
 ;;; ============================================================================
 ;;; MOP Integration - Slot Access
 ;;; ============================================================================
 
-(defmethod closer-mop:slot-value-using-class ((class persistent-class)
-                                              object
-                                              (slot closer-mop:standard-effective-slot-definition))
-  "Read slot value from Sycamore hash-map."
-  (let ((slot-name (closer-mop:slot-definition-name slot)))
-    (if (member slot-name '(%persistent-storage %metadata))
-        (call-next-method)
-        (if (slot-boundp object '%persistent-storage)
-            (let* ((storage (%persistent-storage object))
-                   (key (slot-key slot-name)))
-              (multiple-value-bind (value found)
-                  (sycamore:hash-map-find storage key)
-                (if found
-                    value
-                    (if (closer-mop:slot-definition-initfunction slot)
-                        (funcall (closer-mop:slot-definition-initfunction slot))
-                        (slot-unbound class object slot-name)))))
-            (call-next-method)))))
+(defmethod slot-missing ((class persistent-class) object slot-name operation &optional new-value)
+  "Catches reads/writes ONLY for the overflow slots (index >= 32)."
+  (let ((idx (and (persistent-class-overflow-indices class)
+                  (gethash slot-name (persistent-class-overflow-indices class)))))
+    (if idx
+        (ecase operation
+          (slot-value
+           (let ((val (fset:@ (%persistent-vector object) idx)))
+             (if (eq val :unbound)
+                 (error "Slot ~A is unbound." slot-name)
+                 val)))
+          (setf
+           (if *initializing-persistent-object*
+               (setf (%persistent-vector object) 
+                     (fset:with (%persistent-vector object) idx new-value))
+               (error "Cannot mutate persistent slot ~A. Use UPDATE-SLOT." slot-name)))
+          (slot-boundp
+           (not (eq (fset:@ (%persistent-vector object) idx) :unbound)))
+          (slot-makunbound
+           (error "Cannot makunbound persistent slots.")))
+        ;; Genuine missing slot
+        (call-next-method))))
 
 (defmethod (setf closer-mop:slot-value-using-class) (new-value
-                                                      (class persistent-class)
-                                                      object
-                                                      (slot closer-mop:standard-effective-slot-definition))
-  "Prevent slot mutation after initialization."
+                                                     (class persistent-class)
+                                                     object
+                                                     (slot closer-mop:standard-effective-slot-definition))
+  "Prevent mutation of native slots after initialization."
   (let ((slot-name (closer-mop:slot-definition-name slot)))
-    (cond
-      ((member slot-name '(%persistent-storage %metadata))
-       (call-next-method))
-      (*initializing-persistent-object*
-       (call-next-method))
-      (t
-       (error "Cannot set slot ~A on persistent object. Use UPDATE-SLOT." slot-name)))))
+    (if (or (member slot-name '(%persistent-vector %metadata %persistent-storage))
+            *initializing-persistent-object*)
+        (call-next-method)
+        (error "Cannot set slot ~A on persistent object. Use UPDATE-SLOT." slot-name))))
 
-(defmethod closer-mop:slot-boundp-using-class ((class persistent-class)
+#+sbcl
+(defmethod sb-mop:slot-makunbound-using-class ((class persistent-class)
                                                object
                                                (slot closer-mop:standard-effective-slot-definition))
-  "Check if slot exists in Sycamore hash-map."
+  "Prevent slot-makunbound on native persistent slots."
   (let ((slot-name (closer-mop:slot-definition-name slot)))
-    (if (member slot-name '(%persistent-storage %metadata))
+    (if (member slot-name '(%persistent-vector %metadata %persistent-storage))
         (call-next-method)
-        (if (slot-boundp object '%persistent-storage)
-            (nth-value 1 (sycamore:hash-map-find (%persistent-storage object)
-                                                  (slot-key slot-name)))
-            (call-next-method)))))
-
-(defmethod closer-mop:slot-makunbound-using-class ((class persistent-class)
-                                                   object
-                                                   (slot closer-mop:standard-effective-slot-definition))
-  "Cannot unbind slots on persistent objects."
-  (error "Cannot make slot ~A unbound on persistent object."
-         (closer-mop:slot-definition-name slot)))
+        (error "Cannot makunbound persistent slots."))))
 
 ;;; ============================================================================
 ;;; Functional Update API
 ;;; ============================================================================
 
-(defun update-slot (object slot-name new-value)
-  "Return a new persistent object with SLOT-NAME updated to NEW-VALUE.
-   Shares structure with OBJECT via Sycamore's persistent hash-map."
-  (let* ((class (class-of object))
-         (new-obj (allocate-instance class))
-         (old-storage (%persistent-storage object))
-         (new-storage (sycamore:hash-map-insert old-storage (slot-key slot-name) new-value)))
-    (let ((*initializing-persistent-object* t))
-      (setf (%persistent-storage new-obj) new-storage)
-      (setf (%persistent-metadata new-obj) (%persistent-metadata object)))
-    new-obj))
+
+(defun %persistent-storage (obj)
+  "Compatibility accessor. Returns either the map or vector storage."
+  (let ((class (class-of obj)))
+    (if (> (persistent-class-slot-count class) 32)
+        (%persistent-vector obj)
+        ;; For native, we could return a map, but it's expensive.
+        ;; Most FOL code should use slot-value now.
+        nil)))
+
+(defun slot-name-from-keyword (class keyword)
+  "Map a keyword back to a slot name symbol using the class's cached map."
+  (gethash keyword (persistent-class-keyword-to-slot class)))
+
+(defun update-slot (object key new-value)
+  "Return a new persistent object with KEY (slot name or keyword) updated to NEW-VALUE."
+  (update-slots object key new-value))
 
 (defun update-slots (object &rest slot-name-value-pairs)
   "Return a new persistent object with multiple slots updated.
-   Takes alternating slot-name value pairs.
-   Example: (update-slots obj 'x 10 'y 20)"
+   Takes alternating slot-name (or keyword) value pairs.
+   Efficiently routes updates to native CLOS slots or the FSet overflow vector."
   (let* ((class (class-of object))
          (new-obj (allocate-instance class))
-         (storage (%persistent-storage object)))
-    (loop for (slot-name value) on slot-name-value-pairs by #'cddr
-          do (setf storage (sycamore:hash-map-insert storage (slot-key slot-name) value)))
+         (is-wide (> (persistent-class-slot-count class) 32)))
+         
     (let ((*initializing-persistent-object* t))
-      (setf (%persistent-storage new-obj) storage)
+      ;; 1. Shallow copy all native slots (up to 32 user slots + %persistent-vector)
+      (dolist (slot (closer-mop:class-slots class))
+        (let ((sname (closer-mop:slot-definition-name slot)))
+          (when (slot-boundp object sname)
+            (setf (slot-value new-obj sname) (slot-value object sname)))))
+            
+      (if is-wide
+          ;; Strategy 2: Wide object - route updates to native or overflow
+          (let* ((overflow-indices (persistent-class-overflow-indices class))
+                 (old-vec (and (slot-boundp object '%persistent-vector)
+                               (%persistent-vector object)))
+                 (temp-array nil)
+                 (vector-mutated-p nil))
+            
+            (loop for (key value) on slot-name-value-pairs by #'cddr
+                  for slot-name = (if (keywordp key) (slot-name-from-keyword class key) key)
+                  for overflow-idx = (and slot-name (gethash slot-name overflow-indices))
+                  do (if overflow-idx
+                         ;; It's an overflow slot. Initialize temp-array if we haven't yet.
+                         (progn
+                           (unless temp-array
+                             (setf temp-array (if old-vec 
+                                                  (fset:convert 'cl:vector old-vec)
+                                                  (make-array (hash-table-count overflow-indices) 
+                                                              :initial-element :unbound))))
+                           (setf (aref temp-array overflow-idx) value)
+                           (setf vector-mutated-p t))
+                         ;; It's a native slot. Overwrite the copied value.
+                         (if slot-name
+                             (setf (slot-value new-obj slot-name) value)
+                             (error "Unknown slot/attribute: ~A" key))))
+                         
+            ;; If any overflow slots were touched, freeze the mutated array back to FSet
+            (when vector-mutated-p
+              (setf (%persistent-vector new-obj) (fset:convert 'fset:seq temp-array))))
+              
+          ;; Strategy 1: Small object - purely native overwrite
+          (loop for (key value) on slot-name-value-pairs by #'cddr
+                for slot-name = (if (keywordp key) (slot-name-from-keyword class key) key)
+                do (if slot-name
+                       (setf (slot-value new-obj slot-name) value)
+                       (error "Unknown slot/attribute: ~A" key)))))
+                
+    ;; Ensure metadata carries over
+    (when (slot-boundp object '%metadata)
       (setf (%persistent-metadata new-obj) (%persistent-metadata object)))
+      
     new-obj))
