@@ -65,7 +65,9 @@
    ;; Variadic operators
    < > <= >= = /=
    ;; Min/Max
-   min max))
+   min max
+   ;; Universal comparator
+   %universal-comparator))
 
 (defpackage fol.compiler.ast
   (:use cl)
@@ -241,11 +243,42 @@
    update-slot
    update-slots))
 
+(defpackage fol.compiler.collection-primitives
+  (:use cl)
+  (:shadow assoc)
+  (:export
+   ;; Type constructors and predicates
+   %vec-f64 %vec-f64? %make-vec-f64
+   %vec-f32 %vec-f32? %make-vec-f32
+   %vec-t %vec-t? %make-vec-t
+   %vec-fix64 %vec-fix64? %make-vec-fix64
+   ;; Constants
+   +branch-factor+ +bit-mask+ +bit-shift+
+   ;; Generic operations
+   assoc conj count size ref empty?
+   ;; Utility
+   %clone-node %column-major-idx
+   ;; Storage mixins
+   <vec-t-storage-mixin>
+   <vec-f64-storage-mixin>
+   <vec-f32-storage-mixin>
+   <vec-fix64-storage-mixin>
+   <collection-storage>
+   ;; Dict/sorted-dict mixins
+   <dict-mixin> <sorted-dict-mixin>
+   kv-conj
+   ;; Empty instances
+   %empty-vec-f64 %empty-vec-f32 %empty-vec-t %empty-vec-fix64))
+
 (defpackage fol.compiler.collections
   (:use cl)
-  (:shadow vector set list count array-dimension first rest get assoc dissoc conj size merge)
+  (:shadow vector set list count array-dimension first rest get dissoc conj size merge)
   (:import-from fol.compiler.primitives make)
   (:import-from fol.compiler.persistent persistent-class)
+  (:import-from fol.compiler.collection-primitives
+                <vec-t-storage-mixin> <vec-f64-storage-mixin> <vec-f32-storage-mixin>
+                <vec-fix64-storage-mixin> <collection-storage>
+                <dict-mixin> <sorted-dict-mixin> kv-conj)
   (:shadowing-import-from fol.compiler.compareops < > %= %/=)
   (:export
    ;; Base class
@@ -263,7 +296,7 @@
    count
    empty?
    ;; High-level accessors
-   first rest get assoc dissoc conj size update merge
+   first rest get dissoc conj size update merge
    ;; Abstract subclasses
    <unordered-collection>
    <unordered-collection>?
@@ -393,11 +426,11 @@
 
 (defpackage fol.compiler.collection-functions
   (:use cl)
-  (:shadow vector set list list* nth push pop union intersection difference subseq find)
+  (:shadow vector set list list* nth push pop union intersection difference subseq find assoc)
   (:shadowing-import-from fol.compiler.compareops %= %/=)
   (:shadowing-import-from fol.compiler.collections
                           ;; Import high-level accessors that are defined in collections
-                          first rest get assoc dissoc conj size empty? count update merge)
+                          first rest get dissoc conj size empty? count update merge)
   (:import-from fol.compiler.collections
                 ;; Constructor generic
                 make

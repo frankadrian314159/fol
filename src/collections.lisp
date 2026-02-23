@@ -78,16 +78,24 @@
 ;;; ============================================================================
 
 (defclass <comparator-mixin> (standard-object)
-  ((compare :initarg :compare
-            :initform #'(lambda (a b)
+  ((cmp-fn :initarg :cmp-fn
+           :initform #'(lambda (a b)
                           (cond ((< a b) -1)
                                 ((> a b)  1)
                                 (t        0)))
-            :reader comparator-mixin-compare
-            :documentation "A comparator for a sorted collection.
-                            Must return a negative fixnum, zero, or positive fixnum."))
+           :reader cmp-fn))
   (:documentation "Base comparator class for sorted collections.
                    The compare function returns -1, 0, or 1."))
+
+(defclass <fast-fixnum-comparator-mixin> (<comparator-mixin>) () 
+  (:default-initargs :cmp-fn #'(lambda (a b)
+                                (declare (optimize (speed 3) (safety 0))
+                                         (type fixnum a)
+                                         (type fixnum b))
+                                (if (< a b) 1 (if (< b a) -1 0)))))
+
+(defclass <universal-comparator-mixin> (<comparator-mixin>) ()
+  (:default-initargs :cmp-fn #'fol.compiler.compareops:%universal-comparator))
 
 ;;; ============================================================================
 ;;; Unordered Collection
@@ -360,28 +368,30 @@
   (size v))
 
 (defun pvec-leaf-for (pvec index)
-  "Returns the internal 32-element simple-vector containing the INDEX."
-  (declare (type t-pvec pvec)
+  "Returns the internal 32-element simple-vector containing the INDEX.
+   PVEC is a raw %vec-t struct."
+  (declare (type fol.compiler.collection-primitives::%vec-t pvec)
            (type fixnum index)
            (optimize (speed 3) (safety 0)))
-  (let ((count (t-pvec-count pvec)))
+  (let ((count (fol.compiler.collection-primitives::%vec-t-count pvec)))
     (if (>= index (logand count (lognot 31))) ; Is it in the tail?
-        (t-pvec-tail pvec)
-        (let ((node (t-pvec-root pvec)))
-          (loop for level-shift from (t-pvec-shift pvec) downto 5 by 5
+        (fol.compiler.collection-primitives::%t-tail pvec)
+        (let ((node (fol.compiler.collection-primitives::%t-root pvec)))
+          (loop for level-shift from (fol.compiler.collection-primitives::%t-shift pvec) downto 5 by 5
                 for child-idx = (logand (ash index (- level-shift)) 31)
                 do (setf node (svref (the simple-vector node) child-idx)))
           node))))
 
-(defun pvec-iterator (pvec)
-  "Returns a closure that yields elements of PVEC one by one, 
+(defun pvec-iterator (vec)
+  "Returns a closure that yields elements of VEC (a <vector>) one by one,
    fetching tree nodes only once every 32 elements."
-  (let ((count (t-pvec-count pvec))
-        (global-idx 0)
-        (chunk-idx 32) ; Force an immediate fetch on the first call
-        (current-chunk nil))
+  (let* ((pvec (storage vec))
+         (count (fol.compiler.collection-primitives::%vec-t-count pvec))
+         (global-idx 0)
+         (chunk-idx 32) ; Force an immediate fetch on the first call
+         (current-chunk nil))
     (declare (type fixnum count global-idx chunk-idx))
-    
+
     (lambda ()
       (if (>= global-idx count)
           :eof
@@ -390,7 +400,7 @@
             (when (= chunk-idx 32)
               (setf current-chunk (pvec-leaf-for pvec global-idx))
               (setf chunk-idx 0))
-              
+
             ;; Fast-path: read directly from the cached leaf array
             (let ((val (svref (the simple-vector current-chunk) chunk-idx)))
               (incf global-idx)
@@ -542,7 +552,7 @@
   (declare (ignore obj))
   nil)
 
-(defmethod <f64-array>? ((obj <array>))
+(defmethod <f64-array>? ((obj <f64-array>))
   (declare (ignore obj))
   t)
 
@@ -592,12 +602,12 @@
   (pvec->lazy-seq coll))
 
 (defmethod collection-ref ((coll <f64-array>) key &optional not-found)
-  (let ((idx %column-major-idx array-dimensions key))
+  (let ((idx (%column-major-idx (array-dimensions coll) key)))
     (ref coll idx not-found)))
 
-(defmethod collection-assoc ((coll <array>) key value)
-  (let ((idx %column-major-idx array-dimensions key))
-    (fol.compiler.collection-primitives:assoc coll key value)))
+(defmethod collection-assoc ((coll <f64-array>) key value)
+  (let ((idx (%column-major-idx (array-dimensions coll) key)))
+    (fol.compiler.collection-primitives:assoc coll idx value)))
 
 (defmethod collection-dissoc ((coll <f64-array>) key)
   (error "Cannot dissoc element ~A from array ~A." key coll))
@@ -626,7 +636,7 @@
   (declare (ignore obj))
   nil)
 
-(defmethod <f32-array>? ((obj <array>))
+(defmethod <f32-array>? ((obj <f32-array>))
   (declare (ignore obj))
   t)
 
@@ -676,12 +686,12 @@
   (pvec->lazy-seq coll))
 
 (defmethod collection-ref ((coll <f32-array>) key &optional not-found)
-  (let ((idx %column-major-idx array-dimensions key))
+  (let ((idx (%column-major-idx (array-dimensions coll) key)))
     (ref coll idx not-found)))
 
-(defmethod collection-assoc ((coll <array>) key value)
-  (let ((idx %column-major-idx array-dimensions key))
-    (fol.compiler.collection-primitives:assoc coll key value)))
+(defmethod collection-assoc ((coll <f32-array>) key value)
+  (let ((idx (%column-major-idx (array-dimensions coll) key)))
+    (fol.compiler.collection-primitives:assoc coll idx value)))
 
 (defmethod collection-dissoc ((coll <f32-array>) key)
   (error "Cannot dissoc element ~A from array ~A." key coll))
@@ -760,12 +770,12 @@
   (pvec->lazy-seq coll))
 
 (defmethod collection-ref ((coll <array>) key &optional not-found)
-  (let ((idx %column-major-idx array-dimensions key))
+  (let ((idx (%column-major-idx (array-dimensions coll) key)))
     (ref coll idx not-found)))
 
 (defmethod collection-assoc ((coll <array>) key value)
-  (let ((idx %column-major-idx array-dimensions key))
-    (fol.compiler.collection-primitives:assoc coll key value)))
+  (let ((idx (%column-major-idx (array-dimensions coll) key)))
+    (fol.compiler.collection-primitives:assoc coll idx value)))
 
 (defmethod collection-dissoc ((coll <array>) key)
   (error "Cannot dissoc element ~A from array ~A." key coll))
@@ -794,7 +804,7 @@
   (declare (ignore obj))
   nil)
 
-(defmethod <fix64-array>? ((obj <array>))
+(defmethod <fix64-array>? ((obj <fix64-array>))
   (declare (ignore obj))
   t)
 
@@ -844,151 +854,184 @@
   (pvec->lazy-seq coll))
 
 (defmethod collection-ref ((coll <fix64-array>) key &optional not-found)
-  (let ((idx %column-major-idx array-dimensions key))
+  (let ((idx (%column-major-idx (array-dimensions coll) key)))
     (ref coll idx not-found)))
 
-(defmethod collection-assoc ((coll <array>) key value)
-  (let ((idx %column-major-idx array-dimensions key))
-    (fol.compiler.collection-primitives:assoc coll key value)))
+(defmethod collection-assoc ((coll <fix64-array>) key value)
+  (let ((idx (%column-major-idx (array-dimensions coll) key)))
+    (fol.compiler.collection-primitives:assoc coll idx value)))
 
 (defmethod collection-dissoc ((coll <fix64-array>) key)
   (error "Cannot dissoc element ~A from array ~A." key coll))
 
 (defmethod collection-conj ((coll <fix64-array>) val)
   (conj coll val))
+  
 ;;; ============================================================================
 ;;; Dict
 ;;; ============================================================================
 
-(defclass <dict> (<unordered-collection> <collection-storage>)
+(defclass <dict> (<unordered-collection> <dict-mixin>)
   ()
-  (:default-initargs :items (sycamore:make-hash-map))
-  (:documentation "A persistent unordered dictionary backed by a Sycamore hash-map."))
+  (:default-initargs :dict-storage (%make-hamt))
+  (:documentation "A persistent unordered dictionary backed by a hand-coded hamt."))
 
 (defgeneric <dict>? (obj)
   (:documentation "Returns T if OBJ is a FOL <dict>."))
-
-(defmethod <dict>? (obj)
-  (declare (ignore obj))
-  nil)
 
 (defmethod <dict>? ((obj <dict>))
   (declare (ignore obj))
   t)
 
-(defmethod make ((class (eql '<dict>)) &rest args)
-  "Create a new <dict> from alternating key-value ARGS.
-   (make '<dict>)             => empty dict
-   (make '<dict> :a 1 :b 2)  => dict with :a->1, :b->2"
-  (make-instance '<dict>
-                 :items (loop with m = (sycamore:make-hash-map)
-                              for (k v) on args by #'cddr
-                              do (setf m (sycamore:hash-map-insert m k v))
-                              finally (return m))))
+(defmethod <dict>? (obj)
+  (declare (ignore obj))
+  nil)
+
+(defmethod make ((class (eql '<array-dict>)) &rest args)
+  "Create a new <array-dict> from alternating key-value ARGS.
+   Keys are stored in the order provided; duplicate keys keep the last value
+   and retain the position of the first occurrence.
+   (make '<array-dict>)             => empty array dict
+   (make '<array-dict> :a 1 :b 2)  => array dict with :a->1, :b->2"
+
+  (make-instance '<array-dict>
+    :dict-storage (hamt-bulk-load args)))
 
 ;;; --- Protocol methods for <dict> ---
 
 (defmethod collection-size ((d <dict>))
-  (sycamore:fold-hash-map (lambda (acc k v)
-                            (declare (ignore k v))
-                            (1+ acc))
-                          0 (storage-items d)))
+  (size d))
 
-(defmethod collection-conj ((d <dict>) element)
-  "Add a (key . value) cons pair to the dict."
-  (make-instance '<dict>
-                 :items (sycamore:hash-map-insert (storage-items d)
-                                                  (car element) (cdr element))))
+(defmethod collection-empty? ((d <dict>))
+  (empty? d))
+
+(defmethod collection-conj ((d <dict>) entry)
+  "Add a key-val pair (cons cell) to the dict."
+  (kv-conj d (car entry) (cdr entry)))
 
 (defmethod collection-seq ((d <dict>))
-  (sycamore:hash-map-alist (storage-items d)))
+  (seq d))
 
-;;; ============================================================================
-;;; Helpers
-;;; ============================================================================
+(defmethod collection-assoc ((d <dict>) key val)
+  (fol.compiler.collection-primitives:assoc d key val))
 
-(defun %fset-seq-contains-p (seq key)
-  "Return T if FSet SEQ contains KEY (compared by EQL)."
-  (fset:do-seq (item seq)
-    (when (eql item key)
-      (return-from %fset-seq-contains-p t))))
+(defmethod collection-dissoc((d <dict>) key)
+  (dissoc d key))
+
+(defmethod collection-ref ((d <dict-mixin>) key &optional not-found)
+  (ref d key not-found))
+
+;;; ---------------------------------------------------------------------
+;;; Helper
+;;; ---------------------------------------------------------------------
+
+(defun %vec-t-contains-p (v target &key (test #'eql))
+  "Quickly scans a persistent vector for TARGET by checking 32-element chunks natively."
+  (declare (type %vec-t v) (optimize (speed 3) (safety 0)))
+  (let ((count (%t-count v)))
+    (when (zerop count) 
+      (return-from %vec-t-contains-p nil))
+    
+    (labels ((search-node (node level)
+               (declare (type simple-vector node) (type fixnum level))
+               (if (zerop level)
+                   ;; Base case: We hit a 32-element leaf. 
+                   ;; Use native Lisp SIMD/optimized array search!
+                   (when (find target (the t-leaf node) :test test)
+                     (return-from %vec-t-contains-p t))
+                     
+                   ;; Recursive case: Internal routing node. Traverse children.
+                   (loop for child across node
+                         when child do (search-node child (- level +bit-shift+))))))
+                 
+      ;; 1. Scan the main tree (if it has elements)
+      (when (> count 32)
+        (search-node (%t-root v) (%t-shift v)))
+        
+      ;; 2. Scan the variable-length tail
+      (let* ((tail (%t-tail v))
+             (tail-len (logand count +bit-mask+))
+             (actual-tail-len (if (and (zerop tail-len) (> count 0)) 32 tail-len)))
+        (if (find target tail :end actual-tail-len :test test)
+            t
+            nil)))))
 
 ;;; ============================================================================
 ;;; Ordered Dict
 ;;; ============================================================================
 
-(defclass <ordered-dict> (<dict>)
-  ((key-order :initarg :key-order
-              :initform (fset:empty-seq)
-              :reader ordered-dict-key-order))
+(defclass <ordered-dict> (<dict-mixin> <vec-t-storage-mixin>) ()
   (:documentation "A persistent insertion-ordered dictionary.
-                   Inherits the Sycamore hash-map from <dict> for O(~1) lookup.
-                   Maintains an FSet seq of keys in insertion order."))
+                   Inherits the hash-map from <dict> for O(~1) lookup.
+                   Maintains an seq of keys in insertion order."))
 
 (defgeneric <ordered-dict>? (obj)
   (:documentation "Returns T if OBJ is a FOL <ordered-dict>."))
-
-(defmethod <ordered-dict>? (obj)
-  (declare (ignore obj))
-  nil)
 
 (defmethod <ordered-dict>? ((obj <ordered-dict>))
   (declare (ignore obj))
   t)
 
+(defmethod <ordered-dict>? (obj)
+  (declare (ignore obj))
+  nil)
+
 (defmethod make ((class (eql '<ordered-dict>)) &rest args)
   "Create a new <ordered-dict> from alternating key-value ARGS.
    Keys are stored in the order provided; duplicate keys keep the last value
-   and retain the position of the first occurrence.
-   (make '<ordered-dict>)             => empty ordered dict
-   (make '<ordered-dict> :a 1 :b 2)  => ordered dict with :a->1, :b->2"
-  (loop with m = (sycamore:make-hash-map)
-        with keys = (fset:empty-seq)
-        with seen = (make-hash-table :test 'eql)
-        for (k v) on args by #'cddr
-        do (setf m (sycamore:hash-map-insert m k v))
-           (unless (gethash k seen)
-             (setf keys (fset:with-last keys k))
-             (setf (gethash k seen) t))
-        finally (return (make-instance '<ordered-dict>
-                                       :items m
-                                       :key-order keys))))
+   and retain the position of the first occurrence."
+   
+  ;; 1. Extract unique keys in insertion order using native Lisp
+  (let ((seen (make-hash-table :test 'equal)) ; Use 'equal to match your HAMT hash rules
+        (unique-keys nil))
+    (loop for (k v) on args by #'cddr
+          do (unless (gethash k seen)
+               (setf (gethash k seen) t)
+               (push k unique-keys)))
+               
+    ;; `push` builds the list backwards, so we reverse it destructively
+    (setf unique-keys (nreverse unique-keys))
+
+    ;; 2. Instatiate the object by calling our high-speed bulk loaders
+    (make-instance '<ordered-dict>
+      ;; Load the HAMT dictionary (transiently applies all args, overwriting duplicates)
+      :items (fol.compiler.collection-primitives::hamt-bulk-load args)
+      
+      ;; Load the Vector (builds the trie bottom-up in strict O(N) time)
+      :storage (fol.compiler.collection-primitives::%build-vec-t-from-list unique-keys))))
 
 ;;; --- Protocol methods for <ordered-dict> ---
 
 (defmethod collection-size ((d <ordered-dict>))
-  (fset:size (ordered-dict-key-order d)))
+  (size d))
 
-(defmethod collection-conj ((d <ordered-dict>) element)
-  "Add a (key . value) cons pair, preserving insertion order.
+(defmethod collection-empty? ((d <ordered-dict>))
+  (empty? d))
+
+(defmethod collection-conj ((d <ordered-dict>) entry)
+  "Add a key value pair (cons cell), preserving insertion order.
    If the key already exists, its value is updated in place."
-  (let* ((key (car element))
-         (val (cdr element))
-         (new-items (sycamore:hash-map-insert (storage-items d) key val))
-         (existing-keys (ordered-dict-key-order d))
-         (new-keys (if (%fset-seq-contains-p existing-keys key)
-                       existing-keys
-                       (fset:with-last existing-keys key))))
-    (make-instance '<ordered-dict>
-                   :items new-items
-                   :key-order new-keys)))
+  (kv-conj d (car entry) (cdr entry)))
 
-(defmethod collection-seq ((d <ordered-dict>))
-  "Return entries as an alist in insertion order."
-  (let ((items (storage-items d))
-        (result nil))
-    (fset:do-seq (k (ordered-dict-key-order d))
-      (push (cons k (sycamore:hash-map-find items k)) result))
-    (nreverse result)))
+(defmethod collection-seq (dict)
+  "Wraps an <ordered-dict> into a lazily evaluated sequence of [key, value] vectors."
+  ;; Extract the underlying primitive structures from the CLOS object
+  (seq d))
+
+(defmethod collection-assoc ((d <ordered-dict>) key val)
+  (fol.compiler.collection-primitives:assoc d key val))
+
+(defmethod collection-dissoc ((d <ordered-dict>) key)
+  (dissoc d key))
+
+(defmethod collection-ref ((d <ordered-dict>) key &optional not-found)
+  (ref d key not-found))
 
 ;;; ============================================================================
 ;;; Array Dict
 ;;; ============================================================================
 
-(defclass <array-dict> (<dict> <ordered-collection>)
-  ((key-order :initarg :key-order
-              :initform (fset:empty-seq)
-              :reader array-dict-key-order))
+(defclass <array-dict> (<ordered-dict>) ()
   (:documentation "A persistent insertion-ordered dictionary backed by a Sycamore
                    hash-map.  Inherits the hash-map from <dict> for O(~1) lookup
                    and adds <ordered-collection> to guarantee iteration order.
@@ -1006,60 +1049,14 @@
   (declare (ignore obj))
   t)
 
-(defmethod make ((class (eql '<array-dict>)) &rest args)
-  "Create a new <array-dict> from alternating key-value ARGS.
-   Keys are stored in the order provided; duplicate keys keep the last value
-   and retain the position of the first occurrence.
-   (make '<array-dict>)             => empty array dict
-   (make '<array-dict> :a 1 :b 2)  => array dict with :a->1, :b->2"
-  (loop with m = (sycamore:make-hash-map)
-        with keys = (fset:empty-seq)
-        with seen = (make-hash-table :test 'eql)
-        for (k v) on args by #'cddr
-        do (setf m (sycamore:hash-map-insert m k v))
-           (unless (gethash k seen)
-             (setf keys (fset:with-last keys k))
-             (setf (gethash k seen) t))
-        finally (return (make-instance '<array-dict>
-                                       :items m
-                                       :key-order keys))))
-
-;;; --- Protocol methods for <array-dict> ---
-
-(defmethod collection-size ((d <array-dict>))
-  (fset:size (array-dict-key-order d)))
-
-(defmethod collection-conj ((d <array-dict>) element)
-  "Add a (key . value) cons pair, preserving insertion order.
-   If the key already exists, its value is updated in place."
-  (let* ((key (car element))
-         (val (cdr element))
-         (new-items (sycamore:hash-map-insert (storage-items d) key val))
-         (existing-keys (array-dict-key-order d))
-         (new-keys (if (%fset-seq-contains-p existing-keys key)
-                       existing-keys
-                       (fset:with-last existing-keys key))))
-    (make-instance '<array-dict>
-                   :items new-items
-                   :key-order new-keys)))
-
-(defmethod collection-seq ((d <array-dict>))
-  "Return entries as an alist in insertion order."
-  (let ((items (storage-items d))
-        (result nil))
-    (fset:do-seq (k (array-dict-key-order d))
-      (push (cons k (sycamore:hash-map-find items k)) result))
-    (nreverse result)))
-
 ;;; ============================================================================
 ;;; Sorted Dict
 ;;; ============================================================================
 
-(defclass <sorted-dict> (<dict> <ordered-collection> <comparator>)
+(defclass <sorted-dict> (<sorted-dict-mixin> <universal-comparator-mixin>)
   ()
-  (:documentation "A persistent sorted dictionary backed by a Sycamore tree-map.
-                   Inherits storage from <dict> (via <collection-storage>),
-                   ordering from <ordered-collection>, and comparison from <comparator>.
+  (:documentation "A persistent sorted dictionary backed by a hand-coded HAMT.
+                   Inherits storage and insertion order from <dict>, and comparison from <comparator-mixin>.
                    Keys are maintained in the order defined by the comparator
                    function, which must return a negative fixnum, zero, or
                    positive fixnum for less-than, equal, and greater-than
@@ -1068,64 +1065,44 @@
 (defgeneric <sorted-dict>? (obj)
   (:documentation "Returns T if OBJ is a FOL <sorted-dict>."))
 
-(defmethod <sorted-dict>? (obj)
-  (declare (ignore obj))
-  nil)
-
 (defmethod <sorted-dict>? ((obj <sorted-dict>))
   (declare (ignore obj))
   t)
 
-(defmethod make ((class (eql '<sorted-dict>)) &rest args)
-  "Create a new <sorted-dict>.
-   First argument is a comparator function (or NIL for default numeric order).
-   Remaining arguments are alternating key-value pairs.
-   (make '<sorted-dict> #'my-cmp)              => empty sorted dict
-   (make '<sorted-dict> #'my-cmp :b 2 :a 1)   => sorted dict with :a->1, :b->2
-   (make '<sorted-dict> nil 2 :b 1 :a)         => sorted dict with default numeric order"
-  (let* ((cmp (or (first args)
-                  (comparator-compare (make-instance '<comparator>))))
-         (pairs (rest args))
-         (tree (loop with tm = (sycamore:make-tree-map cmp)
-                     for (k v) on pairs by #'cddr
-                     do (setf tm (sycamore:tree-map-insert tm k v))
-                     finally (return tm))))
-    (make-instance '<sorted-dict>
-                   :compare cmp
-                   :items tree)))
+(defmethod <sorted-dict>? (obj)
+  (declare (ignore obj))
+  nil)
 
 ;;; --- Protocol methods for <sorted-dict> ---
 
 (defmethod collection-size ((d <sorted-dict>))
-  (let ((n 0))
-    (sycamore:map-tree-map :inorder nil
-      (lambda (k v) (declare (ignore k v)) (incf n))
-      (storage-items d))
-    n))
+  (size d))
 
-(defmethod collection-conj ((d <sorted-dict>) element)
-  "Add a (key . value) cons pair to the sorted dict in comparator order."
-  (make-instance '<sorted-dict>
-                 :compare (comparator-compare d)
-                 :items (sycamore:tree-map-insert (storage-items d)
-                                                   (car element) (cdr element))))
+(defmethod collection-conj ((d <sorted-dict>) entry)
+  "Add a key/value pair (cons cell) to the sorted dict in comparator order."
+  (kv-conj d (car entry) (cdr entry)))
 
 (defmethod collection-seq ((d <sorted-dict>))
   "Return entries as an alist of (key . value) pairs in comparator order."
-  (sycamore:map-tree-map :inorder 'cl:list
-    (lambda (k v) (cons k v))
-    (storage-items d)))
+  (seq d))
+
+(defmethod collection-assoc ((d <sorted-dict>) key value)
+  (fol.compiler.collection-primitives:assoc d key value))
+
+(defmethod collection-dissoc ((d <sorted-dict>) key)
+  (dissoc d key))
+
+(defmethod collection-ref ((d <sorted-dict>) key &optional not-found)
+  (ref d key not-found))
 
 ;;; ============================================================================
 ;;; Int Dict
 ;;; ============================================================================
 
-(defclass <int-dict> (<sorted-dict>)
+(defclass <int-dict> (<sorted-dict-mixin> <fast-fixnum-comparator-mixin>)
   ()
   (:documentation "A persistent sorted dictionary specialized for integer keys.
-                   Backed by a Sycamore tree-map with a hardcoded fixnum
-                   comparator, avoiding the funcall overhead of a generic
-                   comparator closure."))
+                   Backed by a hand-coded B-Tree."))
 
 (defgeneric <int-dict>? (obj)
   (:documentation "Returns T if OBJ is a FOL <int-dict>."))
@@ -1139,41 +1116,39 @@
   t)
 
 (defmethod make ((class (eql '<int-dict>)) &rest args)
-  "Create a new <int-dict> from alternating integer-key value ARGS.
-   If the first argument is a function or NIL it is treated as a comparator
-   (NIL defaults to the built-in fixnum comparator); remaining arguments
-   are alternating key-value pairs.  When no comparator is supplied the
-   built-in fixnum comparator is used.
-   (make '<int-dict>)              => empty int dict
-   (make '<int-dict> 1 :a 2 :b)   => int dict with 1->:a, 2->:b
-   (make '<int-dict> #'my-cmp 1 :a) => int dict with custom comparator"
-  (let* ((has-cmp (and args (or (functionp (first args)) (null (first args)))))
-         (cmp (if has-cmp
-                  (or (first args) #'%int-compare)
-                  #'%int-compare))
-         (pairs (if has-cmp (rest args) args))
-         (tree (loop with tm = (sycamore:make-tree-map cmp)
-                     for (k v) on pairs by #'cddr
-                     do (setf tm (sycamore:tree-map-insert tm k v))
-                     finally (return tm))))
+  "Create a new <int-dict> from alternating integer-key value ARGS."
+  (let* ((pairs args))
     (make-instance '<int-dict>
-                   :compare cmp
-                   :items tree)))
+      :dict-storage (fol.compiler.collection-primitives::btree-bulk-load pairs #'%int-compare))))
 
 ;;; --- Protocol methods for <int-dict> ---
 
-(defmethod collection-conj ((d <int-dict>) element)
-  "Add a (key . value) cons pair to the int dict in comparator order."
-  (make-instance '<int-dict>
-                 :compare (comparator-compare d)
-                 :items (sycamore:tree-map-insert (storage-items d)
-                                                   (car element) (cdr element))))
+(defmethod collection-size ((d <int-dict>))
+  (size d))
+
+(defmethod collection-conj ((d <int-dict>) entry)
+  "Add a key/value pair (cons cell) to the sorted dict in comparator order."
+  (kv-conj d (car entry) (cdr entry)))
+
+(defmethod collection-seq ((d <int-dict>))
+  "Return entries as an alist of (key . value) pairs in comparator order."
+  (seq d))
+
+(defmethod collection-assoc ((d <int-dict>) key value)
+  (fol.compiler.collection-primitives:assoc d key value))
+
+(defmethod collection-dissoc ((d <int-dict>) key)
+  (dissoc d key))
+
+(defmethod collection-ref ((d <int-dict>) key &optional not-found)
+  (ref d key not-found))
+
 
 ;;; ============================================================================
 ;;; Priority Dict
 ;;; ============================================================================
 
-(defclass <priority-dict> (<dict> <ordered-collection>)
+(defclass <priority-dict> (<dict-mixin> <sorted-dict-mixin> <universal-comparator-mixin>)
   ((priority-tree :initarg :priority-tree
                   :initform nil
                   :reader priority-dict-tree
@@ -1184,238 +1159,96 @@
                      :reader priority-dict-compare
                      :documentation "Comparator function for priority values.
                                     Returns negative/zero/positive fixnum."))
-  (:documentation "A persistent priority dictionary backed by dual Sycamore structures.
-                   Inherits the hash-map from <dict> for O(~1) key→priority lookup.
-                   Maintains a Sycamore tree-map of (priority . key) composite keys
+  (:documentation "A persistent priority dictionary backed by a hand-coded HAMT
+                   and a hand-coded 32-way B-Tree.
+                   Inherits the hash-map from <dict-mixin> for O(~1) key→priority lookup.
+                   Maintains a B-Tree from <sorted-dict-mixin> with composite keys
                    for O(log n) priority ordering, insert, update, and pop-min."))
 
 (defgeneric <priority-dict>? (obj)
   (:documentation "Returns T if OBJ is a FOL <priority-dict>."))
 
-(defmethod <priority-dict>? (obj)
-  (declare (ignore obj))
-  nil)
-
 (defmethod <priority-dict>? ((obj <priority-dict>))
   (declare (ignore obj))
   t)
 
-(defun %make-priority-key-cmp (pri-cmp)
-  "Build a composite comparator for (priority . key) pairs from a priority comparator."
-  (lambda (a b)
-    (let ((result (funcall pri-cmp (car a) (car b))))
-      (if (zerop result)
-          ;; Tie-break by key symbol-name for deterministic ordering
-          (let ((sa (if (symbolp (cdr a)) (symbol-name (cdr a))
-                        (princ-to-string (cdr a))))
-                (sb (if (symbolp (cdr b)) (symbol-name (cdr b))
-                        (princ-to-string (cdr b)))))
-            (cond ((string< sa sb) -1)
-                  ((string> sa sb) 1)
-                  (t 0)))
-          result))))
+(defmethod <priority-dict>? (obj)
+  (declare (ignore obj))
+  nil)
 
-(defun %default-priority-cmp (a b)
-  "Default comparator for priority values (numeric ascending)."
-  (cond ((cl:< a b) -1)
-        ((cl:> a b)  1)
-        (t           0)))
-
-(defmethod make ((class (eql '<priority-dict>)) &rest args)
-  "Create a new <priority-dict> from alternating key-priority ARGS.
-   Entries are ordered by priority ascending (min-first).
-   Duplicate keys keep the last priority.
-   (make '<priority-dict>)             => empty priority dict
-   (make '<priority-dict> :a 1 :b 3)  => priority dict with :a→1, :b→3"
-  (let* ((pri-cmp #'%default-priority-cmp)
-         (composite-cmp (%make-priority-key-cmp pri-cmp)))
-    (loop with hm = (sycamore:make-hash-map)
-          with tm = (sycamore:make-tree-map composite-cmp)
-          for (k p) on args by #'cddr
-          do (let ((old-pri (sycamore:hash-map-find hm k)))
-               (when old-pri
-                 (setf tm (sycamore:tree-map-remove tm (cons old-pri k))))
-               (setf hm (sycamore:hash-map-insert hm k p))
-               (setf tm (sycamore:tree-map-insert tm (cons p k) k)))
-          finally (return (make-instance '<priority-dict>
-                                         :items hm
-                                         :priority-tree tm
-                                         :priority-compare pri-cmp)))))
-
-;;; --- Protocol methods for <priority-dict> ---
-
-(defmethod collection-size ((d <priority-dict>))
-  (let ((n 0))
-    (sycamore:do-tree-map ((k v) (priority-dict-tree d))
-      (declare (ignore k v))
-      (incf n))
-    n))
-
-(defmethod collection-conj ((d <priority-dict>) element)
-  "Add a (key . priority) cons pair. If the key exists, its priority is updated."
-  (let* ((key (car element))
-         (new-pri (cdr element))
-         (hm (storage-items d))
-         (tm (priority-dict-tree d))
-         (old-pri (sycamore:hash-map-find hm key))
-         (new-hm (sycamore:hash-map-insert hm key new-pri))
-         (new-tm (if old-pri
-                     (sycamore:tree-map-insert
-                      (sycamore:tree-map-remove tm (cons old-pri key))
-                      (cons new-pri key) key)
-                     (sycamore:tree-map-insert tm (cons new-pri key) key))))
-    (make-instance '<priority-dict>
-                   :items new-hm
-                   :priority-tree new-tm
-                   :priority-compare (priority-dict-compare d))))
-
-(defmethod collection-seq ((d <priority-dict>))
-  "Return entries as an alist of (key . priority) pairs in priority order."
-  (sycamore:map-tree-map :inorder 'cl:list
-    (lambda (k v)
-      (declare (ignore v))
-      ;; k is (priority . key), return (key . priority)
-      (cons (cdr k) (car k)))
-    (priority-dict-tree d)))
-
-;;; --- Priority-dict specific operations ---
-
-(defgeneric priority-dict-peek-min (pdict)
-  (:documentation "Return the (key . priority) entry with the minimum priority,
-                   or NIL if the dict is empty."))
-
-(defmethod priority-dict-peek-min ((d <priority-dict>))
-  (block found
-    (sycamore:do-tree-map ((k v) (priority-dict-tree d))
-      (declare (ignore v))
-      ;; k is (priority . key)
-      (return-from found (cons (cdr k) (car k))))))
-
-(defgeneric priority-dict-pop-min (pdict)
-  (:documentation "Return a new <priority-dict> with the minimum-priority entry removed.
-                   Returns the original dict if empty."))
-
-(defmethod priority-dict-pop-min ((d <priority-dict>))
-  (let ((min-entry (block found
-                     (sycamore:do-tree-map ((k v) (priority-dict-tree d))
-                       (declare (ignore v))
-                       (return-from found k)))))
-    (if (null min-entry)
-        d
-        ;; min-entry is (priority . key)
-        (make-instance '<priority-dict>
-                       :items (sycamore:hash-map-remove (storage-items d) (cdr min-entry))
-                       :priority-tree (sycamore:tree-map-remove
-                                       (priority-dict-tree d) min-entry)
-                       :priority-compare (priority-dict-compare d)))))
 
 ;;; ============================================================================
 ;;; Set
 ;;; ============================================================================
 
-(defclass <set> (<unordered-collection> <collection-storage>)
+(defclass <set> (<unordered-collection> <dict-mixin>)
   ()
-  (:default-initargs :items (sycamore:make-hash-set))
-  (:documentation "A persistent unordered set backed by a Sycamore hash-set."))
+  (:default-initargs :dict-storage (%make-hamt) )
+  (:documentation "A persistent unordered set backed by a HAMT."))
 
 (defgeneric <set>? (obj)
   (:documentation "Returns T if OBJ is a FOL <set>."))
-
-(defmethod <set>? (obj)
-  (declare (ignore obj))
-  nil)
 
 (defmethod <set>? ((obj <set>))
   (declare (ignore obj))
   t)
 
+(defmethod <set>? (obj)
+  (declare (ignore obj))
+  nil)
+
 (defmethod make ((class (eql '<set>)) &rest elements)
   "Create a new <set> from ELEMENTS.
    (make '<set>)       => empty set
    (make '<set> 1 2 3) => set of 1, 2, 3"
-  (make-instance '<set>
-                 :items (loop with s = (sycamore:make-hash-set)
-                              for e in elements
-                              do (setf s (sycamore:hash-set-insert s e))
-                              finally (return s))))
+  (let ((s (make-instance '<set>)))
+    (dolist (e elements s)
+      (setf s (fol.compiler.collection-primitives:assoc s e t)))))
 
 ;;; --- Protocol methods for <set> ---
 
-(defmethod collection-size ((s <set>))
-  (length (sycamore:hash-set-list (storage-items s))))
+(defmethod collection-assoc ((s <set>) key val)
+  (declare (ignore val))
+  (fol.compiler.collection-primitives:assoc s key t))
 
 (defmethod collection-conj ((s <set>) element)
   "Add ELEMENT to the set."
-  (make-instance '<set>
-                 :items (sycamore:hash-set-insert (storage-items s) element)))
+  (fol.compiler.collection-primitives:assoc s element t))
 
-(defmethod collection-seq ((s <set>))
-  (sycamore:hash-set-list (storage-items s)))
+(defmethod collection-ref ((s <set>) key &optional not-found)
+  (ref s key not-found))
 
 ;;; ============================================================================
 ;;; Ordered Set
 ;;; ============================================================================
 
-(defclass <ordered-set> (<set> <ordered-collection>)
+(defclass <ordered-set> (<ordered-dict>)
   ()
-  (:default-initargs :items (cons (sycamore:make-hash-set) (fset:empty-seq)))
+  (:default-initargs :dict-storage (%make-hamt))
   (:documentation "A persistent ordered set that maintains insertion order.
-                   Backed by a Sycamore hash-set (for O(1) membership) and
-                   an FSet seq (for ordered iteration).
-                   storage-items holds a cons of (hash-set . fset-seq)."))
+                   Backed by a hand-coded HAMT (for O(1) membership) and
+                   a hand-coded vector (for ordered iteration)."))
 
 (defgeneric <ordered-set>? (obj)
   (:documentation "Returns T if OBJ is a FOL <ordered-set>."))
-
-(defmethod <ordered-set>? (obj)
-  (declare (ignore obj))
-  nil)
 
 (defmethod <ordered-set>? ((obj <ordered-set>))
   (declare (ignore obj))
   t)
 
-(defmethod make ((class (eql '<ordered-set>)) &rest elements)
-  "Create a new <ordered-set> from ELEMENTS.
-   Duplicates are silently dropped; insertion order is preserved.
-   (make '<ordered-set>)       => empty ordered set
-   (make '<ordered-set> 1 2 3) => ordered set of 1, 2, 3"
-  (make-instance '<ordered-set>
-                 :items (loop with hset = (sycamore:make-hash-set)
-                              with seq = (fset:empty-seq)
-                              for e in elements
-                              unless (sycamore:hash-set-find hset e)
-                              do (setf hset (sycamore:hash-set-insert hset e))
-                                 (setf seq (fset:with-last seq e))
-                              finally (return (cons hset seq)))))
+(defmethod <ordered-set>? (obj)
+  (declare (ignore obj))
+  nil)
 
 ;;; --- Protocol methods for <ordered-set> ---
-
-(defmethod collection-size ((s <ordered-set>))
-  (fset:size (cdr (storage-items s))))
-
-(defmethod collection-conj ((s <ordered-set>) element)
-  "Add ELEMENT to the ordered set, preserving insertion order.
-   If ELEMENT is already present, returns the set unchanged."
-  (let* ((items (storage-items s))
-         (hset (car items))
-         (seq (cdr items)))
-    (if (sycamore:hash-set-find hset element)
-        s
-        (make-instance '<ordered-set>
-                       :items (cons (sycamore:hash-set-insert hset element)
-                                    (fset:with-last seq element))))))
-
-(defmethod collection-seq ((s <ordered-set>))
-  (fset:convert 'cl:list (cdr (storage-items s))))
 
 ;;; ============================================================================
 ;;; Sorted Set
 ;;; ============================================================================
 
-(defclass <sorted-set> (<set> <ordered-collection> <comparator>)
+(defclass <sorted-set> (<sorted-dict-misin> <universal-comparator-mixin>)
   ()
-  (:documentation "A persistent sorted set backed by a Sycamore tree-set.
+  (:documentation "A persistent sorted set backed by a hand-coded HAMT.
                    Elements are maintained in the order defined by the comparator
                    function (inherited from <comparator>), which must return a
                    negative fixnum, zero, or positive fixnum for less-than,
@@ -1426,13 +1259,13 @@
 (defgeneric <sorted-set>? (obj)
   (:documentation "Returns T if OBJ is a FOL <sorted-set>."))
 
-(defmethod <sorted-set>? (obj)
-  (declare (ignore obj))
-  nil)
-
 (defmethod <sorted-set>? ((obj <sorted-set>))
   (declare (ignore obj))
   t)
+
+(defmethod <sorted-set>? (obj)
+  (declare (ignore obj))
+  nil)
 
 (defmethod make ((class (eql '<sorted-set>)) &rest args)
   "Create a new <sorted-set>.
@@ -1441,92 +1274,39 @@
    (make '<sorted-set> #'my-cmp)       => empty sorted set
    (make '<sorted-set> #'my-cmp 5 3 1) => sorted set of 1, 3, 5
    (make '<sorted-set> nil 5 3 1)      => sorted set with default numeric order"
-  (let* ((cmp (or (first args)
-                  (comparator-compare (make-instance '<comparator>))))
-         (elements (rest args))
-         (tree (loop with ts = (sycamore:make-tree-set cmp)
-                     for e in elements
-                     do (setf ts (sycamore:tree-set-insert ts e))
-                     finally (return ts))))
-    (make-instance '<sorted-set>
-                   :compare cmp
-                   :items tree)))
-
-;;; --- Protocol methods for <sorted-set> ---
-
-(defmethod collection-size ((s <sorted-set>))
-  (sycamore:tree-set-count (storage-items s)))
-
-(defmethod collection-conj ((s <sorted-set>) element)
-  "Add ELEMENT to the sorted set in comparator order.
-   If ELEMENT is already present, returns the set unchanged."
-  (let ((tree (storage-items s)))
-    (if (sycamore:tree-set-member-p tree element)
-        s
-        (make-instance '<sorted-set>
-                       :compare (comparator-compare s)
-                       :items (sycamore:tree-set-insert tree element)))))
-
-(defmethod collection-seq ((s <sorted-set>))
-  (sycamore:tree-set-list (storage-items s)))
+  (make-instance '<sorted-set>
+    (:initargs args)))
 
 ;;; ============================================================================
 ;;; Int Set
 ;;; ============================================================================
 
-(defun %int-compare (a b)
-  "Optimized fixnum comparator for <int-set>."
-  (declare (optimize (speed 3) (safety 0))
-           (fixnum a b))
-  (cond ((< a b) -1) ((> a b) 1) (t 0)))
-
-(defclass <int-set> (<sorted-set>)
+(defclass <int-set> (<sorted-dict-mixin> <fast-fixnum-comparator-mixin>)
   ()
-  (:documentation "A persistent sorted set specialized for integers.
-                   Backed by a Sycamore tree-set with a hardcoded fixnum
-                   comparator, avoiding the funcall overhead of a generic
-                   comparator closure."))
+  (:documentation "A persistent sorted set backed by a hand-coded HAMT.
+                   Elements are maintained in the order defined by the comparator
+                   function, which must return a
+                   negative fixnum, zero, or positive fixnum for less-than,
+                   equal, and greater-than respectively.
+                   The comparator is stored in the compare slot and also used
+                   to construct the Sycamore tree-set in storage-items."))
 
 (defgeneric <int-set>? (obj)
   (:documentation "Returns T if OBJ is a FOL <int-set>."))
-
-(defmethod <int-set>? (obj)
-  (declare (ignore obj))
-  nil)
 
 (defmethod <int-set>? ((obj <int-set>))
   (declare (ignore obj))
   t)
 
-(defmethod make ((class (eql '<int-set>)) &rest elements)
-  "Create a new <int-set> from integer ELEMENTS.
-   (make '<int-set>)       => empty int set
-   (make '<int-set> 5 3 1) => int set of 1, 3, 5"
-  (let ((tree (loop with ts = (sycamore:make-tree-set #'%int-compare)
-                    for e in elements
-                    do (setf ts (sycamore:tree-set-insert ts e))
-                    finally (return ts))))
-    (make-instance '<int-set>
-                   :compare #'%int-compare
-                   :items tree)))
-
-;;; --- Protocol methods for <int-set> ---
-
-(defmethod collection-conj ((s <int-set>) element)
-  "Add integer ELEMENT to the int set in numeric order.
-   If ELEMENT is already present, returns the set unchanged."
-  (let ((tree (storage-items s)))
-    (if (sycamore:tree-set-member-p tree element)
-        s
-        (make-instance '<int-set>
-                       :compare #'%int-compare
-                       :items (sycamore:tree-set-insert tree element)))))
+(defmethod <int-set>? (obj)
+  (declare (ignore obj))
+  nil)
 
 ;;; ============================================================================
 ;;; Dense Int Set
 ;;; ============================================================================
 
-(defclass <dense-int-set> (<ordered-collection> <collection-storage>)
+(defclass <dense-int-set> (<int-set>)
   ((offset :initarg :offset
            :initform 0
            :reader dense-int-set-offset
@@ -1552,90 +1332,12 @@
   (declare (ignore obj))
   t)
 
-(defmethod make ((class (eql '<dense-int-set>)) &rest elements)
-  "Create a new <dense-int-set> from integer ELEMENTS.
-   (make '<dense-int-set>)       => empty dense int set
-   (make '<dense-int-set> 5 3 1) => dense int set of 1, 3, 5"
-  (if (null elements)
-      (make-instance '<dense-int-set>)
-      (let* ((lo (reduce #'min elements))
-             (hi (reduce #'max elements))
-             (size (1+ (- hi lo)))
-             (bv (make-array size :element-type 'bit :initial-element 0))
-             (n 0))
-        (dolist (e elements)
-          (let ((idx (- e lo)))
-            (when (zerop (sbit bv idx))
-              (setf (sbit bv idx) 1)
-              (incf n))))
-        (make-instance '<dense-int-set>
-                       :items bv
-                       :offset lo
-                       :count n))))
-
-;;; --- Protocol methods for <dense-int-set> ---
-
-(defmethod collection-size ((s <dense-int-set>))
-  (dense-int-set-count s))
-
-(defmethod collection-conj ((s <dense-int-set>) element)
-  "Add integer ELEMENT to the dense int set.
-   If ELEMENT is already present, returns the set unchanged.
-   If ELEMENT falls outside the current range, the bit-vector is extended."
-  (let* ((bv (storage-items s))
-         (offset (dense-int-set-offset s))
-         (len (length bv))
-         (cnt (dense-int-set-count s)))
-    (if (zerop len)
-        ;; Empty set — create a single-element set
-        (let ((new-bv (make-array 1 :element-type 'bit :initial-element 1)))
-          (make-instance '<dense-int-set>
-                         :items new-bv :offset element :count 1))
-        (let ((idx (- element offset)))
-          (cond
-            ;; Within range and already present
-            ((and (>= idx 0) (< idx len) (= 1 (sbit bv idx)))
-             s)
-            ;; Within range but not present
-            ((and (>= idx 0) (< idx len))
-             (let ((new-bv (copy-seq bv)))
-               (setf (sbit new-bv idx) 1)
-               (make-instance '<dense-int-set>
-                              :items new-bv :offset offset :count (1+ cnt))))
-            ;; Below range — extend left
-            ((< idx 0)
-             (let* ((new-offset element)
-                    (new-len (+ len (- idx)))
-                    (new-bv (make-array new-len :element-type 'bit :initial-element 0)))
-               ;; Copy old bits to their new positions
-               (loop for i below len
-                     do (setf (sbit new-bv (+ i (- idx))) (sbit bv i)))
-               (setf (sbit new-bv 0) 1)
-               (make-instance '<dense-int-set>
-                              :items new-bv :offset new-offset :count (1+ cnt))))
-            ;; Above range — extend right
-            (t
-             (let* ((new-len (1+ idx))
-                    (new-bv (make-array new-len :element-type 'bit :initial-element 0)))
-               (loop for i below len
-                     do (setf (sbit new-bv i) (sbit bv i)))
-               (setf (sbit new-bv idx) 1)
-               (make-instance '<dense-int-set>
-                              :items new-bv :offset offset :count (1+ cnt)))))))))
-
-(defmethod collection-seq ((s <dense-int-set>))
-  "Return elements as a sorted list of integers."
-  (let ((bv (storage-items s))
-        (offset (dense-int-set-offset s)))
-    (loop for i below (length bv)
-          when (= 1 (sbit bv i))
-            collect (+ offset i))))
 
 ;;; ============================================================================
 ;;; Bag (Multiset)
 ;;; ============================================================================
 
-(defclass <bag> (<unordered-collection> <collection-storage>)
+(defclass <bag> (<dict-mixin>)
   ()
   (:default-initargs :items (sycamore:make-hash-map))
   (:documentation "A persistent multiset (bag) backed by a Sycamore hash-map.
@@ -1644,25 +1346,13 @@
 (defgeneric <bag>? (obj)
   (:documentation "Returns T if OBJ is a FOL <bag>."))
 
-(defmethod <bag>? (obj)
-  (declare (ignore obj))
-  nil)
-
 (defmethod <bag>? ((obj <bag>))
   (declare (ignore obj))
   t)
 
-(defmethod make ((class (eql '<bag>)) &rest elements)
-  "Create a new <bag> from ELEMENTS.
-   Duplicate elements increase the count.
-   (make '<bag>)         => empty bag
-   (make '<bag> 1 1 2)   => bag with 1->2, 2->1"
-  (make-instance '<bag>
-                 :items (loop with m = (sycamore:make-hash-map)
-                              for e in elements
-                              do (let ((count (or (sycamore:hash-map-find m e) 0)))
-                                   (setf m (sycamore:hash-map-insert m e (1+ count))))
-                              finally (return m))))
+(defmethod <bag>? (obj)
+  (declare (ignore obj))
+  nil)
 
 ;;; --- Protocol methods for <bag> ---
 
@@ -1673,66 +1363,151 @@
                             (+ acc v))
                           0 (storage-items b)))
 
-(defmethod collection-conj ((b <bag>) element)
-  "Add one occurrence of ELEMENT to the bag."
-  (let* ((items (storage-items b))
-         (count (or (sycamore:hash-map-find items element) 0)))
-    (make-instance '<bag>
-                   :items (sycamore:hash-map-insert items element (1+ count)))))
+(defmethod collection-assoc ((b <bag>) key val)
+  (declare (ignore val))
+  (multiple-value-bind (v found) (ref b key)
+    (if found (fol.compiler.collection-primitives:assoc b key (1+ v)) (fol.compiler.collection-primitives:assoc b key 1))))
 
-(defmethod collection-seq ((b <bag>))
-  "Return elements as a flat list with each element repeated by its count."
-  (let ((result nil))
-    (sycamore:fold-hash-map
-     (lambda (acc k v)
-       (declare (ignore acc))
-       (dotimes (i v)
-         (push k result)))
-     nil (storage-items b))
-    (nreverse result)))
+(defmethod collection-conj ((b <bag>) key)
+  "Add one occurrence of ELEMENT to the bag."
+  (fol.compiler.collection-primitives:assoc b key))
+
+(defmethod collection-dissoc ((b <bag>) kwy)
+  (multiple-value-bind (v found) (ref b key)
+    (cond ((and found (= v 1) (dissoc b key) (fol.compiler.collection-primitives:assoc b key (1- v))))
+          (t b))))
+
 
 ;;; ============================================================================
 ;;; Deque
 ;;; ============================================================================
 
-(defclass <deque> (<vector>)
-  ()
-  (:documentation "A persistent double-ended queue implemented using FSet sequences.
-                   Inherits storage from <vector> (FSet seq).
-                   Supports O(log n) operations at both ends."))
+(defclass <deque> (<ordered-collection>)
+  ((front :initarg :front :reader deque-front)
+   (rear :initarg :rear :reader deque-rear))
+  (:documentation "A purely functional Banker's Deque backed by two persistent vectors."))
 
-(defgeneric <deque>? (obj)
-  (:documentation "Returns T if OBJ is a FOL <deque>."))
+(defmethod make ((class (eql '<deque>)) &rest args)
+  (let* ((len (length args))
+         (mid (ash len -1))
+         ;; The front vector stores items backwards (index 0 is the center of the deque)
+         (front-args (nreverse (subseq args 0 mid)))
+         (rear-args (subseq args mid)))
+    (make-instance '<deque>
+      :front (make-instance '<vector> 
+               :storage (fol.compiler.collection-primitives::%build-vec-t-from-list front-args))
+      :rear (make-instance '<vector> 
+               :storage (fol.compiler.collection-primitives::%build-vec-t-from-list rear-args)))))
 
-(defmethod <deque>? (obj)
-  (declare (ignore obj))
-  nil)
+(defmethod collection-size ((d <deque>))
+  (+ (collection-size (deque-front d)) 
+     (collection-size (deque-rear d))))
 
-(defmethod <deque>? ((obj <deque>))
-  (declare (ignore obj))
-  t)
+(defmethod collection-ref ((d <deque>) index &optional not-found)
+  (let ((f-size (collection-size (deque-front d)))
+        (r-size (collection-size (deque-rear d))))
+    (if (or (< index 0) (>= index (+ f-size r-size)))
+        (values not-found nil)
+        (if (< index f-size)
+            ;; Index falls in front vector (which is reversed in memory)
+            (collection-ref (deque-front d) (- f-size 1 index) not-found)
+            ;; Index falls in rear vector
+            (collection-ref (deque-rear d) (- index f-size) not-found)))))
 
-;; A deque is NOT a vector for predicate purposes
-(defmethod <vector>? ((obj <deque>))
-  (declare (ignore obj))
-  nil)
-
-(defmethod make ((class (eql '<deque>)) &rest elements)
-  "Create a new <deque> from ELEMENTS.
-   (make '<deque>)       => empty deque
-   (make '<deque> 1 2 3) => deque with 1 at front, 3 at back"
+  (defmethod collection-conj ((d <deque>) element)
+  "Appends an element to the REAR of the deque."
   (make-instance '<deque>
-                 :items (if elements
-                            (fset:convert 'fset:seq elements)
-                            (fset:empty-seq))))
+    :front (deque-front d)
+    :rear (collection-conj (deque-rear d) element)))
 
-;; Protocol methods for <deque> — override vector's to produce <deque> instances
-
-(defmethod collection-conj ((d <deque>) element)
-  "Add ELEMENT to the back of the deque."
+(defmethod conj-front ((d <deque>) element)
+  "Appends an element to the FRONT of the deque."
   (make-instance '<deque>
-                 :items (fset:with-last (storage-items d) element)))
+    :front (collection-conj (deque-front d) element)
+    :rear (deque-rear d)))
 
+(defun %rebalance-deque (d)
+  "Splits the elements evenly between front and rear to restore amortized O(1) bounds."
+  (let* ((f-size (collection-size (deque-front d)))
+         (r-size (collection-size (deque-rear d)))
+         (total (+ f-size r-size)))
+         
+    (if (or (and (> f-size 0) (> r-size 0)) (< total 2))
+        d ; Already balanced or too small to split
+        (let ((lst nil))
+          ;; Extract rear backwards, then front forwards to construct logical order
+          (loop for i from (1- r-size) downto 0
+                do (push (collection-ref (deque-rear d) i) lst))
+          (loop for i from 0 below f-size
+                do (push (collection-ref (deque-front d) i) lst))
+                
+          (let* ((mid (ash total -1))
+                 (new-front-lst (nreverse (subseq lst 0 mid)))
+                 (new-rear-lst (subseq lst mid)))
+            (make-instance '<deque>
+              :front (make-instance '<vector> :storage (fol.compiler.collection-primitives::%build-vec-t-from-list new-front-lst))
+              :rear (make-instance '<vector> :storage (fol.compiler.collection-primitives::%build-vec-t-from-list new-rear-lst))))))))
+
+(defmethod collection-pop-front ((d <deque>))
+  (let* ((d-bal (if (zerop (collection-size (deque-front d))) (%rebalance-deque d) d))
+         (front (deque-front d-bal))
+         (rear (deque-rear d-bal)))
+    (cond
+      ((> (collection-size front) 0)
+       (make-instance '<deque>
+         :front (make-instance '<vector> :storage (fol.compiler.collection-primitives::%vec-t-pop (storage front)))
+         :rear rear))
+      ((> (collection-size rear) 0) ; Deque only had 1 item total
+       (make '<deque>))
+      (t d))))
+
+(defmethod collection-pop ((d <deque>))
+  "Pops from the REAR of the deque."
+  (let* ((d-bal (if (zerop (collection-size (deque-rear d))) (%rebalance-deque d) d))
+         (front (deque-front d-bal))
+         (rear (deque-rear d-bal)))
+    (cond
+      ((> (collection-size rear) 0)
+       (make-instance '<deque>
+         :front front
+         :rear (make-instance '<vector> :storage (fol.compiler.collection-primitives::%vec-t-pop (storage rear)))))
+      ((> (collection-size front) 0) ; Deque only had 1 item total
+       (make '<deque>))
+      (t d))))
+
+(defmethod collection-seq ((d <deque>))
+  (let* ((front (deque-front d))
+         (rear (deque-rear d))
+         (total (collection-size d))
+         (f-idx (1- (collection-size front)))
+         (r-idx 0))
+         
+    (labels ((generator ()
+               (cond
+                 ((>= f-idx 0)
+                  (let ((val (collection-ref front f-idx)))
+                    (decf f-idx)
+                    val))
+                 ((< r-idx (collection-size rear))
+                  (let ((val (collection-ref rear r-idx)))
+                    (incf r-idx)
+                    val))
+                 (t :eof))))
+                 
+      (labels ((build-lazy-chain (remaining)
+                 (if (<= remaining 0)
+                     nil
+                     (make-instance 'fol.compiler.collections::<lazy-seq>
+                       :thunk (lambda ()
+                                (let ((val (funcall #'generator)))
+                                  (if (eq val :eof)
+                                      nil
+                                      (make-instance 'fol.compiler.collections::<list>
+                                        :first-elem val
+                                        :rest-list (build-lazy-chain (1- remaining))
+                                        :list-size remaining))))))))
+        (build-lazy-chain total)))))
+        
 ;;; ============================================================================
 ;;; List
 ;;; ============================================================================
@@ -1888,12 +1663,10 @@
 
 (defmethod print-object ((obj <vector>) stream)
   (write-char #\[ stream)
-  (let ((first-p t))
-    (fset:do-seq (item (storage-items obj))
-      (if first-p
-          (setf first-p nil)
-          (write-char #\Space stream))
-      (%write-fol-element item stream)))
+  (let ((sz (size obj)))
+    (dotimes (i sz)
+      (unless (zerop i) (write-char #\Space stream))
+      (%write-fol-element (ref obj i) stream)))
   (write-char #\] stream))
 
 (defmethod print-object ((obj <dict>) stream)

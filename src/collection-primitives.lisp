@@ -1,5 +1,6 @@
 (in-package :fol.compiler.collection-primitives)
 
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defconstant +branch-factor+ 32)
   (defconstant +bit-mask+ 31)
@@ -15,6 +16,20 @@
   (declare (type internal-node node) (optimize (speed 3) (safety 0)))
   (copy-seq node))
 
+(defun %column-major-idx (dimensions indices)
+  "Computes a linear index into a vector from array dimensions and indices.
+   Uses column-major indexing: index = i0 + i1*d0 + i2*d0*d1 + ..."
+  (declare (optimize (speed 3) (safety 0)))
+  (let ((idx 0)
+        (stride 1))
+    (loop for i fixnum from 0 below (length indices)
+          for dim fixnum = (aref dimensions i)
+          for index fixnum = (aref indices i)
+          do (progn
+               (incf idx (* index stride))
+               (setf stride (* stride dim))))
+    idx))
+
 ;;; ============================================================================
 ;;; %vec-f64 Implementation
 ;;; ============================================================================
@@ -26,7 +41,7 @@
                      (:conc-name %f64-))
   (count 0 :type fixnum)
   (shift 0 :type fixnum)
-  (root #() :type simple-vector)
+  (root #() :type (simple-array t (*)))
   (tail (make-array 0 :element-type 'double-float) :type (simple-array double-float (*))))
 
 (defun %vec-f64-count (v) (declare (type %vec-f64 v)) (%f64-count v))
@@ -47,15 +62,14 @@
       
       ;; 2. The Tail Fast-Path
       (if (>= index (%vec-f64-tail-off v))
-          (values (svref (%f64-tail v) (logand index +bit-mask+)) t) ;; Return (value, T)
+          (values (aref (%f64-tail v) (logand index +bit-mask+)) t) ;; Return (value, T)
           
           ;; 3. The Tree Traversal
           (let ((node (%f64-root v))
                 (shift (%f64-shift v)))
             (loop for level-shift from shift downto +bit-shift+ by +bit-shift+
-                  do (setf node (svref (the internal-node node) 
-                                       (logand (ash index (- level-shift)) +bit-mask+))))
-            (values (svref (the f64-leaf node) (logand index +bit-mask+)) t))))) ;; Return (value, T)
+                  do (setf node (svref node (logand (ash index (- level-shift)) +bit-mask+))))
+            (values (svref node (logand index +bit-mask+)) t))))) ;; Return (value, T)
 
 (defun %f64-clone-leaf (leaf)
   (declare (type f64-leaf leaf) (optimize (speed 3) (safety 0)))
@@ -116,13 +130,13 @@
           (%make-vec-f64 :count cnt :shift (%f64-shift v) :root (%f64-root v) :tail new-tail))
         (labels ((update (node level-shift)
                          (if (= level-shift 0)
-                             (let ((new-leaf (%f64-clone-leaf (the f64-leaf node))))
+                             (let ((new-leaf (%f64-clone-leaf node)))
                                (setf (aref new-leaf (logand index +bit-mask+)) new-val)
                                new-leaf)
-                             (let ((new-node (%clone-node (the internal-node node)))
+                             (let ((new-node (%clone-node node))
                                    (child-idx (logand (ash index (- level-shift)) +bit-mask+)))
                                (setf (svref new-node child-idx)
-                                 (update (svref (the internal-node node) child-idx)
+                                 (update (svref node child-idx)
                                          (- level-shift +bit-shift+)))
                                new-node))))
           (%make-vec-f64 :count cnt :shift (%f64-shift v)
@@ -237,7 +251,7 @@
                      (:conc-name %f32-))
   (count 0 :type fixnum)
   (shift 0 :type fixnum)
-  (root #() :type simple-vector)
+  (root #() :type (simple-array t (*)))
   (tail (make-array 0 :element-type 'single-float) :type (simple-array single-float (*))))
 
 (defun %vec-f32-count (v) (declare (type %vec-f32 v)) (%f32-count v))
@@ -258,15 +272,14 @@
       
       ;; 2. The Tail Fast-Path
       (if (>= index (%vec-f32-tail-off v))
-          (values (svref (%f32-tail v) (logand index +bit-mask+)) t) ;; Return (value, T)
+          (values (aref (%f32-tail v) (logand index +bit-mask+)) t) ;; Return (value, T)
           
           ;; 3. The Tree Traversal
           (let ((node (%f32-root v))
                 (shift (%f32-shift v)))
             (loop for level-shift from shift downto +bit-shift+ by +bit-shift+
-                  do (setf node (svref (the internal-node node) 
-                                       (logand (ash index (- level-shift)) +bit-mask+))))
-            (values (svref (the f32-leaf node) (logand index +bit-mask+)) t))))) ;; Return (value, T)
+                  do (setf node (svref node (logand (ash index (- level-shift)) +bit-mask+))))
+            (values (svref node (logand index +bit-mask+)) t))))) ;; Return (value, T)
 
 (defun %f32-clone-leaf (leaf)
   (declare (type f32-leaf leaf) (optimize (speed 3) (safety 0)))
@@ -328,13 +341,13 @@
           (%make-vec-f32 :count cnt :shift (%f32-shift v) :root (%f32-root v) :tail new-tail))
         (labels ((update (node level-shift)
                          (if (= level-shift 0)
-                             (let ((new-leaf (%f32-clone-leaf (the f32-leaf node))))
+                             (let ((new-leaf (%f32-clone-leaf node)))
                                (setf (aref new-leaf (logand index +bit-mask+)) new-val)
                                new-leaf)
-                             (let ((new-node (%clone-node (the internal-node node)))
+                             (let ((new-node (%clone-node node))
                                    (child-idx (logand (ash index (- level-shift)) +bit-mask+)))
                                (setf (svref new-node child-idx)
-                                 (update (svref (the internal-node node) child-idx)
+                                 (update (svref node child-idx)
                                          (- level-shift +bit-shift+)))
                                new-node))))
           (%make-vec-f32 :count cnt :shift (%f32-shift v)
@@ -474,9 +487,8 @@
           (let ((node (%t-root v))
                 (shift (%t-shift v)))
             (loop for level-shift from shift downto +bit-shift+ by +bit-shift+
-                  do (setf node (svref (the internal-node node) 
-                                       (logand (ash index (- level-shift)) +bit-mask+))))
-            (values (svref (the t-leaf node) (logand index +bit-mask+)) t))))) ;; Return (value, T)
+                  do (setf node (svref node (logand (ash index (- level-shift)) +bit-mask+))))
+            (values (svref node (logand index +bit-mask+)) t))))) ;; Return (value, T)
 
 (defun %t-clone-leaf (leaf)
   (declare (type t-leaf leaf) (optimize (speed 3) (safety 0)))
@@ -538,13 +550,13 @@
           (%make-vec-t :count cnt :shift (%t-shift v) :root (%t-root v) :tail new-tail))
         (labels ((update (node level-shift)
                          (if (= level-shift 0)
-                             (let ((new-leaf (%t-clone-leaf (the t-leaf node))))
+                             (let ((new-leaf (%t-clone-leaf node)))
                                (setf (svref new-leaf (logand index +bit-mask+)) new-val)
                                new-leaf)
-                             (let ((new-node (%clone-node (the internal-node node)))
+                             (let ((new-node (%clone-node node))
                                    (child-idx (logand (ash index (- level-shift)) +bit-mask+)))
                                (setf (svref new-node child-idx)
-                                 (update (svref (the internal-node node) child-idx)
+                                 (update (svref node child-idx)
                                          (- level-shift +bit-shift+)))
                                new-node))))
           (%make-vec-t :count cnt :shift (%t-shift v)
@@ -645,6 +657,76 @@
                          :shift shift
                          :root (car nodes)
                          :tail tail))))))
+
+(defun %vec-t-iterator (v)
+  "Returns a closure that lazily yields elements from the vector one at a time, or :eof."
+  (declare (type %vec-t v) (optimize (speed 3) (safety 0)))
+  (let* ((count (%t-count v))
+         (tail-off (- count (logand count 31))) ; The exact index where the tail begins
+         (shift (%t-shift v))
+         (root (%t-root v))
+         (tail (%t-tail v))
+         (index 0)
+         (current-leaf nil))
+    (declare (type fixnum count tail-off shift index))
+
+    ;; 1. Initialize the very first leaf before we return the closure
+    (setf current-leaf
+          (if (zerop count)
+              #()
+              (if (>= 0 tail-off)
+                  tail
+                  (let ((node root))
+                    (loop for level-shift from shift downto 5 by 5
+                          do (setf node (svref node 0)))
+                    node))))
+
+    ;; 2. Return the generator closure
+    (lambda ()
+      (if (>= index count)
+          :eof
+          (let* ((idx-in-leaf (logand index 31))
+                 (val (svref current-leaf idx-in-leaf)))
+            
+            (incf index)
+            
+            ;; 3. If we just finished a 32-element chunk, fetch the NEXT leaf into the cache
+            (when (and (< index count) (zerop (logand index 31)))
+              (setf current-leaf
+                    (if (>= index tail-off)
+                        tail
+                        ;; Standard tree traversal for the specific boundary index
+                        (let ((node root))
+                          (loop for level-shift from shift downto 5 by 5
+                                do (setf node (svref (the simple-vector node) 
+                                                     (logand (ash index (- level-shift)) 31))))
+                          node))))
+            val)))))
+
+(defun vec->lazy-seq (vec)
+  "Wraps a vector generator into a fol.compiler.collections:<lazy-seq>."
+  (let* ((storage-vec (storage vec))
+         (iter (fol.compiler.collection-primitives::%vec-t-iterator storage-vec))
+         (total-size (fol.compiler.collection-primitives::%vec-t-count storage-vec)))
+    
+    (labels ((build-lazy-chain (remaining-size)
+               (if (<= remaining-size 0)
+                   nil
+                   
+                   ;; Return an unresolved lazy sequence...
+                   (make-instance 'fol.compiler.collections::<lazy-seq>
+                     :thunk (lambda ()
+                              (let ((val (funcall iter)))
+                                (if (eq val :eof)
+                                    nil
+                                    ;; ...which resolves into a strictly sized <list> node
+                                    (make-instance 'fol.compiler.collections::<list>
+                                      :first-elem val
+                                      :rest-list (build-lazy-chain (1- remaining-size))
+                                      :list-size remaining-size))))))))
+                                      
+      (build-lazy-chain total-size))))
+
 ;;; ============================================================================
 ;;; %vec-fix64 Implementation
 ;;; ============================================================================
@@ -656,7 +738,7 @@
                        (:conc-name %fix64-))
   (count 0 :type fixnum)
   (shift 0 :type fixnum)
-  (root #() :type simple-vector)
+  (root #() :type (simple-array t (*)))
   (tail (make-array 0 :element-type 'fixnum) :type (simple-array fixnum (*))))
 
 (defun %vec-fix64-count (v) (declare (type %vec-fix64 v)) (%fix64-count v))
@@ -677,15 +759,14 @@
       
       ;; 2. The Tail Fast-Path
       (if (>= index (%vec-fix64-tail-off v))
-          (values (svref (%fix64-tail v) (logand index +bit-mask+)) t) ;; Return (value, T)
+          (values (aref (%fix64-tail v) (logand index +bit-mask+)) t) ;; Return (value, T)
           
           ;; 3. The Tree Traversal
           (let ((node (%fix64-root v))
                 (shift (%fix64-shift v)))
             (loop for level-shift from shift downto +bit-shift+ by +bit-shift+
-                  do (setf node (svref (the internal-node node) 
-                                       (logand (ash index (- level-shift)) +bit-mask+))))
-            (values (svref (the fix64-leaf node) (logand index +bit-mask+)) t))))) ;; Return (value, T)
+                  do (setf node (svref node (logand (ash index (- level-shift)) +bit-mask+))))
+            (values (svref node (logand index +bit-mask+)) t))))) ;; Return (value, T)
 
 
 (defun %fix64-clone-leaf (leaf)
@@ -748,13 +829,13 @@
           (%make-vec-fix64 :count cnt :shift (%fix64-shift v) :root (%fix64-root v) :tail new-tail))
         (labels ((update (node level-shift)
                          (if (= level-shift 0)
-                             (let ((new-leaf (%fix64-clone-leaf (the fix64-leaf node))))
+                             (let ((new-leaf (%fix64-clone-leaf node)))
                                (setf (aref new-leaf (logand index +bit-mask+)) new-val)
                                new-leaf)
-                             (let ((new-node (%clone-node (the internal-node node)))
+                             (let ((new-node (%clone-node node))
                                    (child-idx (logand (ash index (- level-shift)) +bit-mask+)))
                                (setf (svref new-node child-idx)
-                                 (update (svref (the internal-node node) child-idx)
+                                 (update (svref node child-idx)
                                          (- level-shift +bit-shift+)))
                                new-node))))
           (%make-vec-fix64 :count cnt :shift (%fix64-shift v)
@@ -862,21 +943,25 @@
 
 (defclass <vec-t-storage-mixin> () ((storage :initarg :storage :initform %empty-vec-t :accessor storage)))
 
-(defclass <vec-f32-storage-mixin> () ((storage :initarg :storage :initform %empty-vec-f64 :accessor storage)))
+(defclass <vec-f64-storage-mixin> () ((storage :initarg :storage :initform %empty-vec-f64 :accessor storage)))
 
 (defclass <vec-f32-storage-mixin> () ((storage :initarg :storage :initform %empty-vec-f32 :accessor storage)))
 
 (defclass <vec-fix64-storage-mixin> () ((storage :initarg :storage :initform %empty-vec-fix64 :accessor storage)))
 
+;;; Generic storage mixin for non-vector collections (dicts, sets, bags, etc)
+(defclass <collection-storage> () ((items :initarg :items :initform nil :accessor storage-items)))
+
 ;;; -----------------------------------------------------------------------------
 ;;; Protocol Generics
 ;;; -----------------------------------------------------------------------------
 
-(defgeneric size (vec))
-(defgeneric ref (vec index &optional not-found))
-(defgeneric conj (vec val))
-(defgeneric assoc (vec index val))
-(defgeneric empty? (vec))
+(defgeneric size (coll))
+(defgeneric ref (coll index &optional not-found))
+(defgeneric conj (coll val))
+(defgeneric assoc (coll index val))
+(defgeneric empty? (coll))
+(defgeneric seq (doll))
 
 ;;; -----------------------------------------------------------------------------
 ;;; Implementations for mixins
@@ -888,28 +973,49 @@
 (defmethod size ((vec <vec-fix64-storage-mixin>)) (%vec-fix64-count (storage vec)))
 
 (defmethod ref ((vec <vec-t-storage-mixin>) index &optional not-found) (%vec-t-ref (storage vec) index not-found))
-(defmethod ref ((vec <vec-f64-storage-mixin>) index &optional not-found)) (%vec-f64-ref (storage vec) index not-found))
-(defmethod ref ((vec <vec-f32-storage-mixin>) index &optional not-found)) (%vec-f32-ref (storage vec) index not-found))
-(defmethod ref ((vec <vec-fix64-storage-mixin>) index &optional not-found)) (%vec-fix64-ref (storage vec) index not-found))
+(defmethod ref ((vec <vec-f64-storage-mixin>) index &optional not-found) (%vec-f64-ref (storage vec) index not-found))
+(defmethod ref ((vec <vec-f32-storage-mixin>) index &optional not-found) (%vec-f32-ref (storage vec) index not-found))
+(defmethod ref ((vec <vec-fix64-storage-mixin>) index &optional not-found) (%vec-fix64-ref (storage vec) index not-found))
 
-(defmethod conj ((vec <vec-t-storage-mixin>) val) (%vec-t-conj (storage vec) val))
-(defmethod conj ((vec <vec-f64-storage-mixin>) (val double-float)) (%vec-f64-conj (storage vec) val))
-(defmethod conj ((vec <vec-f32-storage-mixin>) (val single-float)) (%vec-f32-conj (storage vec) val))
-(defmethod conj ((vec <vec-fix64-storage-mixin>) (val fixnum)) (%vec-fix64-conj (storage vec) val))
+(defmethod conj ((vec <vec-t-storage-mixin>) val)
+  (let ((new-storage (%vec-t-conj (storage vec) val)))
+    (make-instance (class-of vec) :storage new-storage)))
+(defmethod conj ((vec <vec-f64-storage-mixin>) (val double-float))
+  (let ((new-storage (%vec-f64-conj (storage vec) val)))
+    (make-instance (class-of vec) :storage new-storage)))
+(defmethod conj ((vec <vec-f32-storage-mixin>) (val single-float))
+  (let ((new-storage (%vec-f32-conj (storage vec) val)))
+    (make-instance (class-of vec) :storage new-storage)))
+(defmethod conj ((vec <vec-fix64-storage-mixin>) (val fixnum))
+  (let ((new-storage (%vec-fix64-conj (storage vec) val)))
+    (make-instance (class-of vec) :storage new-storage)))
 
-(defmethod assoc ((vec <vec-t-storage-mixin>) (index integer) val) (%vec-t-assoc (storage vec) index val))
-(defmethod assoc ((vec <vec-f64-storage-mixin>) (index integer) (val double-float)) (%vec-f64-assoc (storage vec) index val))
-(defmethod assoc ((vec <vec-f32-storage-mixin>) (index integer) (val single-float)) (%vec-f32-assoc (storage vec) index val))
-(defmethod assoc ((vec <vec-fix64-storage-mixin>) (index integer) (val fixnum)) (%vec-fix64-assoc (storage vec) index val))
+(defmethod assoc ((vec <vec-t-storage-mixin>) (index integer) val)
+  (let ((new-storage (%vec-t-assoc (storage vec) index val)))
+    (make-instance (class-of vec) :storage new-storage)))
+(defmethod assoc ((vec <vec-f64-storage-mixin>) (index integer) (val double-float))
+  (let ((new-storage (%vec-f64-assoc (storage vec) index val)))
+    (make-instance (class-of vec) :storage new-storage)))
+(defmethod assoc ((vec <vec-f32-storage-mixin>) (index integer) (val single-float))
+  (let ((new-storage (%vec-f32-assoc (storage vec) index val)))
+    (make-instance (class-of vec) :storage new-storage)))
+(defmethod assoc ((vec <vec-fix64-storage-mixin>) (index integer) (val fixnum))
+  (let ((new-storage (%vec-fix64-assoc (storage vec) index val)))
+    (make-instance (class-of vec) :storage new-storage)))
 
 (defmethod empty? ((vec <vec-t-storage-mixin>)) (zerop (%vec-t-count (storage vec))))
 (defmethod empty? ((vec <vec-f64-storage-mixin>)) (zerop (%vec-f64-count (storage vec))))
 (defmethod empty? ((vec <vec-f32-storage-mixin>)) (zerop (%vec-f32-count (storage vec))))
 (defmethod empty? ((vec <vec-fix64-storage-mixin>)) (zerop (%vec-fix64-count (storage vec))))
 
+(defmethod seq ((vec <vec-t-storage-mixin>)) (vec->lazy-seq vec))
+(defmethod seq ((vec <vec-f64-storage-mixin>)) (vec->lazy-seq vec))
+(defmethod seq ((vec <vec-f32-storage-mixin>)) (vec->lazy-seq vec))
+(defmethod seq ((vec <vec-fix64-storage-mixin>)) (vec->lazy-seq vec))
+
 
 ;;; ---------------------------------------------------------------------------
-;;; HAMT for dicts, sets, etc.
+;;; HAMT for regular dicts, sets, etc.
 ;;; ---------------------------------------------------------------------------
 
 ;;; ----------------------------------------------------------------------------
@@ -993,6 +1099,54 @@
                                    (vector leaf1 leaf2)
                                    (vector leaf2 leaf1))))
                 (%make-hamt-node :bitmap bitmap :children children)))))))
+
+(defun find-node (node shift hash key not-found)
+  "Traverses the HAMT to find the key. Returns (VALUES value found-p)."
+  (declare (type fixnum shift hash)
+           (optimize (speed 3) (safety 0)))
+  (cond
+    ;; Base Case 1: Empty branch. The key does not exist.
+    ((null node)
+     (values not-found nil))
+     
+    ;; Base Case 2: We hit a leaf. Verify the key matches exactly.
+    ((hamt-leaf-p node)
+     (if (equal (hamt-leaf-key node) key) ; Use your language's generic equality here
+         (values (hamt-leaf-value node) t)
+         (values not-found nil)))
+         
+    ;; Base Case 3: We hit a hash collision bucket. Search the list.
+    ((hamt-collision-p node)
+     (let ((leaf (find key (hamt-collision-leaves node) 
+                       :key #'hamt-leaf-key 
+                       :test #'equal)))
+       (if leaf
+           (values (hamt-leaf-value leaf) t)
+           (values not-found nil))))
+           
+    ;; Recursive Case: Internal routing node.
+    ((hamt-node-p node)
+     (let* ((chunk (logand (ash hash (- shift)) +bit-mask+))
+            (bit (ash 1 chunk))
+            (bitmap (hamt-node-bitmap node)))
+            
+       ;; Check if the bit for this chunk is flipped on
+       (if (zerop (logand bitmap bit))
+           ;; The bit is 0. The path dead-ends here.
+           (values not-found nil)
+           
+           ;; The bit is 1. Calculate the actual array index and recurse.
+           (let* ((idx (hamt-index bitmap bit))
+                  (children (hamt-node-children node)))
+             (find-node (svref children idx) 
+                        (+ shift +bit-shift+) 
+                        hash key not-found)))))))
+
+                        (defun hamt-get (h key &optional not-found)
+  "Retrieves the value mapped to KEY in the HAMT. 
+   Returns two values: (VALUES value found-p)."
+  (let ((hash (sxhash key)))
+    (find-node (hamt-root h) 0 hash key not-found)))
 
 (defun assoc-node (node shift hash key value)
   "Returns (VALUES NEW-NODE ADDED-P)."
@@ -1132,27 +1286,501 @@
 
       (build-lazy-chain (hamt-count hamt)))))
 
-(defun hamt-empty ()
-  (%make-hamt :count 0 :root nil))
+(defun insert-destructive (arr idx item)
+  "Allocates a larger array, but doesn't bother cloning if we don't need to preserve the old one."
+  (declare (type simple-vector arr) (type fixnum idx)
+           (optimize (speed 3) (safety 0)))
+  (let* ((len (length arr))
+         (new-arr (make-array (1+ len))))
+    (replace new-arr arr :end1 idx :end2 idx)
+    (setf (svref new-arr idx) item)
+    (replace new-arr arr :start1 (1+ idx) :start2 idx)
+    new-arr))
 
-(defun hamt-empty? (h)
-  (zerop (hamt-count h)))
+(defun update-destructive (arr idx item)
+  "Mutates the array IN-PLACE. Only safe for transient-owned nodes!"
+  (declare (type simple-vector arr) (type fixnum idx)
+           (optimize (speed 3) (safety 0)))
+  (setf (svref arr idx) item)
+  arr)
 
-(defun hamt-size (h)
-  (hamt-count h))
+;; An internal marker to track ownership
+(defstruct hamt-transient-node
+  (token nil)
+  (bitmap 0 :type (unsigned-byte 32))
+  (children #() :type simple-vector))
 
-(defun hamt-assoc (h key value)
-  (let ((hash (sxhash key)))
+(defun ensure-editable-hamt-node (node token)
+  "Returns the node if we own it, otherwise clones it and claims it."
+  (if (and (hamt-transient-node-p node) (eq (hamt-transient-node-token node) token))
+      node
+      (make-hamt-transient-node :token token
+                                :bitmap (hamt-node-bitmap node)
+                                :children (copy-seq (hamt-node-children node)))))
+
+(defun assoc-node! (node shift hash key value token)
+  (if (null node)
+      (values (%make-hamt-leaf :hash hash :key key :value value) t)
+      
+      (cond
+        ((hamt-leaf-p node)
+         (if (equal (hamt-leaf-key node) key)
+             (values (%make-hamt-leaf :hash hash :key key :value value) nil)
+             (values (merge-leaves shift node (%make-hamt-leaf :hash hash :key key :value value)) t)))
+             
+        ;; Transient internal node logic
+        (t 
+         (let* ((editable-node (ensure-editable-hamt-node node token))
+                (chunk (logand (ash hash (- shift)) 31))
+                (bit (ash 1 chunk))
+                (bitmap (hamt-transient-node-bitmap editable-node))
+                (idx (logcount (logand bitmap (1- bit))))
+                (children (hamt-transient-node-children editable-node)))
+                
+           (if (zerop (logand bitmap bit))
+               ;; Slot is empty: We MUST allocate a new array to grow, but we update the node.
+               (progn
+                 (setf (hamt-transient-node-bitmap editable-node) (logior bitmap bit))
+                 (setf (hamt-transient-node-children editable-node) 
+                       (insert-destructive children idx (%make-hamt-leaf :hash hash :key key :value value)))
+                 (values editable-node t))
+                 
+               ;; Slot is occupied: Recurse!
+               (multiple-value-bind (new-child added-p) 
+                   (assoc-node! (svref children idx) (+ shift 5) hash key value token)
+                 ;; Mutate the children array IN-PLACE
+                 (setf (hamt-transient-node-children editable-node)
+                       (update-destructive children idx new-child))
+                 (values editable-node added-p))))))))
+
+(defun freeze-hamt-node (node)
+  (cond
+    ((hamt-transient-node-p node)
+     (let* ((children (hamt-transient-node-children node))
+            (frozen-children (make-array (length children))))
+       (loop for i from 0 below (length children)
+             do (setf (svref frozen-children i) (freeze-hamt-node (svref children i))))
+       (%make-hamt-node :bitmap (hamt-transient-node-bitmap node) 
+                        :children frozen-children)))
+    (t node))) ; Leaves and collisions are already frozen
+
+(defun hamt-bulk-load (flat-sequence)
+  "Creates a high-speed HAMT from a flat sequence of alternating keys and values 
+   (k1 v1 k2 v2 ...) using transients."
+  (let ((token (cons nil nil)) ; Unique identity for this batch
+        (root nil)
+        (count 0))
+        
+    ;; 1. Step through the list two items at a time
+    (loop for (key value) on flat-sequence by #'cddr
+          do (multiple-value-bind (new-root added-p)
+                 (assoc-node! root 0 (sxhash key) key value token)
+               (setf root new-root)
+               ;; Only increment the total count if it was a new key
+               (when added-p (incf count))))
+               
+    ;; 2. Freeze the mutated nodes and return the persistent wrapper
+    (%make-hamt :count count :root (freeze-hamt-node root))))
+
+;;; --------------------------------- <dict-mixin> -------------------------------------
+(defclass <dict-mixin> () ((dict-storage :initform (%make-hamt) :accessor dict-storage)))
+
+;;; ------------------------------- dict functions -------------------------------------
+
+(defmethod size ((d <dict-mixin>))
+  (hamt-count (dict-storage d)))
+
+(defmethod empty? ((d <dict-mixin>))
+  (zerop (size d)))
+
+(defmethod assoc ((d <dict-mixin>) key value)
+  (let ((hash (sxhash key))
+        (h (dict-storage d)))
     (multiple-value-bind (new-root added-p) (assoc-node (hamt-root h) 0 hash key value)
       (%make-hamt :count (if added-p (1+ (hamt-count h)) (hamt-count h))
                   :root new-root))))
 
-(defun hamt-dissoc (h key)
-  (let ((hash (sxhash key)))
+(defmethod dissoc ((d <dict-mixin>) key)
+  (let ((hash (sxhash key))
+        (h (dict-storage d)))
     (multiple-value-bind (new-root removed-p) (dissoc-node (hamt-root h) 0 hash key)
       (if removed-p
           (%make-hamt :count (1- (hamt-count h)) :root new-root)
           h)))) ; Return unmodified structure if key wasn't found
 
-(defun hamt-seq (h)
-  (hamt->lazy-seq h))
+(defmethod seq ((d <dict-mixin>))
+  (hamt->lazy-seq (dict-storage d)))
+
+(defmethod ref ((d <dict-mixin>) key &optional not-found)
+  "Retrieves the value mapped to KEY in the HAMT. 
+   Returns two values: (VALUES value found-p)."
+  (multiple-value-bind (val foundp) (hamt-get (dict-storage d) key)
+    (if foundp val not-found)))
+
+(defgeneric kv-conj (coll key val))
+
+(defmethod kv-conj ((d <dict-mixin>) key val)
+  (assoc d key val))
+
+;;; -------------------------------------------------------------------------------
+;;; B-Tree for sorted dicts, sets, etc.
+;;; -------------------------------------------------------------------------------
+
+;;; ----------------------------------------------------------------------
+;;; Core data structures
+;;; ----------------------------------------------------------------------
+
+(defconstant +b-tree-order+ 32)
+
+(defstruct (btree-dict (:constructor %make-btree-dict))
+  (count 0 :type fixnum)
+  (root nil))
+
+(defstruct (btree-leaf (:constructor %make-btree-leaf (keys vals)))
+  (keys #() :type simple-vector)
+  (vals #() :type simple-vector))
+
+(defstruct (btree-node (:constructor %make-btree-node (keys children)))
+  (keys #() :type simple-vector)
+  (children #() :type simple-vector))
+
+;;; --- Array Helpers ---
+
+(declaim (inline bsearch-keys insert-at remove-at update-at))
+
+(defun bsearch-keys (keys key cmp)
+  "Performs a native binary search interpreting 1 as less-than."
+  (declare (type simple-vector keys) (type function cmp)
+           (optimize (speed 3) (safety 0)))
+  (let ((low 0) (high (length keys)))
+    (loop while (< low high)
+          do (let* ((mid (ash (+ low high) -1))
+                    (c (funcall cmp key (svref keys mid))))
+               ;; If c is 1 (key < mid) or 0 (key == mid)
+               (if (>= c 0)
+                   (setf high mid)
+                   (setf low (1+ mid)))))
+    low))
+
+(defun insert-at (arr idx val)
+  (declare (type simple-vector arr) (type fixnum idx))
+  (let* ((len (length arr))
+         (new-arr (make-array (1+ len))))
+    (replace new-arr arr :end1 idx :end2 idx)
+    (setf (svref new-arr idx) val)
+    (replace new-arr arr :start1 (1+ idx) :start2 idx)
+    new-arr))
+
+(defun remove-at (arr idx)
+  (declare (type simple-vector arr) (type fixnum idx))
+  (let* ((len (length arr))
+         (new-arr (make-array (1- len))))
+    (replace new-arr arr :end1 idx :end2 idx)
+    (replace new-arr arr :start1 idx :start2 (1+ idx))
+    new-arr))
+
+(defun update-at (arr idx val)
+  (declare (type simple-vector arr) (type fixnum idx))
+  (let ((new-arr (copy-seq arr)))
+    (setf (svref new-arr idx) val)
+    new-arr))
+
+;;; -----------------------------------------------------------------------
+;;; Lookup and mutation logic.
+;;; -----------------------------------------------------------------------
+
+(defun btree-get (node key cmp &optional not-found)
+  "O(log32 N) search. Returns (VALUES val found-p)."
+  (cond
+    ((null node) (values not-found nil))
+    ((btree-leaf-p node)
+     (let* ((keys (btree-leaf-keys node))
+            (idx (bsearch-keys keys key cmp)))
+       (if (and (< idx (length keys))
+                (zerop (funcall cmp key (svref keys idx))))
+           (values (svref (btree-leaf-vals node) idx) t)
+           (values not-found nil))))
+    ((btree-node-p node)
+     (let* ((keys (btree-node-keys node))
+            (idx (bsearch-keys keys key cmp)))
+       (btree-get (svref (btree-node-children node) idx) key cmp not-found)))))
+
+(defun split-leaf (keys vals)
+  (let* ((mid 16)
+         (len (length keys)))
+    (values (%make-btree-leaf (subseq keys 0 mid) (subseq vals 0 mid))
+            (svref keys mid) ; The key that routes the right half
+            (%make-btree-leaf (subseq keys mid len) (subseq vals mid len)))))
+
+(defun split-node (keys children)
+  (let* ((mid 16)
+         (split-key (svref keys mid))) ; The routing key moves UP
+    (values (%make-btree-node (subseq keys 0 mid) (subseq children 0 (1+ mid)))
+            split-key
+            (%make-btree-node (subseq keys (1+ mid)) (subseq children (1+ mid))))))
+
+(defun btree-assoc-node (node key val cmp)
+  "Returns (VALUES new-node split-key split-right old-val found-p)."
+  (if (null node)
+      (values (%make-btree-leaf (vector key) (vector val)) nil nil nil nil)
+      
+      (if (btree-leaf-p node)
+          (let* ((keys (btree-leaf-keys node))
+                 (vals (btree-leaf-vals node))
+                 (idx (bsearch-keys keys key cmp)))
+            (if (and (< idx (length keys)) (zerop (funcall cmp key (svref keys idx))))
+                (values (%make-btree-leaf keys (update-at vals idx val)) nil nil (svref vals idx) t)
+                (let ((new-keys (insert-at keys idx key))
+                      (new-vals (insert-at vals idx val)))
+                  (if (<= (length new-keys) +b-tree-order+)
+                      (values (%make-btree-leaf new-keys new-vals) nil nil nil nil)
+                      (multiple-value-bind (left sk right) (split-leaf new-keys new-vals)
+                        (values left sk right nil nil))))))
+                        
+          ;; Internal routing node
+          (let* ((keys (btree-node-keys node))
+                 (children (btree-node-children node))
+                 (idx (bsearch-keys keys key cmp)))
+            (multiple-value-bind (new-child split-key split-right old-val found-p)
+                (btree-assoc-node (svref children idx) key val cmp)
+              (if found-p
+                  (values (%make-btree-node keys (update-at children idx new-child)) nil nil old-val t)
+                  (if split-key
+                      (let ((new-keys (insert-at keys idx split-key))
+                            (new-children (let ((arr (make-array (1+ (length children)))))
+                                            (replace arr children :end1 idx :end2 idx)
+                                            (setf (svref arr idx) new-child)
+                                            (setf (svref arr (1+ idx)) split-right)
+                                            (replace arr children :start1 (+ 2 idx) :start2 (1+ idx))
+                                            arr)))
+                        (if (<= (length new-children) +b-tree-order+)
+                            (values (%make-btree-node new-keys new-children) nil nil nil nil)
+                            (multiple-value-bind (left sk right) (split-node new-keys new-children)
+                              (values left sk right nil nil))))
+                      (values (%make-btree-node keys (update-at children idx new-child)) nil nil nil nil))))))))
+
+(defun btree-dissoc-node (node key cmp)
+  "Returns (VALUES new-node old-val found-p). Implements relaxed removal for massive speed."
+  (cond
+    ((null node) (values nil nil nil))
+    ((btree-leaf-p node)
+     (let* ((keys (btree-leaf-keys node))
+            (idx (bsearch-keys keys key cmp)))
+       (if (and (< idx (length keys)) (zerop (funcall cmp key (svref keys idx))))
+           (let ((new-keys (remove-at keys idx))
+                 (new-vals (remove-at (btree-leaf-vals node) idx)))
+             (if (zerop (length new-keys))
+                 (values nil (svref (btree-leaf-vals node) idx) t)
+                 (values (%make-btree-leaf new-keys new-vals) (svref (btree-leaf-vals node) idx) t)))
+           (values node nil nil))))
+    ((btree-node-p node)
+     (let* ((keys (btree-node-keys node))
+            (children (btree-node-children node))
+            (idx (bsearch-keys keys key cmp)))
+       (multiple-value-bind (new-child old-val found-p)
+           (btree-dissoc-node (svref children idx) key cmp)
+         (if (not found-p)
+             (values node nil nil)
+             (if (null new-child)
+                 (let ((new-keys (if (zerop idx) (remove-at keys 0) (remove-at keys (1- idx))))
+                       (new-children (remove-at children idx)))
+                   (if (zerop (length new-children))
+                       (values nil old-val t)
+                       (values (%make-btree-node new-keys new-children) old-val t)))
+                 (values (%make-btree-node keys (update-at children idx new-child)) old-val t))))))))
+
+;;; --------------------------------------------------------------------
+;;; Bulk load O(N).
+;;; --------------------------------------------------------------------
+
+(defun first-key (node)
+  (if (btree-leaf-p node)
+      (svref (btree-leaf-keys node) 0)
+      (first-key (svref (btree-node-children node) 0))))
+
+(defun btree-bulk-load (flat-sequence cmp)
+  "Creates a highly optimized B+ Tree from a flat sequence of alternating keys and values."
+  (let ((pairs nil) (idx 0))
+    ;; 1. Tag with original index to preserve 'last-in-wins' dict semantics
+    (loop for (k v) on flat-sequence by #'cddr
+          do (push (list k v idx) pairs) (incf idx))
+          
+    ;; 2. Sort natively
+    (setf pairs (sort pairs (lambda (a b)
+                              (let ((c (funcall cmp (car a) (car b))))
+                                (if (zerop c) (> (third a) (third b)) (< c 0))))))
+                                
+    ;; 3. Deduplicate
+    (let ((unique-pairs nil))
+      (loop for p in pairs
+            do (when (or (null unique-pairs) (not (zerop (funcall cmp (car p) (caar unique-pairs)))))
+                 (push (cons (car p) (cadr p)) unique-pairs)))
+      (setf unique-pairs (nreverse unique-pairs))
+      
+      ;; 4. Build Tree Bottom-Up
+      (let* ((count (length unique-pairs))
+             (nodes nil))
+        (if (zerop count)
+            (%make-btree-dict :count 0 :root nil)
+            (progn
+              (loop for chunk on unique-pairs by (lambda (x) (nthcdr 32 x))
+                    do (let* ((chunk-len (min 32 (length chunk)))
+                              (keys (make-array chunk-len))
+                              (vals (make-array chunk-len)))
+                         (loop for i from 0 below chunk-len for pair in chunk
+                               do (setf (svref keys i) (car pair) (svref vals i) (cdr pair)))
+                         (push (%make-btree-leaf keys vals) nodes)))
+              (setf nodes (nreverse nodes))
+
+              (loop while (> (length nodes) 1)
+                    do (let ((next-level nil))
+                         (loop for chunk on nodes by (lambda (x) (nthcdr 32 x))
+                               do (let* ((chunk-len (min 32 (length chunk)))
+                                         (children (make-array chunk-len))
+                                         (keys (make-array (1- chunk-len))))
+                                    (loop for i from 0 below chunk-len for node in chunk
+                                          do (setf (svref children i) node)
+                                          (when (> i 0) (setf (svref keys (1- i)) (first-key node))))
+                                    (push (%make-btree-node keys children) next-level)))
+                         (setf nodes (nreverse next-level))))
+                         
+              (%make-btree-dict :count count :root (car nodes))))))))
+
+;;; -------------------------------------------------------------------------
+;;; Lazy output.
+;;; -------------------------------------------------------------------------
+
+(defun btree-iterator (root)
+  (let ((stack (if root (list (cons root 0)) nil)))
+    (lambda ()
+      (loop
+        (if (null stack)
+            (return :eof)
+            (let* ((top (car stack))
+                   (node (car top))
+                   (idx (cdr top)))
+              (cond
+                ((btree-leaf-p node)
+                 (if (< idx (length (btree-leaf-keys node)))
+                     (progn
+                       (incf (cdr top))
+                       (return (values (svref (btree-leaf-keys node) idx)
+                                       (svref (btree-leaf-vals node) idx))))
+                     (pop stack)))
+                ((btree-node-p node)
+                 (if (< idx (length (btree-node-children node)))
+                     (progn
+                       (incf (cdr top))
+                       (push (cons (svref (btree-node-children node) idx) 0) stack))
+                     (pop stack))))))))))
+
+;;; --------------------------- sorted-dict ----------------------------
+
+(defclass <sorted-dict-mixin> () ((sorted-dict-storage :initform (%make-btree-dict) :accessor sorted-dict-storage)))
+;;; --------------------------------------------------------------------
+;;; Collection methods for <sorted-dict>.
+;;; NOTE: These are commented out because <sorted-dict> is defined in
+;;; collections.lisp which loads after this file. Move these there or
+;;; to a file that loads after collections.
+;;; --------------------------------------------------------------------
+
+#|
+(defmethod size ((d <sorted-dict>))
+  (fol.compiler.collection-primitives::btree-dict-count (storage-items d)))
+
+(defmethod ref ((d <sorted-dict>) key &optional not-found)
+  (let ((bd (storage-items d)))
+    (fol.compiler.collection-primitives::btree-get (fol.compiler.collection-primitives::btree-dict-root bd)
+                                                   key (cmp-fn d) not-found)))
+
+(defmethod assoc ((d <sorted-dict>) key val &optional not-found)
+  (let ((bd (storage-items d)))
+    (multiple-value-bind (new-root split-key split-right old-val found-p)
+        (fol.compiler.collection-primitives::btree-assoc-node (fol.compiler.collection-primitives::btree-dict-root bd)
+                                                              key val (cmp-fn d))
+
+      ;; If the root split, create a new parent over it
+      (let* ((final-root (if split-key
+                             (fol.compiler.collection-primitives::%make-btree-node (vector split-key) (vector new-root split-right))
+                             new-root))
+             (new-count (if found-p (fol.compiler.collection-primitives::btree-dict-count bd)
+                                    (1+ (fol.compiler.collection-primitives::btree-dict-count bd)))))
+
+        (values (make-instance '<sorted-dict>
+                  :items (fol.compiler.collection-primitives::%make-btree-dict :count new-count :root final-root)
+                  :compare-fn (comparator-compare d))
+                (if found-p old-val not-found)
+                found-p)))))
+
+;; Supports standard conj semantics (passing key and value as arguments or as a cons)
+(defmethod conj ((d <sorted-dict>) element)
+  (let ((key (if (consp element) (car element) element))
+        (val (if (consp element) (cdr element) nil)))
+    (collection-assoc d key val)))
+
+(defmethod dissoc ((d <sorted-dict>) key)
+  (let ((bd (storage-items d)))
+    (multiple-value-bind (new-root old-val found-p)
+        (fol.compiler.collection-primitives::btree-dissoc-node (fol.compiler.collection-primitives::btree-dict-root bd)
+                                                               key (cmp-fn d))
+      (declare (ignore old-val))
+      (if found-p
+          (make-instance '<sorted-dict>
+            :items (fol.compiler.collection-primitives::%make-btree-dict
+                    :count (1- (fol.compiler.collection-primitives::btree-dict-count bd))
+                    :root new-root)
+            :cmp-fn (comparator-compare d))
+          d))))
+
+(defmethod seq ((d <sorted-dict>))
+  (let* ((bd (storage-items d))
+         (total-size (fol.compiler.collection-primitives::btree-dict-count bd))
+         (iter (fol.compiler.collection-primitives::btree-iterator (fol.compiler.collection-primitives::btree-dict-root bd))))
+
+    (labels ((build-lazy-chain (remaining-size)
+               (if (<= remaining-size 0)
+                   nil
+                   (make-instance 'fol.compiler.collections::<lazy-seq>
+                     :thunk (lambda ()
+                              (multiple-value-bind (key val) (funcall iter)
+                                (if (eq key :eof)
+                                    nil
+                                    (let ((kv-vec (make-instance '<vector>
+                                                    :storage (fol.compiler.collection-primitives::%build-vec-t-from-list (list key val)))))
+                                      (make-instance 'fol.compiler.collections::<list>
+                                        :first-elem kv-vec
+                                        :rest-list (build-lazy-chain (1- remaining-size))
+                                        :list-size remaining-size)))))))))
+      (build-lazy-chain total-size))))
+|#
+
+;;; --------------------------------------------------------------------------------
+;;; Deque functions.
+;;; --------------------------------------------------------------------------------
+
+(defun %vec-t-pop (v)
+  "Removes the last element of the vector. 
+   Uses O(1) tail-slicing, falling back to an O(N) rebuild strictly on 32-element boundaries."
+  (let* ((count (%t-count v))
+         (tail-len (logand count 31)))
+    (cond
+      ((<= count 1)
+       (%make-vec-t :count 0 :shift 0 :root #() :tail #()))
+       
+      ((> tail-len 1)
+       ;; FAST PATH: O(1) tail slice. The tree root is perfectly shared.
+       (let ((new-tail (make-array (1- tail-len))))
+         (replace new-tail (%t-tail v))
+         (%make-vec-t :count (1- count)
+                      :shift (%t-shift v)
+                      :root (%t-root v)
+                      :tail new-tail)))
+                      
+      (t
+       ;; AMORTIZED PATH: We exhausted a chunk. Rebuild the trie.
+       (let ((lst nil)
+             (iter (%vec-t-iterator v)))
+         ;; Stream everything except the last element
+         (loop repeat (1- count)
+               do (push (funcall iter) lst))
+         (%build-vec-t-from-list (nreverse lst)))))))
