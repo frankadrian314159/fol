@@ -950,7 +950,15 @@
 (defclass <vec-fix64-storage-mixin> () ((storage :initarg :storage :initform %empty-vec-fix64 :accessor storage)))
 
 ;;; Generic storage mixin for non-vector collections (dicts, sets, bags, etc)
-(defclass <collection-storage> () ((items :initarg :items :initform nil :accessor storage-items)))
+(defclass <collection-storage> () ((items :initarg :items :initform nil :accessor %storage-items)))
+
+(defgeneric storage-items (coll)
+  (:documentation "Returns the underlying storage object for a collection."))
+
+(defmethod storage-items ((coll <vec-t-storage-mixin>)) (storage coll))
+(defmethod storage-items ((coll <vec-f64-storage-mixin>)) (storage coll))
+(defmethod storage-items ((coll <vec-f32-storage-mixin>)) (storage coll))
+(defmethod storage-items ((coll <vec-fix64-storage-mixin>)) (storage coll))
 
 ;;; -----------------------------------------------------------------------------
 ;;; Protocol Generics
@@ -1386,6 +1394,7 @@
 (defclass <dict-mixin> () ((dict-storage :initarg :dict-storage :initform (%make-hamt) :accessor dict-storage)))
 
 ;;; ------------------------------- dict functions -------------------------------------
+(defmethod storage-items ((coll <dict-mixin>)) (dict-storage coll))
 
 (defmethod size ((d <dict-mixin>))
   (hamt-count (dict-storage d)))
@@ -1407,7 +1416,7 @@
     (multiple-value-bind (new-root removed-p) (dissoc-node (hamt-root h) 0 hash key)
       (if removed-p
           (make-instance (class-of d) :dict-storage
-                         (%make-hamt :count (1- (hamt-count h)) :root new-root))
+            (%make-hamt :count (1- (hamt-count h)) :root new-root))
           d)))) ; Return unmodified object if key wasn't found
 
 (defmethod seq ((d <dict-mixin>))
@@ -1688,6 +1697,8 @@
 ;;; to a file that loads after collections.
 ;;; --------------------------------------------------------------------
 
+(defmethod storage-items ((coll <sorted-dict-mixin>)) (sorted-dict-storage coll))
+
 #|
 (defmethod size ((d <sorted-dict>))
   (fol.compiler.collection-primitives::btree-dict-count (storage-items d)))
@@ -1708,13 +1719,13 @@
                              (fol.compiler.collection-primitives::%make-btree-node (vector split-key) (vector new-root split-right))
                              new-root))
              (new-count (if found-p (fol.compiler.collection-primitives::btree-dict-count bd)
-                                    (1+ (fol.compiler.collection-primitives::btree-dict-count bd)))))
+                            (1+ (fol.compiler.collection-primitives::btree-dict-count bd)))))
 
         (values (make-instance '<sorted-dict>
                   :items (fol.compiler.collection-primitives::%make-btree-dict :count new-count :root final-root)
                   :compare-fn (comparator-compare d))
-                (if found-p old-val not-found)
-                found-p)))))
+          (if found-p old-val not-found)
+          found-p)))))
 
 ;; Supports standard conj semantics (passing key and value as arguments or as a cons)
 (defmethod conj ((d <sorted-dict>) element)
@@ -1742,22 +1753,21 @@
          (iter (fol.compiler.collection-primitives::btree-iterator (fol.compiler.collection-primitives::btree-dict-root bd))))
 
     (labels ((build-lazy-chain (remaining-size)
-               (if (<= remaining-size 0)
-                   nil
-                   (make-instance 'fol.compiler.collections::<lazy-seq>
-                     :thunk (lambda ()
-                              (multiple-value-bind (key val) (funcall iter)
-                                (if (eq key :eof)
-                                    nil
-                                    (let ((kv-vec (make-instance '<vector>
-                                                    :storage (fol.compiler.collection-primitives::%build-vec-t-from-list (list key val)))))
-                                      (make-instance 'fol.compiler.collections::<list>
-                                        :first-elem kv-vec
-                                        :rest-list (build-lazy-chain (1- remaining-size))
-                                        :list-size remaining-size)))))))))
+                               (if (<= remaining-size 0)
+                                   nil
+                                   (make-instance 'fol.compiler.collections::<lazy-seq>
+                                     :thunk (lambda ()
+                                              (multiple-value-bind (key val) (funcall iter)
+                                                (if (eq key :eof)
+                                                    nil
+                                                    (let ((kv-vec (make-instance '<vector>
+                                                                    :storage (fol.compiler.collection-primitives::%build-vec-t-from-list (list key val)))))
+                                                      (make-instance 'fol.compiler.collections::<list>
+                                                        :first-elem kv-vec
+                                                        :rest-list (build-lazy-chain (1- remaining-size))
+                                                        :list-size remaining-size)))))))))
       (build-lazy-chain total-size))))
 |#
-
 ;;; --------------------------------------------------------------------------------
 ;;; Deque functions.
 ;;; --------------------------------------------------------------------------------

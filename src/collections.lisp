@@ -51,12 +51,22 @@
   (declare (ignore c))
   0)
 
+(defmethod collection-size ((c t))
+  (if (listp c)
+      (length c)
+      0))
+
 (defgeneric collection-empty-p (collection)
   (:documentation "Return T if COLLECTION has no elements."))
 
 (defmethod collection-empty-p ((c <collection>))
   "Default: empty when size is zero."
   (zerop (collection-size c)))
+
+(defmethod collection-empty-p ((c t))
+  (if (listp c)
+      (null c)
+      t))
 
 (defgeneric collection-conj (collection element)
   (:documentation "Return a new collection with ELEMENT added.
@@ -71,6 +81,11 @@
 (defgeneric collection-seq (collection)
   (:documentation "Return the elements of COLLECTION as a CL list.
                    For dicts, returns a list of (key . value) cons pairs."))
+
+(defmethod collection-seq ((c t))
+  (if (listp c)
+      c
+      nil))
 
 (defgeneric collection-lazy-seq (collection)
   (:documentation "Return the elements of COLLECTION as a FOL lazy sequence.
@@ -358,13 +373,13 @@
   nil)
 
 (defmethod make ((class (eql '<vector>)) &rest args)
-  (if (and (= (length args) 2) (eq (first args) :initial-element))
+  (if (and (= (length args) 2) (eq (cl:first args) :initial-element))
       ;; Use our high-speed aliased constructor
-      (make-instance '<vector>
-        :storage (%make-filled-vec-t (second args) (first args)))
+      (make-instance class
+        :storage (%make-filled-vec-t (cl:second args) (cl:first args)))
       ;; Otherwise, fall back to standard element-by-element insertion
-      (let ((v (make-instance '<vector>)))
-        (dolist (e args) (setf v (collection-conj v e)))
+      (let ((v (make-instance class)))
+        (cl:dolist (e args) (cl:setf v (collection-conj v e)))
         v)))
 
 ;;; --- Protocol methods for <vector> ---
@@ -918,7 +933,7 @@
 ;;; Dict
 ;;; ============================================================================
 
-(defclass <dict> (<unordered-collection> <dict-mixin>)
+(defclass <dict> (<unordered-collection> <dict-mixin> <collection-storage>)
     ()
   (:default-initargs :dict-storage (%make-hamt))
   (:documentation "A persistent unordered dictionary backed by a hand-coded hamt."))
@@ -935,13 +950,8 @@
   nil)
 
 (defmethod make ((class (eql '<dict>)) &rest args)
-  "Create a new <dict> from alternating key-value ARGS.
-   (make '<dict>)            => empty dict
-   (make '<dict> :a 1 :b 2)  => dict with :a->1, :b->2"
-  (if (null args)
-      (make-instance '<dict>)
-      (make-instance '<dict>
-        :dict-storage (hamt-bulk-load args))))
+  (make-instance class
+    :dict-storage (hamt-bulk-load args)))
 
 (defmethod make ((class (eql '<array-dict>)) &rest args)
   "Create a new <array-dict> from alternating key-value ARGS.
@@ -1024,7 +1034,7 @@
 ;;; Ordered Dict
 ;;; ============================================================================
 
-(defclass <ordered-dict> (<dict-mixin> <vec-t-storage-mixin>) ()
+(defclass <ordered-dict> (<dict> <ordered-collection> <vec-t-storage-mixin>) ()
   (:documentation "A persistent insertion-ordered dictionary.
                    Inherits the hash-map from <dict> for O(~1) lookup.
                    Maintains an seq of keys in insertion order."))
@@ -1059,7 +1069,7 @@
     ;; 2. Instatiate the object by calling our high-speed bulk loaders
     (make-instance '<ordered-dict>
       ;; Load the HAMT dictionary (transiently applies all args, overwriting duplicates)
-      :items (fol.compiler.collection-primitives::hamt-bulk-load args)
+      :dict-storage (fol.compiler.collection-primitives::hamt-bulk-load args)
 
       ;; Load the Vector (builds the trie bottom-up in strict O(N) time)
       :storage (fol.compiler.collection-primitives::%build-vec-t-from-list unique-keys))))
@@ -1087,7 +1097,7 @@
           do (multiple-value-bind (val foundp)
                  (fol.compiler.collection-primitives::hamt-get h k)
                (when foundp
-                 (push (cons k val) result))))
+                     (push (cons k val) result))))
     (nreverse result)))
 
 (defmethod collection-lazy-seq ((d <ordered-dict>))
@@ -1128,7 +1138,7 @@
 ;;; Sorted Dict
 ;;; ============================================================================
 
-(defclass <sorted-dict> (<sorted-dict-mixin> <universal-comparator-mixin>)
+(defclass <sorted-dict> (<unordered-collection> <ordered-collection> <sorted-dict-mixin> <universal-comparator-mixin> <collection-storage>)
     ()
   (:documentation "A persistent sorted dictionary backed by a hand-coded HAMT.
                    Inherits storage and insertion order from <dict>, and comparison from <comparator-mixin>.
@@ -1162,11 +1172,11 @@
   (let ((bd (fol.compiler.collection-primitives::storage-items d))
         (result nil))
     (let ((iter (fol.compiler.collection-primitives::btree-iterator
-                  (fol.compiler.collection-primitives::btree-dict-root bd))))
+                 (fol.compiler.collection-primitives::btree-dict-root bd))))
       (loop
-        (multiple-value-bind (key val) (funcall iter)
-          (when (eq key :eof) (return))
-          (push (cons key val) result))))
+       (multiple-value-bind (key val) (funcall iter)
+         (when (eq key :eof) (return))
+         (push (cons key val) result))))
     (nreverse result)))
 
 (defmethod collection-lazy-seq ((d <sorted-dict>))
@@ -1185,7 +1195,7 @@
 ;;; Int Dict
 ;;; ============================================================================
 
-(defclass <int-dict> (<sorted-dict-mixin> <fast-fixnum-comparator-mixin>)
+(defclass <int-dict> (<unordered-collection> <ordered-collection> <sorted-dict-mixin> <fast-fixnum-comparator-mixin> <collection-storage>)
     ()
   (:documentation "A persistent sorted dictionary specialized for integer keys.
                    Backed by a hand-coded B-Tree."))
@@ -1231,11 +1241,11 @@
   (let ((bd (fol.compiler.collection-primitives::storage-items d))
         (result nil))
     (let ((iter (fol.compiler.collection-primitives::btree-iterator
-                  (fol.compiler.collection-primitives::btree-dict-root bd))))
+                 (fol.compiler.collection-primitives::btree-dict-root bd))))
       (loop
-        (multiple-value-bind (key val) (funcall iter)
-          (when (eq key :eof) (return))
-          (push (cons key val) result))))
+       (multiple-value-bind (key val) (funcall iter)
+         (when (eq key :eof) (return))
+         (push (cons key val) result))))
     (nreverse result)))
 
 (defmethod collection-lazy-seq ((d <int-dict>))
@@ -1276,15 +1286,15 @@
 (defmethod make ((class (eql '<priority-dict>)) &rest args)
   "Creates a new <priority-dict> from a flat sequence of alternating key-priority pairs.
    Optionally accepts a comparator function as the very first argument."
-   
+
   ;; 1. Extract the optional comparator
-  (let* ((cmp-fn (if (and args (functionp (first args))) 
-                     (pop args) 
+  (let* ((cmp-fn (if (and args (functionp (first args)))
+                     (pop args)
                      #'fol.compiler.compareops:%universal-comparator))
          (node-cmp (lambda (x y) (%priority-node-compare x y cmp-fn)))
          (seen (make-hash-table :test 'equal))
          (btree-args nil))
-         
+
     ;; 2. Deduplicate for the B+ Tree (Keeping the LAST seen priority for each key)
     ;; By reversing the list, we encounter the 'last' elements first.
     ;; A sequence of (k v k v) reversed becomes (v k v k).
@@ -1292,20 +1302,20 @@
       (loop for (priority key) on rev-args by #'cddr
             do (unless (gethash key seen)
                  (setf (gethash key seen) t)
-                 
+
                  ;; Build the B+ Tree args sequence. 
                  ;; Since we are pushing onto a list, we push the value ('t'), then the key.
                  (push t btree-args)
                  (push (cons priority key) btree-args))))
-                 
+
     ;; 3. Instantiate using the massive O(N) bulk loaders
     (make-instance '<priority-dict>
       ;; Load the HAMT (transient mutations instantly resolve duplicates)
       :dict-storage (fol.compiler.collection-primitives::hamt-bulk-load args)
-      
+
       ;; Load the B+ Tree (bottom-up strict O(N) chunking)
       :sorted-dict-storage (fol.compiler.collection-primitives::btree-bulk-load btree-args node-cmp)
-      
+
       :cmp-fn cmp-fn)))
 
 (defun %priority-node-compare (a b cmp)
@@ -1329,41 +1339,41 @@
          (btree (sorted-dict-storage d))
          (cmp (cmp-fn d))
          (node-cmp (lambda (x y) (%priority-node-compare x y cmp))))
-         
-    (multiple-value-bind (old-priority found-p) 
+
+    (multiple-value-bind (old-priority found-p)
         (fol.compiler.collection-primitives::hamt-get hamt key)
-        
+
       (let ((new-btree btree))
         ;; 1. Remove the old (priority . key) from the B+ Tree if it exists
         (when found-p
-          (multiple-value-bind (cleaned-root old-val removed-p)
-              (fol.compiler.collection-primitives::btree-dissoc-node 
-               (fol.compiler.collection-primitives::btree-dict-root btree)
-               (cons old-priority key)
-               node-cmp)
-            (declare (ignore old-val removed-p))
-            (setf new-btree (fol.compiler.collection-primitives::%make-btree-dict 
-                             :count (1- (fol.compiler.collection-primitives::btree-dict-count btree)) 
-                             :root cleaned-root))))
-                             
+              (multiple-value-bind (cleaned-root old-val removed-p)
+                  (fol.compiler.collection-primitives::btree-dissoc-node
+                   (fol.compiler.collection-primitives::btree-dict-root btree)
+                   (cons old-priority key)
+                   node-cmp)
+                (declare (ignore old-val removed-p))
+                (setf new-btree (fol.compiler.collection-primitives::%make-btree-dict
+                                 :count (1- (fol.compiler.collection-primitives::btree-dict-count btree))
+                                 :root cleaned-root))))
+
         ;; 2. Insert the new (priority . key) into the B+ Tree
         (multiple-value-bind (inserted-root split-key split-right old-val inserted-p)
-            (fol.compiler.collection-primitives::btree-assoc-node 
+            (fol.compiler.collection-primitives::btree-assoc-node
              (fol.compiler.collection-primitives::btree-dict-root new-btree)
-             (cons priority key) t 
+             (cons priority key) t
              node-cmp)
           (declare (ignore old-val inserted-p))
-             
+
           (let ((final-root (if split-key
-                                (fol.compiler.collection-primitives::%make-btree-node 
+                                (fol.compiler.collection-primitives::%make-btree-node
                                  (vector split-key) (vector inserted-root split-right))
                                 inserted-root)))
-                                
+
             ;; 3. Return the updated persistent Priority Dict
             (make-instance '<priority-dict>
               :dict-storage (fol.compiler.collection-primitives::hamt-assoc hamt key priority)
-              :sorted-dict-storage (fol.compiler.collection-primitives::%make-btree-dict 
-                                    :count (1+ (fol.compiler.collection-primitives::btree-dict-count new-btree)) 
+              :sorted-dict-storage (fol.compiler.collection-primitives::%make-btree-dict
+                                    :count (1+ (fol.compiler.collection-primitives::btree-dict-count new-btree))
                                     :root final-root)
               :cmp-fn cmp)))))))
 
@@ -1372,25 +1382,25 @@
          (btree (sorted-dict-storage d))
          (cmp (cmp-fn d))
          (node-cmp (lambda (x y) (%priority-node-compare x y cmp))))
-         
-    (multiple-value-bind (old-priority found-p) 
+
+    (multiple-value-bind (old-priority found-p)
         (fol.compiler.collection-primitives::hamt-get hamt key)
-        
+
       (if (not found-p)
           d ; Key doesn't exist, return identically
-          
+
           ;; Remove from B+ Tree and HAMT
           (multiple-value-bind (cleaned-root old-val removed-p)
-              (fol.compiler.collection-primitives::btree-dissoc-node 
+              (fol.compiler.collection-primitives::btree-dissoc-node
                (fol.compiler.collection-primitives::btree-dict-root btree)
                (cons old-priority key)
                node-cmp)
             (declare (ignore old-val removed-p))
-            
+
             (make-instance '<priority-dict>
               :dict-storage (fol.compiler.collection-primitives::hamt-dissoc hamt key)
-              :sorted-dict-storage (fol.compiler.collection-primitives::%make-btree-dict 
-                                    :count (1- (fol.compiler.collection-primitives::btree-dict-count btree)) 
+              :sorted-dict-storage (fol.compiler.collection-primitives::%make-btree-dict
+                                    :count (1- (fol.compiler.collection-primitives::btree-dict-count btree))
                                     :root cleaned-root)
               :cmp-fn cmp))))))
 
@@ -1405,12 +1415,12 @@
   (let ((btree (sorted-dict-storage d))
         (result nil))
     (let ((iter (fol.compiler.collection-primitives::btree-iterator
-                  (fol.compiler.collection-primitives::btree-dict-root btree))))
+                 (fol.compiler.collection-primitives::btree-dict-root btree))))
       (loop
-        (multiple-value-bind (p-k-cons dummy-val) (funcall iter)
-          (declare (ignore dummy-val))
-          (when (eq p-k-cons :eof) (return))
-          (push (cons (cdr p-k-cons) (car p-k-cons)) result))))
+       (multiple-value-bind (p-k-cons dummy-val) (funcall iter)
+         (declare (ignore dummy-val))
+         (when (eq p-k-cons :eof) (return))
+         (push (cons (cdr p-k-cons) (car p-k-cons)) result))))
     (nreverse result)))
 
 (defmethod collection-lazy-seq ((d <priority-dict>))
@@ -1420,7 +1430,7 @@
 ;;; Set
 ;;; ============================================================================
 
-(defclass <set> (<unordered-collection> <dict-mixin>)
+(defclass <set> (<unordered-collection> <dict-mixin> <collection-storage>)
     ()
   (:default-initargs :dict-storage (%make-hamt))
   (:documentation "A persistent unordered set backed by a HAMT."))
@@ -1437,10 +1447,7 @@
   nil)
 
 (defmethod make ((class (eql '<set>)) &rest elements)
-  "Create a new <set> from ELEMENTS.
-   (make '<set>)       => empty set
-   (make '<set> 1 2 3) => set of 1, 2, 3"
-  (let ((s (make-instance '<set>)))
+  (let ((s (make-instance class)))
     (dolist (e elements s)
       (setf s (fol.compiler.collection-primitives:assoc s e t)))))
 
@@ -1473,10 +1480,10 @@
   "Return elements of the set as a lazy-seq (keys only)."
   (let ((iter (fol.compiler.collection-primitives::hamt-iterator (dict-storage s))))
     (labels ((build-seq ()
-               (let ((pair (funcall iter)))
-                 (if (eq pair :eof)
-                     nil
-                     (lazy-cons (car pair) (build-seq))))))
+                        (let ((pair (funcall iter)))
+                          (if (eq pair :eof)
+                              nil
+                              (lazy-cons (car pair) (build-seq))))))
       (build-seq))))
 
 (defmethod collection-ref ((s <set>) key &optional not-found)
@@ -1510,7 +1517,7 @@
 ;;; Sorted Set
 ;;; ============================================================================
 
-(defclass <sorted-set> (<sorted-dict-mixin> <universal-comparator-mixin>)
+(defclass <sorted-set> (<set> <ordered-collection> <sorted-dict-mixin> <universal-comparator-mixin> <collection-storage>)
     ()
   (:documentation "A persistent sorted set backed by a hand-coded HAMT.
                    Elements are maintained in the order defined by the comparator
@@ -1545,7 +1552,7 @@
 ;;; Int Set
 ;;; ============================================================================
 
-(defclass <int-set> (<sorted-dict-mixin> <fast-fixnum-comparator-mixin>)
+(defclass <int-set> (<set> <ordered-collection> <sorted-dict-mixin> <fast-fixnum-comparator-mixin> <collection-storage>)
     ()
   (:documentation "A persistent sorted set backed by a hand-coded HAMT.
                    Elements are maintained in the order defined by the comparator
@@ -1601,7 +1608,7 @@
 ;;; Bag (Multiset)
 ;;; ============================================================================
 
-(defclass <bag> (<dict-mixin>) ()
+(defclass <bag> (<unordered-collection> <dict-mixin> <collection-storage>) ()
   (:documentation "A persistent multiset (bag) backed by a hand-coded HAMT.
                    Keys are elements, values are occurrence counts."))
 
@@ -1763,11 +1770,11 @@
     ;; Front elements in reverse order (stack)
     (loop while (>= f-idx 0)
           do (push (collection-ref front f-idx) result)
-             (decf f-idx))
+            (decf f-idx))
     ;; Rear elements in order (queue)
     (loop while (< r-idx (collection-size rear))
           do (push (collection-ref rear r-idx) result)
-             (incf r-idx))
+            (incf r-idx))
     (nreverse result)))
 
 (defmethod collection-lazy-seq ((d <deque>))
@@ -1777,24 +1784,24 @@
          (f-idx (1- (collection-size front)))
          (r-idx 0))
     (labels ((generator ()
-               (cond
-                 ((>= f-idx 0)
-                  (let ((val (collection-ref front f-idx)))
-                    (decf f-idx) val))
-                 ((< r-idx (collection-size rear))
-                  (let ((val (collection-ref rear r-idx)))
-                    (incf r-idx) val))
-                 (t :eof))))
+                        (cond
+                         ((>= f-idx 0)
+                           (let ((val (collection-ref front f-idx)))
+                             (decf f-idx) val))
+                         ((< r-idx (collection-size rear))
+                           (let ((val (collection-ref rear r-idx)))
+                             (incf r-idx) val))
+                         (t :eof))))
       (labels ((build-lazy-chain (remaining)
-                 (if (<= remaining 0) nil
-                     (make-instance '<lazy-seq>
-                       :thunk (lambda ()
-                                (let ((val (generator)))
-                                  (if (eq val :eof) nil
-                                      (make-instance '<list>
-                                        :first-elem val
-                                        :rest-list (build-lazy-chain (1- remaining))
-                                        :list-size 1))))))))
+                                 (if (<= remaining 0) nil
+                                     (make-instance '<lazy-seq>
+                                       :thunk (lambda ()
+                                                (let ((val (generator)))
+                                                  (if (eq val :eof) nil
+                                                      (make-instance '<list>
+                                                        :first-elem val
+                                                        :rest-list (build-lazy-chain (1- remaining))
+                                                        :list-size 1))))))))
         (build-lazy-chain total)))))
 
 ;;; ============================================================================
@@ -1862,18 +1869,18 @@
   (let ((result nil)
         (current l))
     (loop
-      (when (null current) (return))
-      (typecase current
-        (<list>
-         (when (zerop (list-size current)) (return))
-         (push (list-first current) result)
-         (setf current (list-rest current)))
-        (<lazy-seq>
-         (let ((realized (realize-lazy-seq current)))
-           (if realized
-               (setf current realized)
-               (return))))
-        (t (return))))
+     (when (null current) (return))
+     (typecase current
+       (<list>
+        (when (zerop (list-size current)) (return))
+        (push (list-first current) result)
+        (setf current (list-rest current)))
+       (<lazy-seq>
+        (let ((realized (realize-lazy-seq current)))
+          (if realized
+              (setf current realized)
+              (return))))
+       (t (return))))
     (nreverse result)))
 
 (defmethod collection-lazy-seq ((l <list>))

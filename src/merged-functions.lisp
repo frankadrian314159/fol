@@ -96,10 +96,9 @@
        (let* ((smap (first args))
               (coll (second args))
               (seq (fol.compiler.collections:collection-seq coll))
-              (smap-items (fol.compiler.collections:storage-items smap))
               (new-seq (mapcar (lambda (elem)
                                  (multiple-value-bind (replacement found)
-                                     (sycamore:hash-map-find smap-items elem)
+                                     (fol.compiler.collections:get smap elem)
                                    (if found replacement elem)))
                            seq)))
          (apply #'fol.compiler.collections:make

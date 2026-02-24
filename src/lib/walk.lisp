@@ -7,7 +7,7 @@
   (:use cl)
   (:import-from fol.compiler.collections
                 <collection> <vector> <dict> <set> <list>
-                collection-seq storage-items make)
+                collection-seq storage-items make get)
   (:export
    walk prewalk postwalk
    prewalk-demo prewalk-replace
@@ -102,7 +102,7 @@
      (prewalk-replace {a 1 b 2} [a b [a b]])  ; => [1 2 [1 2]]"
   (prewalk (lambda (x)
              (multiple-value-bind (val found)
-                 (sycamore:hash-map-find (storage-items smap) x)
+                 (get smap x)
                (if found val x)))
            form))
 
@@ -144,6 +144,6 @@
      (postwalk-replace {a 1 b 2} [a b [a b]])  ; => [1 2 [1 2]]"
   (postwalk (lambda (x)
               (multiple-value-bind (val found)
-                  (sycamore:hash-map-find (storage-items smap) x)
+                  (get smap x)
                 (if found val x)))
             form))
