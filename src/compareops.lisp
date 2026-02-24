@@ -211,11 +211,11 @@
 
 (defmethod %< (a b)
   (error "Cannot compare ~A (~A) and ~A (~A) with <"
-         a (type-of a) b (type-of b)))
+    a (type-of a) b (type-of b)))
 
 (defmethod %> (a b)
   (error "Cannot compare ~A (~A) and ~A (~A) with >"
-         a (type-of a) b (type-of b)))
+    a (type-of a) b (type-of b)))
 
 (defmethod %<= (a b)
   (not (%> a b)))
@@ -234,15 +234,15 @@
       (null (cdr args))
       (loop for (a b) on args
             while b
-            always (%= a b))))
+              always (%= a b))))
 
 (defun /= (&rest args)
   "Returns T if no two arguments are equal."
   (or (null args)
       (null (cdr args))
       (loop for (head . tail) on args
-            always (loop for other in tail
-                         never (%= head other)))))
+              always (loop for other in tail
+                             never (%= head other)))))
 
 (defun < (&rest args)
   "Returns T if arguments are strictly increasing."
@@ -250,7 +250,7 @@
       (null (cdr args))
       (loop for (a b) on args
             while b
-            always (%< a b))))
+              always (%< a b))))
 
 (defun > (&rest args)
   "Returns T if arguments are strictly decreasing."
@@ -258,7 +258,7 @@
       (null (cdr args))
       (loop for (a b) on args
             while b
-            always (%> a b))))
+              always (%> a b))))
 
 (defun <= (&rest args)
   "Returns T if arguments are non-decreasing."
@@ -266,7 +266,7 @@
       (null (cdr args))
       (loop for (a b) on args
             while b
-            always (%<= a b))))
+              always (%<= a b))))
 
 (defun >= (&rest args)
   "Returns T if arguments are non-increasing."
@@ -274,7 +274,7 @@
       (null (cdr args))
       (loop for (a b) on args
             while b
-            always (%>= a b))))
+              always (%>= a b))))
 
 ;;; ============================================================================
 ;;; Min and Max
@@ -285,14 +285,14 @@
   (let ((result first))
     (dolist (item args result)
       (when (%< item result)
-        (setf result item)))))
+            (setf result item)))))
 
 (defun max (first &rest args)
   "Returns the maximum of its arguments based on %>."
   (let ((result first))
     (dolist (item args result)
       (when (%> item result)
-        (setf result item)))))
+            (setf result item)))))
 
 
 ;;; -------------------------------------------------------------------------------
@@ -304,15 +304,15 @@
 (defun type-rank (x)
   "Assigns a strict sorting precedence to FOL data types."
   (cond
-    ((null x) 0)           ; nil
-    ((eq x t) 1)           ; t
-    ((characterp x) 2)     ; char
-    ((realp x) 3)          ; real (integer, float, ratio)
-    ((complexp x) 4)       ; complex
-    ((keywordp x) 5)       ; :keyword
-    ((symbolp x) 6)        ; symbol
-    ((stringp x) 7)        ; string
-    (t 8)))                ; Fallback for structs/objects
+   ((null x) 0) ; nil
+   ((eq x t) 1) ; t
+   ((characterp x) 2) ; char
+   ((realp x) 3) ; real (integer, float, ratio)
+   ((complexp x) 4) ; complex
+   ((keywordp x) 5) ; :keyword
+   ((symbolp x) 6) ; symbol
+   ((stringp x) 7) ; string
+   (t 8))) ; Fallback for structs/objects
 
 (defun %string-compare (s1 s2)
   (cond ((string< s1 s2) 1)
@@ -323,41 +323,41 @@
   (let ((p (symbol-package sym)))
     (if p (package-name p) ""))) ; Handles uninterned symbols gracefully
 
-(defun %universal-compare (a b)
+(defun %universal-comparator (a b)
   "Universal comparator returning 1 if a < b, -1 if b < a, and 0 if a == b."
   (let ((rank-a (type-rank a))
         (rank-b (type-rank b)))
     (if (/= rank-a rank-b)
         ;; Types differ: sort by type rank
         (if (< rank-a rank-b) 1 -1)
-        
+
         ;; Types are identical: compare values
         (case rank-a
           (0 0) ; nil vs nil
           (1 0) ; t vs t
-          
+
           (2 ; Characters (by int-value/char-code)
-           (let ((ca (char-code a)) (cb (char-code b)))
-             (cond ((< ca cb) 1) ((> ca cb) -1) (t 0))))
-             
+            (let ((ca (char-code a)) (cb (char-code b)))
+              (cond ((< ca cb) 1) ((> ca cb) -1) (t 0))))
+
           (3 ; Reals
-           (cond ((< a b) 1) ((> a b) -1) (t 0)))
-           
+            (cond ((< a b) 1) ((> a b) -1) (t 0)))
+
           (4 ; Complex (by magnitude)
-           (let ((ma (abs a)) (mb (abs b)))
-             (cond ((< ma mb) 1) ((> ma mb) -1) (t 0))))
-             
+            (let ((ma (abs a)) (mb (abs b)))
+              (cond ((< ma mb) 1) ((> ma mb) -1) (t 0))))
+
           (5 ; Keywords (by string)
-           (%string-compare (symbol-name a) (symbol-name b)))
-           
+            (%string-compare (symbol-name a) (symbol-name b)))
+
           (6 ; Symbols (by string, then by package)
-           (let ((c (%string-compare (symbol-name a) (symbol-name b))))
-             (if (zerop c)
-                 (%string-compare (%package-name-safe a) 
-                                  (%package-name-safe b))
-                 c)))
-                 
+            (let ((c (%string-compare (symbol-name a) (symbol-name b))))
+              (if (zerop c)
+                  (%string-compare (%package-name-safe a)
+                                   (%package-name-safe b))
+                  c)))
+
           (7 ; Strings
-           (%string-compare a b))
-           
+            (%string-compare a b))
+
           (t 0)))))

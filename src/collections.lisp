@@ -18,9 +18,9 @@
 ;;; ============================================================================
 
 (defclass <collection> (standard-object)
-  ((metadata :accessor collection-metadata
-             :initarg :metadata :initform nil
-             :documentation "Optional metadata dict associated with this collection."))
+    ((metadata :accessor collection-metadata
+               :initarg :metadata :initform nil
+               :documentation "Optional metadata dict associated with this collection."))
   (:documentation "Abstract base class for all FOL collections.
                    Subclasses wrap persistent backing stores (FSet, Sycamore)
                    and implement the collection protocol generics."))
@@ -51,10 +51,10 @@
   (declare (ignore c))
   0)
 
-(defgeneric collection-empty? (collection)
+(defgeneric collection-empty-p (collection)
   (:documentation "Return T if COLLECTION has no elements."))
 
-(defmethod collection-empty? ((c <collection>))
+(defmethod collection-empty-p ((c <collection>))
   "Default: empty when size is zero."
   (zerop (collection-size c)))
 
@@ -78,21 +78,21 @@
 ;;; ============================================================================
 
 (defclass <comparator-mixin> (standard-object)
-  ((cmp-fn :initarg :cmp-fn
-           :initform #'(lambda (a b)
-                          (cond ((< a b) -1)
-                                ((> a b)  1)
-                                (t        0)))
-           :reader cmp-fn))
+    ((cmp-fn :initarg :cmp-fn
+             :initform #'(lambda (a b)
+                           (cond ((< a b) -1)
+                                 ((> a b) 1)
+                                 (t 0)))
+             :reader cmp-fn))
   (:documentation "Base comparator class for sorted collections.
                    The compare function returns -1, 0, or 1."))
 
-(defclass <fast-fixnum-comparator-mixin> (<comparator-mixin>) () 
+(defclass <fast-fixnum-comparator-mixin> (<comparator-mixin>) ()
   (:default-initargs :cmp-fn #'(lambda (a b)
-                                (declare (optimize (speed 3) (safety 0))
-                                         (type fixnum a)
-                                         (type fixnum b))
-                                (if (< a b) 1 (if (< b a) -1 0)))))
+                                 (declare (optimize (speed 3) (safety 0))
+                                          (type fixnum a)
+                                          (type fixnum b))
+                                 (if (< a b) 1 (if (< b a) -1 0)))))
 
 (defclass <universal-comparator-mixin> (<comparator-mixin>) ()
   (:default-initargs :cmp-fn #'fol.compiler.compareops:%universal-comparator))
@@ -102,7 +102,7 @@
 ;;; ============================================================================
 
 (defclass <unordered-collection> (<collection>)
-  ()
+    ()
   (:documentation "Abstract base class for unordered collections (dicts, sets, bags).
                    Elements have no guaranteed iteration order."))
 
@@ -122,7 +122,7 @@
 ;;; ============================================================================
 
 (defclass <ordered-collection> (<collection>)
-  ()
+    ()
   (:documentation "Abstract base class for ordered collections (vectors, lists, deques).
                    Elements maintain a defined sequence order."))
 
@@ -142,7 +142,7 @@
 ;;; ============================================================================
 
 (defclass <f64-vector> (<ordered-collection> <vec-f64-storage-mixin>)
-  ()
+    ()
   (:documentation "A persistent ordered vector backed by an handcoded vec-t trie."))
 
 (defgeneric <f64-vector>? (obj)
@@ -159,7 +159,7 @@
 (defmethod make ((class (eql '<f64-vector>)) &rest args)
   (if (and (= (length args) 2) (eq (first args) :initial-element))
       ;; Use our high-speed aliased constructor
-      (make-instance '<f64-vector> 
+      (make-instance '<f64-vector>
         :storage (%make-filled-vec-f64 (second args) (first args)))
       ;; Otherwise, fall back to standard element-by-element insertion
       (let ((v (make-instance '<f64-vector>)))
@@ -169,18 +169,18 @@
 ;;; --- Protocol methods for <vector> ---
 
 (defmethod collection-size ((v <f64-vector>))
-  (size v))
+  (fol.compiler.collection-primitives:size v))
 
 (defun f64-pvec-leaf-for (pvec index)
   "Returns the internal 32-element simple-vector containing the INDEX."
-  (declare (type f64-pvec pvec)
+  (declare (type %vec-f64 pvec)
            (type fixnum index)
            (optimize (speed 3) (safety 0)))
-  (let ((count (f64-pvec-count pvec)))
+  (let ((count (%f64-count pvec)))
     (if (>= index (logand count (lognot 31))) ; Is it in the tail?
-        (f64-pvec-tail pvec)
-        (let ((node (f64-pvec-root pvec)))
-          (loop for level-shift from (f64-pvec-shift pvec) downto 5 by 5
+        (%f64-tail pvec)
+        (let ((node (%f64-root pvec)))
+          (loop for level-shift from (%f64-shift pvec) downto 5 by 5
                 for child-idx = (logand (ash index (- level-shift)) 31)
                 do (setf node (svref (the simple-vector node) child-idx)))
           node))))
@@ -188,36 +188,31 @@
 (defun f64-pvec-iterator (pvec)
   "Returns a closure that yields elements of PVEC one by one, 
    fetching tree nodes only once every 32 elements."
-  (let ((count (f64-pvec-count pvec))
+  (let ((count (%f64-count pvec))
         (global-idx 0)
         (chunk-idx 32) ; Force an immediate fetch on the first call
         (current-chunk nil))
     (declare (type fixnum count global-idx chunk-idx))
-    
+
     (lambda ()
       (if (>= global-idx count)
           :eof
           (progn
-            ;; Only traverse the tree when we exhaust the current 32-item chunk
-            (when (= chunk-idx 32)
-              (setf current-chunk (f64-pvec-leaf-for pvec global-idx))
-              (setf chunk-idx 0))
-              
-            ;; Fast-path: read directly from the cached leaf array
-            (let ((val (svref (the simple-vector current-chunk) chunk-idx)))
-              (incf global-idx)
-              (incf chunk-idx)
-              val))))))
+           (when (>= chunk-idx 32)
+                 (setf current-chunk (f64-pvec-leaf-for pvec global-idx)
+                   chunk-idx 0))
+           (let ((val (aref (the (simple-array double-float (32)) current-chunk) chunk-idx)))
+             (incf global-idx)
+             (incf chunk-idx)
+             val))))))
 
 (defun f64-pvec->lazy-seq (pvec)
-  "Converts a persistent vector into a standard lazy sequence."
   (let ((iter (f64-pvec-iterator pvec)))
     (labels ((build-seq ()
-               (let ((val (funcall iter)))
-                 (if (eq val :eof)
-                     nil ; Or your language's empty sequence marker
-                     ;; Delay the evaluation of the rest of the sequence
-                     (lazy-cons val (build-seq))))))
+                        (let ((val (funcall iter)))
+                          (if (eq val :eof)
+                              nil
+                              (make-instance '<list> :first-elem val :rest-list (make-instance '<lazy-seq> :thunk #'build-seq))))))
       (build-seq))))
 
 (defmethod collection-seq ((coll <f64-vector>))
@@ -233,14 +228,14 @@
   (error "Cannot dissoc element ~A from vector ~A." key coll))
 
 (defmethod collection-conj ((coll <f64-vector>) val)
-  (conj coll val))
+  (fol.compiler.collection-primitives:conj coll val))
 
 ;;; ============================================================================
 ;;; F32-vector
 ;;; ============================================================================
 
 (defclass <f32-vector> (<ordered-collection> <vec-f32-storage-mixin>)
-  ()
+    ()
   (:documentation "A persistent ordered vector backed by an handcoded vec-t trie."))
 
 (defgeneric <f32-vector>? (obj)
@@ -257,7 +252,7 @@
 (defmethod make ((class (eql '<f32-vector>)) &rest args)
   (if (and (= (length args) 2) (eq (first args) :initial-element))
       ;; Use our high-speed aliased constructor
-      (make-instance '<f32-vector> 
+      (make-instance '<f32-vector>
         :storage (%make-filled-vec-f32 (second args) (first args)))
       ;; Otherwise, fall back to standard element-by-element insertion
       (let ((v (make-instance '<f32-vector>)))
@@ -267,18 +262,18 @@
 ;;; --- Protocol methods for <vector> ---
 
 (defmethod collection-size ((v <f32-vector>))
-  (size v))
+  (fol.compiler.collection-primitives:size v))
 
 (defun f32-pvec-leaf-for (pvec index)
   "Returns the internal 32-element simple-vector containing the INDEX."
-  (declare (type f32-pvec pvec)
+  (declare (type %vec-f32 pvec)
            (type fixnum index)
            (optimize (speed 3) (safety 0)))
-  (let ((count (f32-pvec-count pvec)))
+  (let ((count (%f32-count pvec)))
     (if (>= index (logand count (lognot 31))) ; Is it in the tail?
-        (f32-pvec-tail pvec)
-        (let ((node (f32-pvec-root pvec)))
-          (loop for level-shift from (f32-pvec-shift pvec) downto 5 by 5
+        (%f32-tail pvec)
+        (let ((node (%f32-root pvec)))
+          (loop for level-shift from (%f32-shift pvec) downto 5 by 5
                 for child-idx = (logand (ash index (- level-shift)) 31)
                 do (setf node (svref (the simple-vector node) child-idx)))
           node))))
@@ -286,36 +281,31 @@
 (defun f32-pvec-iterator (pvec)
   "Returns a closure that yields elements of PVEC one by one, 
    fetching tree nodes only once every 32 elements."
-  (let ((count (f32-pvec-count pvec))
+  (let ((count (%f32-count pvec))
         (global-idx 0)
         (chunk-idx 32) ; Force an immediate fetch on the first call
         (current-chunk nil))
     (declare (type fixnum count global-idx chunk-idx))
-    
+
     (lambda ()
       (if (>= global-idx count)
           :eof
           (progn
-            ;; Only traverse the tree when we exhaust the current 32-item chunk
-            (when (= chunk-idx 32)
-              (setf current-chunk (f32-pvec-leaf-for pvec global-idx))
-              (setf chunk-idx 0))
-              
-            ;; Fast-path: read directly from the cached leaf array
-            (let ((val (svref (the simple-vector current-chunk) chunk-idx)))
-              (incf global-idx)
-              (incf chunk-idx)
-              val))))))
+           (when (>= chunk-idx 32)
+                 (setf current-chunk (f32-pvec-leaf-for pvec global-idx)
+                   chunk-idx 0))
+           (let ((val (aref (the (simple-array single-float (32)) current-chunk) chunk-idx)))
+             (incf global-idx)
+             (incf chunk-idx)
+             val))))))
 
 (defun f32-pvec->lazy-seq (pvec)
-  "Converts a persistent vector into a standard lazy sequence."
   (let ((iter (f32-pvec-iterator pvec)))
     (labels ((build-seq ()
-               (let ((val (funcall iter)))
-                 (if (eq val :eof)
-                     nil ; Or your language's empty sequence marker
-                     ;; Delay the evaluation of the rest of the sequence
-                     (lazy-cons val (build-seq))))))
+                        (let ((val (funcall iter)))
+                          (if (eq val :eof)
+                              nil
+                              (make-instance '<list> :first-elem val :rest-list (make-instance '<lazy-seq> :thunk #'build-seq))))))
       (build-seq))))
 
 (defmethod collection-seq ((coll <f32-vector>))
@@ -331,14 +321,14 @@
   (error "Cannot dissoc element ~A from vector ~A." key coll))
 
 (defmethod collection-conj ((coll <f32-vector>) val)
-  (conj coll val))
+  (fol.compiler.collection-primitives:conj coll val))
 
 ;;; ============================================================================
 ;;; Vector
 ;;; ============================================================================
 
 (defclass <vector> (<ordered-collection> <vec-t-storage-mixin>)
-  ()
+    ()
   (:documentation "A persistent ordered vector backed by an handcoded vec-t trie."))
 
 (defgeneric <vector>? (obj)
@@ -355,7 +345,7 @@
 (defmethod make ((class (eql '<vector>)) &rest args)
   (if (and (= (length args) 2) (eq (first args) :initial-element))
       ;; Use our high-speed aliased constructor
-      (make-instance '<vector> 
+      (make-instance '<vector>
         :storage (%make-filled-vec-t (second args) (first args)))
       ;; Otherwise, fall back to standard element-by-element insertion
       (let ((v (make-instance '<vector>)))
@@ -365,19 +355,19 @@
 ;;; --- Protocol methods for <vector> ---
 
 (defmethod collection-size ((v <vector>))
-  (size v))
+  (fol.compiler.collection-primitives:size v))
 
 (defun pvec-leaf-for (pvec index)
   "Returns the internal 32-element simple-vector containing the INDEX.
    PVEC is a raw %vec-t struct."
-  (declare (type fol.compiler.collection-primitives::%vec-t pvec)
+  (declare (type %vec-t pvec)
            (type fixnum index)
            (optimize (speed 3) (safety 0)))
-  (let ((count (fol.compiler.collection-primitives::%vec-t-count pvec)))
+  (let ((count (%t-count pvec)))
     (if (>= index (logand count (lognot 31))) ; Is it in the tail?
-        (fol.compiler.collection-primitives::%t-tail pvec)
-        (let ((node (fol.compiler.collection-primitives::%t-root pvec)))
-          (loop for level-shift from (fol.compiler.collection-primitives::%t-shift pvec) downto 5 by 5
+        (%t-tail pvec)
+        (let ((node (%t-root pvec)))
+          (loop for level-shift from (%t-shift pvec) downto 5 by 5
                 for child-idx = (logand (ash index (- level-shift)) 31)
                 do (setf node (svref (the simple-vector node) child-idx)))
           node))))
@@ -386,7 +376,7 @@
   "Returns a closure that yields elements of VEC (a <vector>) one by one,
    fetching tree nodes only once every 32 elements."
   (let* ((pvec (storage vec))
-         (count (fol.compiler.collection-primitives::%vec-t-count pvec))
+         (count (%t-count pvec))
          (global-idx 0)
          (chunk-idx 32) ; Force an immediate fetch on the first call
          (current-chunk nil))
@@ -396,26 +386,26 @@
       (if (>= global-idx count)
           :eof
           (progn
-            ;; Only traverse the tree when we exhaust the current 32-item chunk
-            (when (= chunk-idx 32)
-              (setf current-chunk (pvec-leaf-for pvec global-idx))
-              (setf chunk-idx 0))
+           ;; Only traverse the tree when we exhaust the current 32-item chunk
+           (when (= chunk-idx 32)
+                 (setf current-chunk (pvec-leaf-for pvec global-idx))
+                 (setf chunk-idx 0))
 
-            ;; Fast-path: read directly from the cached leaf array
-            (let ((val (svref (the simple-vector current-chunk) chunk-idx)))
-              (incf global-idx)
-              (incf chunk-idx)
-              val))))))
+           ;; Fast-path: read directly from the cached leaf array
+           (let ((val (svref (the simple-vector current-chunk) chunk-idx)))
+             (incf global-idx)
+             (incf chunk-idx)
+             val))))))
 
 (defun pvec->lazy-seq (pvec)
   "Converts a persistent vector into a standard lazy sequence."
   (let ((iter (pvec-iterator pvec)))
     (labels ((build-seq ()
-               (let ((val (funcall iter)))
-                 (if (eq val :eof)
-                     nil ; Or your language's empty sequence marker
-                     ;; Delay the evaluation of the rest of the sequence
-                     (lazy-cons val (build-seq))))))
+                        (let ((val (funcall iter)))
+                          (if (eq val :eof)
+                              nil ; Or your language's empty sequence marker
+                              ;; Delay the evaluation of the rest of the sequence
+                              (lazy-cons val (build-seq))))))
       (build-seq))))
 
 (defmethod collection-seq ((coll <vector>))
@@ -431,14 +421,14 @@
   (error "Cannot dissoc element ~A from vector ~A." key coll))
 
 (defmethod collection-conj ((coll <vector>) val)
-  (conj coll val))
+  (fol.compiler.collection-primitives:conj coll val))
 
 ;;; ============================================================================
 ;;; fix64-vector
 ;;; ============================================================================
 
 (defclass <fix64-vector> (<ordered-collection> <vec-fix64-storage-mixin>)
-  ()
+    ()
   (:documentation "A persistent ordered vector backed by an handcoded vec-t trie."))
 
 (defgeneric <fix64-vector>? (obj)
@@ -455,7 +445,7 @@
 (defmethod make ((class (eql '<fix64-vector>)) &rest args)
   (if (and (= (length args) 2) (eq (first args) :initial-element))
       ;; Use our high-speed aliased constructor
-      (make-instance '<fix64-vector> 
+      (make-instance '<fix64-vector>
         :storage (%make-filled-vec-fix64 (second args) (first args)))
       ;; Otherwise, fall back to standard element-by-element insertion
       (let ((v (make-instance '<fix64-vector>)))
@@ -465,18 +455,18 @@
 ;;; --- Protocol methods for <vector> ---
 
 (defmethod collection-size ((v <fix64-vector>))
-  (size v))
+  (fol.compiler.collection-primitives:size v))
 
 (defun fix64-pvec-leaf-for (pvec index)
   "Returns the internal 32-element simple-vector containing the INDEX."
-  (declare (type fix64-pvec pvec)
+  (declare (type %vec-fix64 pvec)
            (type fixnum index)
            (optimize (speed 3) (safety 0)))
-  (let ((count (fix64-pvec-count pvec)))
+  (let ((count (%fix64-count pvec)))
     (if (>= index (logand count (lognot 31))) ; Is it in the tail?
-        (fix64-pvec-tail pvec)
-        (let ((node (fix64-pvec-root pvec)))
-          (loop for level-shift from (fix64-pvec-shift pvec) downto 5 by 5
+        (%fix64-tail pvec)
+        (let ((node (%fix64-root pvec)))
+          (loop for level-shift from (%fix64-shift pvec) downto 5 by 5
                 for child-idx = (logand (ash index (- level-shift)) 31)
                 do (setf node (svref (the simple-vector node) child-idx)))
           node))))
@@ -484,36 +474,31 @@
 (defun fix64-pvec-iterator (pvec)
   "Returns a closure that yields elements of PVEC one by one, 
    fetching tree nodes only once every 32 elements."
-  (let ((count (fix64-pvec-count pvec))
+  (let ((count (%fix64-count pvec))
         (global-idx 0)
         (chunk-idx 32) ; Force an immediate fetch on the first call
         (current-chunk nil))
     (declare (type fixnum count global-idx chunk-idx))
-    
+
     (lambda ()
       (if (>= global-idx count)
           :eof
           (progn
-            ;; Only traverse the tree when we exhaust the current 32-item chunk
-            (when (= chunk-idx 32)
-              (setf current-chunk (fix64-pvec-leaf-for pvec global-idx))
-              (setf chunk-idx 0))
-              
-            ;; Fast-path: read directly from the cached leaf array
-            (let ((val (svref (the simple-vector current-chunk) chunk-idx)))
-              (incf global-idx)
-              (incf chunk-idx)
-              val))))))
+           (when (>= chunk-idx 32)
+                 (setf current-chunk (fix64-pvec-leaf-for pvec global-idx)
+                   chunk-idx 0))
+           (let ((val (aref (the (simple-array fixnum (32)) current-chunk) chunk-idx)))
+             (incf global-idx)
+             (incf chunk-idx)
+             val))))))
 
 (defun fix64-pvec->lazy-seq (pvec)
-  "Converts a persistent vector into a standard lazy sequence."
   (let ((iter (fix64-pvec-iterator pvec)))
     (labels ((build-seq ()
-               (let ((val (funcall iter)))
-                 (if (eq val :eof)
-                     nil ; Or your language's empty sequence marker
-                     ;; Delay the evaluation of the rest of the sequence
-                     (lazy-cons val (build-seq))))))
+                        (let ((val (funcall iter)))
+                          (if (eq val :eof)
+                              nil
+                              (make-instance '<list> :first-elem val :rest-list (make-instance '<lazy-seq> :thunk #'build-seq))))))
       (build-seq))))
 
 (defmethod collection-seq ((coll <fix64-vector>))
@@ -529,17 +514,17 @@
   (error "Cannot dissoc element ~A from vector ~A." key coll))
 
 (defmethod collection-conj ((coll <fix64-vector>) val)
-  (conj coll val))
+  (fol.compiler.collection-primitives:conj coll val))
 
 ;;; ============================================================================
 ;;; F64-array (subclass of f64-vector)
 ;;; ============================================================================
 
 (defclass <f64-array> (<f64-vector>)
-  ((dimension :initarg :dimension
-              :initform '(1)
-              :reader array-dimension
-              :documentation "List of dimension sizes, as in CL array-dimensions."))
+    ((dimension :initarg :dimension
+                :initform '(1)
+                :reader array-dimension
+                :documentation "List of dimension sizes, as in CL array-dimensions."))
   (:default-initargs :items (cl:make-array 0))
   (:documentation "A persistent array.
                    Subclass of <vector> with O(1) indexed access and
@@ -547,7 +532,7 @@
 
 (defgeneric <f64-array>? (obj)
   (:documentation "Returns T if OBJ is a FOL <array>."))
-  
+
 (defmethod <f64-array>? (obj)
   (declare (ignore obj))
   nil)
@@ -566,37 +551,37 @@
   (let* ((has-dims (eq (cl:first args) :dimensions))
          (dimensions (if has-dims (cl:second args) (cl:first args)))
          (elements (if has-dims (cl:cddr args) (cl:rest args)))
-         
+
          ;; Normalize dimensions to a list to calculate expected capacity
          (dims-list (if (listp dimensions) dimensions (coerce dimensions 'cl:list)))
          (expected-size (reduce #'* dims-list :initial-value 1)))
-         
+
     (cond
-      ;; FAST PATH 1: Single repeating initial element (O(log N) memory aliasing)
-      ((eq (cl:first elements) :initial-element)
-       (make-instance '<array> 
+     ;; FAST PATH 1: Single repeating initial element (O(log N) memory aliasing)
+     ((eq (cl:first elements) :initial-element)
+       (make-instance '<array>
          :dimension dimensions
-         :storage (fol.compiler.collection-primitives::%make-filled-vec-f64 
-                   expected-size 
+         :storage (fol.compiler.collection-primitives::%make-filled-vec-f64
+                   expected-size
                    (cl:second elements))))
-                   
-      ;; FAST PATH 2: A sequence of distinct initial elements (O(N) bottom-up builder)
-      (elements
+
+     ;; FAST PATH 2: A sequence of distinct initial elements (O(N) bottom-up builder)
+     (elements
        ;; Optional: You can add an error check here to ensure (length elements) == expected-size
        (make-instance '<array>
          :dimension dimensions
          :storage (fol.compiler.collection-primitives::%build-vec-f64-from-list elements)))
-         
-      ;; FAST PATH 3: Empty array (fallback)
-      (t
-       (make-instance '<array> 
+
+     ;; FAST PATH 3: Empty array (fallback)
+     (t
+       (make-instance '<array>
          :dimension dimensions
          :storage fol.compiler.collection-primitives::%empty-vec-f64)))))
 
 ;;; --- Protocol methods for <array> (override <vector> FSet-based methods) ---
 
 (defmethod collection-size ((a <f64-array>))
-  (size a))
+  (fol.compiler.collection-primitives:size a))
 
 (defmethod collection-seq ((coll <f64-array>))
   (pvec->lazy-seq coll))
@@ -613,17 +598,17 @@
   (error "Cannot dissoc element ~A from array ~A." key coll))
 
 (defmethod collection-conj ((coll <f64-array>) val)
-  (conj coll val))
+  (fol.compiler.collection-primitives:conj coll val))
 
 ;;; ============================================================================
 ;;; f32-array (subclass of f32-vector)
 ;;; ============================================================================
 
 (defclass <f32-array> (<f32-vector>)
-  ((dimension :initarg :dimension
-              :initform '(1)
-              :reader array-dimension
-              :documentation "List of dimension sizes, as in CL array-dimensions."))
+    ((dimension :initarg :dimension
+                :initform '(1)
+                :reader array-dimension
+                :documentation "List of dimension sizes, as in CL array-dimensions."))
   (:default-initargs :items (cl:make-array 0))
   (:documentation "A persistent array.
                    Subclass of <vector> with O(1) indexed access and
@@ -631,7 +616,7 @@
 
 (defgeneric <f32-array>? (obj)
   (:documentation "Returns T if OBJ is a FOL <array>."))
-  
+
 (defmethod <f32-array>? (obj)
   (declare (ignore obj))
   nil)
@@ -650,37 +635,37 @@
   (let* ((has-dims (eq (cl:first args) :dimensions))
          (dimensions (if has-dims (cl:second args) (cl:first args)))
          (elements (if has-dims (cl:cddr args) (cl:rest args)))
-         
+
          ;; Normalize dimensions to a list to calculate expected capacity
          (dims-list (if (listp dimensions) dimensions (coerce dimensions 'cl:list)))
          (expected-size (reduce #'* dims-list :initial-value 1)))
-         
+
     (cond
-      ;; FAST PATH 1: Single repeating initial element (O(log N) memory aliasing)
-      ((eq (cl:first elements) :initial-element)
-       (make-instance '<array> 
+     ;; FAST PATH 1: Single repeating initial element (O(log N) memory aliasing)
+     ((eq (cl:first elements) :initial-element)
+       (make-instance '<array>
          :dimension dimensions
-         :storage (fol.compiler.collection-primitives::%make-filled-vec-f32 
-                   expected-size 
+         :storage (fol.compiler.collection-primitives::%make-filled-vec-f32
+                   expected-size
                    (cl:second elements))))
-                   
-      ;; FAST PATH 2: A sequence of distinct initial elements (O(N) bottom-up builder)
-      (elements
+
+     ;; FAST PATH 2: A sequence of distinct initial elements (O(N) bottom-up builder)
+     (elements
        ;; Optional: You can add an error check here to ensure (length elements) == expected-size
        (make-instance '<array>
          :dimension dimensions
          :storage (fol.compiler.collection-primitives::%build-vec-f32-from-list elements)))
-         
-      ;; FAST PATH 3: Empty array (fallback)
-      (t
-       (make-instance '<array> 
+
+     ;; FAST PATH 3: Empty array (fallback)
+     (t
+       (make-instance '<array>
          :dimension dimensions
          :storage fol.compiler.collection-primitives::%empty-vec-f32)))))
 
 ;;; --- Protocol methods for <array> (override <vector> FSet-based methods) ---
 
 (defmethod collection-size ((a <f32-array>))
-  (size a))
+  (fol.compiler.collection-primitives:size a))
 
 (defmethod collection-seq ((coll <f32-array>))
   (pvec->lazy-seq coll))
@@ -697,17 +682,17 @@
   (error "Cannot dissoc element ~A from array ~A." key coll))
 
 (defmethod collection-conj ((coll <f32-array>) val)
-  (conj coll val))
+  (fol.compiler.collection-primitives:conj coll val))
 
 ;;; ============================================================================
 ;;; Array (subclass of Vector)
 ;;; ============================================================================
 
 (defclass <array> (<vector>)
-  ((dimension :initarg :dimension
-              :initform '(1)
-              :reader array-dimension
-              :documentation "List of dimension sizes, as in CL array-dimensions."))
+    ((dimension :initarg :dimension
+                :initform '(1)
+                :reader array-dimension
+                :documentation "List of dimension sizes, as in CL array-dimensions."))
   (:default-initargs :items (cl:make-array 0))
   (:documentation "A persistent array .
                    Subclass of <vector> with O(1) indexed access and
@@ -715,7 +700,7 @@
 
 (defgeneric <array>? (obj)
   (:documentation "Returns T if OBJ is a FOL <array>."))
-  
+
 (defmethod <array>? (obj)
   (declare (ignore obj))
   nil)
@@ -734,37 +719,37 @@
   (let* ((has-dims (eq (cl:first args) :dimensions))
          (dimensions (if has-dims (cl:second args) (cl:first args)))
          (elements (if has-dims (cl:cddr args) (cl:rest args)))
-         
+
          ;; Normalize dimensions to a list to calculate expected capacity
          (dims-list (if (listp dimensions) dimensions (coerce dimensions 'cl:list)))
          (expected-size (reduce #'* dims-list :initial-value 1)))
-         
+
     (cond
-      ;; FAST PATH 1: Single repeating initial element (O(log N) memory aliasing)
-      ((eq (cl:first elements) :initial-element)
-       (make-instance '<array> 
+     ;; FAST PATH 1: Single repeating initial element (O(log N) memory aliasing)
+     ((eq (cl:first elements) :initial-element)
+       (make-instance '<array>
          :dimension dimensions
-         :storage (fol.compiler.collection-primitives::%make-filled-vec-t 
-                   expected-size 
+         :storage (fol.compiler.collection-primitives::%make-filled-vec-t
+                   expected-size
                    (cl:second elements))))
-                   
-      ;; FAST PATH 2: A sequence of distinct initial elements (O(N) bottom-up builder)
-      (elements
+
+     ;; FAST PATH 2: A sequence of distinct initial elements (O(N) bottom-up builder)
+     (elements
        ;; Optional: You can add an error check here to ensure (length elements) == expected-size
        (make-instance '<array>
          :dimension dimensions
          :storage (fol.compiler.collection-primitives::%build-vec-t-from-list elements)))
-         
-      ;; FAST PATH 3: Empty array (fallback)
-      (t
-       (make-instance '<array> 
+
+     ;; FAST PATH 3: Empty array (fallback)
+     (t
+       (make-instance '<array>
          :dimension dimensions
          :storage fol.compiler.collection-primitives::%empty-vec-t)))))
 
 ;;; --- Protocol methods for <array> (override <vector> FSet-based methods) ---
 
 (defmethod collection-size ((a <array>))
-  (size a))
+  (fol.compiler.collection-primitives:size a))
 
 (defmethod collection-seq ((coll <array>))
   (pvec->lazy-seq coll))
@@ -781,17 +766,17 @@
   (error "Cannot dissoc element ~A from array ~A." key coll))
 
 (defmethod collection-conj ((coll <array>) val)
-  (conj coll val))
+  (fol.compiler.collection-primitives:conj coll val))
 
 ;;; ============================================================================
 ;;; Fix64-array (subclass of fix64-vector)
 ;;; ============================================================================
 
 (defclass <fix64-array> (<fix64-vector>)
-  ((dimension :initarg :dimension
-              :initform '(1)
-              :reader array-dimension
-              :documentation "List of dimension sizes, as in CL array-dimensions."))
+    ((dimension :initarg :dimension
+                :initform '(1)
+                :reader array-dimension
+                :documentation "List of dimension sizes, as in CL array-dimensions."))
   (:default-initargs :items (cl:make-array 0))
   (:documentation "A persistent array.
                    Subclass of <vector> with O(1) indexed access and
@@ -799,7 +784,7 @@
 
 (defgeneric <fix64-array>? (obj)
   (:documentation "Returns T if OBJ is a FOL <array>."))
-  
+
 (defmethod <fix64-array>? (obj)
   (declare (ignore obj))
   nil)
@@ -818,37 +803,37 @@
   (let* ((has-dims (eq (cl:first args) :dimensions))
          (dimensions (if has-dims (cl:second args) (cl:first args)))
          (elements (if has-dims (cl:cddr args) (cl:rest args)))
-         
+
          ;; Normalize dimensions to a list to calculate expected capacity
          (dims-list (if (listp dimensions) dimensions (coerce dimensions 'cl:list)))
          (expected-size (reduce #'* dims-list :initial-value 1)))
-         
+
     (cond
-      ;; FAST PATH 1: Single repeating initial element (O(log N) memory aliasing)
-      ((eq (cl:first elements) :initial-element)
-       (make-instance '<array> 
+     ;; FAST PATH 1: Single repeating initial element (O(log N) memory aliasing)
+     ((eq (cl:first elements) :initial-element)
+       (make-instance '<array>
          :dimension dimensions
-         :storage (fol.compiler.collection-primitives::%make-filled-vec-fix64 
-                   expected-size 
+         :storage (fol.compiler.collection-primitives::%make-filled-vec-fix64
+                   expected-size
                    (cl:second elements))))
-                   
-      ;; FAST PATH 2: A sequence of distinct initial elements (O(N) bottom-up builder)
-      (elements
+
+     ;; FAST PATH 2: A sequence of distinct initial elements (O(N) bottom-up builder)
+     (elements
        ;; Optional: You can add an error check here to ensure (length elements) == expected-size
        (make-instance '<array>
          :dimension dimensions
          :storage (fol.compiler.collection-primitives::%build-vec-fix64-from-list elements)))
-         
-      ;; FAST PATH 3: Empty array (fallback)
-      (t
-       (make-instance '<array> 
+
+     ;; FAST PATH 3: Empty array (fallback)
+     (t
+       (make-instance '<array>
          :dimension dimensions
          :storage fol.compiler.collection-primitives::%empty-vec-fix64)))))
 
 ;;; --- Protocol methods for <array> (override <vector> FSet-based methods) ---
 
 (defmethod collection-size ((a <fix64-array>))
-  (size a))
+  (fol.compiler.collection-primitives:size a))
 
 (defmethod collection-seq ((coll <fix64-array>))
   (pvec->lazy-seq coll))
@@ -865,14 +850,14 @@
   (error "Cannot dissoc element ~A from array ~A." key coll))
 
 (defmethod collection-conj ((coll <fix64-array>) val)
-  (conj coll val))
-  
+  (fol.compiler.collection-primitives:conj coll val))
+
 ;;; ============================================================================
 ;;; Dict
 ;;; ============================================================================
 
 (defclass <dict> (<unordered-collection> <dict-mixin>)
-  ()
+    ()
   (:default-initargs :dict-storage (%make-hamt))
   (:documentation "A persistent unordered dictionary backed by a hand-coded hamt."))
 
@@ -900,10 +885,10 @@
 ;;; --- Protocol methods for <dict> ---
 
 (defmethod collection-size ((d <dict>))
-  (size d))
+  (fol.compiler.collection-primitives:size d))
 
-(defmethod collection-empty? ((d <dict>))
-  (empty? d))
+(defmethod collection-empty-p ((d <dict>))
+  (fol.compiler.collection-primitives:empty? d))
 
 (defmethod collection-conj ((d <dict>) entry)
   "Add a key-val pair (cons cell) to the dict."
@@ -915,7 +900,7 @@
 (defmethod collection-assoc ((d <dict>) key val)
   (fol.compiler.collection-primitives:assoc d key val))
 
-(defmethod collection-dissoc((d <dict>) key)
+(defmethod collection-dissoc ((d <dict>) key)
   (dissoc d key))
 
 (defmethod collection-ref ((d <dict-mixin>) key &optional not-found)
@@ -929,25 +914,25 @@
   "Quickly scans a persistent vector for TARGET by checking 32-element chunks natively."
   (declare (type %vec-t v) (optimize (speed 3) (safety 0)))
   (let ((count (%t-count v)))
-    (when (zerop count) 
-      (return-from %vec-t-contains-p nil))
-    
+    (when (zerop count)
+          (return-from %vec-t-contains-p nil))
+
     (labels ((search-node (node level)
-               (declare (type simple-vector node) (type fixnum level))
-               (if (zerop level)
-                   ;; Base case: We hit a 32-element leaf. 
-                   ;; Use native Lisp SIMD/optimized array search!
-                   (when (find target (the t-leaf node) :test test)
-                     (return-from %vec-t-contains-p t))
-                     
-                   ;; Recursive case: Internal routing node. Traverse children.
-                   (loop for child across node
-                         when child do (search-node child (- level +bit-shift+))))))
-                 
+                          (declare (type simple-vector node) (type fixnum level))
+                          (if (zerop level)
+                              ;; Base case: We hit a 32-element leaf. 
+                              ;; Use native Lisp SIMD/optimized array search!
+                              (when (find target (the t-leaf node) :test test)
+                                    (return-from %vec-t-contains-p t))
+
+                              ;; Recursive case: Internal routing node. Traverse children.
+                              (loop for child across node
+                                      when child do (search-node child (- level +bit-shift+))))))
+
       ;; 1. Scan the main tree (if it has elements)
       (when (> count 32)
-        (search-node (%t-root v) (%t-shift v)))
-        
+            (search-node (%t-root v) (%t-shift v)))
+
       ;; 2. Scan the variable-length tail
       (let* ((tail (%t-tail v))
              (tail-len (logand count +bit-mask+))
@@ -980,15 +965,15 @@
   "Create a new <ordered-dict> from alternating key-value ARGS.
    Keys are stored in the order provided; duplicate keys keep the last value
    and retain the position of the first occurrence."
-   
+
   ;; 1. Extract unique keys in insertion order using native Lisp
   (let ((seen (make-hash-table :test 'equal)) ; Use 'equal to match your HAMT hash rules
-        (unique-keys nil))
+                                             (unique-keys nil))
     (loop for (k v) on args by #'cddr
           do (unless (gethash k seen)
                (setf (gethash k seen) t)
                (push k unique-keys)))
-               
+
     ;; `push` builds the list backwards, so we reverse it destructively
     (setf unique-keys (nreverse unique-keys))
 
@@ -996,24 +981,24 @@
     (make-instance '<ordered-dict>
       ;; Load the HAMT dictionary (transiently applies all args, overwriting duplicates)
       :items (fol.compiler.collection-primitives::hamt-bulk-load args)
-      
+
       ;; Load the Vector (builds the trie bottom-up in strict O(N) time)
       :storage (fol.compiler.collection-primitives::%build-vec-t-from-list unique-keys))))
 
 ;;; --- Protocol methods for <ordered-dict> ---
 
 (defmethod collection-size ((d <ordered-dict>))
-  (size d))
+  (fol.compiler.collection-primitives:size d))
 
-(defmethod collection-empty? ((d <ordered-dict>))
-  (empty? d))
+(defmethod collection-empty-p ((d <ordered-dict>))
+  (fol.compiler.collection-primitives:empty? d))
 
 (defmethod collection-conj ((d <ordered-dict>) entry)
   "Add a key value pair (cons cell), preserving insertion order.
    If the key already exists, its value is updated in place."
   (kv-conj d (car entry) (cdr entry)))
 
-(defmethod collection-seq (dict)
+(defmethod collection-seq ((d <ordered-dict>))
   "Wraps an <ordered-dict> into a lazily evaluated sequence of [key, value] vectors."
   ;; Extract the underlying primitive structures from the CLOS object
   (seq d))
@@ -1054,7 +1039,7 @@
 ;;; ============================================================================
 
 (defclass <sorted-dict> (<sorted-dict-mixin> <universal-comparator-mixin>)
-  ()
+    ()
   (:documentation "A persistent sorted dictionary backed by a hand-coded HAMT.
                    Inherits storage and insertion order from <dict>, and comparison from <comparator-mixin>.
                    Keys are maintained in the order defined by the comparator
@@ -1076,7 +1061,7 @@
 ;;; --- Protocol methods for <sorted-dict> ---
 
 (defmethod collection-size ((d <sorted-dict>))
-  (size d))
+  (fol.compiler.collection-primitives:size d))
 
 (defmethod collection-conj ((d <sorted-dict>) entry)
   "Add a key/value pair (cons cell) to the sorted dict in comparator order."
@@ -1100,7 +1085,7 @@
 ;;; ============================================================================
 
 (defclass <int-dict> (<sorted-dict-mixin> <fast-fixnum-comparator-mixin>)
-  ()
+    ()
   (:documentation "A persistent sorted dictionary specialized for integer keys.
                    Backed by a hand-coded B-Tree."))
 
@@ -1124,7 +1109,17 @@
 ;;; --- Protocol methods for <int-dict> ---
 
 (defmethod collection-size ((d <int-dict>))
-  (size d))
+  (fol.compiler.collection-primitives:size d))
+
+(defmethod collection-empty-p ((d <int-dict>))
+  (fol.compiler.collection-primitives:empty? d))
+
+
+(defgeneric comparator-compare (obj))
+(defmethod comparator-compare ((obj <comparator-mixin>)) (cmp-fn obj))
+
+(defun ordered-dict-key-order (d) (storage d))
+(defun array-dict-key-order (d) (storage d))
 
 (defmethod collection-conj ((d <int-dict>) entry)
   "Add a key/value pair (cons cell) to the sorted dict in comparator order."
@@ -1148,17 +1143,7 @@
 ;;; Priority Dict
 ;;; ============================================================================
 
-(defclass <priority-dict> (<dict-mixin> <sorted-dict-mixin> <universal-comparator-mixin>)
-  ((priority-tree :initarg :priority-tree
-                  :initform nil
-                  :reader priority-dict-tree
-                  :documentation "Sycamore tree-map with (priority . key) composite keys
-                                 for O(log n) priority ordering.")
-   (priority-compare :initarg :priority-compare
-                     :initform nil
-                     :reader priority-dict-compare
-                     :documentation "Comparator function for priority values.
-                                    Returns negative/zero/positive fixnum."))
+(defclass <priority-dict> (<dict-mixin> <sorted-dict-mixin> <universal-comparator-mixin>) ()
   (:documentation "A persistent priority dictionary backed by a hand-coded HAMT
                    and a hand-coded 32-way B-Tree.
                    Inherits the hash-map from <dict-mixin> for O(~1) key→priority lookup.
@@ -1176,14 +1161,170 @@
   (declare (ignore obj))
   nil)
 
+(defmethod make ((class (eql '<priority-dict>)) &rest args)
+  "Creates a new <priority-dict> from a flat sequence of alternating key-priority pairs.
+   Optionally accepts a comparator function as the very first argument."
+   
+  ;; 1. Extract the optional comparator
+  (let* ((cmp-fn (if (and args (functionp (first args))) 
+                     (pop args) 
+                     #'fol.compiler.compareops:universal-compare))
+         (node-cmp (lambda (x y) (%priority-node-compare x y cmp-fn)))
+         (seen (make-hash-table :test 'equal))
+         (btree-args nil))
+         
+    ;; 2. Deduplicate for the B+ Tree (Keeping the LAST seen priority for each key)
+    ;; By reversing the list, we encounter the 'last' elements first.
+    ;; A sequence of (k v k v) reversed becomes (v k v k).
+    (let ((rev-args (reverse args)))
+      (loop for (priority key) on rev-args by #'cddr
+            do (unless (gethash key seen)
+                 (setf (gethash key seen) t)
+                 
+                 ;; Build the B+ Tree args sequence. 
+                 ;; Since we are pushing onto a list, we push the value ('t'), then the key.
+                 (push t btree-args)
+                 (push (cons priority key) btree-args))))
+                 
+    ;; 3. Instantiate using the massive O(N) bulk loaders
+    (make-instance '<priority-dict>
+      ;; Load the HAMT (transient mutations instantly resolve duplicates)
+      :dict-storage (fol.compiler.collection-primitives::hamt-bulk-load args)
+      
+      ;; Load the B+ Tree (bottom-up strict O(N) chunking)
+      :sorted-dict-storage (fol.compiler.collection-primitives::btree-bulk-load btree-args node-cmp)
+      
+      :cmp-fn cmp-fn)))
+
+(defun %priority-node-compare (a b cmp)
+  "Compares two (priority . key) pairs. Sorts by priority first, then breaks ties using the key."
+  (let ((c (funcall cmp (car a) (car b))))
+    (if (zerop c)
+        (fol.compiler.compareops:universal-compare (cdr a) (cdr b))
+        c)))
+
+
+;;; --- Protocol methods for <priority-dict> ---
+
+(defmethod collection-size ((d <priority-dict>))
+  (fol.compiler.collection-primitives::hamt-count (dict-storage d)))
+
+(defmethod collection-ref ((d <priority-dict>) key &optional not-found)
+  (fol.compiler.collection-primitives::hamt-get (dict-storage d) key not-found))
+
+(defmethod collection-assoc ((d <priority-dict>) key priority &optional not-found)
+  (declare (ignore not-found))
+  (let* ((hamt (dict-storage d))
+         (btree (sorted-dict-storage d))
+         (cmp (cmp-fn d))
+         (node-cmp (lambda (x y) (%priority-node-compare x y cmp))))
+         
+    (multiple-value-bind (old-priority found-p) 
+        (fol.compiler.collection-primitives::hamt-get hamt key)
+        
+      (let ((new-btree btree))
+        ;; 1. Remove the old (priority . key) from the B+ Tree if it exists
+        (when found-p
+          (multiple-value-bind (cleaned-root old-val removed-p)
+              (fol.compiler.collection-primitives::btree-dissoc-node 
+               (fol.compiler.collection-primitives::btree-dict-root btree)
+               (cons old-priority key)
+               node-cmp)
+            (declare (ignore old-val removed-p))
+            (setf new-btree (fol.compiler.collection-primitives::%make-btree-dict 
+                             :count (1- (fol.compiler.collection-primitives::btree-dict-count btree)) 
+                             :root cleaned-root))))
+                             
+        ;; 2. Insert the new (priority . key) into the B+ Tree
+        (multiple-value-bind (inserted-root split-key split-right old-val inserted-p)
+            (fol.compiler.collection-primitives::btree-assoc-node 
+             (fol.compiler.collection-primitives::btree-dict-root new-btree)
+             (cons priority key) t 
+             node-cmp)
+          (declare (ignore old-val inserted-p))
+             
+          (let ((final-root (if split-key
+                                (fol.compiler.collection-primitives::%make-btree-node 
+                                 (vector split-key) (vector inserted-root split-right))
+                                inserted-root)))
+                                
+            ;; 3. Return the updated persistent Priority Dict
+            (make-instance '<priority-dict>
+              :dict-storage (fol.compiler.collection-primitives::hamt-assoc hamt key priority)
+              :sorted-dict-storage (fol.compiler.collection-primitives::%make-btree-dict 
+                                    :count (1+ (fol.compiler.collection-primitives::btree-dict-count new-btree)) 
+                                    :root final-root)
+              :cmp-fn cmp)))))))
+
+(defmethod collection-dissoc ((d <priority-dict>) key)
+  (let* ((hamt (dict-storage d))
+         (btree (sorted-dict-storage d))
+         (cmp (cmp-fn d))
+         (node-cmp (lambda (x y) (%priority-node-compare x y cmp))))
+         
+    (multiple-value-bind (old-priority found-p) 
+        (fol.compiler.collection-primitives::hamt-get hamt key)
+        
+      (if (not found-p)
+          d ; Key doesn't exist, return identically
+          
+          ;; Remove from B+ Tree and HAMT
+          (multiple-value-bind (cleaned-root old-val removed-p)
+              (fol.compiler.collection-primitives::btree-dissoc-node 
+               (fol.compiler.collection-primitives::btree-dict-root btree)
+               (cons old-priority key)
+               node-cmp)
+            (declare (ignore old-val removed-p))
+            
+            (make-instance '<priority-dict>
+              :dict-storage (fol.compiler.collection-primitives::hamt-dissoc hamt key)
+              :sorted-dict-storage (fol.compiler.collection-primitives::%make-btree-dict 
+                                    :count (1- (fol.compiler.collection-primitives::btree-dict-count btree)) 
+                                    :root cleaned-root)
+              :cmp-fn cmp))))))
+
+(defmethod collection-conj ((d <priority-dict>) element)
+  ;; Allows passing a cons cell or a 2-element list/vector
+  (let ((key (if (consp element) (car element) (collection-ref element 0)))
+        (priority (if (consp element) (cdr element) (collection-ref element 1))))
+    (collection-assoc d key priority)))
+
+(defmethod collection-seq ((d <priority-dict>))
+  (let* ((btree (sorted-dict-storage d))
+         (total-size (fol.compiler.collection-primitives::btree-dict-count btree))
+         (iter (fol.compiler.collection-primitives::btree-iterator 
+                (fol.compiler.collection-primitives::btree-dict-root btree))))
+                
+    (labels ((build-lazy-chain (remaining-size)
+               (if (<= remaining-size 0)
+                   nil
+                   (make-instance 'fol.compiler.collections::<lazy-seq>
+                     :thunk (lambda ()
+                              (multiple-value-bind (p-k-cons dummy-val) (funcall iter)
+                                (declare (ignore dummy-val))
+                                (if (eq p-k-cons :eof)
+                                    nil
+                                    
+                                    (let* ((priority (car p-k-cons))
+                                           (key (cdr p-k-cons))
+                                           (kv-vec (make-instance '<vector>
+                                                     :storage (fol.compiler.collection-primitives::%build-vec-t-from-list 
+                                                               (list key priority)))))
+                                                               
+                                      (make-instance 'fol.compiler.collections::<list>
+                                        :first-elem kv-vec
+                                        :rest-list (build-lazy-chain (1- remaining-size))
+                                        :list-size remaining-size)))))))))
+                                        
+      (build-lazy-chain total-size))))
 
 ;;; ============================================================================
 ;;; Set
 ;;; ============================================================================
 
 (defclass <set> (<unordered-collection> <dict-mixin>)
-  ()
-  (:default-initargs :dict-storage (%make-hamt) )
+    ()
+  (:default-initargs :dict-storage (%make-hamt))
   (:documentation "A persistent unordered set backed by a HAMT."))
 
 (defgeneric <set>? (obj)
@@ -1223,7 +1364,7 @@
 ;;; ============================================================================
 
 (defclass <ordered-set> (<ordered-dict>)
-  ()
+    ()
   (:default-initargs :dict-storage (%make-hamt))
   (:documentation "A persistent ordered set that maintains insertion order.
                    Backed by a hand-coded HAMT (for O(1) membership) and
@@ -1246,8 +1387,8 @@
 ;;; Sorted Set
 ;;; ============================================================================
 
-(defclass <sorted-set> (<sorted-dict-misin> <universal-comparator-mixin>)
-  ()
+(defclass <sorted-set> (<sorted-dict-mixin> <universal-comparator-mixin>)
+    ()
   (:documentation "A persistent sorted set backed by a hand-coded HAMT.
                    Elements are maintained in the order defined by the comparator
                    function (inherited from <comparator>), which must return a
@@ -1270,19 +1411,19 @@
 (defmethod make ((class (eql '<sorted-set>)) &rest args)
   "Create a new <sorted-set>.
    First argument is a comparator function (or NIL for default numeric order).
-   Remaining arguments are elements.
-   (make '<sorted-set> #'my-cmp)       => empty sorted set
-   (make '<sorted-set> #'my-cmp 5 3 1) => sorted set of 1, 3, 5
-   (make '<sorted-set> nil 5 3 1)      => sorted set with default numeric order"
-  (make-instance '<sorted-set>
-    (:initargs args)))
+   Remaining arguments are elements."
+  (let* ((cmp (first args))
+         (elements (rest args))
+         (s (make-instance '<sorted-set> :cmp-fn (or cmp #'fol.compiler.compareops:%universal-comparator))))
+    (dolist (e elements s)
+      (setf s (collection-conj s e)))))
 
 ;;; ============================================================================
 ;;; Int Set
 ;;; ============================================================================
 
 (defclass <int-set> (<sorted-dict-mixin> <fast-fixnum-comparator-mixin>)
-  ()
+    ()
   (:documentation "A persistent sorted set backed by a hand-coded HAMT.
                    Elements are maintained in the order defined by the comparator
                    function, which must return a
@@ -1307,14 +1448,14 @@
 ;;; ============================================================================
 
 (defclass <dense-int-set> (<int-set>)
-  ((offset :initarg :offset
-           :initform 0
-           :reader dense-int-set-offset
-           :documentation "The minimum integer in the range (bit 0 = this value).")
-   (count :initarg :count
-          :initform 0
-          :reader dense-int-set-count
-          :documentation "Cached count of set bits."))
+    ((offset :initarg :offset
+             :initform 0
+             :reader dense-int-set-offset
+             :documentation "The minimum integer in the range (bit 0 = this value).")
+     (count :initarg :count
+       :initform 0
+       :reader dense-int-set-count
+       :documentation "Cached count of set bits."))
   (:default-initargs :items (make-array 0 :element-type 'bit))
   (:documentation "A persistent set of integers optimized for dense, contiguous ranges.
                    Backed by a CL bit-vector.  Bit N represents integer (offset + N).
@@ -1338,7 +1479,7 @@
 ;;; ============================================================================
 
 (defclass <bag> (<dict-mixin>)
-  ()
+    ()
   (:default-initargs :items (sycamore:make-hash-map))
   (:documentation "A persistent multiset (bag) backed by a Sycamore hash-map.
                    Keys are elements, values are occurrence counts."))
@@ -1358,24 +1499,25 @@
 
 (defmethod collection-size ((b <bag>))
   "Total number of elements including multiplicities."
-  (sycamore:fold-hash-map (lambda (acc k v)
-                            (declare (ignore k))
-                            (+ acc v))
-                          0 (storage-items b)))
+  (let ((total 0))
+    (dolist (pair (collection-seq b) total)
+      (incf total (cdr pair)))))
 
 (defmethod collection-assoc ((b <bag>) key val)
-  (declare (ignore val))
-  (multiple-value-bind (v found) (ref b key)
-    (if found (fol.compiler.collection-primitives:assoc b key (1+ v)) (fol.compiler.collection-primitives:assoc b key 1))))
+  "Directly set the count of KEY to VAL."
+  (fol.compiler.collection-primitives:assoc b key val))
 
-(defmethod collection-conj ((b <bag>) key)
-  "Add one occurrence of ELEMENT to the bag."
-  (fol.compiler.collection-primitives:assoc b key))
+(defmethod collection-conj ((b <bag>) element)
+  "Add one occurrence of ELEMENT to the bag. (Clojure-style: element is the key)"
+  (multiple-value-bind (v found) (ref b element)
+    (fol.compiler.collection-primitives:assoc b element (if found (1+ v) 1))))
 
-(defmethod collection-dissoc ((b <bag>) kwy)
-  (multiple-value-bind (v found) (ref b key)
-    (cond ((and found (= v 1) (dissoc b key) (fol.compiler.collection-primitives:assoc b key (1- v))))
-          (t b))))
+(defmethod collection-dissoc ((b <bag>) element)
+  "Remove one occurrence of ELEMENT from the bag."
+  (multiple-value-bind (v found) (ref b element)
+    (cond ((not found) b)
+          ((= v 1) (dissoc b element))
+          (t (fol.compiler.collection-primitives:assoc b element (1- v))))))
 
 
 ;;; ============================================================================
@@ -1383,9 +1525,13 @@
 ;;; ============================================================================
 
 (defclass <deque> (<ordered-collection>)
-  ((front :initarg :front :reader deque-front)
-   (rear :initarg :rear :reader deque-rear))
+    ((front :initarg :front :reader deque-front)
+     (rear :initarg :rear :reader deque-rear))
   (:documentation "A purely functional Banker's Deque backed by two persistent vectors."))
+
+(defgeneric <deque>? (obj))
+(defmethod <deque>? (obj) (declare (ignore obj)) nil)
+(defmethod <deque>? ((obj <deque>)) t)
 
 (defmethod make ((class (eql '<deque>)) &rest args)
   (let* ((len (length args))
@@ -1394,13 +1540,13 @@
          (front-args (nreverse (subseq args 0 mid)))
          (rear-args (subseq args mid)))
     (make-instance '<deque>
-      :front (make-instance '<vector> 
+      :front (make-instance '<vector>
                :storage (fol.compiler.collection-primitives::%build-vec-t-from-list front-args))
-      :rear (make-instance '<vector> 
-               :storage (fol.compiler.collection-primitives::%build-vec-t-from-list rear-args)))))
+      :rear (make-instance '<vector>
+              :storage (fol.compiler.collection-primitives::%build-vec-t-from-list rear-args)))))
 
 (defmethod collection-size ((d <deque>))
-  (+ (collection-size (deque-front d)) 
+  (+ (collection-size (deque-front d))
      (collection-size (deque-rear d))))
 
 (defmethod collection-ref ((d <deque>) index &optional not-found)
@@ -1414,7 +1560,7 @@
             ;; Index falls in rear vector
             (collection-ref (deque-rear d) (- index f-size) not-found)))))
 
-  (defmethod collection-conj ((d <deque>) element)
+(defmethod collection-conj ((d <deque>) element)
   "Appends an element to the REAR of the deque."
   (make-instance '<deque>
     :front (deque-front d)
@@ -1431,7 +1577,7 @@
   (let* ((f-size (collection-size (deque-front d)))
          (r-size (collection-size (deque-rear d)))
          (total (+ f-size r-size)))
-         
+
     (if (or (and (> f-size 0) (> r-size 0)) (< total 2))
         d ; Already balanced or too small to split
         (let ((lst nil))
@@ -1440,7 +1586,7 @@
                 do (push (collection-ref (deque-rear d) i) lst))
           (loop for i from 0 below f-size
                 do (push (collection-ref (deque-front d) i) lst))
-                
+
           (let* ((mid (ash total -1))
                  (new-front-lst (nreverse (subseq lst 0 mid)))
                  (new-rear-lst (subseq lst mid)))
@@ -1453,13 +1599,13 @@
          (front (deque-front d-bal))
          (rear (deque-rear d-bal)))
     (cond
-      ((> (collection-size front) 0)
+     ((> (collection-size front) 0)
        (make-instance '<deque>
          :front (make-instance '<vector> :storage (fol.compiler.collection-primitives::%vec-t-pop (storage front)))
          :rear rear))
-      ((> (collection-size rear) 0) ; Deque only had 1 item total
-       (make '<deque>))
-      (t d))))
+     ((> (collection-size rear) 0) ; Deque only had 1 item total
+                                  (make '<deque>))
+     (t d))))
 
 (defmethod collection-pop ((d <deque>))
   "Pops from the REAR of the deque."
@@ -1467,13 +1613,13 @@
          (front (deque-front d-bal))
          (rear (deque-rear d-bal)))
     (cond
-      ((> (collection-size rear) 0)
+     ((> (collection-size rear) 0)
        (make-instance '<deque>
          :front front
          :rear (make-instance '<vector> :storage (fol.compiler.collection-primitives::%vec-t-pop (storage rear)))))
-      ((> (collection-size front) 0) ; Deque only had 1 item total
-       (make '<deque>))
-      (t d))))
+     ((> (collection-size front) 0) ; Deque only had 1 item total
+                                   (make '<deque>))
+     (t d))))
 
 (defmethod collection-seq ((d <deque>))
   (let* ((front (deque-front d))
@@ -1481,51 +1627,51 @@
          (total (collection-size d))
          (f-idx (1- (collection-size front)))
          (r-idx 0))
-         
+
     (labels ((generator ()
-               (cond
-                 ((>= f-idx 0)
-                  (let ((val (collection-ref front f-idx)))
-                    (decf f-idx)
-                    val))
-                 ((< r-idx (collection-size rear))
-                  (let ((val (collection-ref rear r-idx)))
-                    (incf r-idx)
-                    val))
-                 (t :eof))))
-                 
+                        (cond
+                         ((>= f-idx 0)
+                           (let ((val (collection-ref front f-idx)))
+                             (decf f-idx)
+                             val))
+                         ((< r-idx (collection-size rear))
+                           (let ((val (collection-ref rear r-idx)))
+                             (incf r-idx)
+                             val))
+                         (t :eof))))
+
       (labels ((build-lazy-chain (remaining)
-                 (if (<= remaining 0)
-                     nil
-                     (make-instance 'fol.compiler.collections::<lazy-seq>
-                       :thunk (lambda ()
-                                (let ((val (funcall #'generator)))
-                                  (if (eq val :eof)
-                                      nil
-                                      (make-instance 'fol.compiler.collections::<list>
-                                        :first-elem val
-                                        :rest-list (build-lazy-chain (1- remaining))
-                                        :list-size remaining))))))))
+                                 (if (<= remaining 0)
+                                     nil
+                                     (make-instance 'fol.compiler.collections::<lazy-seq>
+                                       :thunk (lambda ()
+                                                (let ((val (funcall #'generator)))
+                                                  (if (eq val :eof)
+                                                      nil
+                                                      (make-instance 'fol.compiler.collections::<list>
+                                                        :first-elem val
+                                                        :rest-list (build-lazy-chain (1- remaining))
+                                                        :list-size remaining))))))))
         (build-lazy-chain total)))))
-        
+
 ;;; ============================================================================
 ;;; List
 ;;; ============================================================================
 
 (defclass <list> (<ordered-collection>)
-  ((first-elem :initarg :first-elem
-               :initform nil
-               :reader list-first
-               :documentation "The first element of this list, or NIL if empty.")
-   (rest-list :initarg :rest-list
-              :initform nil
-              :reader list-rest
-              :documentation "The rest of this list (another <list>), or NIL if empty.")
-   (list-size :initarg :list-size
-              :initform 0
-              :reader list-size
-              :type integer
-              :documentation "The number of elements in this list.  O(1) access."))
+    ((first-elem :initarg :first-elem
+                 :initform nil
+                 :reader list-first
+                 :documentation "The first element of this list, or NIL if empty.")
+     (rest-list :initarg :rest-list
+                :initform nil
+                :reader list-rest
+                :documentation "The rest of this list (another <list>), or NIL if empty.")
+     (list-size :initarg :list-size
+                :initform 0
+                :reader list-size
+                :type integer
+                :documentation "The number of elements in this list.  O(1) access."))
   (:documentation "A persistent singly-linked list with O(1) size access.
                    Each node contains first (head), rest (tail), and cached size.
                    conj prepends (Clojure semantics)."))
@@ -1551,9 +1697,9 @@
       (let ((result (make-instance '<list>)))
         (dolist (elem (cl:reverse elements))
           (setf result (make-instance '<list>
-                                      :first-elem elem
-                                      :rest-list result
-                                      :list-size (1+ (list-size result)))))
+                         :first-elem elem
+                         :rest-list result
+                         :list-size (1+ (list-size result)))))
         result)))
 
 ;;; --- Protocol methods for <list> ---
@@ -1564,9 +1710,9 @@
 (defmethod collection-conj ((l <list>) element)
   "Prepend ELEMENT to the front of the list (Clojure semantics)."
   (make-instance '<list>
-                 :first-elem element
-                 :rest-list l
-                 :list-size (1+ (list-size l))))
+    :first-elem element
+    :rest-list l
+    :list-size (1+ (list-size l))))
 
 (defmethod collection-seq ((l <list>))
   "Walk the linked structure and collect elements into a CL list."
@@ -1580,17 +1726,17 @@
 ;;; ============================================================================
 
 (defclass <lazy-seq> (<ordered-collection>)
-  ((thunk :initarg :thunk
-          :initform nil
-          :accessor lazy-seq-thunk
-          :documentation "A zero-argument function that produces the sequence.")
-   (realized :initform nil
-             :accessor lazy-seq-realized-p
-             :type boolean
-             :documentation "T if the thunk has been called and result cached.")
-   (cached :initform nil
-           :accessor lazy-seq-cached
-           :documentation "The cached result after realization."))
+    ((thunk :initarg :thunk
+            :initform nil
+            :accessor lazy-seq-thunk
+            :documentation "A zero-argument function that produces the sequence.")
+     (realized :initform nil
+               :accessor lazy-seq-realized-p
+               :type boolean
+               :documentation "T if the thunk has been called and result cached.")
+     (cached :initform nil
+             :accessor lazy-seq-cached
+             :documentation "The cached result after realization."))
   ;; Uses standard-class (not persistent-class) because lazy sequences
   ;; need to mutate their realized and cached slots.
   (:documentation "A lazy sequence that delays computation until needed.
@@ -1641,9 +1787,9 @@
     (if realized
         (collection-conj realized element)
         (make-instance '<list>
-                       :first-elem element
-                       :rest-list (make-instance '<list>)
-                       :list-size 1))))
+          :first-elem element
+          :rest-list (make-instance '<list>)
+          :list-size 1))))
 
 (defmethod collection-seq ((ls <lazy-seq>))
   "Fully realize, then return elements as a CL list."
@@ -1663,7 +1809,7 @@
 
 (defmethod print-object ((obj <vector>) stream)
   (write-char #\[ stream)
-  (let ((sz (size obj)))
+  (let ((sz (fol.compiler.collection-primitives:size obj)))
     (dotimes (i sz)
       (unless (zerop i) (write-char #\Space stream))
       (%write-fol-element (ref obj i) stream)))

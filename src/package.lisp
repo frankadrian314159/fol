@@ -248,14 +248,14 @@
   (:shadow assoc)
   (:export
    ;; Type constructors and predicates
-   %vec-f64 %vec-f64? %make-vec-f64
-   %vec-f32 %vec-f32? %make-vec-f32
-   %vec-t %vec-t? %make-vec-t
-   %vec-fix64 %vec-fix64? %make-vec-fix64
+   %vec-f64 %vec-f64? %make-vec-f64 %make-filled-vec-f64
+   %vec-f32 %vec-f32? %make-vec-f32 %make-filled-vec-f32
+   %vec-t %vec-t? %make-vec-t %make-filled-vec-t
+   %vec-fix64 %vec-fix64? %make-vec-fix64 %make-filled-vec-fix64
    ;; Constants
    +branch-factor+ +bit-mask+ +bit-shift+
    ;; Generic operations
-   assoc conj count size ref empty?
+   assoc conj size ref empty? seq storage
    ;; Utility
    %clone-node %column-major-idx
    ;; Storage mixins
@@ -267,18 +267,42 @@
    ;; Dict/sorted-dict mixins
    <dict-mixin> <sorted-dict-mixin>
    kv-conj
+   ;; HAMT primitives
+   %make-hamt %make-hamt-node %make-hamt-leaf %make-hamt-collision
    ;; Empty instances
-   %empty-vec-f64 %empty-vec-f32 %empty-vec-t %empty-vec-fix64))
+   %empty-vec-f64 %empty-vec-f32 %empty-vec-t %empty-vec-fix64
+   ;; Internal struct accessors
+   %t-count %t-root %t-shift %t-tail
+   %f64-count %f64-root %f64-shift %f64-tail
+   %f32-count %f32-root %f32-shift %f32-tail
+   %fix64-count %fix64-root %fix64-shift %fix64-tail
+   ;; BTree
+   btree-bulk-load %int-compare
+   hamt-bulk-load
+   %build-vec-t-from-list
+   %build-vec-f64-from-list
+   %build-vec-f32-from-list
+   %build-vec-fix64-from-list))
 
 (defpackage fol.compiler.collections
   (:use cl)
-  (:shadow vector set list count array-dimension first rest get dissoc conj size merge)
+  (:shadow vector set list array-dimension first rest get dissoc merge count conj size empty?)
   (:import-from fol.compiler.primitives make)
   (:import-from fol.compiler.persistent persistent-class)
+  (:shadowing-import-from fol.compiler.collection-primitives
+                          assoc ref seq storage
+                          %t-count %t-root %t-shift %t-tail
+                          %f64-count %f64-root %f64-shift %f64-tail
+                          %f32-count %f32-root %f32-shift %f32-tail
+                          %fix64-count %fix64-root %fix64-shift %fix64-tail
+                          btree-bulk-load %int-compare)
   (:import-from fol.compiler.collection-primitives
                 <vec-t-storage-mixin> <vec-f64-storage-mixin> <vec-f32-storage-mixin>
                 <vec-fix64-storage-mixin> <collection-storage>
-                <dict-mixin> <sorted-dict-mixin> kv-conj)
+                <dict-mixin> <sorted-dict-mixin> kv-conj
+                %make-filled-vec-f64 %make-filled-vec-f32 %make-filled-vec-t %make-filled-vec-fix64
+                %make-hamt hamt-bulk-load %column-major-idx
+                +branch-factor+ +bit-mask+ +bit-shift+)
   (:shadowing-import-from fol.compiler.compareops < > %= %/=)
   (:export
    ;; Base class
