@@ -4953,3 +4953,67 @@
       (is (eql 2 (fol.compiler.collection-functions:rpeek d)))
       (let ((d (fol.compiler.collection-functions:rpop d)))
         (is (eql 3 (fol.compiler.collection-functions:rpeek d)))))))
+
+;;; ---------------------------------------------------------------------------
+;;; collection-lazy-seq tests
+;;; ---------------------------------------------------------------------------
+
+(test lazy-seq-vector
+  "collection-lazy-seq on <vector> returns a lazy-seq that yields all elements."
+  (let* ((v (fol.compiler.primitives:make 'fol.compiler.collections:<vector> 10 20 30))
+         (ls (fol.compiler.collections:collection-lazy-seq v)))
+    (is (typep ls 'fol.compiler.collections:<lazy-seq>))
+    ;; Materialize and check
+    (let ((elems (fol.compiler.collections:collection-seq ls)))
+      (is (equal '(10 20 30) elems)))))
+
+(test lazy-seq-dict
+  "collection-lazy-seq on <dict> returns a lazy-seq of (key . value) pairs."
+  (let* ((d (fol.compiler.primitives:make 'fol.compiler.collections:<dict> :x 1 :y 2))
+         (ls (fol.compiler.collections:collection-lazy-seq d)))
+    (is (typep ls 'fol.compiler.collections:<lazy-seq>))
+    (let ((pairs (fol.compiler.collections:collection-seq ls)))
+      (is (= 2 (length pairs)))
+      ;; Each entry should be a cons pair
+      (is (every #'consp pairs)))))
+
+(test lazy-seq-set
+  "collection-lazy-seq on <set> returns a lazy-seq of elements (keys only)."
+  (let* ((s (fol.compiler.primitives:make 'fol.compiler.collections:<set> 1 2 3))
+         (ls (fol.compiler.collections:collection-lazy-seq s)))
+    (is (typep ls 'fol.compiler.collections:<lazy-seq>))
+    (let ((elems (fol.compiler.collections:collection-seq ls)))
+      (is (= 3 (length elems)))
+      ;; All original elements should be present
+      (is (null (cl:set-difference '(1 2 3) elems))))))
+
+(test lazy-seq-list
+  "collection-lazy-seq on <list> returns the <list> itself."
+  (let* ((l (fol.compiler.primitives:make 'fol.compiler.collections:<list> 1 2 3))
+         (ls (fol.compiler.collections:collection-lazy-seq l)))
+    ;; <list> is already a sequence-like structure, so lazy-seq returns itself
+    (is (typep ls 'fol.compiler.collections:<list>))
+    (is (eq l ls))))
+
+(test lazy-seq-lazy-seq
+  "collection-lazy-seq on <lazy-seq> returns itself."
+  (let* ((v (fol.compiler.primitives:make 'fol.compiler.collections:<vector> 1 2 3))
+         (ls (fol.compiler.collections:collection-lazy-seq v)))
+    (is (eq ls (fol.compiler.collections:collection-lazy-seq ls)))))
+
+(test lazy-seq-deque
+  "collection-lazy-seq on <deque> returns a lazy-seq with elements in deque order."
+  (let* ((d (fol.compiler.primitives:make 'fol.compiler.collections:<deque> 1 2 3 4))
+         (ls (fol.compiler.collections:collection-lazy-seq d)))
+    (is (typep ls 'fol.compiler.collections:<lazy-seq>))
+    (let ((elems (fol.compiler.collections:collection-seq ls)))
+      (is (equal '(1 2 3 4) elems)))))
+
+(test collection-seq-returns-cl-list
+  "collection-seq always returns a proper CL list for all collection types."
+  (let ((v (fol.compiler.primitives:make 'fol.compiler.collections:<vector> 1 2 3))
+        (d (fol.compiler.primitives:make 'fol.compiler.collections:<dict> :a 1))
+        (s (fol.compiler.primitives:make 'fol.compiler.collections:<set> 1 2)))
+    (is (listp (fol.compiler.collections:collection-seq v)))
+    (is (listp (fol.compiler.collections:collection-seq d)))
+    (is (listp (fol.compiler.collections:collection-seq s)))))

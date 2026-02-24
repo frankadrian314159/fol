@@ -266,6 +266,7 @@
    <collection-storage>
    ;; Dict/sorted-dict mixins
    <dict-mixin> <sorted-dict-mixin>
+   dict-storage sorted-dict-storage storage-items
    kv-conj
    ;; HAMT primitives
    %make-hamt %make-hamt-node %make-hamt-leaf %make-hamt-collision
@@ -296,10 +297,13 @@
                           %f32-count %f32-root %f32-shift %f32-tail
                           %fix64-count %fix64-root %fix64-shift %fix64-tail
                           btree-bulk-load %int-compare)
+  (:shadowing-import-from fol.compiler.collection-primitives
+                          dict-storage sorted-dict-storage storage-items)
   (:import-from fol.compiler.collection-primitives
                 <vec-t-storage-mixin> <vec-f64-storage-mixin> <vec-f32-storage-mixin>
                 <vec-fix64-storage-mixin> <collection-storage>
                 <dict-mixin> <sorted-dict-mixin> kv-conj
+                %vec-t %vec-f64 %vec-f32 %vec-fix64
                 %make-filled-vec-f64 %make-filled-vec-f32 %make-filled-vec-t %make-filled-vec-fix64
                 %make-hamt hamt-bulk-load %column-major-idx
                 +branch-factor+ +bit-mask+ +bit-shift+)
@@ -317,6 +321,7 @@
    collection-empty-p
    collection-conj
    collection-seq
+   collection-lazy-seq
    count
    empty?
    ;; High-level accessors

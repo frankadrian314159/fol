@@ -1383,7 +1383,7 @@
     (%make-hamt :count count :root (freeze-hamt-node root))))
 
 ;;; --------------------------------- <dict-mixin> -------------------------------------
-(defclass <dict-mixin> () ((dict-storage :initform (%make-hamt) :accessor dict-storage)))
+(defclass <dict-mixin> () ((dict-storage :initarg :dict-storage :initform (%make-hamt) :accessor dict-storage)))
 
 ;;; ------------------------------- dict functions -------------------------------------
 
@@ -1397,25 +1397,29 @@
   (let ((hash (sxhash key))
         (h (dict-storage d)))
     (multiple-value-bind (new-root added-p) (assoc-node (hamt-root h) 0 hash key value)
-      (%make-hamt :count (if added-p (1+ (hamt-count h)) (hamt-count h))
-                  :root new-root))))
+      (let ((new-hamt (%make-hamt :count (if added-p (1+ (hamt-count h)) (hamt-count h))
+                                  :root new-root)))
+        (make-instance (class-of d) :dict-storage new-hamt)))))
 
 (defmethod dissoc ((d <dict-mixin>) key)
   (let ((hash (sxhash key))
         (h (dict-storage d)))
     (multiple-value-bind (new-root removed-p) (dissoc-node (hamt-root h) 0 hash key)
       (if removed-p
-          (%make-hamt :count (1- (hamt-count h)) :root new-root)
-          h)))) ; Return unmodified structure if key wasn't found
+          (make-instance (class-of d) :dict-storage
+                         (%make-hamt :count (1- (hamt-count h)) :root new-root))
+          d)))) ; Return unmodified object if key wasn't found
 
 (defmethod seq ((d <dict-mixin>))
   (hamt->lazy-seq (dict-storage d)))
 
 (defmethod ref ((d <dict-mixin>) key &optional not-found)
-  "Retrieves the value mapped to KEY in the HAMT. 
+  "Retrieves the value mapped to KEY in the HAMT.
    Returns two values: (VALUES value found-p)."
   (multiple-value-bind (val foundp) (hamt-get (dict-storage d) key)
-    (if foundp val not-found)))
+    (if foundp
+        (values val t)
+        (values not-found nil))))
 
 (defgeneric kv-conj (coll key val))
 
@@ -1676,7 +1680,7 @@
 
 ;;; --------------------------- sorted-dict ----------------------------
 
-(defclass <sorted-dict-mixin> () ((sorted-dict-storage :initform (%make-btree-dict) :accessor sorted-dict-storage)))
+(defclass <sorted-dict-mixin> () ((sorted-dict-storage :initarg :sorted-dict-storage :initform (%make-btree-dict) :accessor sorted-dict-storage)))
 ;;; --------------------------------------------------------------------
 ;;; Collection methods for <sorted-dict>.
 ;;; NOTE: These are commented out because <sorted-dict> is defined in

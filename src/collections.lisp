@@ -72,6 +72,11 @@
   (:documentation "Return the elements of COLLECTION as a CL list.
                    For dicts, returns a list of (key . value) cons pairs."))
 
+(defgeneric collection-lazy-seq (collection)
+  (:documentation "Return the elements of COLLECTION as a FOL lazy sequence.
+                   For dicts, returns lazy-seq of (key . value) cons pairs.
+                   For vectors/sets, returns lazy-seq of elements."))
+
 
 ;;; ============================================================================
 ;;; Comparator Interface
@@ -216,6 +221,11 @@
       (build-seq))))
 
 (defmethod collection-seq ((coll <f64-vector>))
+  (let ((iter (f64-pvec-iterator coll)) (result nil))
+    (loop for val = (funcall iter) until (eq val :eof) do (push val result))
+    (nreverse result)))
+
+(defmethod collection-lazy-seq ((coll <f64-vector>))
   (f64-pvec->lazy-seq coll))
 
 (defmethod collection-ref ((coll <f64-vector>) key &optional not-found)
@@ -309,6 +319,11 @@
       (build-seq))))
 
 (defmethod collection-seq ((coll <f32-vector>))
+  (let ((iter (f32-pvec-iterator coll)) (result nil))
+    (loop for val = (funcall iter) until (eq val :eof) do (push val result))
+    (nreverse result)))
+
+(defmethod collection-lazy-seq ((coll <f32-vector>))
   (f32-pvec->lazy-seq coll))
 
 (defmethod collection-ref ((coll <f32-vector>) key &optional not-found)
@@ -397,6 +412,19 @@
              (incf chunk-idx)
              val))))))
 
+(defmacro lazy-cons (val rest-form)
+  "Create a lazy-seq that, when realized, produces a <list> node
+   with VAL as the first element and REST-FORM (lazily evaluated)
+   as the rest of the sequence."
+  (let ((v (gensym "VAL")))
+    `(let ((,v ,val))
+       (make-instance '<lazy-seq>
+         :thunk (lambda ()
+                  (make-instance '<list>
+                    :first-elem ,v
+                    :rest-list ,rest-form
+                    :list-size 1))))))
+
 (defun pvec->lazy-seq (pvec)
   "Converts a persistent vector into a standard lazy sequence."
   (let ((iter (pvec-iterator pvec)))
@@ -409,6 +437,14 @@
       (build-seq))))
 
 (defmethod collection-seq ((coll <vector>))
+  (let ((iter (fol.compiler.collection-primitives::%vec-t-iterator (storage coll)))
+        (result nil))
+    (loop for val = (funcall iter)
+          until (eq val :eof)
+          do (push val result))
+    (nreverse result)))
+
+(defmethod collection-lazy-seq ((coll <vector>))
   (pvec->lazy-seq coll))
 
 (defmethod collection-ref ((coll <vector>) key &optional not-found)
@@ -502,6 +538,11 @@
       (build-seq))))
 
 (defmethod collection-seq ((coll <fix64-vector>))
+  (let ((iter (fix64-pvec-iterator coll)) (result nil))
+    (loop for val = (funcall iter) until (eq val :eof) do (push val result))
+    (nreverse result)))
+
+(defmethod collection-lazy-seq ((coll <fix64-vector>))
   (fix64-pvec->lazy-seq coll))
 
 (defmethod collection-ref ((coll <fix64-vector>) key &optional not-found)
@@ -584,7 +625,12 @@
   (fol.compiler.collection-primitives:size a))
 
 (defmethod collection-seq ((coll <f64-array>))
-  (pvec->lazy-seq coll))
+  (let ((iter (f64-pvec-iterator coll)) (result nil))
+    (loop for val = (funcall iter) until (eq val :eof) do (push val result))
+    (nreverse result)))
+
+(defmethod collection-lazy-seq ((coll <f64-array>))
+  (f64-pvec->lazy-seq coll))
 
 (defmethod collection-ref ((coll <f64-array>) key &optional not-found)
   (let ((idx (%column-major-idx (array-dimensions coll) key)))
@@ -668,7 +714,12 @@
   (fol.compiler.collection-primitives:size a))
 
 (defmethod collection-seq ((coll <f32-array>))
-  (pvec->lazy-seq coll))
+  (let ((iter (f32-pvec-iterator coll)) (result nil))
+    (loop for val = (funcall iter) until (eq val :eof) do (push val result))
+    (nreverse result)))
+
+(defmethod collection-lazy-seq ((coll <f32-array>))
+  (f32-pvec->lazy-seq coll))
 
 (defmethod collection-ref ((coll <f32-array>) key &optional not-found)
   (let ((idx (%column-major-idx (array-dimensions coll) key)))
@@ -752,6 +803,12 @@
   (fol.compiler.collection-primitives:size a))
 
 (defmethod collection-seq ((coll <array>))
+  (let ((iter (fol.compiler.collection-primitives::%vec-t-iterator (storage coll)))
+        (result nil))
+    (loop for val = (funcall iter) until (eq val :eof) do (push val result))
+    (nreverse result)))
+
+(defmethod collection-lazy-seq ((coll <array>))
   (pvec->lazy-seq coll))
 
 (defmethod collection-ref ((coll <array>) key &optional not-found)
@@ -836,7 +893,12 @@
   (fol.compiler.collection-primitives:size a))
 
 (defmethod collection-seq ((coll <fix64-array>))
-  (pvec->lazy-seq coll))
+  (let ((iter (fix64-pvec-iterator coll)) (result nil))
+    (loop for val = (funcall iter) until (eq val :eof) do (push val result))
+    (nreverse result)))
+
+(defmethod collection-lazy-seq ((coll <fix64-array>))
+  (fix64-pvec->lazy-seq coll))
 
 (defmethod collection-ref ((coll <fix64-array>) key &optional not-found)
   (let ((idx (%column-major-idx (array-dimensions coll) key)))
@@ -872,6 +934,15 @@
   (declare (ignore obj))
   nil)
 
+(defmethod make ((class (eql '<dict>)) &rest args)
+  "Create a new <dict> from alternating key-value ARGS.
+   (make '<dict>)            => empty dict
+   (make '<dict> :a 1 :b 2)  => dict with :a->1, :b->2"
+  (if (null args)
+      (make-instance '<dict>)
+      (make-instance '<dict>
+        :dict-storage (hamt-bulk-load args))))
+
 (defmethod make ((class (eql '<array-dict>)) &rest args)
   "Create a new <array-dict> from alternating key-value ARGS.
    Keys are stored in the order provided; duplicate keys keep the last value
@@ -895,6 +966,14 @@
   (kv-conj d (car entry) (cdr entry)))
 
 (defmethod collection-seq ((d <dict>))
+  (let ((iter (fol.compiler.collection-primitives::hamt-iterator (dict-storage d)))
+        (result nil))
+    (loop for pair = (funcall iter)
+          until (eq pair :eof)
+          do (push pair result))
+    (nreverse result)))
+
+(defmethod collection-lazy-seq ((d <dict>))
   (seq d))
 
 (defmethod collection-assoc ((d <dict>) key val)
@@ -922,7 +1001,7 @@
                           (if (zerop level)
                               ;; Base case: We hit a 32-element leaf. 
                               ;; Use native Lisp SIMD/optimized array search!
-                              (when (find target (the t-leaf node) :test test)
+                              (when (find target (the simple-vector node) :test test)
                                     (return-from %vec-t-contains-p t))
 
                               ;; Recursive case: Internal routing node. Traverse children.
@@ -999,8 +1078,19 @@
   (kv-conj d (car entry) (cdr entry)))
 
 (defmethod collection-seq ((d <ordered-dict>))
-  "Wraps an <ordered-dict> into a lazily evaluated sequence of [key, value] vectors."
-  ;; Extract the underlying primitive structures from the CLOS object
+  "Return entries as (key . value) pairs in insertion order."
+  (let ((h (dict-storage d))
+        (key-iter (fol.compiler.collection-primitives::%vec-t-iterator (storage d)))
+        (result nil))
+    (loop for k = (funcall key-iter)
+          until (eq k :eof)
+          do (multiple-value-bind (val foundp)
+                 (fol.compiler.collection-primitives::hamt-get h k)
+               (when foundp
+                 (push (cons k val) result))))
+    (nreverse result)))
+
+(defmethod collection-lazy-seq ((d <ordered-dict>))
   (seq d))
 
 (defmethod collection-assoc ((d <ordered-dict>) key val)
@@ -1069,6 +1159,17 @@
 
 (defmethod collection-seq ((d <sorted-dict>))
   "Return entries as an alist of (key . value) pairs in comparator order."
+  (let ((bd (fol.compiler.collection-primitives::storage-items d))
+        (result nil))
+    (let ((iter (fol.compiler.collection-primitives::btree-iterator
+                  (fol.compiler.collection-primitives::btree-dict-root bd))))
+      (loop
+        (multiple-value-bind (key val) (funcall iter)
+          (when (eq key :eof) (return))
+          (push (cons key val) result))))
+    (nreverse result)))
+
+(defmethod collection-lazy-seq ((d <sorted-dict>))
   (seq d))
 
 (defmethod collection-assoc ((d <sorted-dict>) key value)
@@ -1126,7 +1227,18 @@
   (kv-conj d (car entry) (cdr entry)))
 
 (defmethod collection-seq ((d <int-dict>))
-  "Return entries as an alist of (key . value) pairs in comparator order."
+  "Return entries as an alist of (key . value) pairs in integer order."
+  (let ((bd (fol.compiler.collection-primitives::storage-items d))
+        (result nil))
+    (let ((iter (fol.compiler.collection-primitives::btree-iterator
+                  (fol.compiler.collection-primitives::btree-dict-root bd))))
+      (loop
+        (multiple-value-bind (key val) (funcall iter)
+          (when (eq key :eof) (return))
+          (push (cons key val) result))))
+    (nreverse result)))
+
+(defmethod collection-lazy-seq ((d <int-dict>))
   (seq d))
 
 (defmethod collection-assoc ((d <int-dict>) key value)
@@ -1168,7 +1280,7 @@
   ;; 1. Extract the optional comparator
   (let* ((cmp-fn (if (and args (functionp (first args))) 
                      (pop args) 
-                     #'fol.compiler.compareops:universal-compare))
+                     #'fol.compiler.compareops:%universal-comparator))
          (node-cmp (lambda (x y) (%priority-node-compare x y cmp-fn)))
          (seen (make-hash-table :test 'equal))
          (btree-args nil))
@@ -1200,7 +1312,7 @@
   "Compares two (priority . key) pairs. Sorts by priority first, then breaks ties using the key."
   (let ((c (funcall cmp (car a) (car b))))
     (if (zerop c)
-        (fol.compiler.compareops:universal-compare (cdr a) (cdr b))
+        (fol.compiler.compareops:%universal-comparator (cdr a) (cdr b))
         c)))
 
 
@@ -1212,8 +1324,7 @@
 (defmethod collection-ref ((d <priority-dict>) key &optional not-found)
   (fol.compiler.collection-primitives::hamt-get (dict-storage d) key not-found))
 
-(defmethod collection-assoc ((d <priority-dict>) key priority &optional not-found)
-  (declare (ignore not-found))
+(defmethod collection-assoc ((d <priority-dict>) key priority)
   (let* ((hamt (dict-storage d))
          (btree (sorted-dict-storage d))
          (cmp (cmp-fn d))
@@ -1290,33 +1401,20 @@
     (collection-assoc d key priority)))
 
 (defmethod collection-seq ((d <priority-dict>))
-  (let* ((btree (sorted-dict-storage d))
-         (total-size (fol.compiler.collection-primitives::btree-dict-count btree))
-         (iter (fol.compiler.collection-primitives::btree-iterator 
-                (fol.compiler.collection-primitives::btree-dict-root btree))))
-                
-    (labels ((build-lazy-chain (remaining-size)
-               (if (<= remaining-size 0)
-                   nil
-                   (make-instance 'fol.compiler.collections::<lazy-seq>
-                     :thunk (lambda ()
-                              (multiple-value-bind (p-k-cons dummy-val) (funcall iter)
-                                (declare (ignore dummy-val))
-                                (if (eq p-k-cons :eof)
-                                    nil
-                                    
-                                    (let* ((priority (car p-k-cons))
-                                           (key (cdr p-k-cons))
-                                           (kv-vec (make-instance '<vector>
-                                                     :storage (fol.compiler.collection-primitives::%build-vec-t-from-list 
-                                                               (list key priority)))))
-                                                               
-                                      (make-instance 'fol.compiler.collections::<list>
-                                        :first-elem kv-vec
-                                        :rest-list (build-lazy-chain (1- remaining-size))
-                                        :list-size remaining-size)))))))))
-                                        
-      (build-lazy-chain total-size))))
+  "Return entries as (key . priority) pairs in priority order."
+  (let ((btree (sorted-dict-storage d))
+        (result nil))
+    (let ((iter (fol.compiler.collection-primitives::btree-iterator
+                  (fol.compiler.collection-primitives::btree-dict-root btree))))
+      (loop
+        (multiple-value-bind (p-k-cons dummy-val) (funcall iter)
+          (declare (ignore dummy-val))
+          (when (eq p-k-cons :eof) (return))
+          (push (cons (cdr p-k-cons) (car p-k-cons)) result))))
+    (nreverse result)))
+
+(defmethod collection-lazy-seq ((d <priority-dict>))
+  (seq d))
 
 ;;; ============================================================================
 ;;; Set
@@ -1355,6 +1453,31 @@
 (defmethod collection-conj ((s <set>) element)
   "Add ELEMENT to the set."
   (fol.compiler.collection-primitives:assoc s element t))
+
+(defmethod collection-seq ((s <set>))
+  "Return elements of the set as a CL list."
+  (let ((iter (fol.compiler.collection-primitives::hamt-iterator (dict-storage s)))
+        (result nil))
+    (loop for pair = (funcall iter)
+          until (eq pair :eof)
+          do (push (car pair) result))
+    (nreverse result)))
+
+(defmethod collection-size ((s <set>))
+  (fol.compiler.collection-primitives:size s))
+
+(defmethod collection-empty-p ((s <set>))
+  (fol.compiler.collection-primitives:empty? s))
+
+(defmethod collection-lazy-seq ((s <set>))
+  "Return elements of the set as a lazy-seq (keys only)."
+  (let ((iter (fol.compiler.collection-primitives::hamt-iterator (dict-storage s))))
+    (labels ((build-seq ()
+               (let ((pair (funcall iter)))
+                 (if (eq pair :eof)
+                     nil
+                     (lazy-cons (car pair) (build-seq))))))
+      (build-seq))))
 
 (defmethod collection-ref ((s <set>) key &optional not-found)
   (ref s key not-found))
@@ -1478,10 +1601,8 @@
 ;;; Bag (Multiset)
 ;;; ============================================================================
 
-(defclass <bag> (<dict-mixin>)
-    ()
-  (:default-initargs :items (sycamore:make-hash-map))
-  (:documentation "A persistent multiset (bag) backed by a Sycamore hash-map.
+(defclass <bag> (<dict-mixin>) ()
+  (:documentation "A persistent multiset (bag) backed by a hand-coded HAMT.
                    Keys are elements, values are occurrence counts."))
 
 (defgeneric <bag>? (obj)
@@ -1496,6 +1617,18 @@
   nil)
 
 ;;; --- Protocol methods for <bag> ---
+
+(defmethod collection-seq ((b <bag>))
+  "Return (element . count) pairs as a CL list."
+  (let ((iter (fol.compiler.collection-primitives::hamt-iterator (dict-storage b)))
+        (result nil))
+    (loop for pair = (funcall iter)
+          until (eq pair :eof)
+          do (push pair result))
+    (nreverse result)))
+
+(defmethod collection-lazy-seq ((b <bag>))
+  (seq b))
 
 (defmethod collection-size ((b <bag>))
   "Total number of elements including multiplicities."
@@ -1624,34 +1757,44 @@
 (defmethod collection-seq ((d <deque>))
   (let* ((front (deque-front d))
          (rear (deque-rear d))
+         (f-idx (1- (collection-size front)))
+         (r-idx 0)
+         (result nil))
+    ;; Front elements in reverse order (stack)
+    (loop while (>= f-idx 0)
+          do (push (collection-ref front f-idx) result)
+             (decf f-idx))
+    ;; Rear elements in order (queue)
+    (loop while (< r-idx (collection-size rear))
+          do (push (collection-ref rear r-idx) result)
+             (incf r-idx))
+    (nreverse result)))
+
+(defmethod collection-lazy-seq ((d <deque>))
+  (let* ((front (deque-front d))
+         (rear (deque-rear d))
          (total (collection-size d))
          (f-idx (1- (collection-size front)))
          (r-idx 0))
-
     (labels ((generator ()
-                        (cond
-                         ((>= f-idx 0)
-                           (let ((val (collection-ref front f-idx)))
-                             (decf f-idx)
-                             val))
-                         ((< r-idx (collection-size rear))
-                           (let ((val (collection-ref rear r-idx)))
-                             (incf r-idx)
-                             val))
-                         (t :eof))))
-
+               (cond
+                 ((>= f-idx 0)
+                  (let ((val (collection-ref front f-idx)))
+                    (decf f-idx) val))
+                 ((< r-idx (collection-size rear))
+                  (let ((val (collection-ref rear r-idx)))
+                    (incf r-idx) val))
+                 (t :eof))))
       (labels ((build-lazy-chain (remaining)
-                                 (if (<= remaining 0)
-                                     nil
-                                     (make-instance 'fol.compiler.collections::<lazy-seq>
-                                       :thunk (lambda ()
-                                                (let ((val (funcall #'generator)))
-                                                  (if (eq val :eof)
-                                                      nil
-                                                      (make-instance 'fol.compiler.collections::<list>
-                                                        :first-elem val
-                                                        :rest-list (build-lazy-chain (1- remaining))
-                                                        :list-size remaining))))))))
+                 (if (<= remaining 0) nil
+                     (make-instance '<lazy-seq>
+                       :thunk (lambda ()
+                                (let ((val (generator)))
+                                  (if (eq val :eof) nil
+                                      (make-instance '<list>
+                                        :first-elem val
+                                        :rest-list (build-lazy-chain (1- remaining))
+                                        :list-size 1))))))))
         (build-lazy-chain total)))))
 
 ;;; ============================================================================
@@ -1716,10 +1859,26 @@
 
 (defmethod collection-seq ((l <list>))
   "Walk the linked structure and collect elements into a CL list."
-  (loop with current = l
-        while (and current (plusp (list-size current)))
-        collect (list-first current)
-        do (setf current (list-rest current))))
+  (let ((result nil)
+        (current l))
+    (loop
+      (when (null current) (return))
+      (typecase current
+        (<list>
+         (when (zerop (list-size current)) (return))
+         (push (list-first current) result)
+         (setf current (list-rest current)))
+        (<lazy-seq>
+         (let ((realized (realize-lazy-seq current)))
+           (if realized
+               (setf current realized)
+               (return))))
+        (t (return))))
+    (nreverse result)))
+
+(defmethod collection-lazy-seq ((l <list>))
+  "Return the <list> itself as a lazy sequence (it already is one)."
+  l)
 
 ;;; ============================================================================
 ;;; Lazy Seq
@@ -1798,6 +1957,9 @@
         (collection-seq realized)
         nil)))
 
+(defmethod collection-lazy-seq ((ls <lazy-seq>))
+  "Return the lazy-seq itself."
+  ls)
 
 ;;; ============================================================================
 ;;; print-object methods
@@ -1862,14 +2024,15 @@
   (write-char #\} stream))
 
 (defmethod print-object ((obj <bag>) stream)
-  (write-string "#M{" stream)
+  (write-string "#M[" stream)
   (let ((first-p t))
-    (dolist (elem (collection-seq obj))
-      (if first-p
-          (setf first-p nil)
-          (write-char #\Space stream))
-      (%write-fol-element elem stream)))
-  (write-char #\} stream))
+    (dolist (pair (collection-seq obj))
+      (dotimes (i (cdr pair))
+        (if first-p
+            (setf first-p nil)
+            (write-char #\Space stream))
+        (%write-fol-element (car pair) stream))))
+  (write-char #\] stream))
 
 (defmethod print-object ((obj <deque>) stream)
   (write-string "#Q[" stream)
