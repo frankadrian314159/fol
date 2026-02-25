@@ -10,7 +10,7 @@ A preliminary transpiler to Common Lisp with a few minor optimizations is availa
 
 The language's syntax is similar to Clojure, but uses a few Common Lisp features. For example, packages are used to define namespaces. CLOS names are used for generic functions, class definitions, and methods. Both lambda expressions and fn forms are supported, as are inline anonymous functions. A few snips are taken from Apple's prefix Dylan - class names start with < and end with >; the special form bind is used for binding variables; predicates end in ?.
 
-For more information on the language, see the paper submitted to the 2026 European Lisp Symposium (ELS), found in docs/paper/els2026-paper.pdf.
+For more information on the language, see the paper submitted to the 2026 European Lisp Symposium (ELS), found in docs/els-2026-paper/els2026-paper.pdf, and the manual found in docs/manual/FOL-MANUAL.md. Be aware that the manual, like the language, is still in development.
 
 ## Features
 

@@ -29,10 +29,9 @@ For the design rationale, synergy patterns, and benchmarks, see the companion pa
 17. [Generic Functions and Object System](#17-generic-functions-and-object-system)
 18. [Meta-Object Protocol](#18-meta-object-protocol)
 19. [Macros](#19-macros)
-20. [Module System](#20-module-system)
-21. [Exception Handling](#21-exception-handling)
-22. [Zippers](#22-zippers)
-23. [Miscellaneous](#23-miscellaneous)
+20. [Exception Handling](#20-exception-handling)
+21. [Zippers](#21-zippers)
+22. [Miscellaneous](#22-miscellaneous)
 
 ---
 
