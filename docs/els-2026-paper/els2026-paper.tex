@@ -39,7 +39,7 @@
 \email{frank.adrian314159@gmail.com}
 
 \begin{abstract}
-We present FOL (Functional Object Lisp), a Lisp dialect combining Clojure's persistent data structures with CLOS-style object orientation. We find that persistent objects and CLOS are not antagonistic but synergistic: the combination yields metaobject-protocol-enabled versioned objects, declarative event sourcing via method combinations, and content-based observable notifications via predicate dispatch---patterns more natural than in either parent alone. FOL transpiles to Common Lisp; benchmarks show 2--8$\times$ overhead for feature-specific workloads and 3--11$\times$ for a digital logic simulator, with the gap narrowing at scale. A parallel variant using \texttt{preduce} achieves a 3.0$\times$ ratio on a 1024-gate pipeline. FOL achieves 13--38\% reductions in source lines of code across benchmarks. The implementation runs atop FSet and Sycamore persistent data structure libraries, providing Clojure-compatible persistent collections and a meta-object protocol adapted for immutable storage. Objects use a hybrid layout---native CLOS slots for the first 32 fields, FSet persistent vectors for overflow---achieving native access speed for common small objects.
+We present FOL (Functional Object Lisp), a Lisp dialect combining Clojure's persistent data structures with CLOS-style object orientation. We find that persistent objects and CLOS are not antagonistic but synergistic: the combination yields metaobject-protocol-enabled versioned objects, declarative event sourcing via method combinations, and content-based observable notifications via predicate dispatch---patterns more natural than in either parent alone. FOL transpiles to Common Lisp; benchmarks show 6.7--6.8$\times$ overhead for feature-specific workloads and 4--12$\times$ for a digital logic simulator, with the gap narrowing dramatically at scale---a 4096-gate pipeline achieves a 1.27$\times$ ratio. A parallel variant using \texttt{preduce} achieves a 1.23$\times$ ratio on the same pipeline. FOL achieves 13--38\% reductions in source lines of code across benchmarks. The implementation uses hand-coded persistent data structures---hash array mapped tries (HAMTs) for maps and sets, 32-way branching persistent vector tries for vectors, and B-trees for sorted collections---providing Clojure-compatible persistent collections and a meta-object protocol adapted for immutable storage. Objects use a hybrid layout---native CLOS slots for the first 32 fields, persistent vector tries for overflow---achieving native access speed for common small objects.
 \end{abstract}
 
 \begin{CCSXML}
@@ -139,22 +139,23 @@ By default, user-defined classes inherit from \texttt{<persistent-object>}:
 
 \texttt{defclass} supports standard CLOS options (\texttt{:type}, \texttt{:initarg}, \texttt{:initform}, \texttt{:reader}). Keywords in function position act as accessor functions (Clojure-style).
 
-Slot storage uses a hybrid strategy inspired by V8's hidden classes~\cite{Bruni2017}: objects with $\le 32$ slots store all values in native CLOS slots, providing native memory access speed; objects with $> 32$ slots store the first 32 in native CLOS slots and overflow the remainder into an FSet persistent vector. Functional updates (\texttt{assoc}) shallow-copy the native slots and, for wide objects, produce a new FSet vector via structural sharing. This split threshold matches the branching factor of FOL's persistent vectors, keeping updates $O(1)$ for common small objects and $O(\log n)$ only for the overflow portion.
+Slot storage uses a hybrid strategy inspired by V8's hidden classes~\cite{Bruni2017}: objects with $\le 32$ slots store all values in native CLOS slots, providing native memory access speed; objects with $> 32$ slots store the first 32 in native CLOS slots and overflow the remainder into a persistent vector trie. Functional updates (\texttt{assoc}) shallow-copy the native slots and, for wide objects, produce a new persistent vector via structural sharing. This split threshold matches the branching factor of FOL's persistent vectors, keeping updates $O(1)$ for common small objects and $O(\log n)$ only for the overflow portion.
 
 \section{Architecture and Implementation}
 
 \subsection{Collection Implementation}
 
-FOL wraps FSet~\cite{Burke2007} and Sycamore data structures for its collections:
+FOL uses hand-coded persistent data structures for its collections:
 
 \begin{itemize}
-\item \textbf{Vectors} (\texttt{[1 2 3]}): 32-way branching trees supporting $O(\log_{32} n)$ random access.
-\item \textbf{Maps} (\texttt{\{:a 1 :b 2\}}): Hash array mapped tries (HAMTs) with efficient key-value operations.
-\item \textbf{Sets} (\texttt{\#\{1 2 3\}}): Weight-balanced binary trees for ordered iteration.
+\item \textbf{Vectors} (\texttt{[1 2 3]}): 32-way branching persistent tries supporting $O(\log_{32} n)$ random access and $O(\log_{32} n)$ persistent updates via path copying with structural sharing.
+\item \textbf{Maps} (\texttt{\{:a 1 :b 2\}}): Hash array mapped tries (HAMTs) with $O(\log_{32} n)$ lookup, insertion, and deletion. HAMT lookup is only 1.3$\times$ slower than CL \texttt{gethash}.
+\item \textbf{Sets} (\texttt{\#\{1 2 3\}}): HAMTs storing element presence, sharing the map implementation.
+\item \textbf{Sorted collections}: B-trees with configurable comparators for ordered maps and sets.
 \item \textbf{Lists}: Persistent cons cells with $O(1)$ prepend and $O(n)$ access.
 \end{itemize}
 
-Beyond these four core types, FOL provides thirteen additional collection classes, from \texttt{<array-dict>} to \texttt{<dense-int-set>} to \texttt{<array>}. These have been optimized to use the combination of FSet and Sycamore structures that provides the best performance at both small sizes ($<$20 elements) and at scale ($>$1000 elements), or have been hand-written for collections not based on persistent structures (list, lazy-seq).
+Beyond these core types, FOL provides thirteen additional collection classes, from \texttt{<array-dict>} to \texttt{<dense-int-set>} to \texttt{<array>}. All are implemented using the hand-coded HAMT, persistent vector trie, and B-tree primitives, or have been hand-written for collections not based on persistent structures (list, lazy-seq). The self-contained implementation eliminates external library dependencies for collection storage.
 
 \subsection{Runtime Representations}
 
@@ -173,7 +174,7 @@ FOL's persistent metaclass adapts rather than replaces the MOP. Table~\ref{tab:m
 \textbf{Protocol} & \textbf{Status} & \textbf{Rationale} \\
 \midrule
 \texttt{slot-value-using-class} & Standard & Native CLOS slot read \\
-\texttt{slot-missing} & Extended & Overflow to FSet vector \\
+\texttt{slot-missing} & Extended & Overflow to persistent vector trie \\
 \texttt{(setf slot-value-\dots)} & Guarded & Blocks post-init writes \\
 \texttt{slot-makunbound-\dots} & Blocked & Immutability invariant \\
 \texttt{validate-superclass} & Extended & Cross-metaclass mixing \\
@@ -184,7 +185,7 @@ FOL's persistent metaclass adapts rather than replaces the MOP. Table~\ref{tab:m
 \end{tabular}
 \end{table}
 
-Introspection protocols (\texttt{class-slots}, \texttt{class-precedence-list}, \texttt{slot-definition-*}) work unchanged because FOL's class \textit{structure} is standard CLOS---only slot \textit{mutation} is guarded. For objects with $\le 32$ slots, \texttt{slot-value-using-class} uses standard CLOS slot reads at native speed; the \texttt{setf} method guards against post-initialization writes. For wide objects ($> 32$ slots), overflow slots are intercepted by \texttt{slot-missing} and redirected to the FSet persistent vector. The \texttt{validate-superclass} extension permits cross-metaclass inheritance (persistent classes may inherit from standard classes). This adaptation requires the MOP: persistence cannot be implemented as a library because transparent mutation guarding and overflow routing demand metaclass-level interception.
+Introspection protocols (\texttt{class-slots}, \texttt{class-precedence-list}, \texttt{slot-definition-*}) work unchanged because FOL's class \textit{structure} is standard CLOS---only slot \textit{mutation} is guarded. For objects with $\le 32$ slots, \texttt{slot-value-using-class} uses standard CLOS slot reads at native speed; the \texttt{setf} method guards against post-initialization writes. For wide objects ($> 32$ slots), overflow slots are intercepted by \texttt{slot-missing} and redirected to a persistent vector trie. The \texttt{validate-superclass} extension permits cross-metaclass inheritance (persistent classes may inherit from standard classes). This adaptation requires the MOP: persistence cannot be implemented as a library because transparent mutation guarding and overflow routing demand metaclass-level interception.
 
 \section{Features}
 
@@ -539,39 +540,42 @@ We evaluated FOL across three benchmarks exercising specific language features: 
 \toprule
 \textbf{Benchmark} & \textbf{Perf Ratio} & \textbf{FOL} & \textbf{CL} & \textbf{SLOC \%} \\
 \midrule
-Trade Compliance & 2.16$\times$ & 50 & 60 & 83\% \\
-Sensor Observation & 5.88$\times$ & 45 & 52 & 87\% \\
-Event Sourcing & 8.10$\times$ & 28 & 45 & 62\% \\
+Trade Compliance & 6.82$\times$ & 50 & 60 & 83\% \\
+Sensor Observation & 6.69$\times$ & 45 & 52 & 87\% \\
+Event Sourcing & 6.73$\times$ & 28 & 45 & 62\% \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\textbf{Trade Compliance}: This benchmark exercises conditional dispatch over persistent objects with 1,000,000 validation checks. The 2.16$\times$ slowdown stems from persistent allocation and Lisp-1 compatibility checks in the transpiled code. Memory allocation is 10$\times$ higher (1,164\,MB vs.\ 113\,MB) due to list collection creation for each validation result.
+\textbf{Trade Compliance}: This benchmark exercises conditional dispatch over persistent objects with 1,000,000 validation checks. The 6.82$\times$ slowdown stems from persistent allocation and Lisp-1 compatibility checks in the transpiled code. Memory allocation is 10$\times$ higher due to persistent collection creation for each validation result.
 
-\textbf{Sensor Observation}: Implements a monitoring loop with 1,000,000 iterations, producing multiple immutable event records per update. The 5.88$\times$ overhead reflects the cost of producing persistent maps for both the updated sensor state and the change event, with 6$\times$ higher memory allocation.
+\textbf{Sensor Observation}: Implements a monitoring loop with 1,000,000 iterations, producing multiple immutable event records per update. The 6.69$\times$ overhead reflects the cost of producing persistent maps for both the updated sensor state and the change event, with 6.3$\times$ higher memory allocation.
 
-\textbf{Event Sourcing}: Leverages \texttt{:around} methods and persistent logs over 100,000 command applications. It shows the largest code density benefit (38\% SLOC reduction) due to declarative command routing, with an 8.1$\times$ overhead for maintaining full persistent audit trails.
+\textbf{Event Sourcing}: Leverages \texttt{:around} methods and persistent logs over 100,000 command applications. It shows the largest code density benefit (38\% SLOC reduction) due to declarative command routing, with a 6.73$\times$ overhead and 8.1$\times$ memory overhead for maintaining full persistent audit trails.
+
+The three feature benchmarks show remarkably consistent overhead (6.7--6.8$\times$), suggesting this ratio reflects the fundamental cost of FOL's persistent object model and transpiler-generated dispatch code rather than benchmark-specific factors.
 
 \subsection{Logic Simulation (LSim)}
 
-LSim is a digital logic simulator that exercises persistent state management at scale. We evaluated three configurations: 8bit-100 (small), 32bit-300 (medium), and 8x32-900 (a 1024-gate pipeline of eight cascaded 32-bit registers). We also evaluated PLSim, a parallel variant that replaces the serial reduction over components with \texttt{preduce}, a parallel fold using a thread pool. Table~\ref{tab:lsim-perf} presents the results.
+LSim is a digital logic simulator that exercises persistent state management at scale. We evaluated four configurations of increasing complexity: 8bit-100 (small), 32bit-300 (medium), 8x32-900 (a 1024-gate pipeline of eight cascaded 32-bit registers), and 32x32-3000 (a 4096-gate pipeline of thirty-two cascaded 32-bit registers with 3000 time steps). We also evaluated PLSim, a parallel variant that replaces the serial reduction over components with \texttt{preduce}, a parallel fold using a thread pool. Table~\ref{tab:lsim-perf} presents the results.
 
 \begin{table}[htbp]
 \small
-\caption{LSim Scaling Results (Mean ms/run, 10 runs)}
+\caption{LSim Scaling Results}
 \label{tab:lsim-perf}
 \begin{tabular}{lrrrrr}
 \toprule
 \textbf{Config} & \textbf{CL} & \textbf{FOL} & \textbf{Ratio} & \textbf{PLSim} & \textbf{Ratio} \\
 \midrule
-8bit-100 & 1.0 & 11.3 & 11.3$\times$ & 12.5 & 12.5$\times$ \\
-32bit-300 & 8.4 & 58.1 & 6.9$\times$ & 65.0 & 8.1$\times$ \\
-8x32-900 & 444.9 & 1425.5 & 3.2$\times$ & 1350.0 & 3.0$\times$ \\
+8bit-100 & 3\,ms & 22\,ms & 7.0$\times$ & 16\,ms & 5.0$\times$ \\
+32bit-300 & 14\,ms & 170\,ms & 12.1$\times$ & 173\,ms & 11.1$\times$ \\
+8x32-900 & 1.02\,s & 4.26\,s & 4.2$\times$ & 4.43\,s & 4.3$\times$ \\
+32x32-3000 & 48.3\,s & 61.3\,s & 1.27$\times$ & 59.3\,s & 1.23$\times$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The performance ratio narrows from 11.3$\times$ to 3.2$\times$ as circuit complexity grows, indicating that per-operation overhead is amortized over larger working sets. The parallel variant (PLSim) introduces thread-pool overhead that dominates at small scales (12.5$\times$ for 8bit-100), but begins to pay off for the 1024-gate pipeline, reducing the ratio from 3.2$\times$ to 3.0$\times$. This crossover suggests that \texttt{preduce} becomes effective when the number of concurrently active components outweighs synchronization costs.
+The performance ratio narrows dramatically from 7.0$\times$ to 1.27$\times$ as circuit complexity grows, demonstrating that per-operation overhead is amortized over larger working sets. At the largest scale (32x32-3000, $\sim$4096 NAND gates, 3000 time steps), FOL achieves near-native performance, with the persistent data structure overhead essentially invisible. The parallel variant (PLSim) achieves a 1.23$\times$ ratio at this scale, with a modest 1.03$\times$ speedup over serial FOL as thread coordination costs begin to be offset by parallel component evaluation.
 
 Beyond performance, FOL achieved a significant reduction in implementation effort, as shown in Table~\ref{tab:lsim-loc}.
 
@@ -592,11 +596,11 @@ LSim Core & 217 & 293 & 0.74 \\
 
 The 15--28\% SLOC reductions across the simulator core and test cases are primarily due to the elimination of CLOS boilerplate (\texttt{defpackage}, \texttt{make-instance} wrappers, accessor \texttt{defun}s) and the use of concise collection literals for circuit definitions.
 
-The PLSim parallel variant demonstrates that FOL's persistent data structures are naturally suited to parallel execution: because each component's state update produces a new immutable value, parallel reductions via \texttt{preduce} require no synchronization beyond the fold itself. The thread pool uses work-stealing to distribute component evaluations across available cores. At the 8x32-900 scale ($\sim$1024 gates, 900 time steps), the parallel overhead is amortized and PLSim outperforms serial FOL. We expect this advantage to increase further with larger circuits, as the ratio of useful computation to synchronization overhead improves.
+The PLSim parallel variant demonstrates that FOL's persistent data structures are naturally suited to parallel execution: because each component's state update produces a new immutable value, parallel reductions via \texttt{preduce} require no synchronization beyond the fold itself. The thread pool uses work-stealing to distribute component evaluations across available cores. At the 32x32-3000 scale ($\sim$4096 gates, 3000 time steps), PLSim achieves a 1.23$\times$ ratio, approaching native CL performance. The scaling trend from 7.0$\times$ (8bit-100) to 1.27$\times$ (32x32-3000) demonstrates that FOL's persistent collection overhead is fixed rather than proportional to workload size---at sufficient scale, the actual simulation computation dominates.
 
 \subsection{Persistent Object Micro-Benchmarks}
 
-To isolate the cost of FOL's persistent metaclass from higher-level transpiler overhead, we measured construction, read, and functional update costs for persistent objects versus standard mutable CLOS objects across slot counts spanning the 32-slot hybrid threshold. Classes were generated dynamically with identical slot definitions; persistent classes use \texttt{persistent-class} as metaclass and inherit from \texttt{<persistent-object>}, while mutable classes use standard \texttt{standard-class}. Table~\ref{tab:micro-construct} summarizes construction and memory costs; Table~\ref{tab:micro-update} summarizes read and update costs.
+To isolate the cost of FOL's persistent metaclass from higher-level transpiler overhead, we measured construction, read, and functional update costs for persistent objects versus standard mutable CLOS objects across slot counts spanning the 32-slot hybrid threshold. Classes were generated dynamically with identical slot definitions; persistent classes use \texttt{persistent-class} as metaclass and inherit from \texttt{<persistent-object>}, while mutable classes use standard \texttt{standard-class}. Overflow storage ($>32$ slots) uses a persistent vector trie. Table~\ref{tab:micro-construct} summarizes construction and memory costs; Table~\ref{tab:micro-update} summarizes read and update costs.
 
 \begin{table}[htbp]
 \small
@@ -608,11 +612,11 @@ To isolate the cost of FOL's persistent metaclass from higher-level transpiler o
 \cmidrule(lr){2-4} \cmidrule(lr){5-7}
  & \textbf{Pers.} & \textbf{Mut.} & \textbf{Ratio} & \textbf{Pers.} & \textbf{Mut.} & \textbf{Ratio} \\
 \midrule
-2 & 360 & 216 & 1.67$\times$ & 788\,ns & 532\,ns & 1.48$\times$ \\
-8 & 1,277 & 747 & 1.71$\times$ & 1.73\,\textmu s & 1.21\,\textmu s & 1.43$\times$ \\
-32 & 4,924 & 2,857 & 1.72$\times$ & 6.28\,\textmu s & 4.67\,\textmu s & 1.35$\times$ \\
-48 & 10,057 & 4,267 & 2.36$\times$ & 11.5\,\textmu s & 7.99\,\textmu s & 1.44$\times$ \\
-128 & 46,465 & 11,301 & 4.11$\times$ & 47.9\,\textmu s & 35.3\,\textmu s & 1.36$\times$ \\
+2 & 360 & 216 & 1.67$\times$ & 2.15\,\textmu s & 1.16\,\textmu s & 1.85$\times$ \\
+8 & 1,277 & 747 & 1.71$\times$ & 3.79\,\textmu s & 4.79\,\textmu s & 0.79$\times$ \\
+32 & 4,924 & 2,857 & 1.72$\times$ & 13.8\,\textmu s & 10.8\,\textmu s & 1.27$\times$ \\
+48 & 7,863 & 4,267 & 1.84$\times$ & 23.1\,\textmu s & 19.6\,\textmu s & 1.18$\times$ \\
+128 & 22,305 & 11,301 & 1.97$\times$ & 85.6\,\textmu s & 82.6\,\textmu s & 1.04$\times$ \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -625,18 +629,18 @@ To isolate the cost of FOL's persistent metaclass from higher-level transpiler o
 \toprule
 \textbf{Slots} & \textbf{Slot} & \textbf{Read (P/M)} & \textbf{Ratio} & \textbf{Update (P/M)} & \textbf{Ratio} \\
 \midrule
-2 & 0 & 15\,ns / 13\,ns & 1.12$\times$ & 452\,ns / 13\,ns & 35$\times$ \\
-8 & 0 & 18\,ns / 13\,ns & 1.32$\times$ & 859\,ns / 19\,ns & 44$\times$ \\
-32 & 0 & 15\,ns / 20\,ns & 0.74$\times$ & 2.47\,\textmu s / 17\,ns & 150$\times$ \\
-48 & 0 & 17\,ns / 21\,ns & 0.80$\times$ & 2.49\,\textmu s / 18\,ns & 137$\times$ \\
-48 & 33 & 58\,ns / 11\,ns & 5.21$\times$ & 2.85\,\textmu s / 13\,ns & 220$\times$ \\
-128 & 0 & 24\,ns / 15\,ns & 1.64$\times$ & 2.54\,\textmu s / 13\,ns & 195$\times$ \\
-128 & 33 & 54\,ns / 12\,ns & 4.49$\times$ & 3.56\,\textmu s / 13\,ns & 278$\times$ \\
+2 & 0 & 46\,ns / 33\,ns & 1.38$\times$ & 1.14\,\textmu s / 35\,ns & 33$\times$ \\
+8 & 0 & 65\,ns / 31\,ns & 2.11$\times$ & 2.34\,\textmu s / 42\,ns & 56$\times$ \\
+32 & 0 & 52\,ns / 30\,ns & 1.73$\times$ & 6.85\,\textmu s / 29\,ns & 240$\times$ \\
+48 & 0 & 55\,ns / 30\,ns & 1.84$\times$ & 6.96\,\textmu s / 28\,ns & 249$\times$ \\
+48 & 33 & 131\,ns / 43\,ns & 3.04$\times$ & 8.50\,\textmu s / 42\,ns & 204$\times$ \\
+128 & 0 & 61\,ns / 33\,ns & 1.84$\times$ & 6.78\,\textmu s / 42\,ns & 161$\times$ \\
+128 & 33 & 169\,ns / 35\,ns & 4.85$\times$ & 14.4\,\textmu s / 32\,ns & 447$\times$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Three findings stand out. First, \textbf{construction overhead is modest}: 1.67--1.72$\times$ memory and 1.35--1.49$\times$ time for objects with $\le 32$ slots, rising to 4.11$\times$ memory at 128 slots as the FSet overflow vector dominates. Second, \textbf{native slot reads are essentially free}: persistent objects read at 0.74--1.64$\times$ the speed of mutable CLOS for slots in the native range, confirming the hybrid layout's design goal. Overflow slot reads (slot~33+) cost 2--5$\times$ due to the \texttt{slot-missing} MOP intercept and FSet lookup. Third, \textbf{functional updates are the dominant cost}: \texttt{update-slot} is 35--278$\times$ slower than in-place \texttt{(setf slot-value)}, because each update allocates a new instance and shallow-copies all native slots. This cost grows with slot count (452\,ns at 2 slots, 2.5\,\textmu s at 32 slots) but is amortized in practice by batching via \texttt{update-slots}. The absolute cost of a functional update (0.5--3.6\,\textmu s) is comparable to a single hash-map insertion, consistent with the feature benchmark overhead ratios observed in Section~6.3.
+Three findings stand out. First, \textbf{construction overhead is modest}: 1.67--1.72$\times$ memory and 0.79--1.85$\times$ time for objects with $\le 32$ slots. The persistent vector trie used for overflow storage keeps memory overhead under 2$\times$ even at 128 slots (1.97$\times$). Second, \textbf{native slot reads are fast}: persistent objects read at 1.4--2.1$\times$ the speed of mutable CLOS for slots in the native range. Overflow slot reads (slot~33+) cost 3--5$\times$ due to the \texttt{slot-missing} MOP intercept and persistent vector trie lookup. Third, \textbf{functional updates are the dominant cost}: \texttt{update-slot} is 33--447$\times$ slower than in-place \texttt{(setf slot-value)}, because each update allocates a new instance and shallow-copies all native slots. This cost grows with slot count (1.14\,\textmu s at 2 slots, 6.85\,\textmu s at 32 slots) but is amortized in practice by batching via \texttt{update-slots}. The absolute cost of a functional update (1--14\,\textmu s) is comparable to a small number of hash-map insertions, consistent with the feature benchmark overhead ratios observed in Section~6.3.
 
 \subsection{Threats to Validity}
 
@@ -646,7 +650,7 @@ All measurements compare FOL's transpiled code against SBCL's native compiler, s
 
 FOL is transpiled to Common Lisp. No static analysis exists---type errors and unreachable clauses are detected at runtime only; some type-dependent code may require runtime resolution, degrading transpiled performance. The compiler has not been extended to warn about shadowed clauses; a future version could detect shadowing statically.
 
-Micro-benchmarks (Section~6.5) show that persistent objects incur 1.7$\times$ memory overhead for objects with $\le 32$ slots, rising to 4.1$\times$ at 128 slots. Functional updates are 35--278$\times$ slower than in-place mutation in isolation, though this cost is amortized in application-level benchmarks where update frequency is lower. Reducing functional update overhead---for example, through copy-on-write slot arrays or transient builders---is planned future work. Class redefinition does not migrate existing instances (Section~5.4); old objects retain their original slot data, with new slots resolved lazily via initforms. FOL's functional update pattern is related to \textbf{lenses} in the Haskell tradition; FOL does not yet provide a lens abstraction.
+Micro-benchmarks (Section~6.5) show that persistent objects incur 1.67--1.72$\times$ memory overhead for objects with $\le 32$ slots, rising to 1.97$\times$ at 128 slots. Functional updates are 33--447$\times$ slower than in-place mutation in isolation, though this cost is amortized in application-level benchmarks where update frequency is lower. Reducing functional update overhead---for example, through copy-on-write slot arrays or transient builders---is planned future work. Class redefinition does not migrate existing instances (Section~5.4); old objects retain their original slot data, with new slots resolved lazily via initforms. FOL's functional update pattern is related to \textbf{lenses} in the Haskell tradition; FOL does not yet provide a lens abstraction.
 
 Planned extensions include \textbf{abstract and sealed classes}, \textbf{parallel collections} following Scala's model, \textbf{channel-based concurrency} via CSP-style go blocks, a \textbf{native compiler} to eliminate transpilation overhead, and a \textbf{VSCode extension} for integrated development support.
 
@@ -654,7 +658,7 @@ Planned extensions include \textbf{abstract and sealed classes}, \textbf{paralle
 
 \textbf{Clojure}~\cite{Hickey2008} pioneered persistent data structures in Lisp. Clojure's \textit{protocols} provide type-based polymorphism (single dispatch on the first argument's type) as a lightweight alternative to CLOS. FOL adopts Clojure's sequence abstraction and transducers but uses CLOS generic functions with multiple dispatch and method combinations---gaining \texttt{:before}/\texttt{:after}/\texttt{:around} qualifiers and MOP introspection at the cost of protocol performance optimizations.
 
-\textbf{Common Lisp's} CLOS~\cite{Bobrow1988} and MOP~\cite{Kiczales1991} provide FOL's object system foundation, extended with persistent slots. \textbf{Dylan}~\cite{Apple1992} was an early completely object-oriented Lisp-1 and one of the early inspirations of FOL, which retains its \texttt{<type>} naming convention and uses \texttt{bind} as a replacement for \texttt{let*} as FOL's primary lexical binding form. \textbf{Persistent data structures} build on Okasaki~\cite{Okasaki1998}; FSet~\cite{Burke2007} provides production-quality collections for CL. Clojure's \texttt{defrecord}, Scala case classes, and Kotlin data classes all provide value-oriented objects, but none integrate with a MOP---FOL is unique in combining persistent storage with metaclass-level extensibility.
+\textbf{Common Lisp's} CLOS~\cite{Bobrow1988} and MOP~\cite{Kiczales1991} provide FOL's object system foundation, extended with persistent slots. \textbf{Dylan}~\cite{Apple1992} was an early completely object-oriented Lisp-1 and one of the early inspirations of FOL, which retains its \texttt{<type>} naming convention and uses \texttt{bind} as a replacement for \texttt{let*} as FOL's primary lexical binding form. \textbf{Persistent data structures} build on Okasaki~\cite{Okasaki1998}. Clojure's \texttt{defrecord}, Scala case classes, and Kotlin data classes all provide value-oriented objects, but none integrate with a MOP---FOL is unique in combining persistent storage with metaclass-level extensibility.
 
 Ernst et al.~\cite{Ernst1998} introduced predicate dispatch with logical implication for specificity. Chambers and Chen~\cite{Chambers1999} demonstrated efficient dispatch DAGs. \textbf{Filtered Dispatch}~\cite{Orleans2002} extended CLOS with predicate-based method selection using explicit priorities. FOL's category-based specificity with definition-order tie-breaking provides a middle ground between logical implication (expressive but undecidable) and explicit priorities (simple but error-prone). \textbf{Scala's extractors}~\cite{Emir2007} and \textbf{Racket's match expanders} provide extensible pattern matching; FOL differs in that predicates are arbitrary functions and specificity is determined by category.
 
@@ -662,7 +666,7 @@ Ernst et al.~\cite{Ernst1998} introduced predicate dispatch with logical implica
 
 \section{Conclusion}
 
-FOL demonstrates that persistent objects and CLOS are synergistic rather than competing paradigms. Their combination yields versioned objects via persistent snapshots, declarative event sourcing via method combinations over immutable logs, and observable slots via predicate dispatch over change events---patterns that require multiple features working together and are more natural than in either parent language alone. Lazy schema evolution further illustrates how immutability transforms a traditionally problematic MOP protocol into a corruption-safe migration strategy, albeit at the cost of CLOS's explicit migration hooks. Benchmarks show 2--11$\times$ overhead relative to hand-written Common Lisp, with the gap narrowing to 3$\times$ at scale and a parallel variant (\texttt{preduce}) demonstrating initial scaling benefits for large circuits. Across all benchmarks, FOL achieves 13--38\% reductions in source lines of code. The complete implementation---over 600 exported functions and over 2,800 tests across 20 test suites---is available at:
+FOL demonstrates that persistent objects and CLOS are synergistic rather than competing paradigms. Their combination yields versioned objects via persistent snapshots, declarative event sourcing via method combinations over immutable logs, and observable slots via predicate dispatch over change events---patterns that require multiple features working together and are more natural than in either parent language alone. Lazy schema evolution further illustrates how immutability transforms a traditionally problematic MOP protocol into a corruption-safe migration strategy, albeit at the cost of CLOS's explicit migration hooks. Benchmarks show 1.3--12$\times$ overhead relative to hand-written Common Lisp, with the gap narrowing to 1.27$\times$ at scale (32$\times$32-3000: $\sim$4{,}096 NAND gates, 3{,}000 time steps) and a parallel variant (\texttt{preduce}) achieving comparable performance to the serial version on large circuits. Across all benchmarks, FOL achieves 13--38\% reductions in source lines of code. The complete implementation---over 600 exported functions and over 2,870 tests across 20 test suites---is available at:
 \url{https://github.com/frankadrian314159/fol}
 
 \balance

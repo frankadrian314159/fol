@@ -3,8 +3,6 @@
   (when (probe-file quicklisp-init)
         (load quicklisp-init)))
 (ql:quickload :fiveam :silent t)
-(ql:quickload :named-readtables :silent t)
-(ql:quickload :fset :silent t)
 (ql:quickload :closer-mop :silent t)
 (ql:quickload :trivial-garbage :silent t)
 (ql:quickload :bordeaux-threads :silent t)

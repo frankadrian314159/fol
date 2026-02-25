@@ -841,7 +841,7 @@
 
 (defmethod collection-conj ((coll <array>) val)
   (let* ((new-storage (fol.compiler.collection-primitives::%vec-t-conj
-                        (fol.compiler.collection-primitives::storage coll) val))
+                       (fol.compiler.collection-primitives::storage coll) val))
          (new-size (fol.compiler.collection-primitives::%vec-t-count new-storage)))
     (make-instance '<array>
       :dimension (cl:list new-size)
@@ -991,7 +991,7 @@
   (fol.compiler.collection-primitives:assoc d key val))
 
 (defmethod collection-dissoc ((d <dict>) key)
-  (dissoc d key))
+  (fol.compiler.collection-primitives:dissoc d key))
 
 (defmethod collection-ref ((d <dict-mixin>) key &optional not-found)
   (ref d key not-found))
@@ -1238,30 +1238,30 @@
   (let ((bd (sorted-dict-storage d)))
     (multiple-value-bind (new-root split-key split-right old-val found-p)
         (fol.compiler.collection-primitives::btree-assoc-node
-          (btree-dict-root bd) key val (cmp-fn d))
+         (btree-dict-root bd) key val (cmp-fn d))
       (let* ((final-root (if split-key
-                              (fol.compiler.collection-primitives::%make-btree-node
-                                (cl:vector split-key) (cl:vector new-root split-right))
-                              new-root))
+                             (fol.compiler.collection-primitives::%make-btree-node
+                              (cl:vector split-key) (cl:vector new-root split-right))
+                             new-root))
              (new-count (if found-p
                             (fol.compiler.collection-primitives::btree-dict-count bd)
                             (1+ (fol.compiler.collection-primitives::btree-dict-count bd)))))
         (make-instance (class-of d)
           :sorted-dict-storage (fol.compiler.collection-primitives::%make-btree-dict
-                                 :count new-count :root final-root)
+                                :count new-count :root final-root)
           :cmp-fn (cmp-fn d))))))
 
 (defmethod fol.compiler.collection-primitives:dissoc ((d <sorted-dict>) key)
   (let ((bd (sorted-dict-storage d)))
     (multiple-value-bind (new-root old-val found-p)
         (fol.compiler.collection-primitives::btree-dissoc-node
-          (btree-dict-root bd) key (cmp-fn d))
+         (btree-dict-root bd) key (cmp-fn d))
       (declare (ignore old-val))
       (if found-p
           (make-instance (class-of d)
             :sorted-dict-storage (fol.compiler.collection-primitives::%make-btree-dict
-                                   :count (1- (fol.compiler.collection-primitives::btree-dict-count bd))
-                                   :root new-root)
+                                  :count (1- (fol.compiler.collection-primitives::btree-dict-count bd))
+                                  :root new-root)
             :cmp-fn (cmp-fn d))
           d))))
 
@@ -1291,14 +1291,14 @@
   (fol.compiler.collection-primitives:assoc d key value))
 
 (defmethod collection-dissoc ((d <sorted-dict>) key)
-  (dissoc d key))
+  (fol.compiler.collection-primitives:dissoc d key))
 
 (defmethod ref ((d <sorted-dict>) key &optional not-found)
   "Look up KEY in the btree (not the HAMT)."
   (let ((bd (sorted-dict-storage d)))
     (multiple-value-bind (val foundp)
         (fol.compiler.collection-primitives::btree-get
-          (btree-dict-root bd) key (cmp-fn d))
+         (btree-dict-root bd) key (cmp-fn d))
       (if foundp (values val t) (values not-found nil)))))
 
 (defmethod collection-ref ((d <sorted-dict>) key &optional not-found)
@@ -1377,7 +1377,7 @@
   (fol.compiler.collection-primitives:assoc d key value))
 
 (defmethod collection-dissoc ((d <int-dict>) key)
-  (dissoc d key))
+  (fol.compiler.collection-primitives:dissoc d key))
 
 (defmethod collection-ref ((d <int-dict>) key &optional not-found)
   (ref d key not-found))
@@ -1749,8 +1749,8 @@
     (let ((cmp (or cmp-arg #'fol.compiler.compareops:%universal-comparator)))
       (make-instance '<sorted-set>
         :sorted-dict-storage (btree-bulk-load
-                               (mapcan (lambda (x) (cl:list x x)) unique-keys)
-                               cmp)
+                              (mapcan (lambda (x) (cl:list x x)) unique-keys)
+                              cmp)
         :cmp-fn cmp))))
 
 ;;; --- Protocol methods for <sorted-set> ---
@@ -1764,7 +1764,7 @@
 (defmethod collection-seq ((s <sorted-set>))
   "Return elements of the sorted set as a CL list in sorted order."
   (let ((iter (fol.compiler.collection-primitives::btree-iterator
-                (btree-dict-root (sorted-dict-storage s))))
+               (btree-dict-root (sorted-dict-storage s))))
         (result nil))
     (loop (multiple-value-bind (k v) (funcall iter)
             (declare (ignore v))
@@ -1776,31 +1776,31 @@
   (let ((bd (sorted-dict-storage s)))
     (multiple-value-bind (new-root split-key split-right old-val found-p)
         (fol.compiler.collection-primitives::btree-assoc-node
-          (btree-dict-root bd) key val (cmp-fn s))
+         (btree-dict-root bd) key val (cmp-fn s))
       (declare (ignore old-val))
       (if found-p
-          s  ; Element already present — return same object (EQ identity)
+          s ; Element already present — return same object (EQ identity)
           (let* ((final-root (if split-key
-                                  (fol.compiler.collection-primitives::%make-btree-node
-                                    (cl:vector split-key) (cl:vector new-root split-right))
-                                  new-root))
+                                 (fol.compiler.collection-primitives::%make-btree-node
+                                  (cl:vector split-key) (cl:vector new-root split-right))
+                                 new-root))
                  (new-count (1+ (fol.compiler.collection-primitives::btree-dict-count bd))))
             (make-instance '<sorted-set>
               :sorted-dict-storage (fol.compiler.collection-primitives::%make-btree-dict
-                                     :count new-count :root final-root)
+                                    :count new-count :root final-root)
               :cmp-fn (cmp-fn s)))))))
 
 (defmethod fol.compiler.collection-primitives:dissoc ((s <sorted-set>) key)
   (let ((bd (sorted-dict-storage s)))
     (multiple-value-bind (new-root old-val found-p)
         (fol.compiler.collection-primitives::btree-dissoc-node
-          (btree-dict-root bd) key (cmp-fn s))
+         (btree-dict-root bd) key (cmp-fn s))
       (declare (ignore old-val))
       (if found-p
           (make-instance '<sorted-set>
             :sorted-dict-storage (fol.compiler.collection-primitives::%make-btree-dict
-                                   :count (1- (fol.compiler.collection-primitives::btree-dict-count bd))
-                                   :root new-root)
+                                  :count (1- (fol.compiler.collection-primitives::btree-dict-count bd))
+                                  :root new-root)
             :cmp-fn (cmp-fn s))
           s))))
 
@@ -1847,8 +1847,8 @@
     (setf unique-keys (nreverse unique-keys))
     (make-instance '<int-set>
       :sorted-dict-storage (btree-bulk-load
-                             (mapcan (lambda (x) (cl:list x x)) unique-keys)
-                             #'fol.compiler.collection-primitives::%int-compare))))
+                            (mapcan (lambda (x) (cl:list x x)) unique-keys)
+                            #'fol.compiler.collection-primitives::%int-compare))))
 
 ;;; --- Protocol methods for <int-set> ---
 
@@ -1861,7 +1861,7 @@
 (defmethod collection-seq ((s <int-set>))
   "Return elements of the int set as a CL list in sorted order."
   (let ((iter (fol.compiler.collection-primitives::btree-iterator
-                (btree-dict-root (sorted-dict-storage s))))
+               (btree-dict-root (sorted-dict-storage s))))
         (result nil))
     (loop (multiple-value-bind (k v) (funcall iter)
             (declare (ignore v))
@@ -1873,31 +1873,31 @@
   (let ((bd (sorted-dict-storage s)))
     (multiple-value-bind (new-root split-key split-right old-val found-p)
         (fol.compiler.collection-primitives::btree-assoc-node
-          (btree-dict-root bd) key val (cmp-fn s))
+         (btree-dict-root bd) key val (cmp-fn s))
       (declare (ignore old-val))
       (if found-p
-          s  ; Element already present — return same object (EQ identity)
+          s ; Element already present — return same object (EQ identity)
           (let* ((final-root (if split-key
-                                  (fol.compiler.collection-primitives::%make-btree-node
-                                    (cl:vector split-key) (cl:vector new-root split-right))
-                                  new-root))
+                                 (fol.compiler.collection-primitives::%make-btree-node
+                                  (cl:vector split-key) (cl:vector new-root split-right))
+                                 new-root))
                  (new-count (1+ (fol.compiler.collection-primitives::btree-dict-count bd))))
             (make-instance '<int-set>
               :sorted-dict-storage (fol.compiler.collection-primitives::%make-btree-dict
-                                     :count new-count :root final-root)
+                                    :count new-count :root final-root)
               :cmp-fn (cmp-fn s)))))))
 
 (defmethod fol.compiler.collection-primitives:dissoc ((s <int-set>) key)
   (let ((bd (sorted-dict-storage s)))
     (multiple-value-bind (new-root old-val found-p)
         (fol.compiler.collection-primitives::btree-dissoc-node
-          (btree-dict-root bd) key (cmp-fn s))
+         (btree-dict-root bd) key (cmp-fn s))
       (declare (ignore old-val))
       (if found-p
           (make-instance '<int-set>
             :sorted-dict-storage (fol.compiler.collection-primitives::%make-btree-dict
-                                   :count (1- (fol.compiler.collection-primitives::btree-dict-count bd))
-                                   :root new-root)
+                                  :count (1- (fol.compiler.collection-primitives::btree-dict-count bd))
+                                  :root new-root)
             :cmp-fn (cmp-fn s))
           s))))
 
@@ -1935,8 +1935,8 @@
 ;;; ============================================================================
 
 (defclass <dense-int-set> (<set> <ordered-collection>)
-  ((bits :initarg :bits :initform 0 :reader int-set-bits)
-   (cmp-fn :initform #'< :reader cmp-fn))
+    ((bits :initarg :bits :initform 0 :reader int-set-bits)
+     (cmp-fn :initform #'< :reader cmp-fn))
   (:documentation "A purely functional dense integer set backed by an immutable bignum bit-vector."))
 
 (defgeneric <dense-int-set>? (obj)
@@ -2004,15 +2004,15 @@
     (nreverse result)))
 
 (defun int-set-union (s1 s2)
-  (make-instance '<dense-int-set> 
+  (make-instance '<dense-int-set>
     :bits (logior (int-set-bits s1) (int-set-bits s2))))
 
 (defun int-set-intersection (s1 s2)
-  (make-instance '<dense-int-set> 
+  (make-instance '<dense-int-set>
     :bits (logand (int-set-bits s1) (int-set-bits s2))))
 
 (defun int-set-difference (s1 s2)
-  (make-instance '<dense-int-set> 
+  (make-instance '<dense-int-set>
     :bits (logandc2 (int-set-bits s1) (int-set-bits s2))))
 ;;; ============================================================================
 ;;; Bag (Multiset)
@@ -2071,7 +2071,7 @@
   "Remove one occurrence of ELEMENT from the bag."
   (multiple-value-bind (v found) (ref b element)
     (cond ((not found) b)
-          ((= v 1) (dissoc b element))
+          ((= v 1) (fol.compiler.collection-primitives:dissoc b element))
           (t (fol.compiler.collection-primitives:assoc b element (1- v))))))
 
 

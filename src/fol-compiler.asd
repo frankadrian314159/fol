@@ -16,7 +16,7 @@
            :version "0.1.0"
            :author "Frank Adrian"
            :license "MIT"
-           :depends-on ("fset" "sycamore" "closer-mop" "uuid" "bordeaux-threads" "usocket" "cl-ppcre")
+           :depends-on ("closer-mop" "uuid" "bordeaux-threads" "usocket" "cl-ppcre")
            :components ((:file "package")
                         (:file "compareops" :depends-on ("package"))
                         (:file "primitives" :depends-on ("package"))

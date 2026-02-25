@@ -19,10 +19,10 @@ persistent vector trie (`%vec-t`, 32-way branching). Size: 100,000 elements, 10 
 
 | Implementation | Time (10 iters) | Notes |
 |:---|---:|:---|
-| **Common Lisp (AREF)** | < 0.001 s | O(1) native array |
-| **FSet (LOOKUP)** | 0.109 s | Balanced tree |
-| **FOL (COLLECTION-REF)** | 0.047 s | Vec-t trie, low-level |
-| **FOL (NTH/GET)** | 0.031 s | Vec-t trie, high-level |
+| **Common Lisp (AREF)** | 0.0000 s | O(1) native array |
+| **FSet (LOOKUP)** | 0.2656 s | Balanced tree |
+| **FOL (COLLECTION-REF)** | 0.0625 s | Vec-t trie, low-level |
+| **FOL (NTH/GET)** | 0.0781 s | Vec-t trie, high-level |
 
 FOL's vector trie provides **2.3--3.5x faster** random access than FSet's balanced tree
 implementation, thanks to the 32-way branching trie design that keeps tree depth to
@@ -32,10 +32,10 @@ log32(N) = ~3 levels for 100K elements.
 
 | Implementation | Time (10 iters) | Notes |
 |:---|---:|:---|
-| **Common Lisp (SETF AREF)** | < 0.001 s | O(1) in-place mutation |
-| **FSet (WITH)** | 0.328 s | Balanced tree |
-| **FOL (COLLECTION-ASSOC)** | 0.500 s | Vec-t trie, low-level |
-| **FOL (ASSOC)** | 0.484 s | Vec-t trie, high-level |
+| **Common Lisp (SETF AREF)** | 0.0156 s | O(1) in-place mutation |
+| **FSet (WITH)** | 0.6406 s | Balanced tree |
+| **FOL (COLLECTION-ASSOC)** | 1.0000 s | Vec-t trie, low-level |
+| **FOL (ASSOC)** | 0.9531 s | Vec-t trie, high-level |
 
 For persistent updates, FOL is **~1.5x slower** than FSet. Each update produces a new
 root with path-copied nodes. The trie's wider branching (32 children) means fewer levels
@@ -45,9 +45,9 @@ to copy but larger node allocations per level.
 
 | Implementation | Time (10 iters) | Notes |
 |:---|---:|:---|
-| **Common Lisp (VECTOR-PUSH-EXTEND)** | < 0.001 s | Amortized O(1) |
-| **FSet (WITH-LAST)** | 0.109 s | Balanced tree |
-| **FOL (CONJ)** | 0.203 s | Vec-t trie |
+| **Common Lisp (VECTOR-PUSH-EXTEND)** | 0.0156 s | Amortized O(1) |
+| **FSet (WITH-LAST)** | 0.2031 s | Balanced tree |
+| **FOL (CONJ)** | 0.3906 s | Vec-t trie |
 
 FOL vector creation via `conj` is **~1.9x slower** than FSet's `with-last`. The trie
 must allocate new tail nodes and occasionally promote tail arrays into the tree structure.
@@ -64,7 +64,45 @@ must allocate new tail nodes and occasionally promote tail arrays into the tree 
 
 ---
 
-## 2. Persistent Object Overhead
+## 2. Map (Dict) Operations
+
+Benchmarks comparing CL native `hash-table` and FOL's hand-coded persistent HAMT (`<dict>`). Size: 65 elements (to force HAMT tree depth), 1,000,000 iterations.
+
+### Add / Overwrite 
+
+| Implementation | Time (1M iters) | Memory Alloc | Notes |
+|:---|---:|---:|:---|
+| **Common Lisp (SETF GETHASH)** | 0.0064 s | 0.00 MB | O(1) in-place mutation |
+| **FOL (COLLECTION-ASSOC)** | 0.4419 s | 457.64 MB | HAMT path copy (Persistent) |
+
+### Removal
+
+| Implementation | Time (1M iters) | Memory Alloc | Notes |
+|:---|---:|---:|:---|
+| **Common Lisp (REMHASH)** | 0.0964 s | 0.00 MB | O(1) in-place mutation |
+| **FOL (COLLECTION-DISSOC)** | 0.3732 s | 412.38 MB | HAMT path copy (Persistent) |
+
+### Lookup (Existing Key)
+
+| Implementation | Time (1M iters) | Memory Alloc | Notes |
+|:---|---:|---:|:---|
+| **Common Lisp (GETHASH)** | 0.0698 s | 0.00 MB | O(1) expected time |
+| **FOL (COLLECTION-REF)** | 0.0904 s | 0.00 MB | log32(N) traversal, no allocation |
+
+### Lookup (Missing Key)
+
+| Implementation | Time (1M iters) | Memory Alloc | Notes |
+|:---|---:|---:|:---|
+| **Common Lisp (GETHASH)** | 0.0389 s | 0.00 MB | Fast-path fail |
+| **FOL (COLLECTION-REF)** | 0.0855 s | 0.00 MB | Fast-path fail / empty node check |
+
+FOL's persistent `<dict>` incurs expected overhead due to structural sharing and path copying on each modification. Adding a key-value pair allocates ~457 MB over 1,000,000 iterations, with an operation time of ~0.44s compared to CL's near-instantaneous `setf`. Similarly, removal via `dissoc` correctly trades off O(1) destructive deletions for persistent operations generating bounded allocations.
+
+However, read performance is incredibly fast since it relies purely on reading the tree structure with bit masking, with no allocation overhead. Lookup for existing elements takes `~0.09s` (only `1.3x` slower than CL `gethash`), and lookups for missing keys take `~0.08s` (compared to CL's `~0.04s`).
+
+---
+
+## 3. Persistent Object Overhead
 
 Benchmarks measuring the overhead of FOL's persistent object system (`persistent-class`
 metaclass) relative to standard mutable CLOS objects. The persistent system uses a
@@ -96,14 +134,14 @@ keeps overhead under 2x even for wide objects.
 
 | Slots | Persistent | Mutable | Ratio |
 |------:|-----------:|--------:|------:|
-|     2 |    779 ns  |  527 ns | 1.48x |
-|     4 |   1.14 us  |  800 ns | 1.42x |
-|     8 |   1.73 us  |  1.25 us | 1.39x |
-|    16 |   3.05 us  |  2.12 us | 1.44x |
-|    32 |   6.28 us  |  4.77 us | 1.32x |
-|    48 |  10.17 us  |  8.09 us | 1.26x |
-|    64 |  14.74 us  | 11.92 us | 1.24x |
-|   128 |  37.86 us  | 35.40 us | 1.07x |
+|     2 |    2.15 us |  1.16 us | 1.85x |
+|     4 |    2.63 us |  1.75 us | 1.50x |
+|     8 |    3.79 us |  4.79 us | 0.79x |
+|    16 |    6.79 us |  4.77 us | 1.43x |
+|    32 |   13.75 us | 10.82 us | 1.27x |
+|    48 |   23.11 us | 19.59 us | 1.18x |
+|    64 |   34.01 us | 26.68 us | 1.27x |
+|   128 |   85.62 us | 82.61 us | 1.04x |
 
 Construction time overhead is consistently 1.07--1.48x across all sizes.
 The FOL `<vector>` trie is faster to build from a list than FSet sequences,
@@ -113,17 +151,17 @@ particularly visible at 128 slots (1.07x vs previous 1.34x).
 
 | Slots | Slot | Persistent | Mutable | Ratio |
 |------:|-----:|-----------:|--------:|------:|
-|     2 |    0 |   20.6 ns  |  12.9 ns | 1.60x |
-|     4 |    0 |   26.7 ns  |  16.5 ns | 1.62x |
-|     8 |    0 |   28.2 ns  |  22.4 ns | 1.26x |
-|    16 |    0 |   25.5 ns  |  16.0 ns | 1.59x |
-|    32 |    0 |   27.7 ns  |  14.8 ns | 1.88x |
-|    48 |    0 |   27.5 ns  |  16.7 ns | 1.65x |
-|    48 |   33 |   61.7 ns  |  25.0 ns | 2.46x |
-|    64 |    0 |   26.9 ns  |  10.9 ns | 2.46x |
-|    64 |   33 |   49.8 ns  |  14.9 ns | 3.34x |
-|   128 |    0 |   15.8 ns  |  16.7 ns | 0.94x |
-|   128 |   33 |   51.1 ns  |  17.8 ns | 2.86x |
+|     2 |    0 |   45.74 ns |  33.20 ns | 1.38x |
+|     4 |    0 |   57.50 ns |  30.63 ns | 1.88x |
+|     8 |    0 |   65.26 ns |  30.96 ns | 2.11x |
+|    16 |    0 |   36.75 ns |  36.10 ns | 1.02x |
+|    32 |    0 |   52.05 ns |  30.13 ns | 1.73x |
+|    48 |    0 |   55.36 ns |  30.14 ns | 1.84x |
+|    48 |   33 |  131.32 ns |  43.16 ns | 3.04x |
+|    64 |    0 |   59.15 ns |  27.87 ns | 2.12x |
+|    64 |   33 |  107.32 ns |  42.01 ns | 2.55x |
+|   128 |    0 |   61.01 ns |  33.15 ns | 1.84x |
+|   128 |   33 |  168.53 ns |  34.75 ns | 4.85x |
 
 Native slot reads (slot-0) are 0.94--2.46x vs mutable CLOS. Overflow slot reads
 (slot-33) go through the `slot-missing` MOP intercept and FOL `<vector>` trie
@@ -134,16 +172,17 @@ overflow (which cost 2--5x more).
 
 | Slots | Slot | Persistent | Mutable | Ratio |
 |------:|-----:|-----------:|--------:|------:|
-|     2 |    0 |    524 ns  |  23.6 ns |  22.2x |
-|     4 |    0 |    717 ns  |  26.0 ns |  27.6x |
-|     8 |    0 |   1.05 us  |  14.3 ns |  73.6x |
-|    16 |    0 |   1.71 us  |  14.3 ns | 119.3x |
-|    32 |    0 |   3.05 us  |  22.8 ns | 133.7x |
-|    48 |    0 |   3.04 us  |  15.3 ns | 198.3x |
-|    48 |   33 |   3.80 us  |  28.3 ns | 134.3x |
-|    64 |    0 |   3.10 us  |  23.4 ns | 132.8x |
-|    64 |   33 |   4.29 us  |  20.3 ns | 211.7x |
-|   128 |    0 |   3.12 us  |  12.9 ns | 242.8x |
+|     2 |    0 |    1.14 us |  34.64 ns |  32.91x |
+|     4 |    0 |    1.53 us |  40.91 ns |  37.50x |
+|     8 |    0 |    2.34 us |  41.61 ns |  56.17x |
+|    16 |    0 |    3.90 us |  36.32 ns | 107.25x |
+|    32 |    0 |    6.85 us |  28.50 ns | 240.45x |
+|    48 |    0 |    6.96 us |  27.93 ns | 249.19x |
+|    48 |   33 |    8.50 us |  41.60 ns | 204.26x |
+|    64 |    0 |    6.95 us |  41.56 ns | 167.11x |
+|    64 |   33 |    9.48 us |  41.88 ns | 226.28x |
+|   128 |    0 |    6.78 us |  42.07 ns | 161.13x |
+|   128 |   33 |   14.41 us |  32.26 ns | 446.77x |
 
 Functional updates (`update-slots`) are 22--243x slower than in-place
 mutation (`setf slot-value`). Each functional update allocates a new instance
@@ -184,6 +223,11 @@ cost of `<vector>` trie operations is modest (3.05 us to 4.29 us from 32 to
 ### Vector Operations
 ```
 sbcl --noinform --non-interactive --load benchmarks/micro/vector-ops.lisp
+```
+
+### Map Operations
+```
+sbcl --noinform --non-interactive --load benchmarks/micro/map.lisp
 ```
 
 ### Persistence Overhead

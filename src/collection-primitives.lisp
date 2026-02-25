@@ -156,8 +156,8 @@
         (%make-vec-f64 :count size :shift 0 :root #() :tail tail))
 
       ;; General Case: We need to build a tree
-      (let* ((tail-len (logand size 31))
-             (tree-count (- size tail-len))
+      (let* ((tree-count (if (< size 32) 0 (ash (ash (1- size) -5) 5)))
+             (tail-len (- size tree-count))
              ;; 1. Allocate the Tail
              (tail (make-array tail-len :element-type 'double-float :initial-element initial-value))
              ;; 2. The Magic: Allocate ONE leaf to represent all identical leaves
@@ -200,8 +200,8 @@
           (%make-vec-f64 :count count :shift 0 :root #() :tail tail))
 
         ;; General Case: Build the tree bottom-up
-        (let* ((tail-len (logand count 31))
-               (tree-count (- count tail-len))
+        (let* ((tree-count (if (< count 32) 0 (ash (ash (1- count) -5) 5)))
+               (tail-len (- count tree-count))
                (tail (make-array tail-len :element-type 'double-float :initial-element 0.0d0))
                (nodes nil)
                (current lst))
@@ -366,8 +366,8 @@
         (%make-vec-f32 :count size :shift 0 :root #() :tail tail))
 
       ;; General Case: We need to build a tree
-      (let* ((tail-len (logand size 31))
-             (tree-count (- size tail-len))
+      (let* ((tree-count (if (< size 32) 0 (ash (ash (1- size) -5) 5)))
+             (tail-len (- size tree-count))
              ;; 1. Allocate the Tail
              (tail (make-array tail-len :element-type 'single-float :initial-element initial-value))
              ;; 2. The Magic: Allocate ONE leaf to represent all identical leaves
@@ -410,8 +410,8 @@
           (%make-vec-f32 :count count :shift 0 :root #() :tail tail))
 
         ;; General Case: Build the tree bottom-up
-        (let* ((tail-len (logand count 31))
-               (tree-count (- count tail-len))
+        (let* ((tree-count (if (< count 32) 0 (ash (ash (1- count) -5) 5)))
+               (tail-len (- count tree-count))
                (tail (make-array tail-len :element-type 'single-float :initial-element 0.0f0))
                (nodes nil)
                (current lst))
@@ -575,8 +575,8 @@
         (%make-vec-t :count size :shift 0 :root #() :tail tail))
 
       ;; General Case: We need to build a tree
-      (let* ((tail-len (logand size 31))
-             (tree-count (- size tail-len))
+      (let* ((tree-count (if (< size 32) 0 (ash (ash (1- size) -5) 5)))
+             (tail-len (- size tree-count))
              ;; 1. Allocate the Tail
              (tail (make-array tail-len :initial-element initial-value))
              ;; 2. The Magic: Allocate ONE leaf to represent all identical leaves
@@ -619,8 +619,8 @@
           (%make-vec-t :count count :shift 0 :root #() :tail tail))
 
         ;; General Case: Build the tree bottom-up
-        (let* ((tail-len (logand count 31))
-               (tree-count (- count tail-len))
+        (let* ((tree-count (if (< count 32) 0 (ash (ash (1- count) -5) 5)))
+               (tail-len (- count tree-count))
                (tail (make-array tail-len :initial-element nil))
                (nodes nil)
                (current lst))
@@ -662,7 +662,7 @@
   "Returns a closure that lazily yields elements from the vector one at a time, or :eof."
   (declare (type %vec-t v) (optimize (speed 3) (safety 0)))
   (let* ((count (%t-count v))
-         (tail-off (- count (logand count 31))) ; The exact index where the tail begins
+         (tail-off (%vec-t-tail-off v))
          (shift (%t-shift v))
          (root (%t-root v))
          (tail (%t-tail v))
@@ -854,8 +854,8 @@
         (%make-vec-fix64 :count size :shift 0 :root #() :tail tail))
 
       ;; General Case: We need to build a tree
-      (let* ((tail-len (logand size 31))
-             (tree-count (- size tail-len))
+      (let* ((tree-count (if (< size 32) 0 (ash (ash (1- size) -5) 5)))
+             (tail-len (- size tree-count))
              ;; 1. Allocate the Tail
              (tail (make-array tail-len :element-type 'fixnum :initial-element initial-value))
              ;; 2. The Magic: Allocate ONE leaf to represent all identical leaves
@@ -898,8 +898,8 @@
           (%make-vec-fix64 :count count :shift 0 :root #() :tail tail))
 
         ;; General Case: Build the tree bottom-up
-        (let* ((tail-len (logand count 31))
-               (tree-count (- count tail-len))
+        (let* ((tree-count (if (< count 32) 0 (ash (ash (1- count) -5) 5)))
+               (tail-len (- count tree-count))
                (tail (make-array tail-len :element-type 'fixnum :initial-element 0))
                (nodes nil)
                (current lst))
@@ -1753,7 +1753,7 @@
   "Removes the last element of the vector. 
    Uses O(1) tail-slicing, falling back to an O(N) rebuild strictly on 32-element boundaries."
   (let* ((count (%t-count v))
-         (tail-len (logand count 31)))
+         (tail-len (length (%t-tail v))))
     (cond
      ((<= count 1)
        (%make-vec-t :count 0 :shift 0 :root #() :tail #()))

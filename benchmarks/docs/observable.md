@@ -10,8 +10,8 @@ The benchmark executed **1,000,000 iterations** of a sensor update loop. Each it
 
 | Metric | Common Lisp (Optimized) | FOL (Transpiled) | Ratio (FOL/CL) |
 | :--- | :--- | :--- | :--- |
-| **Real Time** | 0.445 seconds | 3.069 seconds | **~6.89x** |
-| **Bytes Consed** | 372.98 MB | 2,356.82 MB | **~6.32x** |
+| **Real Time** | 1.020 seconds | 6.829 seconds | **~6.69x** |
+| **Bytes Consed** | 372.98 MB | 2,356.73 MB | **~6.32x** |
 
 ### Performance Analysis
 - **Structural Sharing vs. Mutation**: The FOL implementation uses persistent data structures (HAMT-based dicts for change events, Sycamore hash-maps for persistent objects). The CL version uses mutable CLOS objects and structs, which are significantly faster for simple field updates.
