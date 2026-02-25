@@ -2,9 +2,15 @@
 
 We present FOL (Functional Object Lisp), a Lisp dialect combining Clojure’s persistent data structures with CLOS-style object orientation.
 
-Using this combination, we find that persistent objects and CLOS are not antagonistic but, in fact synergistic. Among other software capabilities, the combination yields metaobject-protocol-enabled versioned objects, declarative event sourcing using method combinations, and lazy schema evaluation - patterns more natural than in either parent alone. Benchmarks show that persistence adds only 1-3x overhead for sequential modifications. 
+Using this combination, we find that persistent objects and CLOS are not antagonistic but, in fact synergistic. Among other software capabilities, the combination yields metaobject-protocol-enabled versioned objects, declarative event sourcing using method combinations, and lazy schema evaluation - patterns more natural than in either parent alone.
 
-A preliminary transpiler to Common Lisp with minor optimizations reaches parity with hand-written Common Lisp code. FOL is written in Common Lisp using hand-coded persistent data structures—hash array mapped tries (HAMTs) for maps and sets, persistent vector tries for vectors, and B-trees for sorted collections—providing Clojure-compatible persistent collection objects and a meta-object-protocol adapted for immutable storage.
+Another featur of FOL is extended pattern destructuring, which allows for more flexible and powerful pattern matching. Multiple patterns can be defined on generic functions, and Clojure-style multi-methods can be used to dispatch on multiple patterns. The language also supports extended pattern destructuring on defn, fn, and defmacro forms (a limited form of extended patterns is allowed for defmacro - general predicates are not supported, as they are evaluated at runtime, while macro expansion is done at compile time).
+
+A preliminary transpiler to Common Lisp with a few minor optimizations is available. FOL is written in Common Lisp using hand-coded persistent data structures—hash array mapped tries (HAMTs) for maps and sets, persistent vector tries for vectors, and B-trees for sorted collections—providing Clojure-compatible persistent collection objects and a meta-object-protocol adapted for immutable storage.
+
+The language's syntax is similar to Clojure, but uses a few Common Lisp features. For example, packages are used to define namespaces. CLOS names are used for generic functions, class definitions, and methods. Both lambda expressions and fn forms are supported, as are inline anonymous functions. A few snips are taken from Apple's prefix Dylan - class names start with < and end with >; the special form bind is used for binding variables; predicates end in ?.
+
+For more information on the language, see the paper submitted to the 2026 European Lisp Symposium (ELS), found in docs/paper/els2026-paper.pdf.
 
 ## Features
 
