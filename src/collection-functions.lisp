@@ -317,22 +317,19 @@
     (when seq (cl:first seq))))
 
 (defmethod first ((coll fol.compiler.collections:<vector>))
-  (let ((items (fol.compiler.collections:storage-items coll)))
-    (when (cl:plusp (fset:size items))
-          (fset:lookup items 0))))
+  (when (cl:plusp (fol.compiler.collections:collection-size coll))
+    (ref coll 0)))
 
 (defmethod first ((coll fol.compiler.collections:<array>))
-  (let ((items (fol.compiler.collections:storage-items coll)))
-    (when (cl:plusp (cl:array-total-size items))
-          (cl:row-major-aref items 0))))
+  (when (cl:plusp (fol.compiler.collections:collection-size coll))
+    (ref coll 0)))
 
 (defmethod first ((coll fol.compiler.collections:<list>))
   (fol.compiler.collections:list-first coll))
 
 (defmethod first ((coll fol.compiler.collections:<deque>))
-  (let ((items (fol.compiler.collections:storage-items coll)))
-    (when (cl:plusp (fset:size items))
-          (fset:lookup items 0))))
+  (when (cl:plusp (fol.compiler.collections:collection-size coll))
+    (ref coll 0)))
 
 (defmethod first ((coll fol.compiler.collections:<lazy-seq>))
   (fol.compiler.collections:realize-lazy-seq coll)
@@ -358,10 +355,11 @@
         (make-instance (class-of coll)))))
 
 (defmethod rest ((coll fol.compiler.collections:<vector>))
-  (let ((items (fol.compiler.collections:storage-items coll)))
-    (if (cl:> (fset:size items) 0)
-        (make-instance 'fol.compiler.collections:<vector>
-          :items (fset:subseq items 1))
+  (let ((sz (fol.compiler.collections:collection-size coll)))
+    (if (cl:> sz 0)
+        (apply #'fol.compiler.collections:make
+          'fol.compiler.collections:<vector>
+          (cl:rest (fol.compiler.collections:collection-seq coll)))
         (make-instance 'fol.compiler.collections:<vector>))))
 
 (defmethod rest ((coll fol.compiler.collections:<list>))
@@ -375,7 +373,7 @@
 ;; Sets don't really support rest (unordered), so just return empty set
 (defmethod rest ((coll fol.compiler.collections:<set>))
   (make-instance 'fol.compiler.collections:<set>
-    :items (sycamore:make-hash-set)))
+    :dict-storage (fol.compiler.collection-primitives::%make-hamt)))
 
 ;; Fallback for CL lists
 (defmethod rest ((coll cl:list))
@@ -415,8 +413,18 @@
 (defmethod nth ((coll fol.compiler.collections:<vector>) index
                                                          &optional (not-found nil not-found-p))
   "Look up INDEX in the persistent vector trie."
+  (if not-found-p
+      (ref coll index not-found)
+      (multiple-value-bind (val found-p) (fol.compiler.collections:collection-ref coll index)
+        (if found-p val
+            (cl:error "Index ~D out of bounds for vector of size ~D"
+                      index (fol.compiler.collections:collection-size coll))))))
+
+(defmethod nth ((coll fol.compiler.collections:<deque>) index
+                                                        &optional (not-found nil not-found-p))
+  "Look up INDEX in a deque."
   (declare (ignore not-found-p))
-  (fol.compiler.collections:ref coll index not-found))
+  (ref coll index not-found))
 
 ;;; ---------------------------------------------------------------------------
 ;;; peek - Inspect the element that pop would remove
@@ -436,7 +444,7 @@
    Clojure semantics: peek on a vector returns the last element."
   (let ((sz (fol.compiler.collections:size coll)))
     (if (cl:plusp sz)
-        (fol.compiler.collections:ref coll (1- sz))
+        (ref coll (1- sz))
         nil)))
 
 ;;; ---------------------------------------------------------------------------
@@ -470,7 +478,7 @@
    Clojure semantics: pop on a vector removes from the end."
   (if (cl:plusp (fol.compiler.collections:size coll))
       (make-instance 'fol.compiler.collections:<vector>
-        :storage (fol.compiler.collection-primitives::%vec-t-pop (fol.compiler.collections:storage coll)))
+        :storage (fol.compiler.collection-primitives::%vec-t-pop (storage coll)))
       (cl:error "Cannot pop an empty vector")))
 
 ;;; ---------------------------------------------------------------------------
@@ -499,7 +507,7 @@
   (let ((sz (fol.compiler.collections:size coll))
         (start (or from-index 0)))
     (cl:loop for i from start below sz
-      when (eql (fol.compiler.collections:ref coll i) value)
+      when (eql (ref coll i) value)
       return i)))
 
 ;;; ---------------------------------------------------------------------------
@@ -528,7 +536,7 @@
   (let ((sz (fol.compiler.collections:size coll)))
     (cl:loop with last-idx = nil
     for i from 0 below sz
-      when (eql (fol.compiler.collections:ref coll i) value)
+      when (eql (ref coll i) value)
     do (setf last-idx i)
     finally (return last-idx))))
 
@@ -540,27 +548,27 @@
   (:documentation "Get value by key (dict) or index (seq). Returns default if not found."))
 
 (defmethod get ((coll fol.compiler.collections:<dict>) key &optional default)
-  (fol.compiler.collections:ref coll key default))
+  (ref coll key default))
 
 (defmethod get ((coll fol.compiler.collections:<ordered-dict>) key &optional default)
-  (fol.compiler.collections:ref coll key default))
+  (ref coll key default))
 
 (defmethod get ((coll fol.compiler.collections:<sorted-dict>) key &optional default)
-  (fol.compiler.collections:ref coll key default))
+  (ref coll key default))
 
 (defmethod get ((coll fol.compiler.collections:<int-dict>) key &optional default)
-  (fol.compiler.collections:ref coll key default))
+  (ref coll key default))
 
 (defmethod get ((coll fol.compiler.collections:<priority-dict>) key &optional default)
-  (fol.compiler.collections:ref coll key default))
+  (ref coll key default))
 
 (defmethod get ((coll fol.compiler.collections:<vector>) index &optional default)
-  (fol.compiler.collections:ref coll index default))
+  (ref coll index default))
 
 (defmethod get ((coll fol.compiler.collections:<array>) index &optional default)
-  (let ((items (fol.compiler.collections:storage-items coll)))
-    (if (and (cl:integerp index) (cl:>= index 0) (cl:< index (cl:array-total-size items)))
-        (cl:values (cl:row-major-aref items index) t)
+  (let ((sz (fol.compiler.collections:collection-size coll)))
+    (if (and (cl:integerp index) (cl:>= index 0) (cl:< index sz))
+        (cl:values (ref coll index) t)
         (cl:values default nil))))
 
 (defmethod get ((coll fol.compiler.collections:<array>) (indices cl:cons) &optional default)
@@ -575,16 +583,16 @@
     (get coll (%index dims indices) default)))
 
 (defmethod get ((coll fol.compiler.collections:<set>) element &optional default)
-  (fol.compiler.collections:ref coll element default))
+  (ref coll element default))
 
 (defmethod get ((coll fol.compiler.collections:<sorted-set>) element &optional default)
-  (fol.compiler.collections:ref coll element default))
+  (ref coll element default))
 
 (defmethod get ((coll fol.compiler.collections:<bag>) element &optional default)
-  (fol.compiler.collections:ref coll element default))
+  (ref coll element default))
 
 (defmethod get ((coll fol.compiler.collections:<deque>) index &optional default)
-  (fol.compiler.collections:ref coll index default))
+  (ref coll index default))
 
 (defmethod get ((coll fol.compiler.collections:<list>) index &optional default)
   "Get element by index (linear time)."
@@ -662,18 +670,9 @@
       (setf result (fol.compiler.collections:collection-dissoc result k)))))
 
 (defmethod dissoc ((coll fol.compiler.collections:<ordered-dict>) &rest keys)
-  (let* ((items (fol.compiler.collections:storage-items coll))
-         (key-order (fol.compiler.collections:ordered-dict-key-order coll))
-         (new-items (reduce #'sycamore:hash-map-remove keys :initial-value items))
-         (key-set (loop with hset = (sycamore:make-hash-set)
-                        for k in keys
-                        do (setf hset (sycamore:hash-set-insert hset k))
-                        finally (return hset)))
-         (new-order (fset:filter (lambda (k) (not (sycamore:hash-set-find key-set k)))
-                                 key-order)))
-    (make-instance 'fol.compiler.collections:<ordered-dict>
-      :items new-items
-      :key-order new-order)))
+  (let ((result coll))
+    (dolist (k keys result)
+      (setf result (fol.compiler.collections:collection-dissoc result k)))))
 
 (defmethod dissoc ((coll fol.compiler.collections:<sorted-dict>) &rest keys)
   (let ((result coll))
@@ -694,18 +693,9 @@
     (assoc coll key new-val)))
 
 (defmethod update ((coll fol.compiler.collections:<ordered-dict>) key updater-fn)
-  (let* ((items (fol.compiler.collections:storage-items coll))
-         (key-order (fol.compiler.collections:ordered-dict-key-order coll))
-         (current-val (sycamore:hash-map-find items key))
-         (new-val (funcall updater-fn current-val))
-         (new-items (sycamore:hash-map-insert items key new-val))
-         ;; Add key to order if it's new
-         (new-order (if (sycamore:hash-map-find items key)
-                        key-order
-                        (fset:with-last key-order key))))
-    (make-instance 'fol.compiler.collections:<ordered-dict>
-      :items new-items
-      :key-order new-order)))
+  (let* ((current-val (get coll key))
+         (new-val (funcall updater-fn current-val)))
+    (assoc coll key new-val)))
 
 (defmethod update ((coll fol.compiler.collections:<sorted-dict>) key updater-fn)
   (let* ((current-val (get coll key))
@@ -729,38 +719,26 @@
 (defmethod merge ((coll fol.compiler.collections:<dict>) &rest colls)
   (if (null colls)
       coll
-      (let ((result-items (fol.compiler.collections:storage-items coll)))
-        (dolist (other colls)
-          (sycamore:do-hash-map ((k v) (fol.compiler.collections:storage-items other))
-            (setf result-items (sycamore:hash-map-insert result-items k v))))
-        (make-instance 'fol.compiler.collections:<dict>
-          :items result-items))))
+      (let ((result coll))
+        (dolist (other colls result)
+          (dolist (pair (fol.compiler.collections:collection-seq other))
+            (setf result (fol.compiler.collections:collection-assoc result (car pair) (cdr pair))))))))
 
 (defmethod merge ((coll fol.compiler.collections:<ordered-dict>) &rest colls)
   (if (null colls)
       coll
-      (let ((result-items (fol.compiler.collections:storage-items coll))
-            (result-order (fol.compiler.collections:ordered-dict-key-order coll)))
-        (dolist (other colls)
-          (sycamore:do-hash-map ((k v) (fol.compiler.collections:storage-items other))
-            (setf result-items (sycamore:hash-map-insert result-items k v))
-            ;; Add to order if new key
-            (unless (sycamore:hash-map-find result-items k)
-              (setf result-order (fset:with-last result-order k)))))
-        (make-instance 'fol.compiler.collections:<ordered-dict>
-          :items result-items
-          :key-order result-order))))
+      (let ((result coll))
+        (dolist (other colls result)
+          (dolist (pair (fol.compiler.collections:collection-seq other))
+            (setf result (fol.compiler.collections:collection-assoc result (car pair) (cdr pair))))))))
 
 (defmethod merge ((coll fol.compiler.collections:<sorted-dict>) &rest colls)
   (if (null colls)
       coll
-      (let ((result-items (fol.compiler.collections:storage-items coll)))
-        (dolist (other colls)
-          (sycamore:do-tree-map ((k v) (fol.compiler.collections:storage-items other))
-            (setf result-items (sycamore:tree-map-insert result-items k v))))
-        (make-instance 'fol.compiler.collections:<sorted-dict>
-          :items result-items
-          :compare (fol.compiler.collections:comparator-compare coll)))))
+      (let ((result coll))
+        (dolist (other colls result)
+          (dolist (pair (fol.compiler.collections:collection-seq other))
+            (setf result (fol.compiler.collections:collection-assoc result (car pair) (cdr pair))))))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; empty and not-empty
@@ -775,29 +753,21 @@
 
 (defmethod empty ((coll fol.compiler.collections:<sorted-dict>))
   "Preserve comparator when creating empty sorted-dict."
-  (let ((cmp (slot-value coll 'fol.compiler.collections::compare)))
-    (make-instance 'fol.compiler.collections:<sorted-dict>
-      :items (sycamore:make-tree-map cmp)
-      :compare cmp)))
+  (make-instance 'fol.compiler.collections:<sorted-dict>
+    :cmp-fn (fol.compiler.collections:cmp-fn coll)))
 
 (defmethod empty ((coll fol.compiler.collections:<int-dict>))
   "Preserve comparator when creating empty int-dict."
-  (make-instance 'fol.compiler.collections:<int-dict>
-    :items (sycamore:make-tree-map #'fol.compiler.collections::%int-compare)
-    :compare #'fol.compiler.collections::%int-compare))
+  (make-instance 'fol.compiler.collections:<int-dict>))
 
 (defmethod empty ((coll fol.compiler.collections:<sorted-set>))
   "Preserve comparator when creating empty sorted-set."
-  (let ((cmp (slot-value coll 'fol.compiler.collections::compare)))
-    (make-instance 'fol.compiler.collections:<sorted-set>
-      :items (sycamore:make-tree-set cmp)
-      :compare cmp)))
+  (make-instance 'fol.compiler.collections:<sorted-set>
+    :cmp-fn (fol.compiler.collections:cmp-fn coll)))
 
 (defmethod empty ((coll fol.compiler.collections:<int-set>))
   "Preserve comparator when creating empty int-set."
-  (make-instance 'fol.compiler.collections:<int-set>
-    :items (sycamore:make-tree-set #'fol.compiler.collections::%int-compare)
-    :compare #'fol.compiler.collections::%int-compare))
+  (make-instance 'fol.compiler.collections:<int-set>))
 
 (defun not-empty (coll)
   "Returns COLL if it contains elements, NIL otherwise.
@@ -902,145 +872,93 @@
     (fol.compiler.collections:collection-seq from)
     :initial-value to))
 
-;;; --- Vector: build FSet seq directly, avoiding intermediate instances ---
+;;; --- Vector: use generic protocol ---
 
 (defmethod into ((to <vector>) (from fol.compiler.collections:<collection>))
-  (let ((items (fol.compiler.collections:storage-items to)))
-    (dolist (elem (fol.compiler.collections:collection-seq from))
-      (setf items (fset:with-last items elem)))
-    (make-instance '<vector> :items items)))
+  (let ((result to))
+    (dolist (elem (fol.compiler.collections:collection-seq from) result)
+      (setf result (fol.compiler.collections:collection-conj result elem)))))
 
-;;; --- Deque: build FSet seq directly, produce deque instance ---
+;;; --- Deque: use generic protocol ---
 
 (defmethod into ((to <deque>) (from fol.compiler.collections:<collection>))
-  (let ((items (fol.compiler.collections:storage-items to)))
-    (dolist (elem (fol.compiler.collections:collection-seq from))
-      (setf items (fset:with-last items elem)))
-    (make-instance '<deque> :items items)))
+  (let ((result to))
+    (dolist (elem (fol.compiler.collections:collection-seq from) result)
+      (setf result (fol.compiler.collections:collection-conj result elem)))))
 
 ;;; --- Array: build CL array directly ---
 
 (defmethod into ((to <array>) (from fol.compiler.collections:<collection>))
-  (let* ((old (fol.compiler.collections:storage-items to))
-         (old-len (cl:length old))
+  (let* ((old-seq (fol.compiler.collections:collection-seq to))
          (new-elems (fol.compiler.collections:collection-seq from))
-         (new-len (cl:length new-elems))
-         (total (cl:+ old-len new-len))
-         (result (cl:make-array total)))
-    (dotimes (i old-len)
-      (setf (cl:aref result i) (cl:aref old i)))
-    (cl:loop for elem in new-elems
-    for i from old-len
-    do (setf (cl:aref result i) elem))
-    (make-instance '<array> :items result
-      :dimension (cl:list total))))
+         (all-elems (append old-seq new-elems))
+         (total (cl:length all-elems)))
+    (make-instance '<array>
+      :dimension (cl:list total)
+      :storage (fol.compiler.collection-primitives::%build-vec-t-from-list all-elems))))
 
-;;; --- Dict: build hash-map directly ---
+;;; --- Dict: use generic protocol ---
 
 (defmethod into ((to <dict>) (from fol.compiler.collections:<collection>))
-  (let ((items (fol.compiler.collections:storage-items to)))
-    (dolist (pair (fol.compiler.collections:collection-seq from))
-      (setf items (sycamore:hash-map-insert items (car pair) (cdr pair))))
-    (make-instance '<dict> :items items)))
+  (let ((result to))
+    (dolist (pair (fol.compiler.collections:collection-seq from) result)
+      (setf result (fol.compiler.collections:collection-assoc result (car pair) (cdr pair))))))
 
-;;; --- Ordered-dict: maintain hash-map and key-order ---
+;;; --- Ordered-dict: use generic protocol ---
 
 (defmethod into ((to <ordered-dict>) (from fol.compiler.collections:<collection>))
-  (let ((items (fol.compiler.collections:storage-items to))
-        (key-order (fol.compiler.collections:ordered-dict-key-order to))
-        (seen (make-hash-table :test 'eql)))
-    (fset:do-seq (k key-order)
-      (setf (gethash k seen) t))
-    (dolist (pair (fol.compiler.collections:collection-seq from))
-      (let ((k (car pair)) (v (cdr pair)))
-        (unless (gethash k seen)
-          (setf key-order (fset:with-last key-order k))
-          (setf (gethash k seen) t))
-        (setf items (sycamore:hash-map-insert items k v))))
-    (make-instance '<ordered-dict> :items items :key-order key-order)))
+  (let ((result to))
+    (dolist (pair (fol.compiler.collections:collection-seq from) result)
+      (setf result (fol.compiler.collections:collection-assoc result (car pair) (cdr pair))))))
 
-;;; --- Array-dict: maintain hash-map and key-order ---
+;;; --- Array-dict: use generic protocol ---
 
 (defmethod into ((to <array-dict>) (from fol.compiler.collections:<collection>))
-  (let ((items (fol.compiler.collections:storage-items to))
-        (key-order (fol.compiler.collections:array-dict-key-order to))
-        (seen (make-hash-table :test 'eql)))
-    (fset:do-seq (k key-order)
-      (setf (gethash k seen) t))
-    (dolist (pair (fol.compiler.collections:collection-seq from))
-      (let ((k (car pair)) (v (cdr pair)))
-        (unless (gethash k seen)
-          (setf key-order (fset:with-last key-order k))
-          (setf (gethash k seen) t))
-        (setf items (sycamore:hash-map-insert items k v))))
-    (make-instance '<array-dict> :items items :key-order key-order)))
+  (let ((result to))
+    (dolist (pair (fol.compiler.collections:collection-seq from) result)
+      (setf result (fol.compiler.collections:collection-assoc result (car pair) (cdr pair))))))
 
-;;; --- Sorted-dict: build tree-map directly (also handles <int-dict>) ---
+;;; --- Sorted-dict: use generic protocol (also handles <int-dict>) ---
 
 (defmethod into ((to <sorted-dict>) (from fol.compiler.collections:<collection>))
-  (let ((items (fol.compiler.collections:storage-items to)))
-    (dolist (pair (fol.compiler.collections:collection-seq from))
-      (setf items (sycamore:tree-map-insert items (car pair) (cdr pair))))
-    (make-instance (class-of to)
-      :compare (fol.compiler.collections:comparator-compare to)
-      :items items)))
+  (let ((result to))
+    (dolist (pair (fol.compiler.collections:collection-seq from) result)
+      (setf result (fol.compiler.collections:collection-assoc result (car pair) (cdr pair))))))
 
-;;; --- Priority-dict: maintain hash-map and priority tree ---
+;;; --- Priority-dict: use generic protocol ---
 
 (defmethod into ((to <priority-dict>) (from fol.compiler.collections:<collection>))
-  (let ((hm (fol.compiler.collections:storage-items to))
-        (tm (fol.compiler.collections:priority-dict-tree to)))
-    (dolist (pair (fol.compiler.collections:collection-seq from))
-      (let* ((key (car pair))
-             (new-pri (cdr pair))
-             (old-pri (sycamore:hash-map-find hm key)))
-        (when old-pri
-              (setf tm (sycamore:tree-map-remove tm (cons old-pri key))))
-        (setf hm (sycamore:hash-map-insert hm key new-pri))
-        (setf tm (sycamore:tree-map-insert tm (cons new-pri key) key))))
-    (make-instance '<priority-dict>
-      :items hm
-      :priority-tree tm
-      :priority-compare (fol.compiler.collections:priority-dict-compare to))))
+  (let ((result to))
+    (dolist (pair (fol.compiler.collections:collection-seq from) result)
+      (setf result (fol.compiler.collections:collection-conj result pair)))))
 
-;;; --- Set: build hash-set directly ---
+;;; --- Set: use generic protocol ---
 
 (defmethod into ((to <set>) (from fol.compiler.collections:<collection>))
-  (let ((items (fol.compiler.collections:storage-items to)))
-    (dolist (elem (fol.compiler.collections:collection-seq from))
-      (setf items (sycamore:hash-set-insert items elem)))
-    (make-instance '<set> :items items)))
+  (let ((result to))
+    (dolist (elem (fol.compiler.collections:collection-seq from) result)
+      (setf result (fol.compiler.collections:collection-conj result elem)))))
 
-;;; --- Ordered-set: maintain hash-set and insertion-order seq ---
+;;; --- Ordered-set: use generic protocol ---
 
 (defmethod into ((to <ordered-set>) (from fol.compiler.collections:<collection>))
-  (let* ((store (fol.compiler.collections:storage-items to))
-         (hset (car store))
-         (seq (cdr store)))
-    (dolist (elem (fol.compiler.collections:collection-seq from))
-      (unless (sycamore:hash-set-find hset elem)
-        (setf hset (sycamore:hash-set-insert hset elem))
-        (setf seq (fset:with-last seq elem))))
-    (make-instance '<ordered-set> :items (cons hset seq))))
+  (let ((result to))
+    (dolist (elem (fol.compiler.collections:collection-seq from) result)
+      (setf result (fol.compiler.collections:collection-conj result elem)))))
 
-;;; --- Sorted-set: build tree-set directly (also handles <int-set>) ---
+;;; --- Sorted-set: use generic protocol (also handles <int-set>) ---
 
 (defmethod into ((to <sorted-set>) (from fol.compiler.collections:<collection>))
-  (let ((items (fol.compiler.collections:storage-items to)))
-    (dolist (elem (fol.compiler.collections:collection-seq from))
-      (setf items (sycamore:tree-set-insert items elem)))
-    (make-instance (class-of to)
-      :compare (fol.compiler.collections:comparator-compare to)
-      :items items)))
+  (let ((result to))
+    (dolist (elem (fol.compiler.collections:collection-seq from) result)
+      (setf result (fol.compiler.collections:collection-conj result elem)))))
 
-;;; --- Bag: build count-map directly ---
+;;; --- Bag: use generic protocol ---
 
 (defmethod into ((to <bag>) (from fol.compiler.collections:<collection>))
-  (let ((items (fol.compiler.collections:storage-items to)))
-    (dolist (elem (fol.compiler.collections:collection-seq from))
-      (let ((cnt (or (sycamore:hash-map-find items elem) 0)))
-        (setf items (sycamore:hash-map-insert items elem (1+ cnt)))))
-    (make-instance '<bag> :items items)))
+  (let ((result to))
+    (dolist (elem (fol.compiler.collections:collection-seq from) result)
+      (setf result (fol.compiler.collections:collection-conj result elem)))))
 
 ;;; --- List: prepend each element (Clojure conj semantics) ---
 
@@ -1122,10 +1040,10 @@
 
 (defmethod rseq ((coll fol.compiler.collections:<vector>))
   "Return the elements of the vector in reverse order as a CL list."
-  (let ((items (fol.compiler.collections:storage-items coll)))
-    (when (cl:plusp (fset:size items))
-          (cl:loop for i from (1- (fset:size items)) downto 0
-          collect (fset:lookup items i)))))
+  (let ((sz (fol.compiler.collections:collection-size coll)))
+    (when (cl:plusp sz)
+      (cl:loop for i from (1- sz) downto 0
+               collect (ref coll i)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; reduce-kv - Reduce with key/index and value
@@ -1139,10 +1057,10 @@
 
 (defmethod reduce-kv (fn init (coll fol.compiler.collections:<vector>))
   "Reduce a vector with (fn acc index value)."
-  (let ((items (fol.compiler.collections:storage-items coll))
+  (let ((sz (fol.compiler.collections:collection-size coll))
         (acc init))
-    (cl:loop for i from 0 below (fset:size items)
-    do (setf acc (funcall fn acc i (fset:lookup items i))))
+    (cl:loop for i from 0 below sz
+             do (setf acc (funcall fn acc i (ref coll i))))
     acc))
 
 (defmethod reduce-kv (fn init (coll fol.compiler.collections:<dict>))
@@ -1164,8 +1082,7 @@
      (subvec [1 2 3 4 5] 1 3)  => [2 3]
      (subvec [1 2 3 4 5] 2)    => [3 4 5]
      (subvec [1 2 3 4 5] 0 0)  => []"
-  (let* ((items (fol.compiler.collections:storage-items v))
-         (sz (fset:size items))
+  (let* ((sz (fol.compiler.collections:collection-size v))
          (actual-end (or end sz)))
     (unless (and (integerp start) (cl:>= start 0) (cl:<= start sz))
       (cl:error "subvec: start ~D out of bounds for vector of size ~D" start sz))
@@ -1173,8 +1090,10 @@
       (cl:error "subvec: end ~D out of bounds for vector of size ~D" actual-end sz))
     (if (cl:= start actual-end)
         (vector)
-        (make-instance 'fol.compiler.collections:<vector>
-          :items (fset:subseq items start actual-end)))))
+        (apply #'fol.compiler.collections:make
+          'fol.compiler.collections:<vector>
+          (cl:loop for i from start below actual-end
+                   collect (ref v i))))))
 
 ;;; ===========================================================================
 ;;; Set Operations
@@ -1190,20 +1109,28 @@
    (contains? #{1 2 3} 5) => NIL"))
 
 (defmethod contains? ((s fol.compiler.collections:<set>) element)
-  "Test membership in a hash-set."
-  (if (sycamore:hash-set-find (fol.compiler.collections:storage-items s) element)
-      t nil))
+  "Test membership in a set (HAMT-backed)."
+  (nth-value 1 (fol.compiler.collection-primitives::hamt-get
+                 (fol.compiler.collection-primitives:dict-storage s) element)))
 
 (defmethod contains? ((s fol.compiler.collections:<ordered-set>) element)
-  "Test membership in an ordered-set (uses the hash-set component)."
-  (if (sycamore:hash-set-find
-        (car (fol.compiler.collections:storage-items s)) element)
-      t nil))
+  "Test membership in an ordered-set (HAMT-backed)."
+  (nth-value 1 (fol.compiler.collection-primitives::hamt-get
+                 (fol.compiler.collection-primitives:dict-storage s) element)))
 
 (defmethod contains? ((s fol.compiler.collections:<sorted-set>) element)
-  "Test membership in a sorted tree-set."
-  (if (sycamore:tree-set-member-p (fol.compiler.collections:storage-items s) element)
-      t nil))
+  "Test membership in a sorted set (btree-backed)."
+  (nth-value 1 (fol.compiler.collection-primitives::btree-get
+                 (fol.compiler.collection-primitives::btree-dict-root
+                   (fol.compiler.collection-primitives:sorted-dict-storage s))
+                 element (fol.compiler.collections:cmp-fn s))))
+
+(defmethod contains? ((s fol.compiler.collections:<int-set>) element)
+  "Test membership in an int set (btree-backed)."
+  (nth-value 1 (fol.compiler.collection-primitives::btree-get
+                 (fol.compiler.collection-primitives::btree-dict-root
+                   (fol.compiler.collection-primitives:sorted-dict-storage s))
+                 element (fol.compiler.collections:cmp-fn s))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; disj - Remove elements from a set
@@ -1215,40 +1142,28 @@
    (disj #{1 2 3} 2 3) => #{1}"))
 
 (defmethod disj ((s fol.compiler.collections:<set>) &rest elements)
-  "Remove ELEMENTS from a hash-set."
-  (let ((items (fol.compiler.collections:storage-items s)))
-    (dolist (elem elements)
-      (setf items (sycamore:hash-set-remove items elem)))
-    (make-instance 'fol.compiler.collections:<set> :items items)))
+  "Remove ELEMENTS from a set."
+  (let ((result s))
+    (dolist (elem elements result)
+      (setf result (fol.compiler.collections:collection-dissoc result elem)))))
 
 (defmethod disj ((s fol.compiler.collections:<ordered-set>) &rest elements)
   "Remove ELEMENTS from an ordered-set."
-  (let* ((store (fol.compiler.collections:storage-items s))
-         (hset (car store))
-         (seq (cdr store)))
-    (dolist (elem elements)
-      (setf hset (sycamore:hash-set-remove hset elem)))
-    (let ((new-seq (fset:filter (lambda (e) (sycamore:hash-set-find hset e)) seq)))
-      (make-instance 'fol.compiler.collections:<ordered-set>
-        :items (cons hset new-seq)))))
+  (let ((result s))
+    (dolist (elem elements result)
+      (setf result (fol.compiler.collections:collection-dissoc result elem)))))
 
 (defmethod disj ((s fol.compiler.collections:<sorted-set>) &rest elements)
-  "Remove ELEMENTS from a sorted tree-set."
-  (let ((items (fol.compiler.collections:storage-items s)))
-    (dolist (elem elements)
-      (setf items (sycamore:tree-set-remove items elem)))
-    (make-instance 'fol.compiler.collections:<sorted-set>
-      :items items
-      :compare (fol.compiler.collections:comparator-compare s))))
+  "Remove ELEMENTS from a sorted set."
+  (let ((result s))
+    (dolist (elem elements result)
+      (setf result (fol.compiler.collections:collection-dissoc result elem)))))
 
 (defmethod disj ((s fol.compiler.collections:<int-set>) &rest elements)
   "Remove ELEMENTS from an int-set."
-  (let ((items (fol.compiler.collections:storage-items s)))
-    (dolist (elem elements)
-      (setf items (sycamore:tree-set-remove items elem)))
-    (make-instance 'fol.compiler.collections:<int-set>
-      :items items
-      :compare #'fol.compiler.collections::%int-compare)))
+  (let ((result s))
+    (dolist (elem elements result)
+      (setf result (fol.compiler.collections:collection-dissoc result elem)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; union - Set union
@@ -1265,45 +1180,35 @@
 
 (defmethod binary-union ((s1 fol.compiler.collections:<set>)
                          (s2 fol.compiler.collections:<set>))
-  "Union of two hash-sets."
-  (make-instance 'fol.compiler.collections:<set>
-    :items (sycamore:hash-set-union
-             (fol.compiler.collections:storage-items s1)
-             (fol.compiler.collections:storage-items s2))))
+  "Union of two sets."
+  (let ((result s1))
+    (dolist (elem (fol.compiler.collections:collection-seq s2) result)
+      (setf result (fol.compiler.collections:collection-conj result elem)))))
 
 (defmethod binary-union ((s1 fol.compiler.collections:<ordered-set>)
                          (s2 fol.compiler.collections:<ordered-set>))
   "Union of two ordered-sets. Elements from s1 come first, then novel elements from s2."
-  (let* ((store1 (fol.compiler.collections:storage-items s1))
-         (store2 (fol.compiler.collections:storage-items s2))
-         (hset1 (car store1))
-         (seq1 (cdr store1))
-         (hset-result (sycamore:hash-set-union hset1 (car store2)))
-         (seq-result seq1))
-    ;; Append novel elements from s2 in their insertion order
-    (fset:do-seq (elem (cdr store2))
-      (unless (sycamore:hash-set-find hset1 elem)
-        (setf seq-result (fset:with-last seq-result elem))))
-    (make-instance 'fol.compiler.collections:<ordered-set>
-      :items (cons hset-result seq-result))))
+  (let ((result s1))
+    (dolist (elem (fol.compiler.collections:collection-seq s2) result)
+      (setf result (fol.compiler.collections:collection-conj result elem)))))
 
 (defmethod binary-union ((s1 fol.compiler.collections:<sorted-set>)
                          (s2 fol.compiler.collections:<sorted-set>))
-  "Union of two sorted tree-sets."
-  (make-instance 'fol.compiler.collections:<sorted-set>
-    :items (sycamore:tree-set-union
-             (fol.compiler.collections:storage-items s1)
-             (fol.compiler.collections:storage-items s2))
-    :compare (fol.compiler.collections:comparator-compare s1)))
+  "Union of two sorted sets."
+  (let ((result s1))
+    (dolist (elem (fol.compiler.collections:collection-seq s2) result)
+      (setf result (fol.compiler.collections:collection-conj result elem)))))
 
 (defmethod binary-union ((s1 fol.compiler.collections:<int-set>)
                          (s2 fol.compiler.collections:<int-set>))
   "Union of two int-sets."
-  (make-instance 'fol.compiler.collections:<int-set>
-    :items (sycamore:tree-set-union
-             (fol.compiler.collections:storage-items s1)
-             (fol.compiler.collections:storage-items s2))
-    :compare #'fol.compiler.collections::%int-compare))
+  (let ((result s1))
+    (dolist (elem (fol.compiler.collections:collection-seq s2) result)
+      (setf result (fol.compiler.collections:collection-conj result elem)))))
+  
+(defmethod binary-union ((s1 fol.compiler.collections:<dense-int-set>)
+                         (s2 fol.compiler.collections:<dense-int-set>))
+  (int-set-union s1 s2))
 
 ;;; ---------------------------------------------------------------------------
 ;;; difference - Set difference
@@ -1320,41 +1225,35 @@
 
 (defmethod binary-difference ((s1 fol.compiler.collections:<set>)
                               (s2 fol.compiler.collections:<set>))
-  "Difference of two hash-sets."
-  (make-instance 'fol.compiler.collections:<set>
-    :items (sycamore:hash-set-difference
-             (fol.compiler.collections:storage-items s1)
-             (fol.compiler.collections:storage-items s2))))
+  "Difference of two sets."
+  (let ((result s1))
+    (dolist (elem (fol.compiler.collections:collection-seq s2) result)
+      (setf result (fol.compiler.collections:collection-dissoc result elem)))))
 
 (defmethod binary-difference ((s1 fol.compiler.collections:<ordered-set>)
                               (s2 fol.compiler.collections:<ordered-set>))
   "Difference of two ordered-sets. Preserves insertion order from s1."
-  (let* ((store1 (fol.compiler.collections:storage-items s1))
-         (store2 (fol.compiler.collections:storage-items s2))
-         (hset-result (sycamore:hash-set-difference (car store1) (car store2)))
-         (seq-result (fset:filter
-                       (lambda (e) (sycamore:hash-set-find hset-result e))
-                       (cdr store1))))
-    (make-instance 'fol.compiler.collections:<ordered-set>
-      :items (cons hset-result seq-result))))
+  (let ((result s1))
+    (dolist (elem (fol.compiler.collections:collection-seq s2) result)
+      (setf result (fol.compiler.collections:collection-dissoc result elem)))))
 
 (defmethod binary-difference ((s1 fol.compiler.collections:<sorted-set>)
                               (s2 fol.compiler.collections:<sorted-set>))
-  "Difference of two sorted tree-sets."
-  (make-instance 'fol.compiler.collections:<sorted-set>
-    :items (sycamore:tree-set-difference
-             (fol.compiler.collections:storage-items s1)
-             (fol.compiler.collections:storage-items s2))
-    :compare (fol.compiler.collections:comparator-compare s1)))
+  "Difference of two sorted sets."
+  (let ((result s1))
+    (dolist (elem (fol.compiler.collections:collection-seq s2) result)
+      (setf result (fol.compiler.collections:collection-dissoc result elem)))))
 
 (defmethod binary-difference ((s1 fol.compiler.collections:<int-set>)
                               (s2 fol.compiler.collections:<int-set>))
   "Difference of two int-sets."
-  (make-instance 'fol.compiler.collections:<int-set>
-    :items (sycamore:tree-set-difference
-             (fol.compiler.collections:storage-items s1)
-             (fol.compiler.collections:storage-items s2))
-    :compare #'fol.compiler.collections::%int-compare))
+  (let ((result s1))
+    (dolist (elem (fol.compiler.collections:collection-seq s2) result)
+      (setf result (fol.compiler.collections:collection-dissoc result elem)))))
+
+(defmethod binary-difference ((s1 fol.compiler.collections:<dense-int-set>)
+                              (s2 fol.compiler.collections:<dense-int-set>))
+  (int-set-difference s1 s2))
 
 ;;; ---------------------------------------------------------------------------
 ;;; intersection - Set intersection
@@ -1371,42 +1270,39 @@
 
 (defmethod binary-intersection ((s1 fol.compiler.collections:<set>)
                                 (s2 fol.compiler.collections:<set>))
-  "Intersection of two hash-sets."
-  (make-instance 'fol.compiler.collections:<set>
-    :items (sycamore:hash-set-intersection
-             (fol.compiler.collections:storage-items s1)
-             (fol.compiler.collections:storage-items s2))))
+  "Intersection of two sets."
+  (let ((result (empty s1)))
+    (dolist (elem (fol.compiler.collections:collection-seq s1) result)
+      (when (contains? s2 elem)
+        (setf result (fol.compiler.collections:collection-conj result elem))))))
 
 (defmethod binary-intersection ((s1 fol.compiler.collections:<ordered-set>)
                                 (s2 fol.compiler.collections:<ordered-set>))
   "Intersection of two ordered-sets. Preserves insertion order from s1."
-  (let* ((store1 (fol.compiler.collections:storage-items s1))
-         (store2 (fol.compiler.collections:storage-items s2))
-         (hset-result (sycamore:hash-set-intersection (car store1) (car store2)))
-         (seq-result (fset:filter
-                       (lambda (e) (sycamore:hash-set-find hset-result e))
-                       (cdr store1))))
-    (make-instance 'fol.compiler.collections:<ordered-set>
-      :items (cons hset-result seq-result))))
+  (let ((result (empty s1)))
+    (dolist (elem (fol.compiler.collections:collection-seq s1) result)
+      (when (contains? s2 elem)
+        (setf result (fol.compiler.collections:collection-conj result elem))))))
 
 (defmethod binary-intersection ((s1 fol.compiler.collections:<sorted-set>)
                                 (s2 fol.compiler.collections:<sorted-set>))
-  "Intersection of two sorted tree-sets."
-  (make-instance 'fol.compiler.collections:<sorted-set>
-    :items (sycamore:tree-set-intersection
-             (fol.compiler.collections:storage-items s1)
-             (fol.compiler.collections:storage-items s2))
-    :compare (fol.compiler.collections:comparator-compare s1)))
+  "Intersection of two sorted sets."
+  (let ((result (empty s1)))
+    (dolist (elem (fol.compiler.collections:collection-seq s1) result)
+      (when (contains? s2 elem)
+        (setf result (fol.compiler.collections:collection-conj result elem))))))
 
 (defmethod binary-intersection ((s1 fol.compiler.collections:<int-set>)
                                 (s2 fol.compiler.collections:<int-set>))
   "Intersection of two int-sets."
-  (make-instance 'fol.compiler.collections:<int-set>
-    :items (sycamore:tree-set-intersection
-             (fol.compiler.collections:storage-items s1)
-             (fol.compiler.collections:storage-items s2))
-    :compare #'fol.compiler.collections::%int-compare))
+  (let ((result (empty s1)))
+    (dolist (elem (fol.compiler.collections:collection-seq s1) result)
+      (when (contains? s2 elem)
+        (setf result (fol.compiler.collections:collection-conj result elem))))))
 
+(defmethod binary-intersection ((s1 fol.compiler.collections:<dense-int-set>)
+                                (s2 fol.compiler.collections:<dense-int-set>))
+  (int-set-intersection s1 s2))
 ;;; ---------------------------------------------------------------------------
 ;;; select - Filter a set by predicate
 ;;; ---------------------------------------------------------------------------
@@ -1416,43 +1312,32 @@
    (select #'evenp #{1 2 3 4}) => #{2 4}"))
 
 (defmethod select (pred (s fol.compiler.collections:<set>))
-  "Filter a hash-set by predicate."
-  (let ((items (sycamore:make-hash-set)))
-    (dolist (elem (sycamore:hash-set-list (fol.compiler.collections:storage-items s)))
+  "Filter a set by predicate."
+  (let ((result (empty s)))
+    (dolist (elem (fol.compiler.collections:collection-seq s) result)
       (when (funcall pred elem)
-            (setf items (sycamore:hash-set-insert items elem))))
-    (make-instance 'fol.compiler.collections:<set> :items items)))
+        (setf result (fol.compiler.collections:collection-conj result elem))))))
 
 (defmethod select (pred (s fol.compiler.collections:<ordered-set>))
   "Filter an ordered-set by predicate, preserving insertion order."
-  (let ((hset (sycamore:make-hash-set))
-        (seq (fset:empty-seq)))
-    (fset:do-seq (elem (cdr (fol.compiler.collections:storage-items s)))
+  (let ((result (empty s)))
+    (dolist (elem (fol.compiler.collections:collection-seq s) result)
       (when (funcall pred elem)
-            (setf hset (sycamore:hash-set-insert hset elem))
-            (setf seq (fset:with-last seq elem))))
-    (make-instance 'fol.compiler.collections:<ordered-set>
-      :items (cons hset seq))))
+        (setf result (fol.compiler.collections:collection-conj result elem))))))
 
 (defmethod select (pred (s fol.compiler.collections:<sorted-set>))
   "Filter a sorted-set by predicate, preserving comparator."
-  (let* ((cmp (fol.compiler.collections:comparator-compare s))
-         (items (sycamore:make-tree-set cmp)))
-    (dolist (elem (sycamore:tree-set-list (fol.compiler.collections:storage-items s)))
+  (let ((result (empty s)))
+    (dolist (elem (fol.compiler.collections:collection-seq s) result)
       (when (funcall pred elem)
-            (setf items (sycamore:tree-set-insert items elem))))
-    (make-instance 'fol.compiler.collections:<sorted-set>
-      :items items :compare cmp)))
+        (setf result (fol.compiler.collections:collection-conj result elem))))))
 
 (defmethod select (pred (s fol.compiler.collections:<int-set>))
   "Filter an int-set by predicate."
-  (let ((items (sycamore:make-tree-set #'fol.compiler.collections::%int-compare)))
-    (dolist (elem (sycamore:tree-set-list (fol.compiler.collections:storage-items s)))
+  (let ((result (empty s)))
+    (dolist (elem (fol.compiler.collections:collection-seq s) result)
       (when (funcall pred elem)
-            (setf items (sycamore:tree-set-insert items elem))))
-    (make-instance 'fol.compiler.collections:<int-set>
-      :items items
-      :compare #'fol.compiler.collections::%int-compare)))
+        (setf result (fol.compiler.collections:collection-conj result elem))))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; subset? - Test if one set is a subset of another
@@ -1465,27 +1350,24 @@
 
 (defmethod subset? ((s1 fol.compiler.collections:<set>)
                     (s2 fol.compiler.collections:<set>))
-  "Test if s1 is a subset of s2 (hash-sets)."
-  (if (sycamore:hash-set-subset-p
-        (fol.compiler.collections:storage-items s1)
-        (fol.compiler.collections:storage-items s2))
-      t nil))
+  "Test if s1 is a subset of s2."
+  (dolist (elem (fol.compiler.collections:collection-seq s1) t)
+    (unless (contains? s2 elem)
+      (return nil))))
 
 (defmethod subset? ((s1 fol.compiler.collections:<ordered-set>)
                     (s2 fol.compiler.collections:<ordered-set>))
-  "Test if s1 is a subset of s2 (ordered-sets, delegate to hash-sets)."
-  (if (sycamore:hash-set-subset-p
-        (car (fol.compiler.collections:storage-items s1))
-        (car (fol.compiler.collections:storage-items s2)))
-      t nil))
+  "Test if s1 is a subset of s2 (ordered-sets)."
+  (dolist (elem (fol.compiler.collections:collection-seq s1) t)
+    (unless (contains? s2 elem)
+      (return nil))))
 
 (defmethod subset? ((s1 fol.compiler.collections:<sorted-set>)
                     (s2 fol.compiler.collections:<sorted-set>))
-  "Test if s1 is a subset of s2 (sorted tree-sets)."
-  (if (sycamore:tree-set-subset-p
-        (fol.compiler.collections:storage-items s1)
-        (fol.compiler.collections:storage-items s2))
-      t nil))
+  "Test if s1 is a subset of s2 (sorted sets)."
+  (dolist (elem (fol.compiler.collections:collection-seq s1) t)
+    (unless (contains? s2 elem)
+      (return nil))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; superset? - Test if one set is a superset of another
@@ -1517,9 +1399,13 @@
 
 (defmethod rseq ((coll fol.compiler.collections:<sorted-set>))
   "Return the elements of the sorted-set in reverse sorted order as a CL list."
-  (let ((items (fol.compiler.collections:storage-items coll)))
-    (when (cl:plusp (sycamore:tree-set-count items))
-          (cl:reverse (sycamore:tree-set-list items)))))
+  (let ((seq (fol.compiler.collections:collection-seq coll)))
+    (when seq (cl:reverse seq))))
+
+(defmethod rseq ((coll fol.compiler.collections:<int-set>))
+  "Return the elements of the int-set in reverse sorted order as a CL list."
+  (let ((seq (fol.compiler.collections:collection-seq coll)))
+    (when seq (cl:reverse seq))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; subseq - Range query on sorted sets (Clojure-style API)
@@ -1536,7 +1422,8 @@
                                                               &optional end-test end-key)
   "Range query on a sorted tree-set."
   (let* ((cmp (fol.compiler.collections:comparator-compare sc))
-         (elements (sycamore:tree-set-list (fol.compiler.collections:storage-items sc)))
+         (elements (fol.compiler.collections:collection-seq sc))
+         ;; Standard comparator: -1 when a<b, 1 when a>b, 0 when a=b
          (start-pred (cond
                       ((eq test '>=) (lambda (e) (cl:>= (funcall cmp e key) 0)))
                       ((eq test '>) (lambda (e) (cl:> (funcall cmp e key) 0)))
@@ -1572,6 +1459,35 @@
   "Reverse range query on a sorted tree-set."
   (cl:reverse (subseq sc test key end-test end-key)))
 
+(defmethod subseq ((sc fol.compiler.collections:<int-set>) test key
+                                                            &optional end-test end-key)
+  "Range query on an int-set."
+  (let* ((cmp (fol.compiler.collections:comparator-compare sc))
+         (elements (fol.compiler.collections:collection-seq sc))
+         ;; Standard comparator: -1 when a<b, 1 when a>b, 0 when a=b
+         (start-pred (cond
+                      ((eq test '>=) (lambda (e) (cl:>= (funcall cmp e key) 0)))
+                      ((eq test '>) (lambda (e) (cl:> (funcall cmp e key) 0)))
+                      ((eq test '<=) (lambda (e) (cl:<= (funcall cmp e key) 0)))
+                      ((eq test '<) (lambda (e) (cl:< (funcall cmp e key) 0)))
+                      (t (cl:error "subseq: invalid test ~S" test))))
+         (end-pred (when end-test
+                         (cond
+                          ((eq end-test '>=) (lambda (e) (cl:>= (funcall cmp e end-key) 0)))
+                          ((eq end-test '>) (lambda (e) (cl:> (funcall cmp e end-key) 0)))
+                          ((eq end-test '<=) (lambda (e) (cl:<= (funcall cmp e end-key) 0)))
+                          ((eq end-test '<) (lambda (e) (cl:< (funcall cmp e end-key) 0)))
+                          (t (cl:error "subseq: invalid end-test ~S" end-test))))))
+    (cl:loop for e in elements
+      when (and (funcall start-pred e)
+                (or (null end-pred) (funcall end-pred e)))
+    collect e)))
+
+(defmethod rsubseq ((sc fol.compiler.collections:<int-set>) test key
+                                                             &optional end-test end-key)
+  "Reverse range query on an int-set."
+  (cl:reverse (subseq sc test key end-test end-key)))
+
 ;;; ===========================================================================
 ;;; Dict Operations
 ;;; ===========================================================================
@@ -1582,36 +1498,11 @@
 
 (defmethod contains? ((d fol.compiler.collections:<dict>) key)
   "Returns T if dict D contains KEY."
-  (multiple-value-bind (val found)
-      (sycamore:hash-map-find (fol.compiler.collections:storage-items d) key)
-    (declare (ignore val))
-    (if found t nil)))
+  (nth-value 1 (ref d key)))
 
 (defmethod contains? ((d fol.compiler.collections:<sorted-dict>) key)
   "Returns T if sorted-dict D contains KEY."
-  (multiple-value-bind (val found-key found-p)
-      (sycamore:tree-map-find (fol.compiler.collections:storage-items d) key)
-    (declare (ignore val found-key))
-    (if found-p t nil)))
-
-(defmethod contains? ((s fol.compiler.collections:<set>) element)
-  "Returns T if set S contains ELEMENT."
-  (if (sycamore:hash-set-find (fol.compiler.collections:storage-items s) element) t nil))
-
-(defmethod contains? ((s fol.compiler.collections:<sorted-set>) element)
-  "Returns T if sorted-set S contains ELEMENT."
-  (if (sycamore:tree-set-find (fol.compiler.collections:storage-items s) element) t nil))
-
-(defgeneric subset? (coll1 coll2)
-  (:documentation "Returns T if every element in COLL1 is also in COLL2."))
-
-(defmethod subset? ((s1 fol.compiler.collections:<set>) (s2 fol.compiler.collections:<set>))
-  (sycamore:hash-set-subset-p (fol.compiler.collections:storage-items s1)
-                              (fol.compiler.collections:storage-items s2)))
-
-(defmethod subset? ((s1 fol.compiler.collections:<sorted-set>) (s2 fol.compiler.collections:<sorted-set>))
-  (sycamore:tree-set-subset-p (fol.compiler.collections:storage-items s1)
-                              (fol.compiler.collections:storage-items s2)))
+  (nth-value 1 (fol.compiler.collections:collection-ref d key)))
 
 (defgeneric superset? (coll1 coll2)
   (:documentation "Returns T if every element in COLL2 is also in COLL1."))
@@ -1635,15 +1526,14 @@
 (defmethod find ((d fol.compiler.collections:<dict>) key)
   "Look up KEY in dict, returning (key . value) or NIL."
   (multiple-value-bind (val found)
-      (sycamore:hash-map-find (fol.compiler.collections:storage-items d) key)
+      (ref d key)
     (if found (cons key val) nil)))
 
 (defmethod find ((d fol.compiler.collections:<sorted-dict>) key)
   "Look up KEY in sorted-dict, returning (key . value) or NIL."
-  (multiple-value-bind (val found-key found-p)
-      (sycamore:tree-map-find (fol.compiler.collections:storage-items d) key)
-    (declare (ignore found-key))
-    (if found-p (cons key val) nil)))
+  (multiple-value-bind (val found)
+      (fol.compiler.collections:collection-ref d key)
+    (if found (cons key val) nil)))
 
 ;;; ---------------------------------------------------------------------------
 ;;; get-in - Nested key lookup
@@ -1675,9 +1565,9 @@
     (dolist (k keys)
       (cond
        ((typep current 'fol.compiler.collections:<vector>)
-         (let ((items (fol.compiler.collections:storage-items current)))
-           (if (and (integerp k) (cl:>= k 0) (cl:< k (fset:size items)))
-               (setf current (fset:lookup items k))
+         (let ((sz (fol.compiler.collections:collection-size current)))
+           (if (and (integerp k) (cl:>= k 0) (cl:< k sz))
+               (setf current (ref current k))
                (return-from get-in not-found))))
        ((typep current 'fol.compiler.collections:<dict>)
          (let ((entry (find current k)))
@@ -1729,46 +1619,31 @@
    (merge-with #'+ {:a 1} {:a 2 :b 3}) => {:a 3 :b 3}"))
 
 (defmethod merge-with (f (coll fol.compiler.collections:<dict>) &rest colls)
-  (let ((result-items (fol.compiler.collections:storage-items coll)))
-    (dolist (other colls)
-      (sycamore:do-hash-map ((k v) (fol.compiler.collections:storage-items other))
-        (multiple-value-bind (existing found)
-            (sycamore:hash-map-find result-items k)
-          (setf result-items
-            (sycamore:hash-map-insert result-items k
-                                      (if found (funcall f existing v) v))))))
-    (make-instance 'fol.compiler.collections:<dict>
-      :items result-items)))
+  (let ((result coll))
+    (dolist (other colls result)
+      (dolist (pair (fol.compiler.collections:collection-seq other))
+        (let ((k (car pair)) (v (cdr pair)))
+          (multiple-value-bind (existing found) (ref result k)
+            (setf result (fol.compiler.collections:collection-assoc
+                           result k (if found (funcall f existing v) v)))))))))
 
 (defmethod merge-with (f (coll fol.compiler.collections:<ordered-dict>) &rest colls)
-  (let ((result-items (fol.compiler.collections:storage-items coll))
-        (result-order (fol.compiler.collections:ordered-dict-key-order coll)))
-    (dolist (other colls)
-      (sycamore:do-hash-map ((k v) (fol.compiler.collections:storage-items other))
-        (multiple-value-bind (existing found)
-            (sycamore:hash-map-find result-items k)
-          (unless found
-            (setf result-order (fset:with-last result-order k)))
-          (setf result-items
-            (sycamore:hash-map-insert result-items k
-                                      (if found (funcall f existing v) v))))))
-    (make-instance 'fol.compiler.collections:<ordered-dict>
-      :items result-items
-      :key-order result-order)))
+  (let ((result coll))
+    (dolist (other colls result)
+      (dolist (pair (fol.compiler.collections:collection-seq other))
+        (let ((k (car pair)) (v (cdr pair)))
+          (multiple-value-bind (existing found) (ref result k)
+            (setf result (fol.compiler.collections:collection-assoc
+                           result k (if found (funcall f existing v) v)))))))))
 
 (defmethod merge-with (f (coll fol.compiler.collections:<sorted-dict>) &rest colls)
-  (let ((result-items (fol.compiler.collections:storage-items coll)))
-    (dolist (other colls)
-      (sycamore:do-tree-map ((k v) (fol.compiler.collections:storage-items other))
-        (multiple-value-bind (existing found-key found-p)
-            (sycamore:tree-map-find result-items k)
-          (declare (ignore found-key))
-          (setf result-items
-            (sycamore:tree-map-insert result-items k
-                                      (if found-p (funcall f existing v) v))))))
-    (make-instance 'fol.compiler.collections:<sorted-dict>
-      :items result-items
-      :compare (fol.compiler.collections:comparator-compare coll))))
+  (let ((result coll))
+    (dolist (other colls result)
+      (dolist (pair (fol.compiler.collections:collection-seq other))
+        (let ((k (car pair)) (v (cdr pair)))
+          (multiple-value-bind (existing found) (fol.compiler.collections:collection-ref result k)
+            (setf result (fol.compiler.collections:collection-assoc
+                           result k (if found (funcall f existing v) v)))))))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; select-keys - Extract a subset of keys from a dict
@@ -1777,44 +1652,14 @@
 (defun select-keys (dict keys)
   "Return a new dict containing only the entries whose keys are in KEYS.
    (select-keys {:a 1 :b 2 :c 3} '(:a :c)) => {:a 1 :c 3}"
-  (typecase dict
-    (fol.compiler.collections:<ordered-dict>
-     (let ((items (fol.compiler.collections:storage-items dict))
-           (new-items (sycamore:make-hash-map))
-           (new-order (fset:empty-seq)))
-       (dolist (k keys)
-         (multiple-value-bind (val found)
-             (sycamore:hash-map-find items k)
-           (when found
-                 (setf new-items (sycamore:hash-map-insert new-items k val))
-                 (setf new-order (fset:with-last new-order k)))))
-       (make-instance 'fol.compiler.collections:<ordered-dict>
-         :items new-items
-         :key-order new-order)))
-    (fol.compiler.collections:<sorted-dict>
-     (let* ((items (fol.compiler.collections:storage-items dict))
-            (cmp (fol.compiler.collections:comparator-compare dict))
-            (new-items (sycamore:make-tree-map cmp)))
-       (dolist (k keys)
-         (multiple-value-bind (val found-key found-p)
-             (sycamore:tree-map-find items k)
-           (declare (ignore found-key))
-           (when found-p
-                 (setf new-items (sycamore:tree-map-insert new-items k val)))))
-       (make-instance 'fol.compiler.collections:<sorted-dict>
-         :items new-items
-         :compare cmp)))
-    (fol.compiler.collections:<dict>
-     (let ((items (fol.compiler.collections:storage-items dict))
-           (new-items (sycamore:make-hash-map)))
-       (dolist (k keys)
-         (multiple-value-bind (val found)
-             (sycamore:hash-map-find items k)
-           (when found
-                 (setf new-items (sycamore:hash-map-insert new-items k val)))))
-       (make-instance 'fol.compiler.collections:<dict>
-         :items new-items)))
-    (t (cl:error "select-keys requires a dict, got ~S" dict))))
+  (let ((result (empty dict)))
+    (dolist (k keys result)
+      (multiple-value-bind (val found)
+          (if (typep dict 'fol.compiler.collections:<sorted-dict>)
+              (fol.compiler.collections:collection-ref dict k)
+              (ref dict k))
+        (when found
+          (setf result (fol.compiler.collections:collection-assoc result k val)))))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; rename-keys - Rename keys in a dict according to a mapping
@@ -1824,33 +1669,12 @@
   "Return a new dict with keys renamed according to KMAP.
    Keys not in KMAP are kept unchanged.
    (rename-keys {:a 1 :b 2} {:a :x}) => {:x 1 :b 2}"
-  (let ((kmap-items (fol.compiler.collections:storage-items kmap)))
-    (typecase dict
-      (fol.compiler.collections:<ordered-dict>
-       (let ((items (fol.compiler.collections:storage-items dict))
-             (new-items (sycamore:make-hash-map))
-             (new-order (fset:empty-seq)))
-         (fset:do-seq (k (fol.compiler.collections:ordered-dict-key-order dict))
-           (multiple-value-bind (new-key found)
-               (sycamore:hash-map-find kmap-items k)
-             (let ((actual-key (if found new-key k))
-                   (val (sycamore:hash-map-find items k)))
-               (setf new-items (sycamore:hash-map-insert new-items actual-key val))
-               (setf new-order (fset:with-last new-order actual-key)))))
-         (make-instance 'fol.compiler.collections:<ordered-dict>
-           :items new-items
-           :key-order new-order)))
-      (fol.compiler.collections:<dict>
-       (let ((items (fol.compiler.collections:storage-items dict))
-             (new-items (sycamore:make-hash-map)))
-         (sycamore:do-hash-map ((k v) items)
-           (multiple-value-bind (new-key found)
-               (sycamore:hash-map-find kmap-items k)
-             (setf new-items (sycamore:hash-map-insert new-items
-                                                       (if found new-key k) v))))
-         (make-instance 'fol.compiler.collections:<dict>
-           :items new-items)))
-      (t (cl:error "rename-keys requires a dict, got ~S" dict)))))
+  (let ((result (empty dict)))
+    (dolist (pair (fol.compiler.collections:collection-seq dict) result)
+      (let* ((k (car pair)) (v (cdr pair))
+             (new-key (multiple-value-bind (nk found) (ref kmap k)
+                        (if found nk k))))
+        (setf result (fol.compiler.collections:collection-assoc result new-key v))))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; map-invert - Swap keys and values in a dict
@@ -1859,14 +1683,9 @@
 (defun map-invert (dict)
   "Return a new dict with keys and values swapped.
    (map-invert {:a 1 :b 2}) => {1 :a 2 :b}"
-  (typecase dict
-    (fol.compiler.collections:<dict>
-     (let ((new-items (sycamore:make-hash-map)))
-       (sycamore:do-hash-map ((k v) (fol.compiler.collections:storage-items dict))
-         (setf new-items (sycamore:hash-map-insert new-items v k)))
-       (make-instance 'fol.compiler.collections:<dict>
-         :items new-items)))
-    (t (cl:error "map-invert requires a dict, got ~S" dict))))
+  (let ((result (make-instance 'fol.compiler.collections:<dict>)))
+    (dolist (pair (fol.compiler.collections:collection-seq dict) result)
+      (setf result (fol.compiler.collections:collection-assoc result (cdr pair) (car pair))))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; update-keys - Transform all keys with a function
@@ -1875,12 +1694,10 @@
 (defun update-keys (dict f)
   "Return a new dict with F applied to each key, values unchanged.
    (update-keys {:a 1 :b 2} #'symbol-name) => {\"A\" 1 \"B\" 2}"
-  (let ((seq (fol.compiler.collections:collection-seq dict))
-        (new-args nil))
-    (cl:dolist (pair seq)
-      (cl:push (cl:funcall f (cl:car pair)) new-args)
-      (cl:push (cl:cdr pair) new-args))
-    (apply #'fol.compiler.collections:make (cl:class-of dict) (cl:nreverse new-args))))
+  (let ((result (empty dict)))
+    (dolist (pair (fol.compiler.collections:collection-seq dict) result)
+      (setf result (fol.compiler.collections:collection-assoc
+                     result (funcall f (car pair)) (cdr pair))))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; update-vals - Transform all values with a function
@@ -1907,6 +1724,10 @@
   "Return the entries of the sorted-dict in reverse key order as a CL list of (key . value)."
   (cl:reverse (fol.compiler.collections:collection-seq coll)))
 
+(defmethod rseq ((coll fol.compiler.collections:<int-dict>))
+  "Return the entries of the int-dict in reverse key order."
+  (cl:reverse (fol.compiler.collections:collection-seq coll)))
+
 ;;; ---------------------------------------------------------------------------
 ;;; subseq - Range query on sorted dicts (Clojure-style API)
 ;;; ---------------------------------------------------------------------------
@@ -1916,6 +1737,7 @@
   "Range query on a sorted tree-map. Returns a CL list of (key . value) pairs."
   (let* ((cmp (fol.compiler.collections:comparator-compare sc))
          (entries '())
+         ;; Standard comparator: -1 when a<b, 1 when a>b, 0 when a=b
          (start-pred (cond
                       ((eq test '>=) (lambda (k) (cl:>= (funcall cmp k key) 0)))
                       ((eq test '>) (lambda (k) (cl:> (funcall cmp k key) 0)))
@@ -1960,7 +1782,7 @@
   "Return the front element of the deque, or NIL if empty."
   (let ((sz (fol.compiler.collections:size coll)))
     (if (cl:plusp sz)
-        (fol.compiler.collections:ref coll 0)
+        (ref coll 0)
         nil)))
 
 (defmethod pop ((coll fol.compiler.collections:<deque>))
@@ -1977,7 +1799,7 @@
   "Return the back element of the deque, or NIL if empty."
   (let ((sz (fol.compiler.collections:size coll)))
     (if (cl:plusp sz)
-        (fol.compiler.collections:ref coll (1- sz))
+        (ref coll (1- sz))
         nil)))
 
 (defmethod rpop ((coll fol.compiler.collections:<deque>))

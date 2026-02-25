@@ -10,15 +10,14 @@ The benchmark executed **100,000 command applications** (deposits and withdrawal
 
 | Metric | Common Lisp (Optimized) | FOL (Transpiled) | Ratio (FOL/CL) |
 | :--- | :--- | :--- | :--- |
-| **Real Time** | 0.048 seconds | 0.389 seconds | **~8.10x** |
-| **Processor Cycles** | 0.11 billion | 0.89 billion | **~8.09x** |
-| **Bytes Consed** | 21.71 MB | 181.97 MB | **~8.38x** |
-| **CPU Utilization** | 97.92% | 100.51% | - |
+| **Real Time** | 0.057 seconds | 0.412 seconds | **~7.25x** |
+| **Bytes Consed** | 20.66 MB | 166.15 MB | **~8.04x** |
 
 ### Performance Analysis
-- **Metadata Management**: The FOL implementation relies on `persistent-class` and automatic structural sharing. Every command application involves creating multiple persistent maps (the command object, the event log entry, the vector update, and the account object). 
+- **Metadata Management**: The FOL implementation relies on `persistent-class` and automatic structural sharing. Every command application involves creating multiple persistent maps (the command object, the event log entry, the vector update, and the account object).
 - **Method Dispatch**: FOL's `:around` method combined with **Predicate Dispatch** for command routing adds a layer of runtime complexity compared to CL's standard CLOS dispatch and `defstruct`.
 - **Structural Sharing**: While FOL is slower, it maintains a true persistent history. The CL version uses `push` into a list, which is faster but produces a reversed log that would require $O(N)$ reversal for correct-order replay.
+- **Improvement**: The ~7.25x time ratio is an improvement over the previous 8.10x, reflecting reduced overhead from the hand-coded HAMT dict implementation used for persistent object slot access.
 
 ---
 
@@ -40,4 +39,4 @@ This analysis compares the source-level complexity of the implementations.
 ---
 
 ## 3. Conclusion
-The **38% reduction in Source Lines of Code (SLOC)** makes Event Sourcing one of the strongest use cases for FOL. By using Predicate Dispatch and persistent collections, developers can implement complex, audit-ready aggregates with minimal boilerplate. While there is an 8x performance premium over native CL, the resulting code is easier to reason about and change.
+The **38% reduction in Source Lines of Code (SLOC)** makes Event Sourcing one of the strongest use cases for FOL. By using Predicate Dispatch and persistent collections, developers can implement complex, audit-ready aggregates with minimal boilerplate. While there is a ~7x performance premium over native CL, the resulting code is easier to reason about and change.

@@ -949,8 +949,6 @@
 
 (defclass <vec-fix64-storage-mixin> () ((storage :initarg :storage :initform %empty-vec-fix64 :accessor storage)))
 
-;;; Generic storage mixin for non-vector collections (dicts, sets, bags, etc)
-(defclass <collection-storage> () ((items :initarg :items :initform nil :accessor %storage-items)))
 
 (defgeneric storage-items (coll)
   (:documentation "Returns the underlying storage object for a collection."))
@@ -1430,9 +1428,16 @@
         (values val t)
         (values not-found nil))))
 
+(defclass <sorted-dict-mixin> () ((sorted-dict-storage :initarg :sorted-dict-storage :initform (%make-btree-dict) :accessor sorted-dict-storage)))
+
+(defmethod storage-items ((coll <sorted-dict-mixin>)) (sorted-dict-storage coll))
+
 (defgeneric kv-conj (coll key val))
 
 (defmethod kv-conj ((d <dict-mixin>) key val)
+  (assoc d key val))
+
+(defmethod kv-conj ((d <sorted-dict-mixin>) key val)
   (assoc d key val))
 
 ;;; -------------------------------------------------------------------------------
@@ -1462,15 +1467,16 @@
 (declaim (inline bsearch-keys insert-at remove-at update-at))
 
 (defun bsearch-keys (keys key cmp)
-  "Performs a native binary search interpreting 1 as less-than."
+  "Performs a native binary search with standard comparator convention
+   (-1 = less-than, 0 = equal, 1 = greater-than)."
   (declare (type simple-vector keys) (type function cmp)
            (optimize (speed 3) (safety 0)))
   (let ((low 0) (high (length keys)))
     (loop while (< low high)
           do (let* ((mid (ash (+ low high) -1))
                     (c (funcall cmp key (svref keys mid))))
-               ;; If c is 1 (key < mid) or 0 (key == mid)
-               (if (>= c 0)
+               ;; If c is -1 (key < mid) or 0 (key == mid), go left
+               (if (<= c 0)
                    (setf high mid)
                    (setf low (1+ mid)))))
     low))
@@ -1689,7 +1695,6 @@
 
 ;;; --------------------------- sorted-dict ----------------------------
 
-(defclass <sorted-dict-mixin> () ((sorted-dict-storage :initarg :sorted-dict-storage :initform (%make-btree-dict) :accessor sorted-dict-storage)))
 ;;; --------------------------------------------------------------------
 ;;; Collection methods for <sorted-dict>.
 ;;; NOTE: These are commented out because <sorted-dict> is defined in
@@ -1697,22 +1702,24 @@
 ;;; to a file that loads after collections.
 ;;; --------------------------------------------------------------------
 
-(defmethod storage-items ((coll <sorted-dict-mixin>)) (sorted-dict-storage coll))
-
-#|
-(defmethod size ((d <sorted-dict>))
+(defmethod size ((d <sorted-dict-mixin>))
   (fol.compiler.collection-primitives::btree-dict-count (storage-items d)))
 
-(defmethod ref ((d <sorted-dict>) key &optional not-found)
-  (let ((bd (storage-items d)))
-    (fol.compiler.collection-primitives::btree-get (fol.compiler.collection-primitives::btree-dict-root bd)
-                                                   key (cmp-fn d) not-found)))
+(defmethod empty? ((d <sorted-dict-mixin>))
+  (zerop (size d)))
 
-(defmethod assoc ((d <sorted-dict>) key val &optional not-found)
+(defmethod ref ((d <sorted-dict-mixin>) key &optional not-found)
+  (let ((bd (storage-items d)))
+    (multiple-value-bind (val foundp)
+        (fol.compiler.collection-primitives::btree-get (fol.compiler.collection-primitives::btree-dict-root bd)
+                                                       key (fol.compiler.collections:cmp-fn d))
+      (if foundp (values val t) (values not-found nil)))))
+
+(defmethod assoc ((d <sorted-dict-mixin>) key val)
   (let ((bd (storage-items d)))
     (multiple-value-bind (new-root split-key split-right old-val found-p)
         (fol.compiler.collection-primitives::btree-assoc-node (fol.compiler.collection-primitives::btree-dict-root bd)
-                                                              key val (cmp-fn d))
+                                                              key val (fol.compiler.collections:cmp-fn d))
 
       ;; If the root split, create a new parent over it
       (let* ((final-root (if split-key
@@ -1721,53 +1728,23 @@
              (new-count (if found-p (fol.compiler.collection-primitives::btree-dict-count bd)
                             (1+ (fol.compiler.collection-primitives::btree-dict-count bd)))))
 
-        (values (make-instance '<sorted-dict>
-                  :items (fol.compiler.collection-primitives::%make-btree-dict :count new-count :root final-root)
-                  :compare-fn (comparator-compare d))
-          (if found-p old-val not-found)
-          found-p)))))
+        (make-instance (class-of d)
+          :sorted-dict-storage (fol.compiler.collection-primitives::%make-btree-dict :count new-count :root final-root)
+          :cmp-fn (fol.compiler.collections:cmp-fn d))))))
 
-;; Supports standard conj semantics (passing key and value as arguments or as a cons)
-(defmethod conj ((d <sorted-dict>) element)
-  (let ((key (if (consp element) (car element) element))
-        (val (if (consp element) (cdr element) nil)))
-    (collection-assoc d key val)))
-
-(defmethod dissoc ((d <sorted-dict>) key)
+(defmethod dissoc ((d <sorted-dict-mixin>) key)
   (let ((bd (storage-items d)))
     (multiple-value-bind (new-root old-val found-p)
         (fol.compiler.collection-primitives::btree-dissoc-node (fol.compiler.collection-primitives::btree-dict-root bd)
-                                                               key (cmp-fn d))
+                                                               key (fol.compiler.collections:cmp-fn d))
       (declare (ignore old-val))
       (if found-p
-          (make-instance '<sorted-dict>
-            :items (fol.compiler.collection-primitives::%make-btree-dict
-                    :count (1- (fol.compiler.collection-primitives::btree-dict-count bd))
-                    :root new-root)
-            :cmp-fn (comparator-compare d))
+          (make-instance (class-of d)
+            :sorted-dict-storage (fol.compiler.collection-primitives::%make-btree-dict
+                                  :count (1- (fol.compiler.collection-primitives::btree-dict-count bd))
+                                  :root new-root)
+            :cmp-fn (fol.compiler.collections:cmp-fn d))
           d))))
-
-(defmethod seq ((d <sorted-dict>))
-  (let* ((bd (storage-items d))
-         (total-size (fol.compiler.collection-primitives::btree-dict-count bd))
-         (iter (fol.compiler.collection-primitives::btree-iterator (fol.compiler.collection-primitives::btree-dict-root bd))))
-
-    (labels ((build-lazy-chain (remaining-size)
-                               (if (<= remaining-size 0)
-                                   nil
-                                   (make-instance 'fol.compiler.collections::<lazy-seq>
-                                     :thunk (lambda ()
-                                              (multiple-value-bind (key val) (funcall iter)
-                                                (if (eq key :eof)
-                                                    nil
-                                                    (let ((kv-vec (make-instance '<vector>
-                                                                    :storage (fol.compiler.collection-primitives::%build-vec-t-from-list (list key val)))))
-                                                      (make-instance 'fol.compiler.collections::<list>
-                                                        :first-elem kv-vec
-                                                        :rest-list (build-lazy-chain (1- remaining-size))
-                                                        :list-size remaining-size)))))))))
-      (build-lazy-chain total-size))))
-|#
 ;;; --------------------------------------------------------------------------------
 ;;; Deque functions.
 ;;; --------------------------------------------------------------------------------
@@ -1800,7 +1777,69 @@
          (%build-vec-t-from-list (nreverse lst)))))))
 
 (defun %int-compare (a b)
-  "Comparator for integers returning -1 (a > b), 1 (a < b), or 0 (a == b).
-   Note: Follows FOL convention where 1 means less-than for sorting."
+  "Comparator for integers returning -1 (a < b), 1 (a > b), or 0 (a == b).
+   Standard convention: -1 = less-than, 0 = equal, 1 = greater-than."
   (declare (type fixnum a b) (optimize (speed 3) (safety 0)))
-  (if (cl:< a b) 1 (if (cl:> a b) -1 0)))
+  (if (cl:< a b) -1 (if (cl:> a b) 1 0)))
+
+;;; -------------------------------------------------------------------------
+;;; Aliases
+;;; -------------------------------------------------------------------------
+
+(defun %vec-t-push (v val) (%vec-t-conj v val))
+
+;;; -------------------------------------------------------------------------
+;;; HAMT convenience helpers (operate on HAMT structs, not collection objects)
+;;; -------------------------------------------------------------------------
+
+(defun hamt-assoc (h key value)
+  "Returns a new HAMT with key→value added/updated."
+  (multiple-value-bind (new-root added-p)
+      (assoc-node (hamt-root h) 0 (sxhash key) key value)
+    (%make-hamt :count (if added-p (1+ (hamt-count h)) (hamt-count h))
+                :root new-root)))
+
+(defun hamt-dissoc (h key)
+  "Returns a new HAMT with key removed."
+  (multiple-value-bind (new-root removed-p)
+      (dissoc-node (hamt-root h) 0 (sxhash key) key)
+    (if removed-p
+        (%make-hamt :count (1- (hamt-count h)) :root new-root)
+        h)))
+
+(defmacro do-hamt ((key val hamt &optional result) &body body)
+  "Iterates over all key-value pairs in the HAMT."
+  (let ((iter-var (gensym "ITER"))
+        (pair-var (gensym "PAIR")))
+    `(let ((,iter-var (hamt-iterator ,hamt)))
+       (loop (let ((,pair-var (funcall ,iter-var)))
+               (when (eq ,pair-var :eof) (return ,result))
+               (let ((,key (car ,pair-var))
+                     (,val (cdr ,pair-var)))
+                 ,@body))))))
+
+(defun hamt-to-list (h)
+  "Returns HAMT entries as a list of (key . value) cons cells."
+  (let ((result nil))
+    (do-hamt (k v h (nreverse result))
+      (push (cons k v) result))))
+
+;;; -------------------------------------------------------------------------
+;;; B-Tree convenience helpers
+;;; -------------------------------------------------------------------------
+
+(defmacro do-btree ((key val btree-dict &optional result) &body body)
+  "Iterates over all key-value pairs in a btree-dict."
+  (let ((iter-var (gensym "ITER"))
+        (done-var (gensym "DONE")))
+    `(let ((,iter-var (btree-iterator (btree-dict-root ,btree-dict))))
+       (loop (multiple-value-bind (,key ,val)
+                 (funcall ,iter-var)
+               (when (eq ,key :eof) (return ,result))
+               ,@body)))))
+
+(defun btree-to-list (bd)
+  "Returns btree-dict entries as a list of (key . value) cons cells."
+  (let ((result nil))
+    (do-btree (k v bd (nreverse result))
+      (push (cons k v) result))))

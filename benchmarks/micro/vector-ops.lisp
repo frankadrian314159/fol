@@ -28,8 +28,7 @@
                           vector set list list* nth push pop
                           dict bag deque ordered-dict ordered-set sorted-set sorted-dict
                           int-set int-dict priority-dict dense-int-set
-                          f64-vector f32-vector fix64-vector
-                          array f64-array f32-array fix64-array
+                          array
                           first rest get assoc count merge
                           find subseq
                           union intersection

@@ -55,34 +55,34 @@
         ;; FOL bag literal #M{a b c}
         ((typep form 'fol.compiler.collections:<bag>)
           (fol.compiler.ast:make-call-node
-            :operator (fol.compiler.ast:make-symbol-ref-node :name 'fol.compiler.collection-functions:bag :form form)
-            :args (mapcar #'parse-form (fol.compiler.collections:collection-seq form))
-            :form form))
+           :operator (fol.compiler.ast:make-symbol-ref-node :name 'fol.compiler.collection-functions:bag :form form)
+           :args (mapcar #'parse-form (fol.compiler.collections:collection-seq form))
+           :form form))
         ;; FOL deque literal #Q[a b c]
         ((typep form 'fol.compiler.collections:<deque>)
           (fol.compiler.ast:make-call-node
-            :operator (fol.compiler.ast:make-symbol-ref-node :name 'fol.compiler.collection-functions:deque :form form)
-            :args (mapcar #'parse-form (fol.compiler.collections:collection-seq form))
-            :form form))
+           :operator (fol.compiler.ast:make-symbol-ref-node :name 'fol.compiler.collection-functions:deque :form form)
+           :args (mapcar #'parse-form (fol.compiler.collections:collection-seq form))
+           :form form))
         ;; FOL vector literal [a b c]
         ((fol-vector-p form)
           (fol.compiler.ast:make-vector-node
-            :elements (mapcar #'parse-form (fol-vector-to-list form))
-            :form form))
+           :elements (mapcar #'parse-form (fol-vector-to-list form))
+           :form form))
         ;; FOL dict literal {:key val ...}
         ((typep form 'fol.compiler.collections:<dict>)
           (let ((pairs (fol.compiler.collections:collection-seq form)))
             (fol.compiler.ast:make-dict-node
-              :entries (mapcar (lambda (pair)
-                                 (cons (parse-form (car pair))
-                                       (parse-form (cdr pair))))
-                           pairs)
-              :form form)))
+             :entries (mapcar (lambda (pair)
+                                (cons (parse-form (car pair))
+                                      (parse-form (cdr pair))))
+                          pairs)
+             :form form)))
         ;; FOL set literal #{a b c}
         ((typep form 'fol.compiler.collections:<set>)
           (fol.compiler.ast:make-set-node
-            :elements (mapcar #'parse-form (fol.compiler.collections:collection-seq form))
-            :form form))
+           :elements (mapcar #'parse-form (fol.compiler.collections:collection-seq form))
+           :form form))
         (t (error "Cannot parse form: ~S" form))))))
 
 (defun parse-compound (form)
@@ -104,27 +104,27 @@
   "Parse a function call: (f arg1 arg2 ...)."
   (destructuring-bind (op &rest args) form
     (fol.compiler.ast:make-call-node
-      :operator (parse-form op)
-      :args (mapcar #'parse-form args)
-      :form form)))
+     :operator (parse-form op)
+     :args (mapcar #'parse-form args)
+     :form form)))
 
 (defun parse-if (form)
   "Parse an if form: (if test then else)."
   (destructuring-bind (op test then &rest else-forms) form
     (declare (ignore op))
     (fol.compiler.ast:make-if-node
-      :test (parse-form test)
-      :then (parse-form then)
-      :else (when else-forms (mapcar #'parse-form else-forms))
-      :form form)))
+     :test (parse-form test)
+     :then (parse-form then)
+     :else (when else-forms (mapcar #'parse-form else-forms))
+     :form form)))
 
 (defun parse-do (form)
   "Parse a do form: (do expr1 expr2 ...)."
   (destructuring-bind (op &rest body) form
     (declare (ignore op))
     (fol.compiler.ast:make-do-node
-      :body (mapcar #'parse-form body)
-      :form form)))
+     :body (mapcar #'parse-form body)
+     :form form)))
 
 (defun parse-bind (form)
   "Parse a bind form: (bind [pattern init ...] body ...).
@@ -142,9 +142,9 @@
       (loop for (pattern init) on binding-list by #'cddr
             do (push (cons pattern (parse-form init)) parsed-bindings))
       (fol.compiler.ast:make-bind-node
-        :bindings (nreverse parsed-bindings)
-        :body (mapcar #'parse-form body)
-        :form form))))
+       :bindings (nreverse parsed-bindings)
+       :body (mapcar #'parse-form body)
+       :form form))))
 
 (defun parse-quote (form)
   "Parse a quote form: (quote x) or 'x."
@@ -178,9 +178,9 @@
        ((and (>= (length args) 1)
              (fol-vector-p (first args)))
          (fol.compiler.ast:make-fn-node
-           :name nil
-           :clauses (list (cons (first args) (mapcar #'parse-form (rest args))))
-           :form form))
+          :name nil
+          :clauses (list (cons (first args) (mapcar #'parse-form (rest args))))
+          :form form))
        ;; Named forms: first arg is a symbol
        ((and (>= (length args) 2)
              (symbolp (first args))
@@ -189,22 +189,22 @@
           ;; Single clause, named: (fn name [params] body ...)
           ((fol-vector-p (second args))
             (fol.compiler.ast:make-fn-node
-              :name (first args)
-              :clauses (list (cons (second args) (mapcar #'parse-form (cddr args))))
-              :form form))
+             :name (first args)
+             :clauses (list (cons (second args) (mapcar #'parse-form (cddr args))))
+             :form form))
           ;; Multi-clause, named: (fn name ([p1] b1 ...) ([p2] b2 ...) ...)
           ((multi-clause-p (rest args))
             (fol.compiler.ast:make-fn-node
-              :name (first args)
-              :clauses (mapcar #'parse-clause (rest args))
-              :form form))
+             :name (first args)
+             :clauses (mapcar #'parse-clause (rest args))
+             :form form))
           (t (error "Invalid fn form: ~S" form))))
        ;; Multi-clause, no name: (fn ([p1] b1 ...) ([p2] b2 ...) ...)
        ((multi-clause-p args)
          (fol.compiler.ast:make-fn-node
-           :name nil
-           :clauses (mapcar #'parse-clause args)
-           :form form))
+          :name nil
+          :clauses (mapcar #'parse-clause args)
+          :form form))
        (t (error "Invalid fn form: ~S" form))))))
 
 (defun parse-thread-first (form)
@@ -216,8 +216,8 @@
     (unless (>= (length args) 1)
       (error "-> requires at least one argument: ~S" form))
     (fol.compiler.ast:make-thread-first-node
-      :forms (mapcar #'parse-form args)
-      :form form)))
+     :forms (mapcar #'parse-form args)
+     :form form)))
 
 (defun parse-thread-last (form)
   "Parse a thread-last form: (->> x form1 form2 ...).
@@ -228,8 +228,8 @@
     (unless (>= (length args) 1)
       (error "->> requires at least one argument: ~S" form))
     (fol.compiler.ast:make-thread-last-node
-      :forms (mapcar #'parse-form args)
-      :form form)))
+     :forms (mapcar #'parse-form args)
+     :form form)))
 
 (defun parse-some-thread-first (form)
   "Parse a nil-safe thread-first form: (some-> x form1 form2 ...).
@@ -239,8 +239,8 @@
     (unless (>= (length args) 1)
       (error "some-> requires at least one argument: ~S" form))
     (fol.compiler.ast:make-some-thread-first-node
-      :forms (mapcar #'parse-form args)
-      :form form)))
+     :forms (mapcar #'parse-form args)
+     :form form)))
 
 (defun parse-some-thread-last (form)
   "Parse a nil-safe thread-last form: (some->> x form1 form2 ...).
@@ -250,8 +250,8 @@
     (unless (>= (length args) 1)
       (error "some->> requires at least one argument: ~S" form))
     (fol.compiler.ast:make-some-thread-last-node
-      :forms (mapcar #'parse-form args)
-      :form form)))
+     :forms (mapcar #'parse-form args)
+     :form form)))
 
 (defun parse-as-thread (form)
   "Parse a named threading form: (as-> expr name form1 form2 ...).
@@ -261,18 +261,18 @@
     (unless (symbolp name)
       (error "as-> binding name must be a symbol: ~S" form))
     (fol.compiler.ast:make-as-thread-node
-      :expr (parse-form expr)
-      :name name
-      :forms (mapcar #'parse-form forms)
-      :form form)))
+     :expr (parse-form expr)
+     :name name
+     :forms (mapcar #'parse-form forms)
+     :form form)))
 
 (defun parse-vector (form)
   "Parse a vector form: (vector elem1 elem2 ...)."
   (destructuring-bind (op &rest args) form
     (declare (ignore op))
     (fol.compiler.ast:make-vector-node
-      :elements (mapcar #'parse-form args)
-      :form form)))
+     :elements (mapcar #'parse-form args)
+     :form form)))
 
 (defun parse-dict (form)
   "Parse a dict form: (dict key1 val1 key2 val2 ...).
@@ -282,17 +282,17 @@
     (unless (evenp (length args))
       (error "Dict form must have an even number of arguments: ~S" form))
     (fol.compiler.ast:make-dict-node
-      :entries (loop for (k v) on args by #'cddr
-                     collect (cons (parse-form k) (parse-form v)))
-      :form form)))
+     :entries (loop for (k v) on args by #'cddr
+                    collect (cons (parse-form k) (parse-form v)))
+     :form form)))
 
 (defun parse-set (form)
   "Parse a set form: (set elem1 elem2 ...)."
   (destructuring-bind (op &rest args) form
     (declare (ignore op))
     (fol.compiler.ast:make-set-node
-      :elements (mapcar #'parse-form args)
-      :form form)))
+     :elements (mapcar #'parse-form args)
+     :form form)))
 
 (defun parse-defmacro (form)
   "Parse a defmacro form: (defmacro name [params] body ...).
@@ -300,10 +300,10 @@
   (destructuring-bind (op name params &rest body) form
     (declare (ignore op))
     (fol.compiler.ast:make-defmacro-node
-      :name name
-      :params params
-      :body (mapcar #'parse-form body)
-      :form form)))
+     :name name
+     :params params
+     :body (mapcar #'parse-form body)
+     :form form)))
 
 (defun parse-defclass (form)
   "Parse a defclass form: (defclass <name> [supers] [slots] option*).
@@ -316,10 +316,10 @@
                            (if (fol-vector-p s) (fol-vector-to-list s) s))
                      (fol-vector-to-list slots-vec))))
       (fol.compiler.ast:make-defclass-node
-        :name name
-        :superclasses supers
-        :slots slots
-        :form form))))
+       :name name
+       :superclasses supers
+       :slots slots
+       :form form))))
 
 (defun parse-defgeneric (form)
   "Parse a defgeneric form:
@@ -339,10 +339,10 @@
               (mapcar #'fol-vector-to-list lambda-spec))
             (t (error "Invalid defgeneric lambda-list: ~S" lambda-spec)))))
       (fol.compiler.ast:make-defgeneric-node
-        :name name
-        :lambda-lists lambda-lists
-        :options options
-        :form form))))
+       :name name
+       :lambda-lists lambda-lists
+       :options options
+       :form form))))
 
 (defun parse-defmethod (form)
   "Parse a defmethod form:
@@ -368,17 +368,17 @@
          ((and (>= (length real-args) 1)
                (fol-vector-p (first real-args)))
            (fol.compiler.ast:make-defmethod-node
-             :name name
-             :qualifier qualifier
-             :clauses (list (cons (first real-args) (mapcar #'parse-form (rest real-args))))
-             :form form))
+            :name name
+            :qualifier qualifier
+            :clauses (list (cons (first real-args) (mapcar #'parse-form (rest real-args))))
+            :form form))
          ;; Multi-clause: (defmethod name ([p1] b1 ...) ([p2] b2 ...) ...)
          ((multi-clause-p real-args)
            (fol.compiler.ast:make-defmethod-node
-             :name name
-             :qualifier qualifier
-             :clauses (mapcar #'parse-clause real-args)
-             :form form))
+            :name name
+            :qualifier qualifier
+            :clauses (mapcar #'parse-clause real-args)
+            :form form))
          (t (error "Invalid defmethod form: ~S" form)))))))
 
 (defun parse-def (form)
@@ -387,9 +387,9 @@
   (destructuring-bind (op name &optional (value nil value-p)) form
     (declare (ignore op))
     (fol.compiler.ast:make-def-node
-      :name name
-      :value (when value-p (parse-form value))
-      :form form)))
+     :name name
+     :value (when value-p (parse-form value))
+     :form form)))
 
 (defun parse-defdynamic (form)
   "Parse a defdynamic form: (defdynamic *name* value) or (defdynamic *name*).
@@ -397,9 +397,9 @@
   (destructuring-bind (op name &optional (value nil value-p)) form
     (declare (ignore op))
     (fol.compiler.ast:make-defdynamic-node
-      :name name
-      :value (when value-p (parse-form value))
-      :form form)))
+     :name name
+     :value (when value-p (parse-form value))
+     :form form)))
 
 (defun parse-binding (form)
   "Parse a binding form: (binding [*var1* val1 *var2* val2 ...] body ...).
@@ -411,10 +411,10 @@
                          ((consp bindings) bindings)
                          (t nil))))
       (fol.compiler.ast:make-binding-node
-        :bindings (loop for (name init) on binding-list by #'cddr
-                        collect (cons name (parse-form init)))
-        :body (mapcar #'parse-form body)
-        :form form))))
+       :bindings (loop for (name init) on binding-list by #'cddr
+                       collect (cons name (parse-form init)))
+       :body (mapcar #'parse-form body)
+       :form form))))
 
 (defun parse-letfn (form)
   "Parse a letfn form: (letfn [(name [params] body...) ...] body...).
@@ -429,32 +429,32 @@
       (error "letfn bindings must be a vector: ~S" form))
     (let ((fn-specs (fol-vector-to-list bindings-vec)))
       (fol.compiler.ast:make-letfn-node
-        :bindings (mapcar (lambda (spec)
-                            (unless (and (listp spec) (>= (length spec) 2))
-                              (error "letfn fn-spec must be (name [params] body...): ~S" spec))
-                            (destructuring-bind (name &rest args) spec
-                              (unless (symbolp name)
-                                (error "letfn fn name must be a symbol: ~S" name))
-                              (let ((clauses
-                                     (cond
-                                      ;; Single-arity: (name [params] body...)
-                                      ((fol-vector-p (first args))
-                                        (list (cons (first args)
-                                                    (mapcar #'parse-form (rest args)))))
-                                      ;; Multi-arity: (name ([p1] b1...) ([p2] b2...))
-                                      ((and (>= (length args) 1)
-                                            (listp (first args))
-                                            (not (null (first args)))
-                                            (fol-vector-p (first (first args))))
-                                        (mapcar (lambda (clause)
-                                                  (destructuring-bind (params &rest body-forms) clause
-                                                    (cons params (mapcar #'parse-form body-forms))))
-                                            args))
-                                      (t (error "Invalid letfn fn-spec: ~S" spec)))))
-                                (cons name clauses))))
-                      fn-specs)
-        :body (mapcar #'parse-form body)
-        :form form))))
+       :bindings (mapcar (lambda (spec)
+                           (unless (and (listp spec) (>= (length spec) 2))
+                             (error "letfn fn-spec must be (name [params] body...): ~S" spec))
+                           (destructuring-bind (name &rest args) spec
+                             (unless (symbolp name)
+                               (error "letfn fn name must be a symbol: ~S" name))
+                             (let ((clauses
+                                    (cond
+                                     ;; Single-arity: (name [params] body...)
+                                     ((fol-vector-p (first args))
+                                       (list (cons (first args)
+                                                   (mapcar #'parse-form (rest args)))))
+                                     ;; Multi-arity: (name ([p1] b1...) ([p2] b2...))
+                                     ((and (>= (length args) 1)
+                                           (listp (first args))
+                                           (not (null (first args)))
+                                           (fol-vector-p (first (first args))))
+                                       (mapcar (lambda (clause)
+                                                 (destructuring-bind (params &rest body-forms) clause
+                                                   (cons params (mapcar #'parse-form body-forms))))
+                                           args))
+                                     (t (error "Invalid letfn fn-spec: ~S" spec)))))
+                               (cons name clauses))))
+                     fn-specs)
+       :body (mapcar #'parse-form body)
+       :form form))))
 
 (defun parse-defun (form)
   "Parse a defun form: (defun name (params) body ...).
@@ -465,9 +465,9 @@
                          (apply #'fol.compiler.collection-functions:vector params)
                          params)))
       (fol.compiler.ast:make-defn-node
-        :name name
-        :clauses (list (cons param-vec (mapcar #'parse-form body)))
-        :form form))))
+       :name name
+       :clauses (list (cons param-vec (mapcar #'parse-form body)))
+       :form form))))
 
 (defun parse-defn (form)
   "Parse a defn form into a defn-node.
@@ -489,15 +489,15 @@
        ((and (>= (length args) 1)
              (fol-vector-p (first args)))
          (fol.compiler.ast:make-defn-node
-           :name name
-           :clauses (list (cons (first args) (mapcar #'parse-form (rest args))))
-           :form form))
+          :name name
+          :clauses (list (cons (first args) (mapcar #'parse-form (rest args))))
+          :form form))
        ;; Multi-clause: (defn name ([p1] b1 ...) ([p2] b2 ...) ...)
        ((multi-clause-p args)
          (fol.compiler.ast:make-defn-node
-           :name name
-           :clauses (mapcar #'parse-clause args)
-           :form form))
+          :name name
+          :clauses (mapcar #'parse-clause args)
+          :form form))
        (t (error "Invalid defn form: ~S" form))))))
 
 (defun parse-defn-private (form)
@@ -517,14 +517,14 @@
        ((and (>= (length args) 1)
              (fol-vector-p (first args)))
          (fol.compiler.ast:make-defn-private-node
-           :name name
-           :clauses (list (cons (first args) (mapcar #'parse-form (rest args))))
-           :form form))
+          :name name
+          :clauses (list (cons (first args) (mapcar #'parse-form (rest args))))
+          :form form))
        ((multi-clause-p args)
          (fol.compiler.ast:make-defn-private-node
-           :name name
-           :clauses (mapcar #'parse-clause args)
-           :form form))
+          :name name
+          :clauses (mapcar #'parse-clause args)
+          :form form))
        (t (error "Invalid defn- form: ~S" form))))))
 
 (defun parse-definline (form)
@@ -544,14 +544,14 @@
        ((and (>= (length args) 1)
              (fol-vector-p (first args)))
          (fol.compiler.ast:make-definline-node
-           :name name
-           :clauses (list (cons (first args) (mapcar #'parse-form (rest args))))
-           :form form))
+          :name name
+          :clauses (list (cons (first args) (mapcar #'parse-form (rest args))))
+          :form form))
        ((multi-clause-p args)
          (fol.compiler.ast:make-definline-node
-           :name name
-           :clauses (mapcar #'parse-clause args)
-           :form form))
+          :name name
+          :clauses (mapcar #'parse-clause args)
+          :form form))
        (t (error "Invalid definline form: ~S" form))))))
 
 (defun parse-loop (form)
@@ -564,9 +564,9 @@
             (loop for (name init) on binding-list by #'cddr
                   collect (cons name (parse-form init)))))
       (fol.compiler.ast:make-loop-node
-        :bindings parsed-bindings
-        :body (mapcar #'parse-form body)
-        :form form))))
+       :bindings parsed-bindings
+       :body (mapcar #'parse-form body)
+       :form form))))
 
 (defun parse-recur (form)
   "Parse a recur form: (recur expr1 expr2 ...).
@@ -574,8 +574,8 @@
   (destructuring-bind (op &rest args) form
     (declare (ignore op))
     (fol.compiler.ast:make-recur-node
-      :args (mapcar #'parse-form args)
-      :form form)))
+     :args (mapcar #'parse-form args)
+     :form form)))
 
 ;;; --- Condition handling parsers ---
 
@@ -586,15 +586,15 @@
   (destructuring-bind (op expr &rest clauses) form
     (declare (ignore op))
     (fol.compiler.ast:make-handler-case-node
-      :expr (parse-form expr)
-      :clauses (mapcar (lambda (clause)
-                         (destructuring-bind (type var-list &rest body) clause
-                           (let ((var (if (and (listp var-list) (car var-list))
-                                          (car var-list)
-                                          nil)))
-                             (cons type (cons var (mapcar #'parse-form body))))))
-                   clauses)
-      :form form)))
+     :expr (parse-form expr)
+     :clauses (mapcar (lambda (clause)
+                        (destructuring-bind (type var-list &rest body) clause
+                          (let ((var (if (and (listp var-list) (car var-list))
+                                         (car var-list)
+                                         nil)))
+                            (cons type (cons var (mapcar #'parse-form body))))))
+                  clauses)
+     :form form)))
 
 (defun parse-handler-bind (form)
   "Parse a handler-bind form:
@@ -603,12 +603,12 @@
   (destructuring-bind (op bindings &rest body) form
     (declare (ignore op))
     (fol.compiler.ast:make-handler-bind-node
-      :bindings (mapcar (lambda (binding)
-                          (destructuring-bind (type handler) binding
-                            (cons type (parse-form handler))))
-                    bindings)
-      :body (mapcar #'parse-form body)
-      :form form)))
+     :bindings (mapcar (lambda (binding)
+                         (destructuring-bind (type handler) binding
+                           (cons type (parse-form handler))))
+                   bindings)
+     :body (mapcar #'parse-form body)
+     :form form)))
 
 (defun parse-restart-case (form)
   "Parse a restart-case form:
@@ -617,12 +617,12 @@
   (destructuring-bind (op expr &rest clauses) form
     (declare (ignore op))
     (fol.compiler.ast:make-restart-case-node
-      :expr (parse-form expr)
-      :clauses (mapcar (lambda (clause)
-                         (destructuring-bind (name params &rest body) clause
-                           (cons name (cons params (mapcar #'parse-form body)))))
-                   clauses)
-      :form form)))
+     :expr (parse-form expr)
+     :clauses (mapcar (lambda (clause)
+                        (destructuring-bind (name params &rest body) clause
+                          (cons name (cons params (mapcar #'parse-form body)))))
+                  clauses)
+     :form form)))
 
 (defun parse-signal (form)
   "Parse a signal form: (signal datum args ...).
@@ -630,9 +630,9 @@
   (destructuring-bind (op datum &rest args) form
     (declare (ignore op))
     (fol.compiler.ast:make-signal-node
-      :datum (parse-form datum)
-      :args (mapcar #'parse-form args)
-      :form form)))
+     :datum (parse-form datum)
+     :args (mapcar #'parse-form args)
+     :form form)))
 
 (defun parse-error-form (form)
   "Parse an error form: (error datum args ...).
@@ -640,9 +640,9 @@
   (destructuring-bind (op datum &rest args) form
     (declare (ignore op))
     (fol.compiler.ast:make-error-node
-      :datum (parse-form datum)
-      :args (mapcar #'parse-form args)
-      :form form)))
+     :datum (parse-form datum)
+     :args (mapcar #'parse-form args)
+     :form form)))
 
 (defun parse-warn (form)
   "Parse a warn form: (warn datum args ...).
@@ -650,9 +650,9 @@
   (destructuring-bind (op datum &rest args) form
     (declare (ignore op))
     (fol.compiler.ast:make-warn-node
-      :datum (parse-form datum)
-      :args (mapcar #'parse-form args)
-      :form form)))
+     :datum (parse-form datum)
+     :args (mapcar #'parse-form args)
+     :form form)))
 
 (defun parse-invoke-restart (form)
   "Parse an invoke-restart form: (invoke-restart name args ...).
@@ -660,74 +660,74 @@
   (destructuring-bind (op name &rest args) form
     (declare (ignore op))
     (fol.compiler.ast:make-invoke-restart-node
-      :name (parse-form name)
-      :args (mapcar #'parse-form args)
-      :form form)))
+     :name (parse-form name)
+     :args (mapcar #'parse-form args)
+     :form form)))
 
 (defun parse-swap! (form)
   "Parse (swap! atom fn & args). Special handling for function references."
   (destructuring-bind (op atom-form fn-form &rest args) form
     (declare (ignore op))
     (fol.compiler.ast:make-swap-node
-      :atom-expr (parse-form atom-form)
-      :fn-expr (parse-form fn-form)
-      :args (mapcar #'parse-form args)
-      :form form)))
+     :atom-expr (parse-form atom-form)
+     :fn-expr (parse-form fn-form)
+     :args (mapcar #'parse-form args)
+     :form form)))
 
 (defun parse-cond (form)
   "Parse (cond (test1 expr1 ...) (test2 expr2 ...) ...)."
   (destructuring-bind (op &rest clauses) form
     (declare (ignore op))
     (fol.compiler.ast:make-cond-node
-      :clauses (mapcar (lambda (clause)
-                         (cons (parse-form (car clause))
-                               (mapcar #'parse-form (cdr clause))))
-                   clauses)
-      :form form)))
+     :clauses (mapcar (lambda (clause)
+                        (cons (parse-form (car clause))
+                              (mapcar #'parse-form (cdr clause))))
+                  clauses)
+     :form form)))
 
 (defun parse-cond-thread-first (form)
   "Parse (cond-> expr (test form) ...)."
   (destructuring-bind (op expr &rest clauses) form
     (declare (ignore op))
     (fol.compiler.ast:make-cond-thread-first-node
-      :expr (parse-form expr)
-      :clauses (mapcar (lambda (clause)
-                         (cons (parse-form (car clause))
-                               (parse-form (second clause))))
-                   clauses)
-      :form form)))
+     :expr (parse-form expr)
+     :clauses (mapcar (lambda (clause)
+                        (cons (parse-form (car clause))
+                              (parse-form (second clause))))
+                  clauses)
+     :form form)))
 
 (defun parse-cond-thread-last (form)
   "Parse (cond->> expr (test form) ...)."
   (destructuring-bind (op expr &rest clauses) form
     (declare (ignore op))
     (fol.compiler.ast:make-cond-thread-last-node
-      :expr (parse-form expr)
-      :clauses (mapcar (lambda (clause)
-                         (cons (parse-form (car clause))
-                               (parse-form (second clause))))
-                   clauses)
-      :form form)))
+     :expr (parse-form expr)
+     :clauses (mapcar (lambda (clause)
+                        (cons (parse-form (car clause))
+                              (parse-form (second clause))))
+                  clauses)
+     :form form)))
 
 (defun parse-syntax-quote (form)
   "Parse (syntax-quote template). Handles nested unquote/unquote-splicing."
   (destructuring-bind (op template) form
     (declare (ignore op))
     (fol.compiler.ast:make-syntax-quote-node
-      :template (parse-syntax-quote-template template)
-      :form form)))
+     :template (parse-syntax-quote-template template)
+     :form form)))
 
 (defun parse-syntax-quote-template (template)
   "Recursively parse template, detecting unquote/unquote-splicing."
   (cond
    ((and (consp template) (eq (car template) 'unquote))
      (fol.compiler.ast:make-unquote-node
-       :expr (parse-form (second template))
-       :form template))
+      :expr (parse-form (second template))
+      :form template))
    ((and (consp template) (eq (car template) 'unquote-splicing))
      (fol.compiler.ast:make-unquote-splicing-node
-       :expr (parse-form (second template))
-       :form template))
+      :expr (parse-form (second template))
+      :form template))
    ((consp template)
      (cons (parse-syntax-quote-template (car template))
            (parse-syntax-quote-template (cdr template))))
@@ -750,14 +750,14 @@
   (destructuring-bind (op expr &rest clauses) form
     (declare (ignore op))
     (fol.compiler.ast:make-case-node
-      :expr (parse-form expr)
-      :clauses (mapcar (lambda (clause)
-                         (let ((values (car clause))
-                               (body (cdr clause)))
-                           (cons (if (listp values) values (list values))
-                                 (mapcar #'parse-form body))))
-                   clauses)
-      :form form)))
+     :expr (parse-form expr)
+     :clauses (mapcar (lambda (clause)
+                        (let ((values (car clause))
+                              (body (cdr clause)))
+                          (cons (if (listp values) values (list values))
+                                (mapcar #'parse-form body))))
+                  clauses)
+     :form form)))
 
 (defun parse-env (form)
   "Parse (env). No arguments."
@@ -813,7 +813,7 @@
   (setf (gethash "INVOKE-RESTART" special-forms) #'parse-invoke-restart)
   (setf (gethash "DEFDYNAMIC" special-forms) #'parse-defdynamic)
   (setf (gethash "BINDING" special-forms) #'parse-binding)
-  ;; Now in mutable-functions: (setf (gethash "SWAP!" special-forms) #'parse-swap!)
+  (setf (gethash "SWAP!" special-forms) #'parse-swap!)
   (setf (gethash "COND" special-forms) #'parse-cond)
   ;; Now a macro: (setf (gethash "COND->" special-forms) #'parse-cond-thread-first)
   ;; Now a macro: (setf (gethash "COND->>" special-forms) #'parse-cond-thread-last)
@@ -912,16 +912,16 @@
    needs funcall (Lisp-2 semantics). Bound dynamically during code emission.")
 
 (defvar *letfn-fns* nil
-  "Set of function names bound in an enclosing letfn (CL labels) form.
+        "Set of function names bound in an enclosing letfn (CL labels) form.
    Calls to these names are emitted as direct function calls since labels
    puts them in the function slot, not the value slot.")
 
 (defvar *extra-special-vars* nil
-  "Set of symbols that should be declared SPECIAL in the current function scope.
+        "Set of symbols that should be declared SPECIAL in the current function scope.
    Used to silence warnings for dynamic variable usage and late-bound functions.")
 
 (defvar *file-function-defs* nil
-  "List of symbols defined as functions (defn/defgeneric) in the current compilation unit.
+        "List of symbols defined as functions (defn/defgeneric) in the current compilation unit.
    Used by emit-symbol-ref to emit function-namespace references for Lisp-1 compatibility.
    Bound by compile-file; nil during individual compile-form calls.")
 
@@ -936,18 +936,18 @@
    current compilation unit, emits (cl:function name) for Lisp-1 compatibility."
   (let ((name (fol.compiler.ast:symbol-ref-node-name node)))
     (cond
-      ;; Lexical variables: always in value namespace
-      ((cl:member name *lexical-vars*) name)
-      ;; Constants (T, NIL, keywords, etc.): self-evaluating
-      ((cl:constantp name) name)
-      ;; CL package symbols: use as-is
-      ((cl:eq (cl:symbol-package name) (cl:find-package :cl))
+     ;; Lexical variables: always in value namespace
+     ((cl:member name *lexical-vars*) name)
+     ;; Constants (T, NIL, keywords, etc.): self-evaluating
+     ((cl:constantp name) name)
+     ;; CL package symbols: use as-is
+     ((cl:eq (cl:symbol-package name) (cl:find-package :cl))
        name)
-      ;; Known function def in current file: emit #'name for Lisp-1 compatibility
-      ((cl:member name *file-function-defs* :test #'cl:string=)
+     ;; Known function def in current file: emit #'name for Lisp-1 compatibility
+     ((cl:member name *file-function-defs* :test #'cl:string=)
        `(cl:function ,name))
-      ;; Default: emit bare symbol, track for SPECIAL declaration
-      (t
+     ;; Default: emit bare symbol, track for SPECIAL declaration
+     (t
        (pushnew name *extra-special-vars*)
        name))))
 
@@ -979,19 +979,19 @@
      ;; Runtime dispatch: funcall if function, get/nth if dict/vector/set
      ((and (fol.compiler.ast:symbol-ref-node-p operator)
            (member (fol.compiler.ast:symbol-ref-node-name operator) *lexical-vars*))
-        (let ((emitted-args (mapcar #'emit-node args))
-              (gop (gensym "OP")))
-          `(let ((,gop ,(emit-node operator)))
-             (cond
-               ((functionp ,gop) (funcall ,gop ,@emitted-args))
-               ,@(when (cl:and emitted-args (cl:<= (cl:length emitted-args) 2))
-                   `(((typep ,gop 'fol.compiler.collections:<dict>)
-                      (fol.compiler.collection-functions:get ,gop ,@emitted-args))
-                     ((typep ,gop 'fol.compiler.collections:<vector>)
-                      (fol.compiler.collection-functions:nth ,gop ,@emitted-args))
-                     ((typep ,gop 'fol.compiler.collections:<set>)
-                      (fol.compiler.collection-functions:get ,gop ,@emitted-args))))
-               (t (error "Value ~S is not callable or a collection" ,gop))))))
+       (let ((emitted-args (mapcar #'emit-node args))
+             (gop (gensym "OP")))
+         `(let ((,gop ,(emit-node operator)))
+            (cond
+             ((functionp ,gop) (funcall ,gop ,@emitted-args))
+             ,@(when (cl:and emitted-args (cl:<= (cl:length emitted-args) 2))
+                     `(((typep ,gop 'fol.compiler.collections:<dict>)
+                        (fol.compiler.collection-functions:get ,gop ,@emitted-args))
+                       ((typep ,gop 'fol.compiler.collections:<vector>)
+                        (fol.compiler.collection-functions:nth ,gop ,@emitted-args))
+                       ((typep ,gop 'fol.compiler.collections:<set>)
+                        (fol.compiler.collection-functions:get ,gop ,@emitted-args))))
+             (t (error "Value ~S is not callable or a collection" ,gop))))))
 
      ;; Normal function call - operator is a lambda, nested call, or literal
      ;; Collection literals as operators -> use accessor
@@ -1019,18 +1019,18 @@
              `(,sym ,@emitted-args)
              (let ((gval (gensym "VAL")))
                (pushnew sym *extra-special-vars*)
-                `(if (cl:fboundp ',sym)
-                     (,sym ,@emitted-args)
-                     (let ((,gval ,sym))
-                       (cl:cond
+               `(if (cl:fboundp ',sym)
+                    (,sym ,@emitted-args)
+                    (let ((,gval ,sym))
+                      (cl:cond
                         ((cl:functionp ,gval) (cl:funcall ,gval ,@emitted-args))
                         ,@(when (cl:and emitted-args (cl:<= (cl:length emitted-args) 2))
-                            `(((cl:typep ,gval 'fol.compiler.collections:<dict>)
-                               (fol.compiler.collection-functions:get ,gval ,@emitted-args))
-                              ((cl:typep ,gval 'fol.compiler.collections:<vector>)
-                               (fol.compiler.collection-functions:nth ,gval ,@emitted-args))
-                              ((cl:typep ,gval 'fol.compiler.collections:<set>)
-                               (fol.compiler.collection-functions:get ,gval ,@emitted-args))))
+                                `(((cl:typep ,gval 'fol.compiler.collections:<dict>)
+                                   (fol.compiler.collection-functions:get ,gval ,@emitted-args))
+                                  ((cl:typep ,gval 'fol.compiler.collections:<vector>)
+                                   (fol.compiler.collection-functions:nth ,gval ,@emitted-args))
+                                  ((cl:typep ,gval 'fol.compiler.collections:<set>)
+                                   (fol.compiler.collection-functions:get ,gval ,@emitted-args))))
                         (t (cl:error "~S is not a function or collection" ',sym)))))))))
 
      ;; Invalid function call - operator is not callable
@@ -1120,8 +1120,8 @@
   (let ((fol.compiler.destructure:*emit-predicate-hook*
          (lambda (fn-name extra-args arg-expr)
            (emit-node
-             (parse-form
-               (list* fn-name arg-expr extra-args)))))
+            (parse-form
+             (list* fn-name arg-expr extra-args)))))
         (*extra-special-vars* nil))
     (if (= (length clauses) 1)
         (compile-fn-single-clause (first clauses))
@@ -1227,8 +1227,8 @@
                    ((< a1 a2) t)
                    ((> a1 a2) nil)
                    (t (fol.compiler.destructure:pattern-more-specific-p
-                        (getf c1 :signature)
-                        (getf c2 :signature))))))))
+                       (getf c1 :signature)
+                       (getf c2 :signature))))))))
          ;; Detect uniform-arity: all same arity, no rest params
          (arities (mapcar (lambda (c) (getf c :arity)) analyzed))
          (has-any-rest (some (lambda (c) (getf c :has-rest)) analyzed))
@@ -1252,9 +1252,9 @@
                 for stripped = (getf c :stripped)
                 for body-nodes = (getf c :body-nodes)
                 for check = (fol.compiler.destructure:emit-fixed-arity-pattern-check
-                              signature param-syms)
+                             signature param-syms)
                 for bindings = (fol.compiler.destructure:emit-fixed-arity-param-bindings
-                                 stripped param-syms)
+                                stripped param-syms)
                 collect `(,check
                            (cl:let ,bindings
                              ,@(let ((*lexical-vars* (append (mapcar #'car bindings) *lexical-vars*)))
@@ -1281,12 +1281,12 @@
                 for rest-param = (getf c :rest-param)
                 for body-nodes = (getf c :body-nodes)
                 for check = (fol.compiler.destructure:emit-clause-pattern-check
-                              signature arity has-rest args-sym)
+                             signature arity has-rest args-sym)
                 for bindings = (append
                                  (fol.compiler.destructure:emit-param-bindings
-                                   stripped args-sym)
+                                  stripped args-sym)
                                  (fol.compiler.destructure:emit-rest-param-binding
-                                   rest-param arity args-sym))
+                                  rest-param arity args-sym))
                 collect `(,check
                            (cl:let ,bindings
                              ,@(let ((*lexical-vars* (append (mapcar #'car bindings) *lexical-vars*)))
@@ -1461,8 +1461,8 @@
    Creates a FOL <dict>."
   (let ((entries (fol.compiler.ast:dict-node-entries node)))
     `(fol.compiler.collection-functions:dict
-       ,@(loop for (k . v) in entries
-                 append (list (emit-node k) (emit-node v))))))
+      ,@(loop for (k . v) in entries
+                append (list (emit-node k) (emit-node v))))))
 
 (defun emit-set (node)
   "Emit a set-node as a call to set.
@@ -1486,19 +1486,19 @@
    FOL collections from the reader need constructor calls since they
    cannot be printed readably in standard CL syntax."
   (cond
-    ((typep value 'fol.compiler.collections:<vector>)
+   ((typep value 'fol.compiler.collections:<vector>)
      (let ((elts (fol.compiler.collections:collection-seq value)))
        `(fol.compiler.collection-functions:vector ,@elts)))
-    ((typep value 'fol.compiler.collections:<dict>)
+   ((typep value 'fol.compiler.collections:<dict>)
      (let ((pairs nil))
        (dolist (entry (fol.compiler.collections:collection-seq value))
          (push (cdr entry) pairs)
          (push (car entry) pairs))
        `(fol.compiler.collection-functions:dict ,@pairs)))
-    ((typep value 'fol.compiler.collections:<set>)
+   ((typep value 'fol.compiler.collections:<set>)
      (let ((elts (fol.compiler.collections:collection-seq value)))
        `(fol.compiler.collection-functions:set ,@elts)))
-    (t value)))
+   (t value)))
 
 (defun emit-slot-spec (slot-spec)
   "Process a slot-spec, converting FOL collection initforms to CL constructor forms."
@@ -1555,11 +1555,11 @@
                 for slot-spec = (if (listp slot) slot (list slot))
                 for accessor = (getf (rest slot-spec) :accessor)
                 for processed = (emit-slot-spec
-                                  (if accessor
-                                      (let ((result (copy-list slot-spec)))
-                                        (remf (cdr result) :accessor)
-                                        result)
-                                      slot-spec))
+                                 (if accessor
+                                     (let ((result (copy-list slot-spec)))
+                                       (remf (cdr result) :accessor)
+                                       result)
+                                     slot-spec))
                 collect processed)))
     `(cl:progn
        (cl:defclass ,name ,effective-supers
@@ -1585,7 +1585,7 @@
         (options (fol.compiler.ast:defgeneric-node-options node)))
     ;; Track this function for Lisp-1 compatibility in compile-file
     (when *file-function-defs*
-      (pushnew name *file-function-defs* :test #'string=))
+          (pushnew name *file-function-defs* :test #'string=))
     (if (= (length lambda-lists) 1)
         ;; Single pattern
         (let ((params (fol.compiler.destructure:strip-specializers (first lambda-lists))))
@@ -1619,8 +1619,8 @@
                    ((< a1 a2) t)
                    ((> a1 a2) nil)
                    (t (fol.compiler.destructure:pattern-more-specific-p
-                        (getf p1 :signature)
-                        (getf p2 :signature))))))))
+                       (getf p1 :signature)
+                       (getf p2 :signature))))))))
          ;; Generate simple lambda lists for each internal generic
          (generic-defs
           (loop for p in patterns
@@ -1650,7 +1650,7 @@
                                    for sig = (getf p :signature)
                                    for args-sym = 'args
                                    for check = (fol.compiler.destructure:emit-clause-pattern-check
-                                                 sig arity nil args-sym)
+                                                sig arity nil args-sym)
                                    collect `(,check
                                               (apply #',(getf p :internal-name) args)))))
                         `(,arity (cond
@@ -1674,7 +1674,7 @@
    Uses consistent parameter names across clauses when possible to avoid
    unnecessary gensyms and LET bindings (Bug #4 fix)."
   (let* ((*extra-special-vars* nil)
-          (analyzed
+         (analyzed
           (loop for clause in clauses
                 for (param-vec . body-nodes) = clause
                 for param-list = (fol-vector-to-list param-vec)
@@ -1699,8 +1699,8 @@
                    ((< a1 a2) t)
                    ((> a1 a2) nil)
                    (t (fol.compiler.destructure:pattern-more-specific-p
-                        (getf c1 :signature)
-                        (getf c2 :signature))))))))
+                       (getf c1 :signature)
+                       (getf c2 :signature))))))))
          ;; Detect uniform-arity: all same arity, no rest params
          (arities (mapcar (lambda (c) (getf c :arity)) analyzed))
          (has-any-rest (some (lambda (c) (getf c :has-rest)) analyzed))
@@ -1729,26 +1729,26 @@
                       for stripped = (getf c :stripped)
                       for body-nodes = (getf c :body-nodes)
                       for check = (fol.compiler.destructure:emit-fixed-arity-pattern-check
-                                    signature param-syms)
+                                   signature param-syms)
                         ;; Only emit bindings for params that differ from function params
                       for bindings = (loop for param in stripped
                                            for sym in param-syms
                                              ;; Only bind if param name differs from function param
                                              when (not (eq param sym))
                                              append (fol.compiler.destructure:emit-single-param-binding
-                                                      param sym))
+                                                     param sym))
                       for emitted-body = (mapcar #'emit-node body-nodes)
                       collect `(,check
                                  ,@(if bindings
                                        `((let ,bindings ,@emitted-body))
                                        emitted-body)))))
-           `(cl:defmethod ,name ,param-syms
-              ,@(when *extra-special-vars*
-                  `((cl:declare (cl:special ,@(remove-duplicates *extra-special-vars*)))))
-              (cl:cond
-                ,@cond-clauses
-                (t (cl:error "No matching method clause for ~A with arguments: ~S"
-                     ',name (cl:list ,@param-syms))))))
+          `(cl:defmethod ,name ,param-syms
+             ,@(when *extra-special-vars*
+                     `((cl:declare (cl:special ,@(remove-duplicates *extra-special-vars*)))))
+             (cl:cond
+               ,@cond-clauses
+               (t (cl:error "No matching method clause for ~A with arguments: ~S"
+                    ',name (cl:list ,@param-syms))))))
         ;; &rest path for mixed arities
         (let* ((args-sym (cl:gensym "ARGS"))
                (cond-clauses
@@ -1760,22 +1760,22 @@
                       for rest-param = (getf c :rest-param)
                       for body-nodes = (getf c :body-nodes)
                       for check = (fol.compiler.destructure:emit-clause-pattern-check
-                                    signature arity has-rest args-sym)
+                                   signature arity has-rest args-sym)
                       for bindings = (cl:append
                                        (fol.compiler.destructure:emit-param-bindings
-                                         stripped args-sym)
+                                        stripped args-sym)
                                        (fol.compiler.destructure:emit-rest-param-binding
-                                         rest-param arity args-sym))
+                                        rest-param arity args-sym))
                       for emitted-body = (mapcar #'emit-node body-nodes)
                       collect `(,check
                                  (cl:let ,bindings
                                    ,@emitted-body)))))
-           `(cl:defmethod ,name (&rest ,args-sym)
-              ,@(when *extra-special-vars*
-                  `((cl:declare (cl:special ,@(remove-duplicates *extra-special-vars*)))))
-              (cl:cond
+          `(cl:defmethod ,name (&rest ,args-sym)
+             ,@(when *extra-special-vars*
+                     `((cl:declare (cl:special ,@(remove-duplicates *extra-special-vars*)))))
+             (cl:cond
                ,@cond-clauses
-                (t (cl:error "No matching method clause for ~A with ~D arguments: ~S"
+               (t (cl:error "No matching method clause for ~A with ~D arguments: ~S"
                     ',name (cl:length ,args-sym) ,args-sym))))))))
 
 (defun emit-defmethod (node)
@@ -1785,37 +1785,37 @@
   (let ((name (fol.compiler.ast:defmethod-node-name node))
         (qualifier (fol.compiler.ast:defmethod-node-qualifier node))
         (clauses (fol.compiler.ast:defmethod-node-clauses node)))
-       (let ((*extra-special-vars* nil))
-         (if (= (length clauses) 1)
-             ;; Single clause - check if it has specializers
-             (let* ((clause (first clauses))
-                    (param-vec (car clause))
-                    (body-nodes (cdr clause))
-                    (param-list (fol-vector-to-list param-vec))
-                    (has-specializers (some (lambda (p) (listp p)) param-list)))
-               (if has-specializers
-                   ;; Has type/pred specializers - emit dispatched defun
-                   ;; TODO: Dispatched methods with qualifiers? 
-                   ;; CLOS doesn't support qualifiers on random functions.
-                   (compile-defmethod-clauses name clauses)
-                   ;; Simple params - emit CL defmethod
-                   (multiple-value-bind (regular-params rest-param)
-                       (fol.compiler.destructure:parse-params param-list)
-                     (let* ((lambda-list (if rest-param
-                                             (append regular-params (list '&rest rest-param))
-                                             regular-params))
-                            (emitted-body (mapcar #'emit-node body-nodes)))
-                       (if qualifier
-                           `(defmethod ,name ,qualifier ,lambda-list
-                              ,@(when *extra-special-vars*
-                                  `((cl:declare (cl:special ,@(remove-duplicates *extra-special-vars*)))))
-                              ,@emitted-body)
-                           `(defmethod ,name ,lambda-list
-                              ,@(when *extra-special-vars*
-                                  `((cl:declare (cl:special ,@(remove-duplicates *extra-special-vars*)))))
-                              ,@emitted-body))))))
-             ;; Multi-clause: emit dispatched defun
-             (compile-defmethod-clauses name clauses)))))
+    (let ((*extra-special-vars* nil))
+      (if (= (length clauses) 1)
+          ;; Single clause - check if it has specializers
+          (let* ((clause (first clauses))
+                 (param-vec (car clause))
+                 (body-nodes (cdr clause))
+                 (param-list (fol-vector-to-list param-vec))
+                 (has-specializers (some (lambda (p) (listp p)) param-list)))
+            (if has-specializers
+                ;; Has type/pred specializers - emit dispatched defun
+                ;; TODO: Dispatched methods with qualifiers? 
+                ;; CLOS doesn't support qualifiers on random functions.
+                (compile-defmethod-clauses name clauses)
+                ;; Simple params - emit CL defmethod
+                (multiple-value-bind (regular-params rest-param)
+                    (fol.compiler.destructure:parse-params param-list)
+                  (let* ((lambda-list (if rest-param
+                                          (append regular-params (list '&rest rest-param))
+                                          regular-params))
+                         (emitted-body (mapcar #'emit-node body-nodes)))
+                    (if qualifier
+                        `(defmethod ,name ,qualifier ,lambda-list
+                           ,@(when *extra-special-vars*
+                                   `((cl:declare (cl:special ,@(remove-duplicates *extra-special-vars*)))))
+                           ,@emitted-body)
+                        `(defmethod ,name ,lambda-list
+                           ,@(when *extra-special-vars*
+                                   `((cl:declare (cl:special ,@(remove-duplicates *extra-special-vars*)))))
+                           ,@emitted-body))))))
+          ;; Multi-clause: emit dispatched defun
+          (compile-defmethod-clauses name clauses)))))
 
 (defun emit-def (node)
   "Emit a def node as CL defvar."
@@ -1870,7 +1870,7 @@
          (lambda-form (compile-fn clauses)))
     ;; Track this function for Lisp-1 compatibility in compile-file
     (when *file-function-defs*
-      (pushnew name *file-function-defs* :test #'string=))
+          (pushnew name *file-function-defs* :test #'string=))
     ;; lambda-form is (lambda params body...)
     ;; Extract params and body to create defun
     (let ((params (second lambda-form))
@@ -2101,7 +2101,7 @@
            (other-opts (remove :use options :key #'first))
            (use-list (if use-opt
                          (mapcar (lambda (x) (cl:string-upcase (cl:string x)))
-                                 (rest use-opt))
+                             (rest use-opt))
                          nil))
            ;; Ensure :fol.core and :cl are present
            (new-use-list (cons :use
@@ -2117,15 +2117,15 @@
            (pkg-def `(cl:defpackage ,name ,@final-options))
            (pkg-switch `(cl:in-package ,name))
            (emitted-body (mapcar #'emit-node body)))
-       (if body
-           `(cl:progn
-              ,pkg-def
-              ,pkg-switch
-              ,@emitted-body
-              (cl:in-package :fol.core))
-           `(cl:progn
-              ,pkg-def
-              ,pkg-switch)))))
+      (if body
+          `(cl:progn
+             ,pkg-def
+             ,pkg-switch
+             ,@emitted-body
+             (cl:in-package :fol.core))
+          `(cl:progn
+             ,pkg-def
+             ,pkg-switch)))))
 
 (defun emit-node (node)
   "Emit a Common Lisp form from an AST node."
@@ -2192,7 +2192,7 @@
         (make-compilation-result :code code))
     (error (e)
       (make-compilation-result
-        :errors (list (format nil "~A" e))))))
+       :errors (list (format nil "~A" e))))))
 
 
 (defun compile-string (source)
@@ -2208,15 +2208,15 @@
   (cl:let ((result cl:nil)
            (fol-core-pkg (cl:find-package :fol.core)))
     (cl:labels ((walk (x)
-                  (cl:cond
-                    ((cl:symbolp x)
-                     (cl:when (cl:eq (cl:symbol-package x) fol-core-pkg)
-                       (cl:pushnew x result)))
-                    ((cl:consp x)
-                     (walk (cl:car x))
-                     (walk (cl:cdr x)))
-                    ((cl:vectorp x)
-                     (cl:loop for elem across x do (walk elem))))))
+                      (cl:cond
+                        ((cl:symbolp x)
+                         (cl:when (cl:eq (cl:symbol-package x) fol-core-pkg)
+                           (cl:pushnew x result)))
+                        ((cl:consp x)
+                         (walk (cl:car x))
+                         (walk (cl:cdr x)))
+                        ((cl:vectorp x)
+                         (cl:loop for elem across x do (walk elem))))))
       (walk form))
     result))
 
@@ -2243,59 +2243,59 @@
           (loop for form = (fol-read in nil :eof)
                 until (eq form :eof)
                 do (progn
-                     (when (cl:and (cl:consp form)
-                                   (cl:symbolp (cl:car form))
-                                   (cl:string-equal (cl:symbol-name (cl:car form)) "IN-PACKAGE"))
-                       (cl:let ((raw-name (cl:second form)))
-                         (cl:when (cl:or (cl:stringp raw-name) (cl:symbolp raw-name))
-                           (cl:let ((pkg-name (cl:string-upcase (cl:string raw-name))))
-                             (cl:let ((existing (cl:find-package pkg-name)))
-                               (cl:unless existing
-                                 (cl:push pkg-name created-packages))
-                               (cl:let ((pkg (cl:or existing
-                                                    (cl:let ((new-pkg (cl:make-package pkg-name :use cl:nil)))
+                    (when (cl:and (cl:consp form)
+                            (cl:symbolp (cl:car form))
+                            (cl:string-equal (cl:symbol-name (cl:car form)) "IN-PACKAGE"))
+                          (cl:let ((raw-name (cl:second form)))
+                            (cl:when (cl:or (cl:stringp raw-name) (cl:symbolp raw-name))
+                              (cl:let ((pkg-name (cl:string-upcase (cl:string raw-name))))
+                                (cl:let ((existing (cl:find-package pkg-name)))
+                                  (cl:unless existing
+                                    (cl:push pkg-name created-packages))
+                                  (cl:let ((pkg (cl:or existing
+                                                  (cl:let ((new-pkg (cl:make-package pkg-name :use cl:nil)))
                                                     ;; Shadow-import FOL.CORE symbols that conflict with CL
                                                     (cl:let ((fol-core (cl:find-package :fol.core)))
                                                       (cl:loop for s being the external-symbols of fol-core
-                                                               when (cl:find-symbol (cl:symbol-name s) :common-lisp)
-                                                               do (cl:shadowing-import s new-pkg))
+                                                        when (cl:find-symbol (cl:symbol-name s) :common-lisp)
+                                                      do (cl:shadowing-import s new-pkg))
                                                       (cl:use-package (cl:list fol-core (cl:find-package :cl)) new-pkg))
                                                     new-pkg))))
-                               ;; Import all fol.core symbols from this form into the new package.
-                               ;; This ensures prin1 outputs them without package qualification,
-                               ;; so at load time they resolve correctly in the target package.
-                               (cl:let ((fol-syms (collect-fol-core-symbols form)))
-                                 (cl:dolist (s fol-syms)
-                                   (cl:multiple-value-bind (existing status)
-                                       (cl:find-symbol (cl:symbol-name s) pkg)
-                                     (cl:when (cl:or (cl:null status)
+                                    ;; Import all fol.core symbols from this form into the new package.
+                                    ;; This ensures prin1 outputs them without package qualification,
+                                    ;; so at load time they resolve correctly in the target package.
+                                    (cl:let ((fol-syms (collect-fol-core-symbols form)))
+                                      (cl:dolist (s fol-syms)
+                                        (cl:multiple-value-bind (existing status)
+                                          (cl:find-symbol (cl:symbol-name s) pkg)
+                                          (cl:when (cl:or (cl:null status)
                                                      (cl:eq existing s))
-                                       (cl:import s pkg)))))
-                               ;; Export symbols from :export clause so subsequent modules inherit them
-                               (cl:let ((export-opt (cl:find-if
-                                                     (cl:lambda (x)
-                                                       (cl:and (cl:consp x)
+                                            (cl:import s pkg)))))
+                                    ;; Export symbols from :export clause so subsequent modules inherit them
+                                    (cl:let ((export-opt (cl:find-if
+                                                           (cl:lambda (x)
+                                                             (cl:and (cl:consp x)
                                                                (cl:string-equal (cl:car x) :export)))
-                                                     (cl:cddr form))))
-                                 (cl:when export-opt
-                                   (cl:dolist (s (cl:cdr export-opt))
-                                     (cl:when (cl:symbolp s)
-                                       (cl:let ((found (cl:find-symbol (cl:symbol-name s) pkg)))
-                                         (cl:when found
-                                           (cl:export found pkg)))))))
-                               (cl:setf cl:*package* pkg)))))))
-                     (let ((result (compile-form form)))
-                       (if (compilation-result-errors result)
-                           (error "Compilation error in ~A: ~A" path (compilation-result-errors result))
-                           (let ((code (compilation-result-code result)))
-                             (labels ((emit-flat (form)
-                                        (if (and (consp form) (eq (car form) 'cl:progn))
-                                            (mapc #'emit-flat (cdr form))
-                                            (progn
-                                              (terpri out)
-                                              (prin1 form out)
-                                              (terpri out)))))
-                               (emit-flat code))))))))))
+                                                           (cl:cddr form))))
+                                      (cl:when export-opt
+                                        (cl:dolist (s (cl:cdr export-opt))
+                                          (cl:when (cl:symbolp s)
+                                            (cl:let ((found (cl:find-symbol (cl:symbol-name s) pkg)))
+                                              (cl:when found
+                                                (cl:export found pkg)))))))
+                                    (cl:setf cl:*package* pkg)))))))
+                    (let ((result (compile-form form)))
+                      (if (compilation-result-errors result)
+                          (error "Compilation error in ~A: ~A" path (compilation-result-errors result))
+                          (let ((code (compilation-result-code result)))
+                            (labels ((emit-flat (form)
+                                                (if (and (consp form) (eq (car form) 'cl:progn))
+                                                    (mapc #'emit-flat (cdr form))
+                                                    (progn
+                                                     (terpri out)
+                                                     (prin1 form out)
+                                                     (terpri out)))))
+                              (emit-flat code))))))))))
 
     ;; Delete packages created during transpilation to avoid name-conflicts
     ;; when cl:compile-file processes the defpackage in the generated output

@@ -7,7 +7,8 @@
   (:use cl)
   (:import-from fol.compiler.collections
                 <collection> <vector> <dict> <set> <list>
-                collection-seq storage-items make get)
+                collection-seq storage-items make)
+  (:shadowing-import-from fol.compiler.collections get)
   (:export
    walk prewalk postwalk
    prewalk-demo prewalk-replace

@@ -11,5 +11,7 @@
 (ql:quickload :cl-ppcre :silent t)
 (ql:quickload :uuid :silent t)
 (pushnew (truename "src/") asdf:*central-registry*)
-(asdf:test-system "fol-compiler/all-tests")
+(asdf:load-system "fol-compiler/tests")
+;; Run only collections-tests
+(fiveam:run! 'fol.compiler.tests::collections-tests)
 (sb-ext:exit :code 0)

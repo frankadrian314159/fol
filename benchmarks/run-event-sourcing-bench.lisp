@@ -1,0 +1,51 @@
+(require :asdf)
+(pushnew #p"c:/Users/frank/Projects/FOL/fol/src/" asdf:*central-registry*)
+
+(let ((quicklisp-init (merge-pathnames "quicklisp/setup.lisp" (user-homedir-pathname))))
+  (if (probe-file quicklisp-init)
+      (load quicklisp-init)
+      (format t "Quicklisp not found.~%")))
+
+(dolist (dep '(:fset :sycamore :closer-mop :uuid :bordeaux-threads :usocket :cl-ppcre :fiveam))
+  (if (find-package :ql)
+      (uiop:symbol-call :ql :quickload dep)
+      (asdf:load-system dep)))
+
+(asdf:load-system :fol-compiler)
+
+(load "benchmarks/lisp-code/event-sourcing.lisp")
+(load "benchmarks/transpiled-fol-code/event-sourcing.lisp")
+
+(in-package :cl-user)
+
+(defun run-benchmarks ()
+  (let ((n 100000))
+    (format t "----------------------------------------------------~%")
+    (format t "Benchmark: Event Sourcing (N=~D)~%" n)
+
+    (format t "~%--- Common Lisp (Optimized) ---~%")
+    (sb-ext:gc :full t)
+    (let ((s1 (get-internal-real-time))
+          (b1 (sb-ext:get-bytes-consed)))
+      (event-sourcing-cl::run-bench n)
+      (let ((t1 (/ (- (get-internal-real-time) s1) (float internal-time-units-per-second)))
+            (m1 (- (sb-ext:get-bytes-consed) b1)))
+        (format t "  Real Time:    ~,3F s~%" t1)
+        (format t "  Bytes Consed: ~,2F MB~%" (/ m1 1048576.0))
+
+        (format t "~%--- FOL (Transpiled) ---~%")
+        (sb-ext:gc :full t)
+        (let ((s2 (get-internal-real-time))
+              (b2 (sb-ext:get-bytes-consed)))
+          (event-sourcing::run-bench n)
+          (let ((t2 (/ (- (get-internal-real-time) s2) (float internal-time-units-per-second)))
+                (m2 (- (sb-ext:get-bytes-consed) b2)))
+            (format t "  Real Time:    ~,3F s~%" t2)
+            (format t "  Bytes Consed: ~,2F MB~%" (/ m2 1048576.0))
+
+            (format t "~%--- Comparison ---~%")
+            (format t "  Time Ratio:   ~,2Fx~%" (if (> t1 0) (/ t2 t1) 0))
+            (format t "  Memory Ratio: ~,2Fx~%" (if (> m1 0) (/ (float m2) (float m1)) 0))))))))
+
+(run-benchmarks)
+(sb-ext:exit :code 0)

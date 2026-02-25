@@ -11,5 +11,5 @@
 (ql:quickload :cl-ppcre :silent t)
 (ql:quickload :uuid :silent t)
 (pushnew (truename "src/") asdf:*central-registry*)
-(asdf:test-system "fol-compiler/all-tests")
+(asdf:test-system "fol-compiler/tests")
 (sb-ext:exit :code 0)

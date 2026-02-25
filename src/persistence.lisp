@@ -1,7 +1,7 @@
 ;;; FOL Compiler - Persistent Object System
 ;;;
 ;;; Hybrid Strategy: native CLOS slots for objects with <= 32 slots,
-;;; persistent vector (FSet) for objects with > 32 slots.
+;;; overflowing into a persistent vector for objects with > 32 slots.
 ;;;
 ;;; This approach provides native memory access speeds for common small objects
 ;;; while maintaining structural sharing and safe scaling for large ones.
@@ -24,7 +24,7 @@
                 :documentation "Cached number of slots to determine storage strategy.")
    (%overflow-indices :accessor persistent-class-overflow-indices 
                       :initform nil
-                      :documentation "Hash table mapping overflow slots (>= 32) to FSet vector indices.")
+                      :documentation "Hash table mapping overflow slots (>= 32) to vector indices.")
    (%keyword-to-slot :accessor persistent-class-keyword-to-slot
                      :initform (make-hash-table :test 'eq)
                      :documentation "Hash table mapping keywords to slot name symbols."))
@@ -70,7 +70,7 @@
               (overflow-slots (subseq user-slots 32))
               (idx-map (make-hash-table :test 'eq)))
           
-          ;; Map the overflow slots to 0-based FSet vector indices
+          ;; Map the overflow slots to 0-based vector indices
           (loop for slot in overflow-slots
                 for i from 0
                 do (setf (gethash (closer-mop:slot-definition-name slot) idx-map) i))
@@ -93,7 +93,7 @@
 (defclass <persistent-object> (standard-object)
   ((%persistent-vector :accessor %persistent-vector
                        :initform nil
-                       :documentation "FSet persistent sequence for wide objects.")
+                       :documentation "Persistent sequence for wide objects.")
    (%metadata :accessor %persistent-metadata
               :initarg :metadata :initform nil
               :documentation "Optional metadata dict associated with this object."))
@@ -110,22 +110,31 @@
   (declare (ignore initargs))
   (let ((*initializing-persistent-object* t))
     (call-next-method)))
-
 (defmethod initialize-instance :after ((object <persistent-object>) &rest initargs)
-  "Populate the overflow FSet vector from initargs."
+  "Populate the overflow <vector> from initargs."
   (let* ((class (class-of object))
          (count (persistent-class-slot-count class)))
     (when (> count 32)
-      ;; Only allocate a vector size of (total - 32)
-      (let ((vec (fset:convert 'fset:seq (cl:make-list (- count 32) :initial-element :unbound))))
+      (let* ((overflow-size (- count 32))
+             ;; 1. Pre-allocate a mutable native array for O(1) random-access updates
+             (temp-arr (make-array overflow-size :initial-element :unbound)))
+             
+        ;; 2. Loop through the unordered hash map and slot the values perfectly into place
         (maphash (lambda (slot-name idx)
                    (let* ((kw (intern (string slot-name) :keyword))
                           (init-val (getf initargs kw :not-found)))
                      (unless (eq init-val :not-found)
-                       (setf vec (fset:with vec idx init-val)))))
+                       (setf (aref temp-arr idx) init-val))))
                  (persistent-class-overflow-indices class))
-        (let ((*initializing-persistent-object* t))
-          (setf (%persistent-vector object) vec))))))
+                 
+        ;; 3. Freeze the data into the bit-partitioned trie in strict O(N) time
+        (let* ((frozen-storage (fol.compiler.collection-primitives::%build-vec-t-from-list 
+                                (coerce temp-arr 'list)))
+               (persistent-vec (make-instance 'fol.compiler.collections:<vector> :storage frozen-storage)))
+               
+          ;; 4. Bind to the instance
+          (let ((*initializing-persistent-object* t))
+            (setf (%persistent-vector object) persistent-vec)))))))
 
 ;;; ============================================================================
 ;;; MOP Integration - Slot Access
@@ -138,17 +147,17 @@
     (if idx
         (ecase operation
           (slot-value
-           (let ((val (fset:@ (%persistent-vector object) idx)))
+           (let ((val (fol.compiler.collection-primitives:ref (%persistent-vector object) idx :unbound)))
              (if (eq val :unbound)
                  (error "Slot ~A is unbound." slot-name)
                  val)))
           (setf
            (if *initializing-persistent-object*
                (setf (%persistent-vector object) 
-                     (fset:with (%persistent-vector object) idx new-value))
+                     (fol.compiler.collection-primitives:assoc (%persistent-vector object) idx new-value))
                (error "Cannot mutate persistent slot ~A. Use UPDATE-SLOT." slot-name)))
           (slot-boundp
-           (not (eq (fset:@ (%persistent-vector object) idx) :unbound)))
+           (not (eq (fol.compiler.collection-primitives:ref (%persistent-vector object) idx) :unbound)))
           (slot-makunbound
            (error "Cannot makunbound persistent slots.")))
         ;; Genuine missing slot
@@ -200,7 +209,7 @@
 (defun update-slots (object &rest slot-name-value-pairs)
   "Return a new persistent object with multiple slots updated.
    Takes alternating slot-name (or keyword) value pairs.
-   Efficiently routes updates to native CLOS slots or the FSet overflow vector."
+   Efficiently routes updates to native CLOS slots or the overflow <vector>."
   (let* ((class (class-of object))
          (new-obj (allocate-instance class))
          (is-wide (> (persistent-class-slot-count class) 32)))
@@ -227,20 +236,27 @@
                          ;; It's an overflow slot. Initialize temp-array if we haven't yet.
                          (progn
                            (unless temp-array
-                             (setf temp-array (if old-vec 
-                                                  (fset:convert 'cl:vector old-vec)
-                                                  (make-array (hash-table-count overflow-indices) 
-                                                              :initial-element :unbound))))
+                             (setf temp-array (make-array (hash-table-count overflow-indices) 
+                                                          :initial-element :unbound))
+                             ;; Copy old vector contents into the mutable buffer
+                             (when old-vec
+                               (loop for i from 0 below (fol.compiler.collections:collection-size old-vec)
+                                     do (setf (aref temp-array i) (fol.compiler.collections:collection-ref old-vec i)))))
+                                     
                            (setf (aref temp-array overflow-idx) value)
                            (setf vector-mutated-p t))
+                           
                          ;; It's a native slot. Overwrite the copied value.
                          (if slot-name
                              (setf (slot-value new-obj slot-name) value)
                              (error "Unknown slot/attribute: ~A" key))))
                          
-            ;; If any overflow slots were touched, freeze the mutated array back to FSet
+            ;; If any overflow slots were touched, freeze the mutated array back to the persistent <vector>
             (when vector-mutated-p
-              (setf (%persistent-vector new-obj) (fset:convert 'fset:seq temp-array))))
+              (setf (%persistent-vector new-obj) 
+                    (make-instance 'fol.compiler.collections:<vector>
+                      :storage (fol.compiler.collection-primitives::%build-vec-t-from-list 
+                                (coerce temp-array 'list))))))
               
           ;; Strategy 1: Small object - purely native overwrite
           (loop for (key value) on slot-name-value-pairs by #'cddr

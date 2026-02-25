@@ -255,10 +255,10 @@
    ;; Constants
    +branch-factor+ +bit-mask+ +bit-shift+
    ;; Generic operations
-   assoc conj size ref empty? seq storage
+   assoc dissoc conj size ref empty? seq storage
    ;; Utility
    %clone-node %column-major-idx
-   ;; Storage mixins
+   ;; Storage mixinsRun a
    <vec-t-storage-mixin>
    <vec-f64-storage-mixin>
    <vec-f32-storage-mixin>
@@ -266,7 +266,7 @@
    <collection-storage>
    ;; Dict/sorted-dict mixins
    <dict-mixin> <sorted-dict-mixin>
-   dict-storage sorted-dict-storage storage-items
+   dict-storage sorted-dict-storage storage-items %storage-items
    kv-conj
    ;; HAMT primitives
    %make-hamt %make-hamt-node %make-hamt-leaf %make-hamt-collision
@@ -283,7 +283,11 @@
    %build-vec-t-from-list
    %build-vec-f64-from-list
    %build-vec-f32-from-list
-   %build-vec-fix64-from-list))
+   %build-vec-fix64-from-list
+   ;; HAMT & BTree utilities
+   %vec-t-push %vec-t-iterator
+   hamt-get hamt-assoc hamt-dissoc do-hamt hamt-to-list hamt-count hamt-root
+   btree-get do-btree btree-to-list btree-dict-count btree-dict-root btree-iterator))
 
 (defpackage fol.compiler.collections
   (:use cl)
@@ -305,7 +309,10 @@
                 <dict-mixin> <sorted-dict-mixin> kv-conj
                 %vec-t %vec-f64 %vec-f32 %vec-fix64
                 %make-filled-vec-f64 %make-filled-vec-f32 %make-filled-vec-t %make-filled-vec-fix64
-                %make-hamt hamt-bulk-load %column-major-idx
+                %make-hamt hamt-bulk-load hamt-assoc %column-major-idx
+                %storage-items
+                %build-vec-t-from-list %vec-t-push %vec-t-iterator
+                hamt-dissoc btree-dict-root
                 +branch-factor+ +bit-mask+ +bit-shift+)
   (:shadowing-import-from fol.compiler.compareops < > %= %/=)
   (:export
@@ -320,6 +327,12 @@
    collection-size
    collection-empty-p
    collection-conj
+   collection-assoc
+   collection-dissoc
+   collection-pop
+   collection-pop-front
+   conj-front
+   collection-ref
    collection-seq
    collection-lazy-seq
    count
@@ -373,6 +386,7 @@
    ;; Comparator
    <comparator>
    comparator-compare
+   cmp-fn
    ;; Concrete: int-dict (subclass of sorted-dict)
    <int-dict>
    <int-dict>?
@@ -473,6 +487,8 @@
                 index-of last-index-of)
   (:shadowing-import-from fol.compiler.merged-functions
                           replace)
+  (:import-from fol.compiler.collection-primitives
+                ref storage storage-items)
   (:import-from fol.compiler.persistent
                 <persistent-object> %persistent-storage update-slot)
   (:import-from fol.compiler.destructure

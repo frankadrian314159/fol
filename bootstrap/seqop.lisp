@@ -2028,22 +2028,7 @@
 
 (defmethod set-union ((s1 <dense-int-set>) (s2 <dense-int-set>) &rest more-sets)
   "Union of dense-int-sets with same bounds."
-  (let* ((base1 (pslot-value s1 'fol.collection::base))
-         (bits1 (pslot-value s1 'fol.collection::bits))
-         (base2 (pslot-value s2 'fol.collection::base))
-         (bits2 (pslot-value s2 'fol.collection::bits)))
-    (unless (and (= base1 base2) (= (length bits1) (length bits2)))
-      (error "UNION: dense-int-sets must have same bounds"))
-    (let ((new-bits (copy-seq bits1)))
-      (dotimes (i (length bits1))
-        (when (= 1 (aref bits2 i))
-          (setf (aref new-bits i) 1)))
-      (dolist (s more-sets)
-        (let ((bits-s (pslot-value s 'fol.collection::bits)))
-          (dotimes (i (length bits1))
-            (when (= 1 (aref bits-s i))
-              (setf (aref new-bits i) 1)))))
-      (make-instance '<dense-int-set> :base base1 :bits new-bits))))
+  (dense)
 
 (defgeneric set-difference (set1 set2)
   (:documentation "Return a new set containing elements in set1 but not in set2."))

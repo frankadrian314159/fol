@@ -97,7 +97,7 @@
 ;;; Comparator Interface
 ;;; ============================================================================
 
-(defclass <comparator-mixin> (standard-object)
+(defclass <comparator> (standard-object)
     ((cmp-fn :initarg :cmp-fn
              :initform #'(lambda (a b)
                            (cond ((< a b) -1)
@@ -107,14 +107,14 @@
   (:documentation "Base comparator class for sorted collections.
                    The compare function returns -1, 0, or 1."))
 
-(defclass <fast-fixnum-comparator-mixin> (<comparator-mixin>) ()
+(defclass <fast-fixnum-comparator-mixin> (<comparator>) ()
   (:default-initargs :cmp-fn #'(lambda (a b)
                                  (declare (optimize (speed 3) (safety 0))
                                           (type fixnum a)
                                           (type fixnum b))
-                                 (if (< a b) 1 (if (< b a) -1 0)))))
+                                 (if (< a b) -1 (if (< b a) 1 0)))))
 
-(defclass <universal-comparator-mixin> (<comparator-mixin>) ()
+(defclass <universal-comparator-mixin> (<comparator>) ()
   (:default-initargs :cmp-fn #'fol.compiler.compareops:%universal-comparator))
 
 ;;; ============================================================================
@@ -181,10 +181,9 @@
       ;; Use our high-speed aliased constructor
       (make-instance '<f64-vector>
         :storage (%make-filled-vec-f64 (second args) (first args)))
-      ;; Otherwise, fall back to standard element-by-element insertion
-      (let ((v (make-instance '<f64-vector>)))
-        (dolist (e args) (setf v (collection-conj v e)))
-        v)))
+      ;; Otherwise, fall back to standard bulk load insertion
+      (make-instance '<f64-vector>
+        :storage (%build-vec-f64-from-list args))))
 
 ;;; --- Protocol methods for <vector> ---
 
@@ -279,10 +278,10 @@
       ;; Use our high-speed aliased constructor
       (make-instance '<f32-vector>
         :storage (%make-filled-vec-f32 (second args) (first args)))
-      ;; Otherwise, fall back to standard element-by-element insertion
-      (let ((v (make-instance '<f32-vector>)))
-        (dolist (e args) (setf v (collection-conj v e)))
-        v)))
+      ;; Otherwise, fall back to standard bulk load insertion
+      (make-instance '<f32-vector>
+        :storage (%build-vec-f32-from-list args))))
+
 
 ;;; --- Protocol methods for <vector> ---
 
@@ -377,10 +376,9 @@
       ;; Use our high-speed aliased constructor
       (make-instance class
         :storage (%make-filled-vec-t (cl:second args) (cl:first args)))
-      ;; Otherwise, fall back to standard element-by-element insertion
-      (let ((v (make-instance class)))
-        (cl:dolist (e args) (cl:setf v (collection-conj v e)))
-        v)))
+      ;; Otherwise, fall back to standard bulk load insertion
+      (make-instance '<vector>
+        :storage (%build-vec-t-from-list args))))
 
 ;;; --- Protocol methods for <vector> ---
 
@@ -498,10 +496,9 @@
       ;; Use our high-speed aliased constructor
       (make-instance '<fix64-vector>
         :storage (%make-filled-vec-fix64 (second args) (first args)))
-      ;; Otherwise, fall back to standard element-by-element insertion
-      (let ((v (make-instance '<fix64-vector>)))
-        (dolist (e args) (setf v (collection-conj v e)))
-        v)))
+      ;; Otherwise, fall back to standard bulk load insertion
+      (make-instance '<fix64-vector>
+        :storage (%build-vec-fix64-from-list args))))
 
 ;;; --- Protocol methods for <vector> ---
 
@@ -581,7 +578,6 @@
                 :initform '(1)
                 :reader array-dimension
                 :documentation "List of dimension sizes, as in CL array-dimensions."))
-  (:default-initargs :items (cl:make-array 0))
   (:documentation "A persistent array.
                    Subclass of <vector> with O(1) indexed access and
                    a dimension slot tracking shape."))
@@ -670,7 +666,6 @@
                 :initform '(1)
                 :reader array-dimension
                 :documentation "List of dimension sizes, as in CL array-dimensions."))
-  (:default-initargs :items (cl:make-array 0))
   (:documentation "A persistent array.
                    Subclass of <vector> with O(1) indexed access and
                    a dimension slot tracking shape."))
@@ -759,8 +754,7 @@
                 :initform '(1)
                 :reader array-dimension
                 :documentation "List of dimension sizes, as in CL array-dimensions."))
-  (:default-initargs :items (cl:make-array 0))
-  (:documentation "A persistent array .
+  (:documentation "A persistent array.
                    Subclass of <vector> with O(1) indexed access and
                    a dimension slot tracking shape."))
 
@@ -783,8 +777,16 @@
 
 (defmethod make ((class (eql '<array>)) &rest args)
   (let* ((has-dims (eq (cl:first args) :dimensions))
-         (dimensions (if has-dims (cl:second args) (cl:first args)))
-         (elements (if has-dims (cl:cddr args) (cl:rest args)))
+         ;; If first arg is :dimensions, second is dims and rest are elements
+         ;; If first arg is a list, it's the dimensions and rest are elements
+         ;; Otherwise, all args are elements with auto 1D dimensions
+         (dimensions (cond (has-dims (cl:second args))
+                           ((null args) '(0))
+                           ((cl:listp (cl:first args)) (cl:first args))
+                           (t (cl:list (cl:length args)))))
+         (elements (cond (has-dims (cl:cddr args))
+                         ((cl:listp (cl:first args)) (cl:rest args))
+                         (t args)))
 
          ;; Normalize dimensions to a list to calculate expected capacity
          (dims-list (if (listp dimensions) dimensions (coerce dimensions 'cl:list)))
@@ -838,7 +840,12 @@
   (error "Cannot dissoc element ~A from array ~A." key coll))
 
 (defmethod collection-conj ((coll <array>) val)
-  (fol.compiler.collection-primitives:conj coll val))
+  (let* ((new-storage (fol.compiler.collection-primitives::%vec-t-conj
+                        (fol.compiler.collection-primitives::storage coll) val))
+         (new-size (fol.compiler.collection-primitives::%vec-t-count new-storage)))
+    (make-instance '<array>
+      :dimension (cl:list new-size)
+      :storage new-storage)))
 
 ;;; ============================================================================
 ;;; Fix64-array (subclass of fix64-vector)
@@ -849,7 +856,6 @@
                 :initform '(1)
                 :reader array-dimension
                 :documentation "List of dimension sizes, as in CL array-dimensions."))
-  (:default-initargs :items (cl:make-array 0))
   (:documentation "A persistent array.
                    Subclass of <vector> with O(1) indexed access and
                    a dimension slot tracking shape."))
@@ -933,7 +939,7 @@
 ;;; Dict
 ;;; ============================================================================
 
-(defclass <dict> (<unordered-collection> <dict-mixin> <collection-storage>)
+(defclass <dict> (<unordered-collection> <dict-mixin>)
     ()
   (:default-initargs :dict-storage (%make-hamt))
   (:documentation "A persistent unordered dictionary backed by a hand-coded hamt."))
@@ -949,18 +955,13 @@
   (declare (ignore obj))
   nil)
 
+;; Sorted dicts and priority dicts also count as dicts
+(defmethod <dict>? ((obj <sorted-dict-mixin>))
+  (declare (ignore obj))
+  t)
+
 (defmethod make ((class (eql '<dict>)) &rest args)
   (make-instance class
-    :dict-storage (hamt-bulk-load args)))
-
-(defmethod make ((class (eql '<array-dict>)) &rest args)
-  "Create a new <array-dict> from alternating key-value ARGS.
-   Keys are stored in the order provided; duplicate keys keep the last value
-   and retain the position of the first occurrence.
-   (make '<array-dict>)             => empty array dict
-   (make '<array-dict> :a 1 :b 2)  => array dict with :a->1, :b->2"
-
-  (make-instance '<array-dict>
     :dict-storage (hamt-bulk-load args)))
 
 ;;; --- Protocol methods for <dict> ---
@@ -1085,7 +1086,20 @@
 (defmethod collection-conj ((d <ordered-dict>) entry)
   "Add a key value pair (cons cell), preserving insertion order.
    If the key already exists, its value is updated in place."
-  (kv-conj d (car entry) (cdr entry)))
+  (let* ((key (car entry))
+         (val (cdr entry))
+         (h (dict-storage d))
+         (hash (sxhash key)))
+    (multiple-value-bind (new-root added-p)
+        (fol.compiler.collection-primitives::assoc-node (fol.compiler.collection-primitives::hamt-root h) 0 hash key val)
+      (let ((new-hamt (fol.compiler.collection-primitives::%make-hamt
+                       :count (if added-p (1+ (fol.compiler.collection-primitives::hamt-count h))
+                                  (fol.compiler.collection-primitives::hamt-count h))
+                       :root new-root))
+            (new-keys (if added-p
+                          (fol.compiler.collection-primitives::%vec-t-push (storage d) key)
+                          (storage d))))
+        (make-instance (class-of d) :dict-storage new-hamt :storage new-keys)))))
 
 (defmethod collection-seq ((d <ordered-dict>))
   "Return entries as (key . value) pairs in insertion order."
@@ -1107,7 +1121,21 @@
   (fol.compiler.collection-primitives:assoc d key val))
 
 (defmethod collection-dissoc ((d <ordered-dict>) key)
-  (dissoc d key))
+  "Remove key from ordered-dict, maintaining key-order vector."
+  (multiple-value-bind (val foundp) (fol.compiler.collection-primitives::hamt-get (dict-storage d) key)
+    (declare (ignore val))
+    (if foundp
+        (let* ((new-hamt (fol.compiler.collection-primitives::hamt-dissoc (dict-storage d) key))
+               ;; Rebuild key-order without the removed key
+               (old-keys (let ((iter (fol.compiler.collection-primitives::%vec-t-iterator (storage d)))
+                               (result nil))
+                           (loop for k = (funcall iter) until (eq k :eof) do (push k result))
+                           (nreverse result)))
+               (new-keys (remove key old-keys :test #'equal)))
+          (make-instance (class-of d)
+            :dict-storage new-hamt
+            :storage (fol.compiler.collection-primitives::%build-vec-t-from-list new-keys)))
+        d)))
 
 (defmethod collection-ref ((d <ordered-dict>) key &optional not-found)
   (ref d key not-found))
@@ -1117,8 +1145,8 @@
 ;;; ============================================================================
 
 (defclass <array-dict> (<ordered-dict>) ()
-  (:documentation "A persistent insertion-ordered dictionary backed by a Sycamore
-                   hash-map.  Inherits the hash-map from <dict> for O(~1) lookup
+  (:documentation "A persistent insertion-ordered dictionary backed by a hand-coded
+                   HAMT.  Inherits the hash-map from <dict> for O(~1) lookup
                    and adds <ordered-collection> to guarantee iteration order.
                    Best suited for small, dense key-value mappings (1-8 entries)
                    where insertion order must be preserved."))
@@ -1134,14 +1162,38 @@
   (declare (ignore obj))
   t)
 
+(defmethod make ((class (eql '<array-dict>)) &rest args)
+  "Create a new <array-dict> from alternating key-value ARGS.
+   Keys are stored in the order provided; duplicate keys keep the last value
+   and retain the position of the first occurrence."
+
+  ;; 1. Extract unique keys in insertion order using native Lisp
+  (let ((seen (make-hash-table :test 'equal)) ; Use 'equal to match your HAMT hash rules
+                                             (unique-keys nil))
+    (loop for (k v) on args by #'cddr
+          do (unless (gethash k seen)
+               (setf (gethash k seen) t)
+               (push k unique-keys)))
+
+    ;; `push` builds the list backwards, so we reverse it destructively
+    (setf unique-keys (nreverse unique-keys))
+
+    ;; 2. Instantiate the object by calling our high-speed bulk loaders
+    (make-instance '<array-dict>
+      ;; Load the HAMT dictionary (transiently applies all args, overwriting duplicates)
+      :dict-storage (fol.compiler.collection-primitives::hamt-bulk-load args)
+
+      ;; Load the Vector (builds the trie bottom-up in strict O(N) time)
+      :storage (fol.compiler.collection-primitives::%build-vec-t-from-list unique-keys))))
+
 ;;; ============================================================================
 ;;; Sorted Dict
 ;;; ============================================================================
 
-(defclass <sorted-dict> (<unordered-collection> <ordered-collection> <sorted-dict-mixin> <universal-comparator-mixin> <collection-storage>)
+(defclass <sorted-dict> (<ordered-collection> <dict-mixin> <sorted-dict-mixin> <universal-comparator-mixin>)
     ()
-  (:documentation "A persistent sorted dictionary backed by a hand-coded HAMT.
-                   Inherits storage and insertion order from <dict>, and comparison from <comparator-mixin>.
+  (:documentation "A persistent sorted dictionary backed by a hand-coded B-Tree.
+                   Inherits storage and insertion order from <dict>, and comparison from <comparator>.
                    Keys are maintained in the order defined by the comparator
                    function, which must return a negative fixnum, zero, or
                    positive fixnum for less-than, equal, and greater-than
@@ -1150,7 +1202,7 @@
 (defgeneric <sorted-dict>? (obj)
   (:documentation "Returns T if OBJ is a FOL <sorted-dict>."))
 
-(defmethod <sorted-dict>? ((obj <sorted-dict>))
+(defmethod <sorted-dict>? ((obj <sorted-dict-mixin>))
   (declare (ignore obj))
   t)
 
@@ -1158,7 +1210,60 @@
   (declare (ignore obj))
   nil)
 
+(defmethod make ((class (eql '<sorted-dict>)) &rest args)
+  "Create a new <sorted-dict>.
+   First argument is a comparator function (or NIL for default).
+   Remaining arguments are alternating key-value pairs."
+  (let* ((cmp (first args))
+         (pairs (rest args))
+         (cmp-fn (or cmp #'fol.compiler.compareops:%universal-comparator)))
+    (make-instance '<sorted-dict>
+      :sorted-dict-storage (fol.compiler.collection-primitives::btree-bulk-load pairs cmp-fn)
+      :cmp-fn cmp-fn)))
+
 ;;; --- Protocol methods for <sorted-dict> ---
+
+;; Override storage-items to return btree-dict (not HAMT from <dict-mixin>)
+(defmethod fol.compiler.collection-primitives::storage-items ((d <sorted-dict>))
+  (sorted-dict-storage d))
+
+;; Override size/empty?/assoc/dissoc to use btree (not HAMT from <dict-mixin>)
+(defmethod fol.compiler.collection-primitives:size ((d <sorted-dict>))
+  (fol.compiler.collection-primitives::btree-dict-count (sorted-dict-storage d)))
+
+(defmethod fol.compiler.collection-primitives:empty? ((d <sorted-dict>))
+  (zerop (fol.compiler.collection-primitives::btree-dict-count (sorted-dict-storage d))))
+
+(defmethod fol.compiler.collection-primitives:assoc ((d <sorted-dict>) key val)
+  (let ((bd (sorted-dict-storage d)))
+    (multiple-value-bind (new-root split-key split-right old-val found-p)
+        (fol.compiler.collection-primitives::btree-assoc-node
+          (btree-dict-root bd) key val (cmp-fn d))
+      (let* ((final-root (if split-key
+                              (fol.compiler.collection-primitives::%make-btree-node
+                                (cl:vector split-key) (cl:vector new-root split-right))
+                              new-root))
+             (new-count (if found-p
+                            (fol.compiler.collection-primitives::btree-dict-count bd)
+                            (1+ (fol.compiler.collection-primitives::btree-dict-count bd)))))
+        (make-instance (class-of d)
+          :sorted-dict-storage (fol.compiler.collection-primitives::%make-btree-dict
+                                 :count new-count :root final-root)
+          :cmp-fn (cmp-fn d))))))
+
+(defmethod fol.compiler.collection-primitives:dissoc ((d <sorted-dict>) key)
+  (let ((bd (sorted-dict-storage d)))
+    (multiple-value-bind (new-root old-val found-p)
+        (fol.compiler.collection-primitives::btree-dissoc-node
+          (btree-dict-root bd) key (cmp-fn d))
+      (declare (ignore old-val))
+      (if found-p
+          (make-instance (class-of d)
+            :sorted-dict-storage (fol.compiler.collection-primitives::%make-btree-dict
+                                   :count (1- (fol.compiler.collection-primitives::btree-dict-count bd))
+                                   :root new-root)
+            :cmp-fn (cmp-fn d))
+          d))))
 
 (defmethod collection-size ((d <sorted-dict>))
   (fol.compiler.collection-primitives:size d))
@@ -1168,11 +1273,11 @@
   (kv-conj d (car entry) (cdr entry)))
 
 (defmethod collection-seq ((d <sorted-dict>))
-  "Return entries as an alist of (key . value) pairs in comparator order."
-  (let ((bd (fol.compiler.collection-primitives::storage-items d))
+  "Return entries as an alist of (key . value) pairs in ascending comparator order."
+  (let ((bd (sorted-dict-storage d))
         (result nil))
     (let ((iter (fol.compiler.collection-primitives::btree-iterator
-                 (fol.compiler.collection-primitives::btree-dict-root bd))))
+                 (btree-dict-root bd))))
       (loop
        (multiple-value-bind (key val) (funcall iter)
          (when (eq key :eof) (return))
@@ -1188,6 +1293,14 @@
 (defmethod collection-dissoc ((d <sorted-dict>) key)
   (dissoc d key))
 
+(defmethod ref ((d <sorted-dict>) key &optional not-found)
+  "Look up KEY in the btree (not the HAMT)."
+  (let ((bd (sorted-dict-storage d)))
+    (multiple-value-bind (val foundp)
+        (fol.compiler.collection-primitives::btree-get
+          (btree-dict-root bd) key (cmp-fn d))
+      (if foundp (values val t) (values not-found nil)))))
+
 (defmethod collection-ref ((d <sorted-dict>) key &optional not-found)
   (ref d key not-found))
 
@@ -1195,7 +1308,7 @@
 ;;; Int Dict
 ;;; ============================================================================
 
-(defclass <int-dict> (<unordered-collection> <ordered-collection> <sorted-dict-mixin> <fast-fixnum-comparator-mixin> <collection-storage>)
+(defclass <int-dict> (<ordered-collection> <sorted-dict-mixin> <fast-fixnum-comparator-mixin>)
     ()
   (:documentation "A persistent sorted dictionary specialized for integer keys.
                    Backed by a hand-coded B-Tree."))
@@ -1212,10 +1325,19 @@
   t)
 
 (defmethod make ((class (eql '<int-dict>)) &rest args)
-  "Create a new <int-dict> from alternating integer-key value ARGS."
-  (let* ((pairs args))
+  "Create a new <int-dict> from alternating integer-key value ARGS.
+   First arg may be a comparator function (or NIL for default fixnum order)."
+  (let* ((has-cmp (or (functionp (cl:first args)) (null (cl:first args))))
+         (cmp (if has-cmp
+                  (or (cl:first args) #'(lambda (a b)
+                                          (declare (optimize (speed 3) (safety 0))
+                                                   (type fixnum a b))
+                                          (if (cl:< a b) -1 (if (cl:< b a) 1 0))))
+                  #'%int-compare))
+         (pairs (if has-cmp (cl:rest args) args)))
     (make-instance '<int-dict>
-      :dict-storage (fol.compiler.collection-primitives::btree-bulk-load pairs #'%int-compare))))
+      :sorted-dict-storage (fol.compiler.collection-primitives::btree-bulk-load pairs cmp)
+      :cmp-fn cmp)))
 
 ;;; --- Protocol methods for <int-dict> ---
 
@@ -1227,7 +1349,7 @@
 
 
 (defgeneric comparator-compare (obj))
-(defmethod comparator-compare ((obj <comparator-mixin>)) (cmp-fn obj))
+(defmethod comparator-compare ((obj <comparator>)) (cmp-fn obj))
 
 (defun ordered-dict-key-order (d) (storage d))
 (defun array-dict-key-order (d) (storage d))
@@ -1237,7 +1359,7 @@
   (kv-conj d (car entry) (cdr entry)))
 
 (defmethod collection-seq ((d <int-dict>))
-  "Return entries as an alist of (key . value) pairs in integer order."
+  "Return entries as an alist of (key . value) pairs in ascending integer order."
   (let ((bd (fol.compiler.collection-primitives::storage-items d))
         (result nil))
     (let ((iter (fol.compiler.collection-primitives::btree-iterator
@@ -1265,7 +1387,7 @@
 ;;; Priority Dict
 ;;; ============================================================================
 
-(defclass <priority-dict> (<dict-mixin> <sorted-dict-mixin> <universal-comparator-mixin>) ()
+(defclass <priority-dict> (<ordered-collection> <dict-mixin> <sorted-dict-mixin> <universal-comparator-mixin>) ()
   (:documentation "A persistent priority dictionary backed by a hand-coded HAMT
                    and a hand-coded 32-way B-Tree.
                    Inherits the hash-map from <dict-mixin> for O(~1) key→priority lookup.
@@ -1282,6 +1404,32 @@
 (defmethod <priority-dict>? (obj)
   (declare (ignore obj))
   nil)
+
+(defun priority-dict-tree (d)
+  "Return the B-Tree storage for priority ordering."
+  (sorted-dict-storage d))
+
+(defun priority-dict-compare (d)
+  "Return the comparator function."
+  (cmp-fn d))
+
+(defun priority-dict-peek-min (d)
+  "Return the entry with the lowest priority as (key . priority), or NIL if empty."
+  (let ((btree (sorted-dict-storage d)))
+    (when (> (fol.compiler.collection-primitives::btree-dict-count btree) 0)
+          (let ((iter (fol.compiler.collection-primitives::btree-iterator
+                       (fol.compiler.collection-primitives::btree-dict-root btree))))
+            (multiple-value-bind (p-k-cons dummy-val) (funcall iter)
+              (declare (ignore dummy-val))
+              (unless (eq p-k-cons :eof)
+                (cons (cdr p-k-cons) (car p-k-cons))))))))
+
+(defun priority-dict-pop-min (d)
+  "Return a new priority-dict without the minimum-priority entry."
+  (let ((min-entry (priority-dict-peek-min d)))
+    (if min-entry
+        (collection-dissoc d (car min-entry))
+        d)))
 
 (defmethod make ((class (eql '<priority-dict>)) &rest args)
   "Creates a new <priority-dict> from a flat sequence of alternating key-priority pairs.
@@ -1366,7 +1514,7 @@
 
           (let ((final-root (if split-key
                                 (fol.compiler.collection-primitives::%make-btree-node
-                                 (vector split-key) (vector inserted-root split-right))
+                                 (cl:vector split-key) (cl:vector inserted-root split-right))
                                 inserted-root)))
 
             ;; 3. Return the updated persistent Priority Dict
@@ -1430,7 +1578,7 @@
 ;;; Set
 ;;; ============================================================================
 
-(defclass <set> (<unordered-collection> <dict-mixin> <collection-storage>)
+(defclass <set> (<unordered-collection> <dict-mixin>)
     ()
   (:default-initargs :dict-storage (%make-hamt))
   (:documentation "A persistent unordered set backed by a HAMT."))
@@ -1447,9 +1595,8 @@
   nil)
 
 (defmethod make ((class (eql '<set>)) &rest elements)
-  (let ((s (make-instance class)))
-    (dolist (e elements s)
-      (setf s (fol.compiler.collection-primitives:assoc s e t)))))
+  (make-instance '<set>
+    :dict-storage (hamt-bulk-load (mapcan (lambda (x) (cl:list x x)) elements))))
 
 ;;; --- Protocol methods for <set> ---
 
@@ -1486,8 +1633,19 @@
                               (lazy-cons (car pair) (build-seq))))))
       (build-seq))))
 
+(defmethod ref ((s <set>) key &optional not-found)
+  "For sets, return the element itself if found, not the stored value T."
+  (multiple-value-bind (val foundp)
+      (fol.compiler.collection-primitives::hamt-get (dict-storage s) key)
+    (declare (ignore val))
+    (if foundp (values key t) (values not-found nil))))
+
 (defmethod collection-ref ((s <set>) key &optional not-found)
   (ref s key not-found))
+
+(defmethod collection-dissoc ((s <set>) element)
+  "Remove ELEMENT from the set."
+  (fol.compiler.collection-primitives:dissoc s element))
 
 ;;; ============================================================================
 ;;; Ordered Set
@@ -1511,15 +1669,51 @@
   (declare (ignore obj))
   nil)
 
+(defmethod <set>? ((obj <ordered-set>))
+  (declare (ignore obj))
+  t)
+
+(defmethod make ((class (eql '<ordered-set>)) &rest elements)
+  "Create a new <ordered-set> from ELEMENTS. Duplicates are dropped."
+  (let ((seen (make-hash-table :test 'equal))
+        (unique-keys nil))
+    (dolist (e elements)
+      (unless (gethash e seen)
+        (setf (gethash e seen) t)
+        (push e unique-keys)))
+    (setf unique-keys (nreverse unique-keys))
+    (make-instance '<ordered-set>
+      :dict-storage (fol.compiler.collection-primitives::hamt-bulk-load (mapcan (lambda (x) (cl:list x x)) unique-keys))
+      :storage (%build-vec-t-from-list unique-keys))))
+
 ;;; --- Protocol methods for <ordered-set> ---
+
+(defmethod collection-seq ((s <ordered-set>))
+  "Return elements in insertion order."
+  (let ((key-iter (fol.compiler.collection-primitives::%vec-t-iterator (storage s)))
+        (result nil))
+    (loop for k = (funcall key-iter)
+          until (eq k :eof)
+          do (push k result))
+    (nreverse result)))
+
+(defmethod collection-conj ((s <ordered-set>) element)
+  "Add ELEMENT at the end if not present."
+  (multiple-value-bind (val foundp) (fol.compiler.collection-primitives::hamt-get (dict-storage s) element)
+    (declare (ignore val))
+    (if foundp
+        s
+        (make-instance (class-of s)
+          :dict-storage (fol.compiler.collection-primitives::hamt-assoc (dict-storage s) element t)
+          :storage (fol.compiler.collection-primitives::%vec-t-push (storage s) element)))))
 
 ;;; ============================================================================
 ;;; Sorted Set
 ;;; ============================================================================
 
-(defclass <sorted-set> (<set> <ordered-collection> <sorted-dict-mixin> <universal-comparator-mixin> <collection-storage>)
+(defclass <sorted-set> (<set> <ordered-collection> <sorted-dict-mixin> <universal-comparator-mixin>)
     ()
-  (:documentation "A persistent sorted set backed by a hand-coded HAMT.
+  (:documentation "A persistent sorted set backed by a hand-coded B-Tree.
                    Elements are maintained in the order defined by the comparator
                    function (inherited from <comparator>), which must return a
                    negative fixnum, zero, or positive fixnum for less-than,
@@ -1540,19 +1734,99 @@
 
 (defmethod make ((class (eql '<sorted-set>)) &rest args)
   "Create a new <sorted-set>.
-   First argument is a comparator function (or NIL for default numeric order).
+   First argument may be a comparator function (or NIL for default).
    Remaining arguments are elements."
-  (let* ((cmp (first args))
-         (elements (rest args))
-         (s (make-instance '<sorted-set> :cmp-fn (or cmp #'fol.compiler.compareops:%universal-comparator))))
-    (dolist (e elements s)
-      (setf s (collection-conj s e)))))
+  (let* ((has-cmp (or (functionp (cl:first args)) (null (cl:first args))))
+         (cmp-arg (when has-cmp (cl:first args)))
+         (elements (if has-cmp (cl:rest args) args))
+         (seen (make-hash-table :test 'equal))
+         (unique-keys nil))
+    (dolist (e elements)
+      (unless (gethash e seen)
+        (setf (gethash e seen) t)
+        (push e unique-keys)))
+    (setf unique-keys (nreverse unique-keys))
+    (let ((cmp (or cmp-arg #'fol.compiler.compareops:%universal-comparator)))
+      (make-instance '<sorted-set>
+        :sorted-dict-storage (btree-bulk-load
+                               (mapcan (lambda (x) (cl:list x x)) unique-keys)
+                               cmp)
+        :cmp-fn cmp))))
+
+;;; --- Protocol methods for <sorted-set> ---
+
+(defmethod collection-size ((s <sorted-set>))
+  (fol.compiler.collection-primitives::btree-dict-count (sorted-dict-storage s)))
+
+(defmethod collection-empty-p ((s <sorted-set>))
+  (zerop (fol.compiler.collection-primitives::btree-dict-count (sorted-dict-storage s))))
+
+(defmethod collection-seq ((s <sorted-set>))
+  "Return elements of the sorted set as a CL list in sorted order."
+  (let ((iter (fol.compiler.collection-primitives::btree-iterator
+                (btree-dict-root (sorted-dict-storage s))))
+        (result nil))
+    (loop (multiple-value-bind (k v) (funcall iter)
+            (declare (ignore v))
+            (when (eq k :eof) (return (nreverse result)))
+            (push k result)))))
+
+;; Override assoc/dissoc to use btree (not HAMT from <dict-mixin> which wins in CPL)
+(defmethod fol.compiler.collection-primitives:assoc ((s <sorted-set>) key val)
+  (let ((bd (sorted-dict-storage s)))
+    (multiple-value-bind (new-root split-key split-right old-val found-p)
+        (fol.compiler.collection-primitives::btree-assoc-node
+          (btree-dict-root bd) key val (cmp-fn s))
+      (declare (ignore old-val))
+      (if found-p
+          s  ; Element already present — return same object (EQ identity)
+          (let* ((final-root (if split-key
+                                  (fol.compiler.collection-primitives::%make-btree-node
+                                    (cl:vector split-key) (cl:vector new-root split-right))
+                                  new-root))
+                 (new-count (1+ (fol.compiler.collection-primitives::btree-dict-count bd))))
+            (make-instance '<sorted-set>
+              :sorted-dict-storage (fol.compiler.collection-primitives::%make-btree-dict
+                                     :count new-count :root final-root)
+              :cmp-fn (cmp-fn s)))))))
+
+(defmethod fol.compiler.collection-primitives:dissoc ((s <sorted-set>) key)
+  (let ((bd (sorted-dict-storage s)))
+    (multiple-value-bind (new-root old-val found-p)
+        (fol.compiler.collection-primitives::btree-dissoc-node
+          (btree-dict-root bd) key (cmp-fn s))
+      (declare (ignore old-val))
+      (if found-p
+          (make-instance '<sorted-set>
+            :sorted-dict-storage (fol.compiler.collection-primitives::%make-btree-dict
+                                   :count (1- (fol.compiler.collection-primitives::btree-dict-count bd))
+                                   :root new-root)
+            :cmp-fn (cmp-fn s))
+          s))))
+
+(defmethod collection-conj ((s <sorted-set>) element)
+  "Add ELEMENT to the sorted set."
+  (fol.compiler.collection-primitives:assoc s element t))
+
+(defmethod collection-dissoc ((s <sorted-set>) element)
+  "Remove ELEMENT from the sorted set."
+  (fol.compiler.collection-primitives:dissoc s element))
+
+(defmethod ref ((s <sorted-set>) key &optional not-found)
+  "For sorted sets, return the element itself if found."
+  (multiple-value-bind (val foundp)
+      (btree-get (btree-dict-root (sorted-dict-storage s)) key (cmp-fn s))
+    (declare (ignore val))
+    (if foundp (values key t) (values not-found nil))))
+
+(defmethod collection-ref ((s <sorted-set>) key &optional not-found)
+  (ref s key not-found))
 
 ;;; ============================================================================
 ;;; Int Set
 ;;; ============================================================================
 
-(defclass <int-set> (<set> <ordered-collection> <sorted-dict-mixin> <fast-fixnum-comparator-mixin> <collection-storage>)
+(defclass <int-set> (<set> <ordered-collection> <sorted-dict-mixin> <fast-fixnum-comparator-mixin>)
     ()
   (:documentation "A persistent sorted set backed by a hand-coded HAMT.
                    Elements are maintained in the order defined by the comparator
@@ -1561,6 +1835,89 @@
                    equal, and greater-than respectively.
                    The comparator is stored in the compare slot and also used
                    to construct the Sycamore tree-set in storage-items."))
+
+(defmethod make ((class (eql '<int-set>)) &rest elements)
+  "Create a new <int-set> from integer ELEMENTS."
+  (let ((seen (make-hash-table :test 'eql))
+        (unique-keys nil))
+    (dolist (e elements)
+      (unless (gethash e seen)
+        (setf (gethash e seen) t)
+        (push e unique-keys)))
+    (setf unique-keys (nreverse unique-keys))
+    (make-instance '<int-set>
+      :sorted-dict-storage (btree-bulk-load
+                             (mapcan (lambda (x) (cl:list x x)) unique-keys)
+                             #'fol.compiler.collection-primitives::%int-compare))))
+
+;;; --- Protocol methods for <int-set> ---
+
+(defmethod collection-size ((s <int-set>))
+  (fol.compiler.collection-primitives::btree-dict-count (sorted-dict-storage s)))
+
+(defmethod collection-empty-p ((s <int-set>))
+  (zerop (fol.compiler.collection-primitives::btree-dict-count (sorted-dict-storage s))))
+
+(defmethod collection-seq ((s <int-set>))
+  "Return elements of the int set as a CL list in sorted order."
+  (let ((iter (fol.compiler.collection-primitives::btree-iterator
+                (btree-dict-root (sorted-dict-storage s))))
+        (result nil))
+    (loop (multiple-value-bind (k v) (funcall iter)
+            (declare (ignore v))
+            (when (eq k :eof) (return (nreverse result)))
+            (push k result)))))
+
+;; Override assoc/dissoc to use btree (not HAMT from <dict-mixin> which wins in CPL)
+(defmethod fol.compiler.collection-primitives:assoc ((s <int-set>) key val)
+  (let ((bd (sorted-dict-storage s)))
+    (multiple-value-bind (new-root split-key split-right old-val found-p)
+        (fol.compiler.collection-primitives::btree-assoc-node
+          (btree-dict-root bd) key val (cmp-fn s))
+      (declare (ignore old-val))
+      (if found-p
+          s  ; Element already present — return same object (EQ identity)
+          (let* ((final-root (if split-key
+                                  (fol.compiler.collection-primitives::%make-btree-node
+                                    (cl:vector split-key) (cl:vector new-root split-right))
+                                  new-root))
+                 (new-count (1+ (fol.compiler.collection-primitives::btree-dict-count bd))))
+            (make-instance '<int-set>
+              :sorted-dict-storage (fol.compiler.collection-primitives::%make-btree-dict
+                                     :count new-count :root final-root)
+              :cmp-fn (cmp-fn s)))))))
+
+(defmethod fol.compiler.collection-primitives:dissoc ((s <int-set>) key)
+  (let ((bd (sorted-dict-storage s)))
+    (multiple-value-bind (new-root old-val found-p)
+        (fol.compiler.collection-primitives::btree-dissoc-node
+          (btree-dict-root bd) key (cmp-fn s))
+      (declare (ignore old-val))
+      (if found-p
+          (make-instance '<int-set>
+            :sorted-dict-storage (fol.compiler.collection-primitives::%make-btree-dict
+                                   :count (1- (fol.compiler.collection-primitives::btree-dict-count bd))
+                                   :root new-root)
+            :cmp-fn (cmp-fn s))
+          s))))
+
+(defmethod collection-conj ((s <int-set>) element)
+  "Add ELEMENT to the int set."
+  (fol.compiler.collection-primitives:assoc s element t))
+
+(defmethod collection-dissoc ((s <int-set>) element)
+  "Remove ELEMENT from the int set."
+  (fol.compiler.collection-primitives:dissoc s element))
+
+(defmethod ref ((s <int-set>) key &optional not-found)
+  "For int sets, return the element itself if found."
+  (multiple-value-bind (val foundp)
+      (btree-get (btree-dict-root (sorted-dict-storage s)) key (cmp-fn s))
+    (declare (ignore val))
+    (if foundp (values key t) (values not-found nil))))
+
+(defmethod collection-ref ((s <int-set>) key &optional not-found)
+  (ref s key not-found))
 
 (defgeneric <int-set>? (obj)
   (:documentation "Returns T if OBJ is a FOL <int-set>."))
@@ -1577,20 +1934,10 @@
 ;;; Dense Int Set
 ;;; ============================================================================
 
-(defclass <dense-int-set> (<int-set>)
-    ((offset :initarg :offset
-             :initform 0
-             :reader dense-int-set-offset
-             :documentation "The minimum integer in the range (bit 0 = this value).")
-     (count :initarg :count
-       :initform 0
-       :reader dense-int-set-count
-       :documentation "Cached count of set bits."))
-  (:default-initargs :items (make-array 0 :element-type 'bit))
-  (:documentation "A persistent set of integers optimized for dense, contiguous ranges.
-                   Backed by a CL bit-vector.  Bit N represents integer (offset + N).
-                   Membership is O(1), iteration is O(range-size), and memory is
-                   1 bit per integer in the range [offset, offset+length)."))
+(defclass <dense-int-set> (<set> <ordered-collection>)
+  ((bits :initarg :bits :initform 0 :reader int-set-bits)
+   (cmp-fn :initform #'< :reader cmp-fn))
+  (:documentation "A purely functional dense integer set backed by an immutable bignum bit-vector."))
 
 (defgeneric <dense-int-set>? (obj)
   (:documentation "Returns T if OBJ is a FOL <dense-int-set>."))
@@ -1603,12 +1950,75 @@
   (declare (ignore obj))
   t)
 
+(defun dense-int-set-offset (s)
+  "Returns the minimum element in the dense-int-set, or NIL if empty."
+  (let ((bits (int-set-bits s)))
+    (if (zerop bits) nil
+        (1- (integer-length (logand bits (- bits)))))))
 
+(defmethod make ((class (eql '<dense-int-set>)) &rest args)
+  "Bulk-loads a dense int set.
+   Performs a native bitwise OR across all arguments to build the set instantly."
+  (let ((bit-vector 0))
+    (loop for num in args
+          do (setf bit-vector (logior bit-vector (ash 1 num))))
+    (make-instance '<dense-int-set> :bits bit-vector)))
+
+(defmethod collection-size ((s <dense-int-set>))
+  (logcount (int-set-bits s)))
+
+(defmethod collection-ref ((s <dense-int-set>) key &optional not-found)
+  "Returns (VALUES key T) if found, otherwise (VALUES not-found NIL)."
+  (if (logbitp key (int-set-bits s))
+      (values key t)
+      (values not-found nil)))
+
+(defmethod collection-conj ((s <dense-int-set>) key)
+  "Adds an integer to the set by flipping its corresponding bit to 1."
+  (if (logbitp key (int-set-bits s))
+      s ; Already in the set, return the identical object
+      (make-instance '<dense-int-set>
+        :bits (logior (int-set-bits s) (ash 1 key)))))
+
+;; For sets, assoc and conj are functionally identical, but assoc requires a dummy value
+(defmethod collection-assoc ((s <dense-int-set>) key val)
+  (declare (ignore val))
+  (collection-conj s key))
+
+(defmethod collection-dissoc ((s <dense-int-set>) key)
+  "Removes an integer by clearing its corresponding bit using LOGANDC2."
+  (if (not (logbitp key (int-set-bits s)))
+      s ; Not in the set
+      (make-instance '<dense-int-set>
+        :bits (logandc2 (int-set-bits s) (ash 1 key)))))
+
+(defmethod collection-seq ((s <dense-int-set>))
+  "Return elements of the dense int set as a CL list in ascending order."
+  (let ((bits (int-set-bits s))
+        (result nil))
+    (loop while (not (zerop bits))
+          do (let* ((lowest-bit (logand bits (- bits)))
+                    (val (1- (integer-length lowest-bit))))
+               (push val result)
+               (setf bits (logandc2 bits lowest-bit))))
+    (nreverse result)))
+
+(defun int-set-union (s1 s2)
+  (make-instance '<dense-int-set> 
+    :bits (logior (int-set-bits s1) (int-set-bits s2))))
+
+(defun int-set-intersection (s1 s2)
+  (make-instance '<dense-int-set> 
+    :bits (logand (int-set-bits s1) (int-set-bits s2))))
+
+(defun int-set-difference (s1 s2)
+  (make-instance '<dense-int-set> 
+    :bits (logandc2 (int-set-bits s1) (int-set-bits s2))))
 ;;; ============================================================================
 ;;; Bag (Multiset)
 ;;; ============================================================================
 
-(defclass <bag> (<unordered-collection> <dict-mixin> <collection-storage>) ()
+(defclass <bag> (<unordered-collection> <dict-mixin>) ()
   (:documentation "A persistent multiset (bag) backed by a hand-coded HAMT.
                    Keys are elements, values are occurrence counts."))
 
@@ -1623,15 +2033,22 @@
   (declare (ignore obj))
   nil)
 
+(defmethod make ((class (eql '<bag>)) &rest elements)
+  "Create a new <bag> from ELEMENTS. Duplicates increase count."
+  (let ((b (make-instance class :dict-storage (%make-hamt))))
+    (dolist (e elements b)
+      (setf b (collection-conj b e)))))
+
 ;;; --- Protocol methods for <bag> ---
 
 (defmethod collection-seq ((b <bag>))
-  "Return (element . count) pairs as a CL list."
+  "Return elements expanded by count as a CL list."
   (let ((iter (fol.compiler.collection-primitives::hamt-iterator (dict-storage b)))
         (result nil))
     (loop for pair = (funcall iter)
           until (eq pair :eof)
-          do (push pair result))
+          do (dotimes (i (cdr pair))
+               (push (car pair) result)))
     (nreverse result)))
 
 (defmethod collection-lazy-seq ((b <bag>))
@@ -1639,9 +2056,7 @@
 
 (defmethod collection-size ((b <bag>))
   "Total number of elements including multiplicities."
-  (let ((total 0))
-    (dolist (pair (collection-seq b) total)
-      (incf total (cdr pair)))))
+  (length (collection-seq b)))
 
 (defmethod collection-assoc ((b <bag>) key val)
   "Directly set the count of KEY to VAL."
@@ -1688,6 +2103,9 @@
 (defmethod collection-size ((d <deque>))
   (+ (collection-size (deque-front d))
      (collection-size (deque-rear d))))
+
+(defmethod ref ((d <deque>) index &optional not-found)
+  (collection-ref d index not-found))
 
 (defmethod collection-ref ((d <deque>) index &optional not-found)
   (let ((f-size (collection-size (deque-front d)))
@@ -2020,6 +2438,18 @@
       (%write-fol-element (cdr pair) stream)))
   (write-char #\} stream))
 
+(defmethod print-object ((obj <int-dict>) stream)
+  (write-char #\{ stream)
+  (let ((first-p t))
+    (dolist (pair (collection-seq obj))
+      (if first-p
+          (setf first-p nil)
+          (write-char #\Space stream))
+      (%write-fol-element (car pair) stream)
+      (write-char #\Space stream)
+      (%write-fol-element (cdr pair) stream)))
+  (write-char #\} stream))
+
 (defmethod print-object ((obj <set>) stream)
   (write-string "#{" stream)
   (let ((first-p t))
@@ -2031,15 +2461,14 @@
   (write-char #\} stream))
 
 (defmethod print-object ((obj <bag>) stream)
-  (write-string "#M[" stream)
+  (write-string "#M{" stream)
   (let ((first-p t))
-    (dolist (pair (collection-seq obj))
-      (dotimes (i (cdr pair))
-        (if first-p
-            (setf first-p nil)
-            (write-char #\Space stream))
-        (%write-fol-element (car pair) stream))))
-  (write-char #\] stream))
+    (dolist (elem (collection-seq obj))
+      (if first-p
+          (setf first-p nil)
+          (write-char #\Space stream))
+      (%write-fol-element elem stream)))
+  (write-char #\} stream))
 
 (defmethod print-object ((obj <deque>) stream)
   (write-string "#Q[" stream)

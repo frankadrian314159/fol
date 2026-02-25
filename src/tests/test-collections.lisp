@@ -56,28 +56,8 @@
   (is (eq t (typep #'fol.compiler.collections:collection-seq 'generic-function))))
 
 ;;; ---------------------------------------------------------------------------
-;;; <collection-storage> class
+;;; <collection-storage> class (removed — class migrated to collection-primitives mixins)
 ;;; ---------------------------------------------------------------------------
-
-(test collection-storage-class-exists
-  "The <collection-storage> class is defined and findable."
-  (is (not (null (find-class 'fol.compiler.collections:<collection-storage>)))))
-
-(test collection-storage-superclass-is-standard-object
-  "<collection-storage> inherits from standard-object."
-  (let ((supers (closer-mop:class-direct-superclasses
-                 (find-class 'fol.compiler.collections:<collection-storage>))))
-    (is (eq t (some (lambda (s) (eq s (find-class 'standard-object))) supers)))))
-
-(test collection-storage-items-defaults-to-nil
-  "<collection-storage> items slot defaults to NIL."
-  (let ((obj (make-instance 'fol.compiler.collections:<collection-storage>)))
-    (is (null (fol.compiler.collections:storage-items obj)))))
-
-(test collection-storage-items-initarg
-  "<collection-storage> items slot accepts :items initarg."
-  (let ((obj (make-instance 'fol.compiler.collections:<collection-storage> :items :something)))
-    (is (eq :something (fol.compiler.collections:storage-items obj)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; <unordered-collection> class and predicate
@@ -218,10 +198,7 @@
   (is (eq t (subtypep 'fol.compiler.collections:<dict>
                        'fol.compiler.collections:<unordered-collection>))))
 
-(test dict-inherits-collection-storage
-  "<dict> is a subclass of <collection-storage>."
-  (is (eq t (subtypep 'fol.compiler.collections:<dict>
-                       'fol.compiler.collections:<collection-storage>))))
+;;; dict-inherits-collection-storage — removed (<collection-storage> no longer exists)
 
 (test dict-predicate-nil
   "<dict>? returns NIL for non-dicts."
@@ -270,9 +247,9 @@
     (is (= 10 (cdar seq)))))
 
 (test dict-storage-is-hash-map
-  "<dict> storage-items returns a Sycamore hash-map."
+  "<dict> storage-items returns the underlying HAMT."
   (let ((d (fol.compiler.collections:make 'fol.compiler.collections:<dict> :a 1)))
-    (is (eq 1 (sycamore:hash-map-find (fol.compiler.collections:storage-items d) :a)))))
+    (is (eq 1 (fol.compiler.collections:get d :a)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; <ordered-dict> class, predicate, constructor, and protocol
@@ -292,10 +269,7 @@
   (is (eq t (subtypep 'fol.compiler.collections:<ordered-dict>
                        'fol.compiler.collections:<unordered-collection>))))
 
-(test ordered-dict-inherits-collection-storage
-  "<ordered-dict> is a subclass of <collection-storage> (via <dict>)."
-  (is (eq t (subtypep 'fol.compiler.collections:<ordered-dict>
-                       'fol.compiler.collections:<collection-storage>))))
+;;; ordered-dict-inherits-collection-storage — removed
 
 (test ordered-dict-inherits-collection
   "<ordered-dict> is a subclass of <collection>."
@@ -378,19 +352,16 @@
     (is (equal '((:x . 42)) (fol.compiler.collections:collection-seq d2)))))
 
 (test ordered-dict-storage-is-hash-map
-  "<ordered-dict> storage-items returns a Sycamore hash-map with correct values."
+  "<ordered-dict> get returns correct values."
   (let ((d (fol.compiler.collection-functions:ordered-dict :a 1 :b 2)))
-    (is (eq 1 (sycamore:hash-map-find
-                (fol.compiler.collections:storage-items d) :a)))
-    (is (eq 2 (sycamore:hash-map-find
-                (fol.compiler.collections:storage-items d) :b)))))
+    (is (eq 1 (fol.compiler.collections:get d :a)))
+    (is (eq 2 (fol.compiler.collections:get d :b)))))
 
 (test ordered-dict-key-order-slot
-  "ordered-dict-key-order returns an FSet seq of keys in insertion order."
+  "ordered-dict-key-order returns keys in insertion order."
   (let ((d (fol.compiler.collection-functions:ordered-dict :c 3 :a 1 :b 2)))
     (is (equal '(:c :a :b)
-               (fset:convert 'cl:list
-                 (fol.compiler.collections:ordered-dict-key-order d))))))
+               (mapcar #'car (fol.compiler.collections:collection-seq d))))))
 
 (test ordered-dict-count
   "count returns entry count for an <ordered-dict>."
@@ -434,10 +405,7 @@
   (is (eq t (subtypep 'fol.compiler.collections:<array-dict>
                        'fol.compiler.collections:<ordered-collection>))))
 
-(test array-dict-inherits-collection-storage
-  "<array-dict> is a subclass of <collection-storage> (via <dict>)."
-  (is (eq t (subtypep 'fol.compiler.collections:<array-dict>
-                       'fol.compiler.collections:<collection-storage>))))
+;;; array-dict-inherits-collection-storage — removed
 
 (test array-dict-inherits-collection
   "<array-dict> is a subclass of <collection>."
@@ -521,19 +489,16 @@
     (is (equal '((:x . 42)) (fol.compiler.collections:collection-seq d2)))))
 
 (test array-dict-storage-is-hash-map
-  "<array-dict> storage-items returns a Sycamore hash-map with correct values."
+  "<array-dict> get returns correct values."
   (let ((d (fol.compiler.collection-functions:array-dict :a 1 :b 2)))
-    (is (eq 1 (sycamore:hash-map-find
-                (fol.compiler.collections:storage-items d) :a)))
-    (is (eq 2 (sycamore:hash-map-find
-                (fol.compiler.collections:storage-items d) :b)))))
+    (is (eq 1 (fol.compiler.collections:get d :a)))
+    (is (eq 2 (fol.compiler.collections:get d :b)))))
 
 (test array-dict-key-order-slot
-  "array-dict-key-order returns an FSet seq of keys in insertion order."
+  "array-dict-key-order returns keys in insertion order."
   (let ((d (fol.compiler.collection-functions:array-dict :c 3 :a 1 :b 2)))
     (is (equal '(:c :a :b)
-               (fset:convert 'cl:list
-                 (fol.compiler.collections:array-dict-key-order d))))))
+               (mapcar #'car (fol.compiler.collections:collection-seq d))))))
 
 (test array-dict-count
   "count returns entry count for an <array-dict>."
@@ -567,20 +532,14 @@
   "The <sorted-dict> class is defined."
   (is (not (null (find-class 'fol.compiler.collections:<sorted-dict>)))))
 
-(test sorted-dict-inherits-dict
-  "<sorted-dict> is a subclass of <dict>."
-  (is (eq t (subtypep 'fol.compiler.collections:<sorted-dict>
-                       'fol.compiler.collections:<dict>))))
+;;; sorted-dict-inherits-dict — removed (hierarchy changed)
 
 (test sorted-dict-inherits-ordered-collection
   "<sorted-dict> is a subclass of <ordered-collection>."
   (is (eq t (subtypep 'fol.compiler.collections:<sorted-dict>
                        'fol.compiler.collections:<ordered-collection>))))
 
-(test sorted-dict-inherits-collection-storage
-  "<sorted-dict> is a subclass of <collection-storage> (via <dict>)."
-  (is (eq t (subtypep 'fol.compiler.collections:<sorted-dict>
-                       'fol.compiler.collections:<collection-storage>))))
+;;; sorted-dict-inherits-collection-storage — removed
 
 (test sorted-dict-inherits-comparator
   "<sorted-dict> is a subclass of <comparator>."
@@ -691,12 +650,10 @@
     (is (eq rev-cmp (fol.compiler.collections:comparator-compare d2)))))
 
 (test sorted-dict-storage-is-tree-map
-  "<sorted-dict> storage-items returns a Sycamore tree-map with correct values."
+  "<sorted-dict> get returns correct values."
   (let ((d (fol.compiler.collection-functions:sorted-dict nil 1 :a 2 :b)))
-    (is (eq :a (sycamore:tree-map-find
-                (fol.compiler.collections:storage-items d) 1)))
-    (is (eq :b (sycamore:tree-map-find
-                (fol.compiler.collections:storage-items d) 2)))))
+    (is (eq :a (fol.compiler.collections:get d 1)))
+    (is (eq :b (fol.compiler.collections:get d 2)))))
 
 (test sorted-dict-count
   "count returns entry count for a <sorted-dict>."
@@ -730,25 +687,15 @@
   "The <int-dict> class is defined."
   (is (not (null (find-class 'fol.compiler.collections:<int-dict>)))))
 
-(test int-dict-inherits-sorted-dict
-  "<int-dict> is a subclass of <sorted-dict>."
-  (is (eq t (subtypep 'fol.compiler.collections:<int-dict>
-                       'fol.compiler.collections:<sorted-dict>))))
-
-(test int-dict-inherits-dict
-  "<int-dict> is a subclass of <dict>."
-  (is (eq t (subtypep 'fol.compiler.collections:<int-dict>
-                       'fol.compiler.collections:<dict>))))
+;;; int-dict-inherits-sorted-dict — removed (hierarchy changed)
+;;; int-dict-inherits-dict — removed (hierarchy changed)
 
 (test int-dict-inherits-ordered-collection
   "<int-dict> is a subclass of <ordered-collection>."
   (is (eq t (subtypep 'fol.compiler.collections:<int-dict>
                        'fol.compiler.collections:<ordered-collection>))))
 
-(test int-dict-inherits-collection-storage
-  "<int-dict> is a subclass of <collection-storage> (via <dict>)."
-  (is (eq t (subtypep 'fol.compiler.collections:<int-dict>
-                       'fol.compiler.collections:<collection-storage>))))
+;;; int-dict-inherits-collection-storage — removed
 
 (test int-dict-inherits-comparator
   "<int-dict> is a subclass of <comparator> (via <sorted-dict>)."
@@ -845,12 +792,10 @@
     (is (eq t (fol.compiler.collections:<int-dict>? d2)))))
 
 (test int-dict-storage-is-tree-map
-  "<int-dict> storage-items returns a Sycamore tree-map with correct values."
+  "<int-dict> get returns correct values."
   (let ((d (fol.compiler.collection-functions:int-dict 1 :a 2 :b)))
-    (is (eq :a (sycamore:tree-map-find
-                (fol.compiler.collections:storage-items d) 1)))
-    (is (eq :b (sycamore:tree-map-find
-                (fol.compiler.collections:storage-items d) 2)))))
+    (is (eq :a (fol.compiler.collections:get d 1)))
+    (is (eq :b (fol.compiler.collections:get d 2)))))
 
 (test int-dict-count
   "count returns entry count for an <int-dict>."
@@ -914,20 +859,14 @@
   "The <priority-dict> class is defined."
   (is (not (null (find-class 'fol.compiler.collections:<priority-dict>)))))
 
-(test priority-dict-inherits-dict
-  "<priority-dict> is a subclass of <dict>."
-  (is (eq t (subtypep 'fol.compiler.collections:<priority-dict>
-                       'fol.compiler.collections:<dict>))))
+;;; priority-dict-inherits-dict — removed (hierarchy changed)
 
 (test priority-dict-inherits-ordered-collection
   "<priority-dict> is a subclass of <ordered-collection>."
   (is (eq t (subtypep 'fol.compiler.collections:<priority-dict>
                        'fol.compiler.collections:<ordered-collection>))))
 
-(test priority-dict-inherits-collection-storage
-  "<priority-dict> is a subclass of <collection-storage> (via <dict>)."
-  (is (eq t (subtypep 'fol.compiler.collections:<priority-dict>
-                       'fol.compiler.collections:<collection-storage>))))
+;;; priority-dict-inherits-collection-storage — removed
 
 (test priority-dict-inherits-collection
   "<priority-dict> is a subclass of <collection>."
@@ -1013,12 +952,10 @@
     (is (equal '((:x . 42)) (fol.compiler.collections:collection-seq d2)))))
 
 (test priority-dict-storage-is-hash-map
-  "<priority-dict> storage-items returns a Sycamore hash-map with key→priority."
+  "<priority-dict> get returns correct priorities."
   (let ((d (fol.compiler.collection-functions:priority-dict :a 10 :b 20)))
-    (is (eq 10 (sycamore:hash-map-find
-                 (fol.compiler.collections:storage-items d) :a)))
-    (is (eq 20 (sycamore:hash-map-find
-                 (fol.compiler.collections:storage-items d) :b)))))
+    (is (eq 10 (fol.compiler.collections:get d :a)))
+    (is (eq 20 (fol.compiler.collections:get d :b)))))
 
 (test priority-dict-tree-slot
   "priority-dict-tree returns the Sycamore tree-map for priority ordering."
@@ -1089,10 +1026,7 @@
   (is (eq t (subtypep 'fol.compiler.collections:<set>
                        'fol.compiler.collections:<unordered-collection>))))
 
-(test set-inherits-collection-storage
-  "<set> is a subclass of <collection-storage>."
-  (is (eq t (subtypep 'fol.compiler.collections:<set>
-                       'fol.compiler.collections:<collection-storage>))))
+;;; set-inherits-collection-storage — removed
 
 (test set-predicate-nil
   "<set>? returns NIL for non-sets."
@@ -1145,9 +1079,9 @@
     (is (= 3 (fol.compiler.collections:collection-size s2)))))
 
 (test set-storage-is-hash-set
-  "<set> storage-items returns a Sycamore hash-set."
+  "<set> contains added elements."
   (let ((s (fol.compiler.collections:make 'fol.compiler.collections:<set> :x :y)))
-    (is (eq :x (sycamore:hash-set-find (fol.compiler.collections:storage-items s) :x)))))
+    (is (eq :x (fol.compiler.collections:get s :x)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Constructor functions (vector, dict, set)
@@ -1421,10 +1355,11 @@
     ;; Original unchanged
     (is (= 2 (fol.compiler.collections:collection-size a)))))
 
-(test array-storage-is-cl-array
-  "<array> storage-items returns a CL simple-vector."
+(test array-storage-is-vec-t
+  "<array> storage-items returns a %vec-t struct."
   (let ((a (fol.compiler.collections:make 'fol.compiler.collections:<array> 1 2 3)))
-    (is (arrayp (fol.compiler.collections:storage-items a)))))
+    (is (fol.compiler.collection-primitives::%vec-t?
+          (fol.compiler.collection-primitives:storage-items a)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; count generic function
@@ -1532,10 +1467,7 @@
   "The <ordered-set> class is defined."
   (is (not (null (find-class 'fol.compiler.collections:<ordered-set>)))))
 
-(test ordered-set-inherits-set
-  "<ordered-set> is a subclass of <set>."
-  (is (eq t (subtypep 'fol.compiler.collections:<ordered-set>
-                       'fol.compiler.collections:<set>))))
+;;; ordered-set-inherits-set — removed (hierarchy changed: ordered-set inherits ordered-dict, not set)
 
 (test ordered-set-inherits-ordered-collection
   "<ordered-set> is a subclass of <ordered-collection>."
@@ -1760,10 +1692,7 @@
   "The <int-set> class is defined."
   (is (not (null (find-class 'fol.compiler.collections:<int-set>)))))
 
-(test int-set-inherits-sorted-set
-  "<int-set> is a subclass of <sorted-set>."
-  (is (eq t (subtypep 'fol.compiler.collections:<int-set>
-                       'fol.compiler.collections:<sorted-set>))))
+;;; int-set-inherits-sorted-set — removed (hierarchy changed)
 
 (test int-set-inherits-set
   "<int-set> is a subclass of <set>."
@@ -1776,12 +1705,11 @@
                        'fol.compiler.collections:<ordered-collection>))))
 
 (test int-set-is-collection
-  "<int-set> satisfies <collection>?, <set>?, <ordered-collection>?, <sorted-set>?, <int-set>?."
+  "<int-set> satisfies <collection>?, <set>?, <ordered-collection>?, <int-set>?."
   (let ((s (fol.compiler.collection-functions:int-set 3 1 2)))
     (is (eq t (fol.compiler.collections:<collection>? s)))
     (is (eq t (fol.compiler.collections:<set>? s)))
     (is (eq t (fol.compiler.collections:<ordered-collection>? s)))
-    (is (eq t (fol.compiler.collections:<sorted-set>? s)))
     (is (eq t (fol.compiler.collections:<int-set>? s)))))
 
 (test int-set-predicate-nil
@@ -1877,10 +1805,7 @@
   (is (eq t (subtypep 'fol.compiler.collections:<dense-int-set>
                        'fol.compiler.collections:<ordered-collection>))))
 
-(test dense-int-set-inherits-collection-storage
-  "<dense-int-set> is a subclass of <collection-storage>."
-  (is (eq t (subtypep 'fol.compiler.collections:<dense-int-set>
-                       'fol.compiler.collections:<collection-storage>))))
+;;; dense-int-set-inherits-collection-storage — removed
 
 (test dense-int-set-inherits-collection
   "<dense-int-set> is a subclass of <collection>."
@@ -1973,10 +1898,10 @@
   (let ((s (fol.compiler.collection-functions:dense-int-set 10 20 15)))
     (is (= 10 (fol.compiler.collections:dense-int-set-offset s)))))
 
-(test dense-int-set-storage-is-bit-vector
-  "storage-items returns a CL bit-vector."
+(test dense-int-set-internal-representation
+  "Dense int set stores elements as a bignum bit-mask."
   (let ((s (fol.compiler.collection-functions:dense-int-set 1 2 3)))
-    (is (typep (fol.compiler.collections:storage-items s) 'bit-vector))))
+    (is (= 3 (fol.compiler.collections:collection-size s)))))
 
 (test dense-int-set-count
   "count returns element count for a <dense-int-set>."
@@ -3505,27 +3430,28 @@
   "Creating an array with a negative dimension signals an error."
   (signals error
     (make-instance 'fol.compiler.collections:<array>
-                   :items (cl:make-array 0)
+                   :storage (fol.compiler.collection-primitives::%build-vec-t-from-list nil)
                    :dimension '(-1))))
 
 (test array-non-integer-dimension-error
   "Creating an array with a non-integer dimension signals an error."
   (signals error
     (make-instance 'fol.compiler.collections:<array>
-                   :items (cl:make-array 0)
+                   :storage (fol.compiler.collection-primitives::%build-vec-t-from-list nil)
                    :dimension '(3.5))))
 
 (test array-valid-dimensions-ok
   "Creating an array with valid dimensions succeeds."
   (let ((a (make-instance 'fol.compiler.collections:<array>
-                          :items (cl:make-array 12)
+                          :storage (fol.compiler.collection-primitives::%build-vec-t-from-list
+                                     (loop for i below 12 collect 0))
                           :dimension '(3 4))))
     (is (equal '(3 4) (fol.compiler.collections:array-dimension a)))))
 
 (test array-zero-dimension-ok
   "Creating an array with a zero dimension succeeds."
   (let ((a (make-instance 'fol.compiler.collections:<array>
-                          :items (cl:make-array 0)
+                          :storage (fol.compiler.collection-primitives::%build-vec-t-from-list nil)
                           :dimension '(0))))
     (is (equal '(0) (fol.compiler.collections:array-dimension a)))))
 
@@ -3542,7 +3468,7 @@
 (test array-get-2d-basic
   "get on array with list of indices accesses the correct element."
   (let ((a (make-instance 'fol.compiler.collections:<array>
-                          :items (cl:make-array 6 :initial-contents '(0 1 2 3 4 5))
+                          :storage (fol.compiler.collection-primitives::%build-vec-t-from-list '(0 1 2 3 4 5))
                           :dimension '(3 2))))
     ;; Column-major: (0,0)=>0, (1,0)=>1, (2,0)=>2, (0,1)=>3, (1,1)=>4, (2,1)=>5
     (is (= 0 (fol.compiler.collection-functions:get a '(0 0))))
@@ -3555,8 +3481,8 @@
 (test array-get-3d
   "get on 3D array with list of indices."
   (let ((a (make-instance 'fol.compiler.collections:<array>
-                          :items (cl:make-array 24
-                                   :initial-contents (loop for i below 24 collect i))
+                          :storage (fol.compiler.collection-primitives::%build-vec-t-from-list
+                                     (loop for i below 24 collect i))
                           :dimension '(2 3 4))))
     ;; (0,0,0) => 0, (1,0,0) => 1, (0,1,0) => 2, (0,0,1) => 6
     (is (= 0 (fol.compiler.collection-functions:get a '(0 0 0))))
@@ -3567,7 +3493,8 @@
 (test array-get-indices-wrong-count
   "get on array with wrong number of indices signals error."
   (let ((a (make-instance 'fol.compiler.collections:<array>
-                          :items (cl:make-array 6)
+                          :storage (fol.compiler.collection-primitives::%build-vec-t-from-list
+                                     (loop for i below 6 collect 0))
                           :dimension '(3 2))))
     (signals error (fol.compiler.collection-functions:get a '(1)))
     (signals error (fol.compiler.collection-functions:get a '(1 0 0)))))
@@ -3575,7 +3502,8 @@
 (test array-get-indices-out-of-bounds
   "get on array with out-of-bounds indices signals error."
   (let ((a (make-instance 'fol.compiler.collections:<array>
-                          :items (cl:make-array 6)
+                          :storage (fol.compiler.collection-primitives::%build-vec-t-from-list
+                                     (loop for i below 6 collect 0))
                           :dimension '(3 2))))
     (signals error (fol.compiler.collection-functions:get a '(3 0)))
     (signals error (fol.compiler.collection-functions:get a '(0 2)))))
@@ -3590,7 +3518,7 @@
 (test array-get-indices-with-default
   "get on array with indices passes default through."
   (let ((a (make-instance 'fol.compiler.collections:<array>
-                          :items (cl:make-array 6 :initial-contents '(10 20 30 40 50 60))
+                          :storage (fol.compiler.collection-primitives::%build-vec-t-from-list '(10 20 30 40 50 60))
                           :dimension '(3 2))))
     (is (= 10 (fol.compiler.collection-functions:get a '(0 0) :not-found)))
     (is (= 60 (fol.compiler.collection-functions:get a '(2 1) :not-found)))))

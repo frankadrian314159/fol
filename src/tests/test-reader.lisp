@@ -298,12 +298,9 @@
   "{:hex 0xFF :oct 0o77 :bin 2r1010} reads mixed radix in dict."
   (let ((d (fol.compiler.reader:fol-read-from-string "{:hex 0xFF :oct 0o77 :bin 2r1010}")))
     (is (eq t (fol.compiler.collections:<dict>? d)))
-    (let ((hex-val (sycamore:hash-map-find (fol.compiler.collections:storage-items d) :hex))
-          (oct-val (sycamore:hash-map-find (fol.compiler.collections:storage-items d) :oct))
-          (bin-val (sycamore:hash-map-find (fol.compiler.collections:storage-items d) :bin)))
-      (is (= hex-val 255))
-      (is (= oct-val 63))
-      (is (= bin-val 10)))))
+    (is (= (fol.compiler.collections:get d :hex) 255))
+    (is (= (fol.compiler.collections:get d :oct) 63))
+    (is (= (fol.compiler.collections:get d :bin) 10))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Character literal support

@@ -202,7 +202,7 @@
    Examples:
      (<set>? (set 1 2 3))          => T
      (<set>? (vector 1 2 3))       => NIL"
-  (typep obj 'fol.compiler.collections:<set>))
+  (fol.compiler.collections:<set>? obj))
 
 (defun <ordered-set>? (obj)
   "Returns true if OBJ is a FOL ordered-set.
@@ -285,7 +285,9 @@
      (associative? (sorted-dict nil :a 1))  => T
      (associative? (set 1 2 3))             => NIL"
   (or (typep obj 'fol.compiler.collections:<vector>)
-      (typep obj 'fol.compiler.collections:<dict>)))
+      (typep obj 'fol.compiler.collections:<dict>)
+      (typep obj 'fol.compiler.collections:<sorted-dict>)
+      (typep obj 'fol.compiler.collections:<int-dict>)))
 
 (defun sorted? (obj)
   "Returns true if OBJ is a sorted collection (sorted-dict or sorted-set,
@@ -300,6 +302,8 @@
      (sorted? (set 1 2 3))                 => NIL"
   (or (typep obj 'fol.compiler.collections:<sorted-set>)
       (typep obj 'fol.compiler.collections:<sorted-dict>)
+      (typep obj 'fol.compiler.collections:<int-dict>)
+      (typep obj 'fol.compiler.collections:<int-set>)
       (typep obj 'fol.compiler.collections:<priority-dict>)
       (typep obj 'fol.compiler.collections:<dense-int-set>)))
 

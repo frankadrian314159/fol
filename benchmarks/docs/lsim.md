@@ -6,6 +6,8 @@ This report summarizes the performance and Lines of Code (LOC) analysis for the 
 
 The FOL implementation of LSim demonstrates competitive performance and significant code density advantages over the native Common Lisp implementation. Optimization through the removal of logging statements and refactoring of core simulation loops has resulted in a simulator that scales efficiently with circuit complexity.
 
+**Note**: The LSim benchmark currently requires re-transpilation of the circuit definition files (`8bit-100.lisp`, `32bit-300.lisp`, `8x32-900.lisp`) following the migration from Sycamore/FSet to hand-coded persistent data structures (HAMT, vec-t, B-Tree). The `get` generic function dispatch changed during the migration, causing runtime errors in the pre-transpiled circuit files. The results below are from the last successful run prior to the collection system migration.
+
 ## 2. Methodology
 
 - **Implementation**: LSim core was transpiled from FOL to Common Lisp using the FOL compiler. Logging statements (`print`, `println`, `flush`) were removed from the FOL version to ensure maximum performance.
@@ -17,7 +19,7 @@ The FOL implementation of LSim demonstrates competitive performance and signific
 - **Iterations**: Each benchmark was run 10 times to calculate total and average execution times.
 - **Environment**: Steel Bank Common Lisp (SBCL) 2.6.0 on Windows.
 
-## 3. Performance Results
+## 3. Performance Results (Pre-Migration)
 
 | Benchmark | Implementation | Total Time (10 runs) | Avg Time/Run | FOL/CL Ratio |
 | :--- | :--- | :--- | :--- | :--- |
@@ -61,4 +63,4 @@ Several critical issues were resolved to ensure correctness and performance:
 
 ## 6. Conclusion
 
-The FOL implementation of LSim provides a more concise and maintainable codebase while maintaining acceptable performance levels for large-scale simulations. The scaling characteristics suggest that further optimizations in the FOL compiler's handling of persistent collections could bring FOL performance even closer to native Common Lisp.
+The FOL implementation of LSim provides a more concise and maintainable codebase while maintaining acceptable performance levels for large-scale simulations. The scaling characteristics suggest that further optimizations in the FOL compiler's handling of persistent collections could bring FOL performance even closer to native Common Lisp. Re-transpilation of the circuit files with the new hand-coded collection primitives is expected to improve performance ratios.
