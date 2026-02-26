@@ -26,8 +26,7 @@
                         (:file "ast" :depends-on ("package"))
                         (:file "destructure" :depends-on ("package"))
                         (:file "persistence" :depends-on ("package"))
-                        (:file "transients" :depends-on ("package" "collections" "persistence"))
-                        (:file "collection-functions" :depends-on ("package" "collections" "string-functions" "persistence" "destructure" "transients"))
+                        (:file "collection-functions" :depends-on ("package" "collections" "string-functions" "persistence" "destructure"))
                         (:file "arithmetic-functions" :depends-on ("package" "primitives"))
                         (:file "bitwise-operation-functions" :depends-on ("package" "primitives"))
                         (:file "logical-operation-functions" :depends-on ("package" "primitives"))
@@ -44,12 +43,12 @@
                         (:file "metadata" :depends-on ("package" "persistence" "collections"))
                         (:file "misc-functions" :depends-on ("package"))
                         (:file "merged-functions" :depends-on ("package" "string-functions" "collections" "primitives" "collection-functions"))
-                        (:file "compiler" :depends-on ("package" "primitives" "ast" "destructure" "persistence" "transients" "collections" "collection-functions" "seq-functions" "reader"))
+                        (:file "compiler" :depends-on ("package" "primitives" "ast" "destructure" "persistence" "collections" "collection-functions" "seq-functions" "reader"))
                         (:file "macros" :depends-on ("compiler" "package" "primitives" "collections" "collection-functions" "seq-functions" "streams" "metadata" "mutable"))
                         (:file "io" :depends-on ("package" "streams" "string-functions" "macros"))
                         (:file "repl" :depends-on ("compiler" "reader" "package"))
                         (:file "fol-core" :depends-on ("package" "compareops" "primitives" "collections"
-                                                                 "primitive-functions" "ast" "destructure" "persistence" "transients"
+                                                                 "primitive-functions" "ast" "destructure" "persistence"
                                                                  "collection-functions" "arithmetic-functions"
                                                                  "bitwise-operation-functions" "logical-operation-functions"
                                                                  "string-functions" "cl-utils" "seq-functions" "reader"

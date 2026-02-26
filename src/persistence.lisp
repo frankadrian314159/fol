@@ -189,7 +189,7 @@ persistent vector trie.  See file header for threshold rationale.")
                       (fol.compiler.collections:assoc (%persistent-vector object) idx :unbound)))
                 (error "Cannot makunbound persistent slots.")))
           ;; Genuine missing slot
-          (call-next-method))))
+          (t (call-next-method))))))
 
   (defmethod (setf closer-mop:slot-value-using-class) (new-value
                                                        (class persistent-class)
@@ -300,7 +300,7 @@ persistent vector trie.  See file header for threshold rationale.")
                   for slot-name = (if (keywordp key) (slot-name-from-keyword class key) key)
                   do (if slot-name
                          (setf (slot-value new-obj slot-name) value)
-                         (error "Unknown slot/attribute: ~A" key)))))
+                         (error "Unknown slot/attribute: ~A" key))))
 
       ;; Ensure metadata carries over
       (when (slot-boundp object '%metadata)
@@ -308,4 +308,4 @@ persistent vector trie.  See file header for threshold rationale.")
 
       ;; Ensure transient status DOES NOT carry over (updates result in persistent copies)
 
-      new-obj))
+      new-obj)))

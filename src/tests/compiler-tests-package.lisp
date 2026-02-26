@@ -41,6 +41,10 @@
            :description "Tests for persistent object system (Sycamore hash-map backed)."
            :in compiler-tests)
 
+(def-suite transients-tests
+           :description "Tests for transient collection and object support."
+           :in compiler-tests)
+
 (def-suite string-tests
            :description "Tests for string manipulation functions."
            :in compiler-tests)
