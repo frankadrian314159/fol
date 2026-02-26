@@ -102,6 +102,32 @@ Slot storage uses a hybrid strategy: objects with $\le 8$ slots use native CLOS 
 
 \section{Architecture and Implementation}
 
+\subsection{Metaobject Protocol Adaptation}
+\label{sec:mop-adaptation}
+
+FOL's bootstrap implementation consists of approximately 18,000 lines of Common Lisp, with over 6,300 passing tests. MOP adaptation, detailed in Table~\ref{tab:mop-ops}, is the primary mechanism for enforcing persistence. Unlike library-based approaches that rely on caller discipline, FOL ensures immutability by intercepting the low-level slot access protocols. This is mandatory for three reasons: (1)~transparent mutation-guarding demands metaclass-level interception to prevent \texttt{(setf slot-value)} calls; (2)~the structural sharing model requires mapping logical slots to a hybrid physical layout (native vs.\ overflow); and (3)~lazy schema evolution (Section~\ref{sec:schema-evolution}) requires intercepting access to transform legacy versions on-the-fly.
+
+The \texttt{persistent-class} metaclass reroutes access by specializing \texttt{slot-value-}\allowbreak\texttt{using-class} based on index. Small objects ($\le T$, where $T=8$) use native CLOS slots for speed, while wider objects overflow into a persistent trie. The \texttt{(setf slot-value-}\allowbreak\texttt{using-class)} method is specialized to block post-initialization writes, signaling a \texttt{mutation-error} on update attempts.
+
+The hybrid layout uses a specialized \texttt{persistent-effective-}{\allowbreak}\texttt{slot-definition} class. During initialization, the metaclass calculates slot indices. If the index is $\le T$, it allocates a standard CLOS slot; otherwise, it marks the slot as virtual. Virtual slot access via \texttt{slot-value-using-class} triggers a lookup in the overflow trie (\texttt{\%overflow-trie}) using the slot name identity. Because HAMT lookups are $O(\log_{32} N)$, even a class with 1,000 slots maintains fast access. The metadata slot (\texttt{\%metadata}) remains native, preventing infinite recursion in the introspection logic.
+
+\begin{table*}[t]
+\small
+\caption{MOP Protocol Adaptations for Persistence}
+\label{tab:mop-ops}
+\begin{tabularx}{\textwidth}{lX}
+\toprule
+\textbf{MOP Entry Point} & \textbf{Change and Semantic Role} \\
+\midrule
+\texttt{slot-value-using-class} & Intercepts reads to implement the hybrid storage model, routing between native CLOS slots and the overflow trie. \\ \addlinespace
+\texttt{(setf slot-value-using-class)} & Specialized on \texttt{persistent-class} to signal \texttt{mutation-error} on write attempts, effectively disabling standard mutation. \\ \addlinespace
+\texttt{compute-eff-slot-def} & Injects \texttt{persistent-effective-slot-definition} to metadata-tag slots as native or virtual during class finalization. \\ \addlinespace
+\texttt{slot-missing} & Fallback interceptor that provides a unified slot interface for logical indices $> T$ redirected to the overflow trie. \\ \addlinespace
+\texttt{initialize-instance} & Populates the immutable slot vector from constructor initargs exactly once during construction. \\
+\bottomrule
+\end{tabularx}
+\end{table*}
+
 \subsection{Collection Implementation}
 
 FOL implements nineteen persistent collection classes including \textbf{Vectors} (32-way branching persistent tries), \textbf{Maps} (HAMTs), \textbf{Sets} (HAMTs), \textbf{Sorted collections} (B-trees), and \textbf{Lists} (persistent cons cells). HAMT lookup is only 1.3$\times$ slower than CL \texttt{gethash} for the common case; however, while a hash table exhibits $O(1)$ average-case performance with occasional $O(N)$ rehash spikes, the HAMT provides $O(\log_{32} N)$ guaranteed performance, which for a billion-element map is effectively a five-hop constant-time array access. The B-tree implementation for sorted collections handles 64-way branching to minimize cache misses during traversal.
@@ -109,14 +135,6 @@ FOL implements nineteen persistent collection classes including \textbf{Vectors}
 \subsection{Runtime Representations}
 
 Most runtime representations other than collections and user-defined objects utilize a Common Lisp base. Primitives (\texttt{<bool>}, \texttt{<string>}, the numeric tower, \texttt{<symbol>}) are unwrapped CL values; functions with their closures are CL functions; the package system and error handling derive from CL. Garbage collection is inherited---old versions of user-defined objects are collected when unreferenced; structural sharing ensures only unshared portions are reclaimed.
-
-FOL's persistent metaclass adapts the MOP to guard mutation and route overflows. Protocols like \texttt{slot-value-using-class} work unchanged for the common case ($\le 8$ slots), providing direct $O(1)$ access. For wider objects, \texttt{slot-missing} intercepts the access and redirects it to the overflow trie. Crucially, \texttt{(setf slot-value-using-class)} is specialized to block any post-initialization writes, signaling an error if the user attempts to move an object out of its immutable state. 
-
-This adaptation is mandatory for three reasons. First, persistence cannot be implemented as a library because transparent mutation-guarding demands metaclass-level interception: a library-based approach can provide immutable data structures, but it cannot prevent a user from accidentally applying \texttt{setf} to a slot unless it overrides the MOP. Second, the overflow trie mapping is logically separate from the physical slot layout; the MOP allows us to present a unified "slot" interface to the user even when the underlying storage is forked between native slots and a HAMT. Third, the lazy migration strategy for class redefinition (Section~5.4) requires intercepting slot access to transform legacy values on-the-fly.
-
-The engineering of this adaptation centers on three concrete decisions: (1)~the hybrid native-slot/overflow-trie layout that preserves $O(1)$ access for the common case; (2)~the threshold $T\!=\!8$ chosen by cross-referencing empirical class-size data with micro-benchmark crossover analysis (Section~\ref{sec:threshbench}); and (3)~the lazy migration strategy for class redefinition that maintains persistence across schema boundaries. By anchoring these in the MOP, we ensure that persistence is deep-rooted in the language semantics rather than being a convenient convention.
-
-The hybrid layout implementation uses a specialized slot-definition class, \texttt{persistent-effective-slot-definition}. During the class initialization protocol, the metaclass calculates the slot index. If the index is $\le T$, it allocates a standard CLOS slot; otherwise, it marks the slot as virtual. When \texttt{slot-value-using-class} encounters a virtual slot, it performs a lookup in the HAMT-based overflow trie. This lookup is performed using the slot name's symbol identity as the key. Because HAMT lookups are $O(\log_{32} N)$, even a class with 1,000 slots maintains extremely fast access. The metadata slot (\texttt{\%metadata}) is always native, ensuring that introspection logic never recurses into the overflow logic.
 
 \section{Features}
 
@@ -260,7 +278,7 @@ FOL's persistence simplifies complex state patterns. \textbf{Structural Diff} (L
   (print "ALERT: Critical Temperature!"))
 \end{lstlisting}
 
-Standard CLOS redefinition assumes mutable instances. FOL instead uses \textit{lazy schema evolution}: instances remain frozen Schema~1 snapshots, while functional updates (\texttt{assoc}) perform implicit migration by allocating Schema~2 instances and copying old slots forward. \texttt{:alias} annotations (Listing~\ref{lst:lazy-migration}) allow renamed slots to pull legacy data during migration. Single-hop recursive lookups follow alias chains, and conflicting aliases are handled by standard initialization order.
+Standard CLOS redefinition assumes mutable instances. FOL instead uses \textit{lazy schema evolution} (\label{sec:schema-evolution}): instances remain frozen Schema~1 snapshots, while functional updates (\texttt{assoc}) perform implicit migration by allocating Schema~2 instances and copying old slots forward. \texttt{:alias} annotations (Listing~\ref{lst:lazy-migration}) allow renamed slots to pull legacy data during migration. Single-hop recursive lookups follow alias chains, and conflicting aliases are handled by standard initialization order.
 
 \begin{lstlisting}[caption={Lazy Schema Migration with Aliasing}, label={lst:lazy-migration}]
 ;; Schema 1
@@ -440,6 +458,23 @@ Table~\ref{tab:threshold-update} evaluates the threshold selection: $T\!=\!8$ mi
 The preceding construction figures compare FOL against mutable CLOS. Measured against a lean \texttt{defstruct} baseline---the representation a Clojure \texttt{defrecord} approximates---two distinct costs emerge. \textbf{Retained size}: each FOL object carries two hidden overhead slots (\texttt{\%persistent-vector}, \texttt{\%metadata}) on top of user slots, producing objects 2.5$\times$ larger than a struct for 1--2-slot classes (the statistical median) and 1.4$\times$ at 8 slots. Both the user slots and the two overhead slots are stored in a CLOS slot-vector---a separate heap allocation---giving each object a two-allocation footprint vs.\ a struct's one. \textbf{Construction GC pressure}: the bytes \textit{consed} per allocation---the true GC pressure signal---are 8--15$\times$ higher than an equivalent CLOS construction: a 2-slot FOL object consumes $\approx$416\,B/obj during construction vs.\ 48\,B/obj for plain CLOS and 32\,B/obj for a struct. The gap between construction cost (288--2,685\,B/obj) and retained size (80--112\,B/obj) shows that 80--95\% of construction bytes are transient garbage from \texttt{initialize-instance} MOP machinery---slot iteration, initarg keyword dispatch, and internal CLOS caching. This is a secondary explanation for the high allocation ratios in the adversarial benchmarks (Section~\ref{sec:adversarial}): each \texttt{assoc} call triggers not just a HAMT path copy but a full \texttt{initialize-instance} dispatch. It also explains why the transient-builder protocol reduces allocation by 97\%: transients bypass \texttt{initialize-instance} entirely during the mutation window, writing directly into the mutable HAMT without object construction overhead.
 
 A separate micro-benchmark evaluated the five candidate thresholds by directly simulating hybrid copy at each $T$ across object sizes $N \in \{8, 12, 16, 24, 32, 48\}$ (Table~\ref{tab:threshold-update}). Persistent vector batch trie construction costs $\approx$\,106\,ns base plus 5--7\,ns per element---an order of magnitude less per element than \texttt{slot-value} dispatch ($\approx$\,27\,ns/slot). For objects at or below the threshold (all-native path), all candidates are equivalent. The crossover occurs near $N\!\approx\!28$: above this size, $T\!=\!8$ minimizes update cost. Objects in the 9--24 slot range incur a modest penalty at $T\!=\!8$ (0.12--0.17\,$\mu$s, roughly 15--21\%) from applying the vector base cost to small overflows. However, empirical OO class-size studies report the 90th percentile at $\approx$10--12 fields (median~2), placing $\lesssim\!10$\% of classes in this penalty zone while $\sim$80\% remain all-native. Note that the simulated costs in Table~\ref{tab:threshold-update} represent raw copy work; the actual \texttt{update-slots} costs (Table~\ref{tab:micro-update}) are 1.6--3$\times$ higher due to MOP slot iteration, \texttt{slot-boundp} checks, and keyword-to-slot-name lookup overhead.
+
+\begin{table}[htbp]
+\small
+\caption{Actual slot update overhead (µs/op) vs.\ native CLOS}
+\label{tab:micro-update}
+\begin{tabular}{rrrrl}
+\toprule
+\textbf{Slots} & \textbf{Persistent} & \textbf{Mutable} & \textbf{Ratio} & \textbf{Notes} \\
+\midrule
+2   & 1.14\,$\mu$s & 34.6\,ns &  33$\times$ & 2 native slots \\
+8   & 2.34\,$\mu$s & 41.6\,ns &  56$\times$ & 8 native slots \\
+32  & 6.85\,$\mu$s & 28.5\,ns & 240$\times$ & 32 native slots \\
+48  & 8.50\,$\mu$s & 41.6\,ns & 204$\times$ & 32N + 16-slot trie \\
+128 & 14.41\,$\mu$s & 32.2\,ns & 447$\times$ & 32N + 96-slot trie \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \begin{table}[htbp]
 \small
