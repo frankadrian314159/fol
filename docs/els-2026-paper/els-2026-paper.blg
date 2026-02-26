@@ -8,6 +8,7 @@ Reallocating 'singl_function' (item size: 4) to 100 items.
 Reallocating 'singl_function' (item size: 4) to 100 items.
 Reallocating 'wiz_functions' (item size: 4) to 6000 items.
 Database file #1: els-2026-paper.bib
+Warning--I didn't find a database entry for "Flatt2015"
 Reallocating 'singl_function' (item size: 4) to 100 items.
 Reallocating 'wiz_functions' (item size: 4) to 9000 items.
 Reallocating 'glb_str_end' (item size: 4) to 20 items.
@@ -15,17 +16,26 @@ Reallocating 'glb_str_ptr' (item size: 4) to 20 items.
 Reallocating 'global_strs' (item size: 1) to 4000000 items.
 Reallocating 'singl_function' (item size: 4) to 100 items.
 Warning--empty address in Apple1992
+Warning--empty publisher in Baxter2006
+Warning--empty address in Baxter2006
+Warning--empty publisher in Bracha2010
+Warning--empty address in Bracha2010
+Warning--page numbers missing in both pages and numpages fields in Bracha2010
+Warning--empty publisher in Chambers1993
+Warning--empty address in Chambers1993
 Warning--empty publisher in Chambers1999
 Warning--empty address in Chambers1999
+Warning--empty address in Clifton2000
 Warning--empty address in Emir2007
 Warning--empty address in Ernst1998
 Warning--empty address in Flatt2006
-Warning--empty publisher in Garrigue1998
-Warning--empty address in Garrigue1998
-Warning--page numbers missing in both pages and numpages fields in Garrigue1998
 Warning--empty publisher in Hickey2008
 Warning--empty address in Hickey2008
 Warning--empty address in Kiczales1991
+Warning--empty publisher in Kmett2012
+Warning--empty address in Kmett2012
+Warning--page numbers missing in both pages and numpages fields in Kmett2012
+Warning--empty address in Lanza2006
 Warning--empty address in Okasaki1998
 Warning--empty publisher in Orleans2002
 Warning--empty address in Orleans2002
@@ -35,45 +45,49 @@ Warning--page numbers missing in both pages and numpages fields in Smith2023
 Warning--empty address in Tarver2011
 Warning--empty publisher in TobinHochstadt2008
 Warning--empty address in TobinHochstadt2008
-You've used 20 entries,
+Warning--empty publisher in TobinHochstadt2011
+Warning--empty address in TobinHochstadt2011
+Warning--can't use both volume and number fields in Ungar1987
+Warning--empty address in Ungar1987
+You've used 32 entries,
             6273 wiz_defined-function locations,
-            1644 strings with 21056 characters,
-and the built_in function-call counts, 19604 in all, are:
-= -- 2191
-> -- 520
+            1723 strings with 23259 characters,
+and the built_in function-call counts, 32233 in all, are:
+= -- 3597
+> -- 932
 < -- 0
-+ -- 166
-- -- 190
-* -- 1239
-:= -- 1915
-add.period$ -- 100
-call.type$ -- 20
-change.case$ -- 122
-chr.to.int$ -- 20
-cite$ -- 41
-duplicate$ -- 1939
-empty$ -- 1364
-format.name$ -- 230
-if$ -- 4637
++ -- 305
+- -- 341
+* -- 2096
+:= -- 3181
+add.period$ -- 159
+call.type$ -- 32
+change.case$ -- 207
+chr.to.int$ -- 32
+cite$ -- 66
+duplicate$ -- 3131
+empty$ -- 2198
+format.name$ -- 413
+if$ -- 7594
 int.to.chr$ -- 2
 int.to.str$ -- 1
-missing$ -- 65
-newline$ -- 204
-num.names$ -- 140
-pop$ -- 817
+missing$ -- 101
+newline$ -- 304
+num.names$ -- 224
+pop$ -- 1313
 preamble$ -- 1
-purify$ -- 282
+purify$ -- 463
 quote$ -- 0
-skip$ -- 719
+skip$ -- 1182
 stack$ -- 0
-substring$ -- 1438
-swap$ -- 164
+substring$ -- 2354
+swap$ -- 272
 text.length$ -- 0
 text.prefix$ -- 0
 top$ -- 0
-type$ -- 498
-warning$ -- 21
-while$ -- 140
+type$ -- 829
+warning$ -- 34
+while$ -- 222
 width$ -- 0
-write$ -- 418
-(There were 21 warnings)
+write$ -- 647
+(There were 35 warnings)

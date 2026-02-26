@@ -13,7 +13,7 @@ The benchmark simulates a sensor monitoring system where:
 ### Implementations
 
 -   **FOL**: Transpiled from `observable.fol`. Uses `on-change` with predicate specializers.
--   **Common Lisp**: Idiomatic CL in `observable.lisp`, using the same `fol.compiler.persistent` library and Sycamore hash-maps to ensure a fair comparison of language-level overhead vs. runtime system.
+-   **Common Lisp**: Idiomatic CL in `observable.lisp`, using the same `fol.compiler.persistent` library and persistent hash-maps to ensure a fair comparison of language-level overhead vs. runtime system.
 
 ## Performance Results
 
@@ -38,7 +38,7 @@ Common Lisp consistently outperforms the transpiled FOL code by approximately **
 -   **Dynamic Bindings**: The transpiled code makes extensive use of `LET` and `PROGN` wrappings produced by the compiler's code generation patterns.
 
 ### Memory Usage
-Interestingly, at 1,000,000 iterations, the Transpiled FOL code showed lower net allocation (**40.66 MB**) than the Common Lisp version (**48.74 MB**). This suggests that the FOL compiler's handling of persistent structures and local bindings might be slightly more aggressive in preventing unnecessary allocations, or that the manual CL version's use of `sycamore:hash-map-insert` in the `updated` helper was slightly more verbose in its intermediate map creation.
+Interestingly, at 1,000,000 iterations, the Transpiled FOL code showed lower net allocation (**40.66 MB**) than the Common Lisp version (**48.74 MB**). This suggests that the FOL compiler's handling of persistent structures and local bindings might be slightly more aggressive in preventing unnecessary allocations, or that the manual CL version's use of hash-map insertion in the `updated` helper was slightly more verbose in its intermediate map creation.
 
 ### Conclusion
 The FOL language provides a high-level, declarative syntax (especially for predicate dispatch) that is significantly more concise than the equivalent Common Lisp. While there is a measurable performance penalty (~40-60% slower), the absolute performance remains well within acceptable bounds for many applications, processing 1 million updates and notifications in roughly 2 seconds.

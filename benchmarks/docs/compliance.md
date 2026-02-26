@@ -9,35 +9,38 @@ The performance test executed **1,000,000 validation checks** on a randomized se
 
 | Metric | Common Lisp (Optimized) | FOL (Transpiled) | Ratio (FOL/CL) |
 | :--- | :--- | :--- | :--- |
-| **Real Time** | 0.438 seconds | 2.989 seconds | **~6.82x** |
-| **Bytes Consed** | 134.11 MB | 1,358.58 MB | **~10.13x** |
+| **Real Time** | 0.173 seconds | 1.201 seconds | **~6.94x** |
+| **Bytes Consed** | 134.15 MB | 1,358.70 MB | **~10.13x** |
 
 ### Performance Analysis
-- **Execution Overhead**: The ~6.82x slowdown reflects the use of persistent data structures (HAMT-based dicts, Sycamore hash-maps for persistent objects). This is an improvement over the previous 8.45x ratio, attributable to the migration from FSet/Sycamore collections to hand-coded HAMTs for dict operations.
-- **Memory Allocation**: The 10x memory overhead (down from 14.45x) is due to FOL's immutable persistent objects and collection-based helpers, though the hand-coded HAMT reduces per-operation allocation compared to the previous FSet-based implementation.
-- **Dispatch Efficiency**: Despite the overhead, validating 1,000,000 trades in ~3.0 seconds shows that the system is suitable for complex business logic processing.
+- **Execution Overhead**: The ~6.94x slowdown reflects the use of persistent data structures (HAMT-based dicts for validation results, persistent objects for trade instances). Each validation produces an immutable map result via HAMT allocation.
+- **Memory Allocation**: The 10x memory overhead is due to FOL's immutable persistent objects and HAMT-based collection construction for each validation result.
+- **Dispatch Efficiency**: Despite the overhead, validating 1,000,000 trades in ~1.2 seconds shows that the system is suitable for complex business logic processing.
 
 ---
 
 ## 2. LOC Analysis (Conciseness)
-This analysis compares the source-level complexity and maintenance burden of both implementations.
 
-| Metric | FOL (`compliance.fol`) | CL (`compliance.lisp`) | Difference |
+| Category | FOL | CL | Savings |
 | :--- | :---: | :---: | :---: |
-| **Total Lines** | 81 | 116 | -35 lines |
-| **Blank Lines** | 14 | 25 | -11 lines |
-| **Comments** | 10 | 22 | -12 lines |
-| **SLOC (Logic)** | **57** | **69** | **-12 lines (-17%)** |
+| Class definition | 5 | 8 | 38% |
+| Predicates / logic | 12 | 13 | 8% |
+| Dispatch / validation | 9 | 15 | 40% |
+| Module boilerplate | 2 | 11 | 82% |
+| Test harness | 23 | 22 | -5% |
+| **Total SLOC** | **51** | **69** | **26%** |
 
 ### Conciseness Analysis
-The FOL implementation is **17% more concise** in terms of functional logic (SLOC). Key drivers include:
-- **Predicate Specializers**: FOL integrates business logic directly into the method signature, removing the need for manual `cond` routing blocks.
-- **Collection Literals**: Expressive syntax for maps and sets (`#{...}`, `[...]`) reduces boilerplate.
-- **Immutable Persistence**: Automatic integration of persistence and immutability reduces the code needed for defensive copying or state management.
+The FOL implementation is **26% more concise** in terms of functional logic (SLOC). Key drivers include:
+- **Module boilerplate (82% reduction)**: FOL's `in-package` with inline exports replaces CL's separate `defpackage` with `(:use)`, `(:export)`, and `in-package` forms.
+- **Dispatch / validation (40% reduction)**: FOL's map literals (`{:status :rejected ...}`) replace CL's `(list :status :rejected ...)` forms, and `cond` with keyword `:else` replaces `t`.
+- **Class definition (38% reduction)**: FOL's `defclass` combines class definition with implicit constructor; CL requires a separate `make-trade` wrapper around `make-instance`.
+- **Predicates (8% reduction)**: Nearly identical logic; FOL uses `contains?` with set literals while CL uses `member` with a `defparameter` list.
+- **Test harness (-5%)**: FOL test code is slightly longer due to `bind` syntax vs CL's `let`/`defparameter`.
 
 ---
 
 ## 3. Conclusion
 The FOL implementation represents a standard trade-off in modern language design: **Developer Productivity vs. Absolute Performance**.
 
-By accepting a **~7x performance penalty**, the developer gains a **17% more maintainable codebase** with built-in immutability and a powerful dispatch system that is natively resilient to complex business rule changes.
+By accepting a **~7x performance penalty**, the developer gains a **26% more maintainable codebase** with built-in immutability and a powerful dispatch system that is natively resilient to complex business rule changes.

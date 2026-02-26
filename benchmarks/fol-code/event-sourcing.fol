@@ -4,7 +4,7 @@
 
 ;; 1. Define the Account aggregate
 ;;    Inherits from <persistent-object> for structural sharing
-(defclass <account> [<persistent-object>]
+(defclass <account> []
   [[balance :initform 0]
    [events  :initform []]])
 

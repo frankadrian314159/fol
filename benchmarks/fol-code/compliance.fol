@@ -34,18 +34,12 @@
 (defn validate-trade [trd]
   (cond
     ((restricted-symbol? trd)
-     (make '<list> :status :rejected
-           :reason (str "Symbol " (trade-symbol trd) " is on the restricted list")))
+     {:status :rejected :reason (str "Symbol " (trade-symbol trd) " is on the restricted list")})
     ((high-value? trd)
-     (make '<list> :status :manual-review
-           :reason "Trade value exceeds $1M limit"))
+     {:status :manual-review :reason "Trade value exceeds $1M limit"})
     ((penny-stock-buy? trd)
-     (make '<list> :status :warning
-           :reason "High risk penny stock purchase"
-           :trade trd))
-    (:else
-     (make '<list> :status :approved
-           :id (gensym "TRD")))))
+     {:status :warning :reason "High risk penny stock purchase" :trade trd})
+    (:else {:status :approved :id (gensym "TRD")}))
 
 ;;; =============================================================================
 ;;; Test Module

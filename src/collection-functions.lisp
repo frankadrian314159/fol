@@ -318,18 +318,18 @@
 
 (defmethod first ((coll fol.compiler.collections:<vector>))
   (when (cl:plusp (fol.compiler.collections:collection-size coll))
-    (ref coll 0)))
+        (ref coll 0)))
 
 (defmethod first ((coll fol.compiler.collections:<array>))
   (when (cl:plusp (fol.compiler.collections:collection-size coll))
-    (ref coll 0)))
+        (ref coll 0)))
 
 (defmethod first ((coll fol.compiler.collections:<list>))
   (fol.compiler.collections:list-first coll))
 
 (defmethod first ((coll fol.compiler.collections:<deque>))
   (when (cl:plusp (fol.compiler.collections:collection-size coll))
-    (ref coll 0)))
+        (ref coll 0)))
 
 (defmethod first ((coll fol.compiler.collections:<lazy-seq>))
   (fol.compiler.collections:realize-lazy-seq coll)
@@ -418,7 +418,7 @@
       (multiple-value-bind (val found-p) (fol.compiler.collections:collection-ref coll index)
         (if found-p val
             (cl:error "Index ~D out of bounds for vector of size ~D"
-                      index (fol.compiler.collections:collection-size coll))))))
+              index (fol.compiler.collections:collection-size coll))))))
 
 (defmethod nth ((coll fol.compiler.collections:<deque>) index
                                                         &optional (not-found nil not-found-p))
@@ -1042,8 +1042,8 @@
   "Return the elements of the vector in reverse order as a CL list."
   (let ((sz (fol.compiler.collections:collection-size coll)))
     (when (cl:plusp sz)
-      (cl:loop for i from (1- sz) downto 0
-               collect (ref coll i)))))
+          (cl:loop for i from (1- sz) downto 0
+          collect (ref coll i)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; reduce-kv - Reduce with key/index and value
@@ -1060,7 +1060,7 @@
   (let ((sz (fol.compiler.collections:collection-size coll))
         (acc init))
     (cl:loop for i from 0 below sz
-             do (setf acc (funcall fn acc i (ref coll i))))
+    do (setf acc (funcall fn acc i (ref coll i))))
     acc))
 
 (defmethod reduce-kv (fn init (coll fol.compiler.collections:<dict>))
@@ -1093,7 +1093,7 @@
         (apply #'fol.compiler.collections:make
           'fol.compiler.collections:<vector>
           (cl:loop for i from start below actual-end
-                   collect (ref v i))))))
+          collect (ref v i))))))
 
 ;;; ===========================================================================
 ;;; Set Operations
@@ -1111,26 +1111,26 @@
 (defmethod contains? ((s fol.compiler.collections:<set>) element)
   "Test membership in a set (HAMT-backed)."
   (nth-value 1 (fol.compiler.collection-primitives::hamt-get
-                 (fol.compiler.collection-primitives:dict-storage s) element)))
+                (fol.compiler.collection-primitives:dict-storage s) element)))
 
 (defmethod contains? ((s fol.compiler.collections:<ordered-set>) element)
   "Test membership in an ordered-set (HAMT-backed)."
   (nth-value 1 (fol.compiler.collection-primitives::hamt-get
-                 (fol.compiler.collection-primitives:dict-storage s) element)))
+                (fol.compiler.collection-primitives:dict-storage s) element)))
 
 (defmethod contains? ((s fol.compiler.collections:<sorted-set>) element)
   "Test membership in a sorted set (btree-backed)."
   (nth-value 1 (fol.compiler.collection-primitives::btree-get
-                 (fol.compiler.collection-primitives::btree-dict-root
-                   (fol.compiler.collection-primitives:sorted-dict-storage s))
-                 element (fol.compiler.collections:cmp-fn s))))
+                (fol.compiler.collection-primitives::btree-dict-root
+                 (fol.compiler.collection-primitives:sorted-dict-storage s))
+                element (fol.compiler.collections:cmp-fn s))))
 
 (defmethod contains? ((s fol.compiler.collections:<int-set>) element)
   "Test membership in an int set (btree-backed)."
   (nth-value 1 (fol.compiler.collection-primitives::btree-get
-                 (fol.compiler.collection-primitives::btree-dict-root
-                   (fol.compiler.collection-primitives:sorted-dict-storage s))
-                 element (fol.compiler.collections:cmp-fn s))))
+                (fol.compiler.collection-primitives::btree-dict-root
+                 (fol.compiler.collection-primitives:sorted-dict-storage s))
+                element (fol.compiler.collections:cmp-fn s))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; disj - Remove elements from a set
@@ -1205,7 +1205,7 @@
   (let ((result s1))
     (dolist (elem (fol.compiler.collections:collection-seq s2) result)
       (setf result (fol.compiler.collections:collection-conj result elem)))))
-  
+
 (defmethod binary-union ((s1 fol.compiler.collections:<dense-int-set>)
                          (s2 fol.compiler.collections:<dense-int-set>))
   (int-set-union s1 s2))
@@ -1274,7 +1274,7 @@
   (let ((result (empty s1)))
     (dolist (elem (fol.compiler.collections:collection-seq s1) result)
       (when (contains? s2 elem)
-        (setf result (fol.compiler.collections:collection-conj result elem))))))
+            (setf result (fol.compiler.collections:collection-conj result elem))))))
 
 (defmethod binary-intersection ((s1 fol.compiler.collections:<ordered-set>)
                                 (s2 fol.compiler.collections:<ordered-set>))
@@ -1282,7 +1282,7 @@
   (let ((result (empty s1)))
     (dolist (elem (fol.compiler.collections:collection-seq s1) result)
       (when (contains? s2 elem)
-        (setf result (fol.compiler.collections:collection-conj result elem))))))
+            (setf result (fol.compiler.collections:collection-conj result elem))))))
 
 (defmethod binary-intersection ((s1 fol.compiler.collections:<sorted-set>)
                                 (s2 fol.compiler.collections:<sorted-set>))
@@ -1290,7 +1290,7 @@
   (let ((result (empty s1)))
     (dolist (elem (fol.compiler.collections:collection-seq s1) result)
       (when (contains? s2 elem)
-        (setf result (fol.compiler.collections:collection-conj result elem))))))
+            (setf result (fol.compiler.collections:collection-conj result elem))))))
 
 (defmethod binary-intersection ((s1 fol.compiler.collections:<int-set>)
                                 (s2 fol.compiler.collections:<int-set>))
@@ -1298,7 +1298,7 @@
   (let ((result (empty s1)))
     (dolist (elem (fol.compiler.collections:collection-seq s1) result)
       (when (contains? s2 elem)
-        (setf result (fol.compiler.collections:collection-conj result elem))))))
+            (setf result (fol.compiler.collections:collection-conj result elem))))))
 
 (defmethod binary-intersection ((s1 fol.compiler.collections:<dense-int-set>)
                                 (s2 fol.compiler.collections:<dense-int-set>))
@@ -1316,28 +1316,28 @@
   (let ((result (empty s)))
     (dolist (elem (fol.compiler.collections:collection-seq s) result)
       (when (funcall pred elem)
-        (setf result (fol.compiler.collections:collection-conj result elem))))))
+            (setf result (fol.compiler.collections:collection-conj result elem))))))
 
 (defmethod select (pred (s fol.compiler.collections:<ordered-set>))
   "Filter an ordered-set by predicate, preserving insertion order."
   (let ((result (empty s)))
     (dolist (elem (fol.compiler.collections:collection-seq s) result)
       (when (funcall pred elem)
-        (setf result (fol.compiler.collections:collection-conj result elem))))))
+            (setf result (fol.compiler.collections:collection-conj result elem))))))
 
 (defmethod select (pred (s fol.compiler.collections:<sorted-set>))
   "Filter a sorted-set by predicate, preserving comparator."
   (let ((result (empty s)))
     (dolist (elem (fol.compiler.collections:collection-seq s) result)
       (when (funcall pred elem)
-        (setf result (fol.compiler.collections:collection-conj result elem))))))
+            (setf result (fol.compiler.collections:collection-conj result elem))))))
 
 (defmethod select (pred (s fol.compiler.collections:<int-set>))
   "Filter an int-set by predicate."
   (let ((result (empty s)))
     (dolist (elem (fol.compiler.collections:collection-seq s) result)
       (when (funcall pred elem)
-        (setf result (fol.compiler.collections:collection-conj result elem))))))
+            (setf result (fol.compiler.collections:collection-conj result elem))))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; subset? - Test if one set is a subset of another
@@ -1460,7 +1460,7 @@
   (cl:reverse (subseq sc test key end-test end-key)))
 
 (defmethod subseq ((sc fol.compiler.collections:<int-set>) test key
-                                                            &optional end-test end-key)
+                                                           &optional end-test end-key)
   "Range query on an int-set."
   (let* ((cmp (fol.compiler.collections:comparator-compare sc))
          (elements (fol.compiler.collections:collection-seq sc))
@@ -1484,7 +1484,7 @@
     collect e)))
 
 (defmethod rsubseq ((sc fol.compiler.collections:<int-set>) test key
-                                                             &optional end-test end-key)
+                                                            &optional end-test end-key)
   "Reverse range query on an int-set."
   (cl:reverse (subseq sc test key end-test end-key)))
 
@@ -1625,7 +1625,7 @@
         (let ((k (car pair)) (v (cdr pair)))
           (multiple-value-bind (existing found) (ref result k)
             (setf result (fol.compiler.collections:collection-assoc
-                           result k (if found (funcall f existing v) v)))))))))
+                          result k (if found (funcall f existing v) v)))))))))
 
 (defmethod merge-with (f (coll fol.compiler.collections:<ordered-dict>) &rest colls)
   (let ((result coll))
@@ -1634,7 +1634,7 @@
         (let ((k (car pair)) (v (cdr pair)))
           (multiple-value-bind (existing found) (ref result k)
             (setf result (fol.compiler.collections:collection-assoc
-                           result k (if found (funcall f existing v) v)))))))))
+                          result k (if found (funcall f existing v) v)))))))))
 
 (defmethod merge-with (f (coll fol.compiler.collections:<sorted-dict>) &rest colls)
   (let ((result coll))
@@ -1643,7 +1643,7 @@
         (let ((k (car pair)) (v (cdr pair)))
           (multiple-value-bind (existing found) (fol.compiler.collections:collection-ref result k)
             (setf result (fol.compiler.collections:collection-assoc
-                           result k (if found (funcall f existing v) v)))))))))
+                          result k (if found (funcall f existing v) v)))))))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; select-keys - Extract a subset of keys from a dict
@@ -1659,7 +1659,7 @@
               (fol.compiler.collections:collection-ref dict k)
               (ref dict k))
         (when found
-          (setf result (fol.compiler.collections:collection-assoc result k val)))))))
+              (setf result (fol.compiler.collections:collection-assoc result k val)))))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; rename-keys - Rename keys in a dict according to a mapping
@@ -1672,8 +1672,8 @@
   (let ((result (empty dict)))
     (dolist (pair (fol.compiler.collections:collection-seq dict) result)
       (let* ((k (car pair)) (v (cdr pair))
-             (new-key (multiple-value-bind (nk found) (ref kmap k)
-                        (if found nk k))))
+                            (new-key (multiple-value-bind (nk found) (ref kmap k)
+                                       (if found nk k))))
         (setf result (fol.compiler.collections:collection-assoc result new-key v))))))
 
 ;;; ---------------------------------------------------------------------------
@@ -1697,7 +1697,7 @@
   (let ((result (empty dict)))
     (dolist (pair (fol.compiler.collections:collection-seq dict) result)
       (setf result (fol.compiler.collections:collection-assoc
-                     result (funcall f (car pair)) (cdr pair))))))
+                    result (funcall f (car pair)) (cdr pair))))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; update-vals - Transform all values with a function

@@ -106,25 +106,27 @@
 
 (defun filter-as-bindings (elem-list)
   "Remove :as and its following symbol, and & and everything after it,
-   from ELEM-LIST.  Returns elements that participate in pattern matching."
-  (let ((result nil))
+   from ELEM-LIST.  Returns (values filtered-elements has-rest-p)."
+  (let ((result nil)
+        (has-rest nil))
     (loop for remaining on elem-list
           for elem = (car remaining)
           do (cond
               ((eq elem :as)
                 (return))
               ((and (symbolp elem) (string= (symbol-name elem) "&"))
+                (setf has-rest t)
                 (return))
               (t (push elem result))))
-    (nreverse result)))
+    (values (nreverse result) has-rest)))
 
 (defun compute-element-signature (elem)
   "Compute signature for a single element within a destructuring pattern.
    Returns a signature spec:
      symbol             -> (:any)
-     (var (fn args...)) -> (:pred fn args)
+     (var (fn args...)) -> (:pred fn args) OR (:type-pred fn args)
      (var <type>)       -> (:type <type>)
-     #(elems...)        -> (:seq (element-sigs...))
+     #(elems...)        -> (:seq (element-sigs...) has-rest)
      otherwise          -> (:any)"
   (cond
    ((symbolp elem) (list :any))
@@ -135,8 +137,11 @@
          (symbolp (first elem))
          (listp (second elem))
          (not (null (second elem))))
-     (let ((pred-form (second elem)))
-       (list :pred (first pred-form) (rest pred-form))))
+     (let* ((pred-form (second elem))
+            (fn (first pred-form)))
+       (if (type-predicate-p fn)
+           (list :type-pred fn (rest pred-form))
+           (list :pred fn (rest pred-form)))))
    ;; Type specializer: (var <type>)
    ((and (listp elem)
          (not (null elem))
@@ -147,8 +152,8 @@
    ;; Nested FOL vector -> sequence destructuring
    ((typep elem 'fol.compiler.collections:<vector>)
      (let ((elements (fol.compiler.collections:collection-seq elem)))
-       (let ((filtered (filter-as-bindings elements)))
-         (list :seq (mapcar #'compute-element-signature filtered)))))
+       (multiple-value-bind (filtered has-rest) (filter-as-bindings elements)
+         (list :seq (mapcar #'compute-element-signature filtered) has-rest))))
    (t (list :any))))
 
 (defun compute-pattern-signature (param-list)
@@ -156,9 +161,10 @@
    PARAM-LIST is the list of regular parameters (after parse-params).
    Returns a list of pattern specs:
      (:any)             - simple parameter, matches anything
-     (:seq elem-sigs)   - sequence destructuring
+     (:seq elem-sigs has-rest) - sequence destructuring
      (:type class-name) - type specializer
-     (:pred fn args)    - predicate specializer"
+     (:type-pred fn args) - recognized type predicate
+     (:pred fn args)    - arbitrary predicate specializer"
   (mapcar (lambda (param)
             (cond
              ;; Predicate specializer: (var (fn arg0 arg1 ...))
@@ -168,8 +174,11 @@
                    (symbolp (first param))
                    (listp (second param))
                    (not (null (second param))))
-               (let ((pred-form (second param)))
-                 (list :pred (first pred-form) (rest pred-form))))
+               (let* ((pred-form (second param))
+                      (fn (first pred-form)))
+                 (if (type-predicate-p fn)
+                     (list :type-pred fn (rest pred-form))
+                     (list :pred fn (rest pred-form)))))
              ;; Type specializer: (var <type>)
              ((and (listp param)
                    (not (null param))
@@ -180,8 +189,8 @@
              ;; Sequence pattern (FOL vector)
              ((typep param 'fol.compiler.collections:<vector>)
                (let ((elements (fol.compiler.collections:collection-seq param)))
-                 (let ((filtered (filter-as-bindings elements)))
-                   (list :seq (mapcar #'compute-element-signature filtered)))))
+                 (multiple-value-bind (filtered has-rest) (filter-as-bindings elements)
+                   (list :seq (mapcar #'compute-element-signature filtered) has-rest))))
              ;; Default: any
              (t (list :any))))
       param-list))
@@ -202,10 +211,11 @@
     (:any 0)
     (t 0)))
 
+
 (defun pattern-more-specific-p (sig1 sig2)
   "Return T if signature SIG1 is more specific than SIG2.
-   Compares element-by-element.  For sequences, compares length
-   then element-level specificity recursively."
+   Implements lexicographical ordering: compares elements by level,
+   then handles nested sequence length and variadicness."
   (loop for s1 in sig1
         for s2 in sig2
         for level1 = (pattern-specificity-level s1)
@@ -215,29 +225,30 @@
               (return-from pattern-more-specific-p t))
             ((< level1 level2)
               (return-from pattern-more-specific-p nil))
-            ;; Same level - sub-specificity for sequences
+            ;; Same level - recurse for sequences
             ((and (eq (first s1) :seq) (eq (first s2) :seq))
               (let ((elems1 (second s1))
-                    (elems2 (second s2)))
+                    (elems2 (second s2))
+                    (rest1 (third s1))
+                    (rest2 (third s2)))
                 (cond
+                 ;; Recurse on common prefix
+                 ((pattern-more-specific-p elems1 elems2)
+                   (return-from pattern-more-specific-p t))
+                 ((pattern-more-specific-p elems2 elems1)
+                   (return-from pattern-more-specific-p nil))
+                 ;; Common prefix is tied - longer sequence wins
                  ((> (length elems1) (length elems2))
                    (return-from pattern-more-specific-p t))
                  ((< (length elems1) (length elems2))
                    (return-from pattern-more-specific-p nil))
-                 (t
-                   (loop for e1 in elems1
-                         for e2 in elems2
-                         for el1 = (pattern-specificity-level e1)
-                         for el2 = (pattern-specificity-level e2)
-                         do (cond
-                             ((> el1 el2)
-                               (return-from pattern-more-specific-p t))
-                             ((< el1 el2)
-                               (return-from pattern-more-specific-p nil))
-                             ((and (eq (first e1) :seq) (eq (first e2) :seq))
-                               (when (pattern-more-specific-p (list e1) (list e2))
-                                     (return-from pattern-more-specific-p t)))))))))))
-  nil)
+                 ;; Length is tied - fixed wins over variadic
+                 ((and (not rest1) rest2)
+                   (return-from pattern-more-specific-p t))
+                 ((and rest1 (not rest2))
+                   (return-from pattern-more-specific-p nil)))))))
+  ;; Prefix is tied - longer top-level list wins (for sequences)
+  (> (length sig1) (length sig2)))
 
 ;;; ---------------------------------------------------------------------------
 ;;; FOL type name -> CL type specifier mapping
@@ -265,6 +276,15 @@
                 do (setf (gethash fol-name ht) cl-type))
           ht)
         "Map from FOL type name strings to CL type specifiers.")
+
+(defun type-predicate-p (sym)
+  "Check if SYM is a recognized type predicate (e.g., <number>?)."
+  (let ((name (symbol-name sym)))
+    (and (> (length name) 2)
+         (char= (char name 0) #\<)
+         (char= (char name (1- (length name))) #\?)
+         (let ((type-name (subseq name 0 (1- (length name)))))
+           (gethash type-name *fol-type-to-cl-type*)))))
 
 (defun fol-type-to-cl-type (fol-type-sym)
   "Convert a FOL type symbol like <number> to a CL type specifier.
@@ -298,13 +318,24 @@
            (if extra-args
                `(,fn-name ,arg-expr ,@extra-args)
                `(,fn-name ,arg-expr)))))
+    (:type-pred
+     (let ((fn-name (second sig))
+           (extra-args (third sig)))
+       ;; Recognized type predicates are always emitted as direct calls
+       ;; unless a hook is present (which is rare outside bootstrap).
+       (if extra-args
+           `(,fn-name ,arg-expr ,@extra-args)
+           `(,fn-name ,arg-expr))))
     (:seq
      (let* ((elem-sigs (second sig))
+            (has-rest (third sig))
             (n (length elem-sigs))
             (temp (gensym "SEQ")))
        `(let ((,temp ,arg-expr))
           (and (typep ,temp 'sequence)
-               (>= (length ,temp) ,n)
+               ,(if has-rest
+                    `(>= (cl:length ,temp) ,n)
+                    `(= (cl:length ,temp) ,n))
                ,@(loop for es in elem-sigs
                        for i from 0
                        for check = (emit-element-pattern-check es `(elt ,temp ,i))

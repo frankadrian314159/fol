@@ -34,629 +34,307 @@
 ;;; %vec-f64 Implementation
 ;;; ============================================================================
 
-(deftype f64-leaf () `(simple-array double-float (,+branch-factor+)))
 
-(defstruct (%vec-f64 (:constructor %make-vec-f64)
-                     (:predicate %vec-f64?)
-                     (:conc-name %f64-))
-  (count 0 :type fixnum)
-  (shift 0 :type fixnum)
-  (root #() :type (simple-array t (*)))
-  (tail (make-array 0 :element-type 'double-float) :type (simple-array double-float (*))))
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun %pvec-mk-sym (fmt &rest args)
+    (intern (apply #'format nil fmt (mapcar #'string args)))))
 
-(defun %vec-f64-count (v) (declare (type %vec-f64 v)) (%f64-count v))
+(defmacro define-pvec-trie (name conc-name leaf-type element-type fallback-val accessor)
+  (let* ((make-name (%pvec-mk-sym "%MAKE-~A" (subseq (string name) 1)))
+         (pred-name (%pvec-mk-sym "~A?" name))
+         (count-acc (%pvec-mk-sym "~ACOUNT" conc-name))
+         (shift-acc (%pvec-mk-sym "~ASHIFT" conc-name))
+         (root-acc (%pvec-mk-sym "~AROOT" conc-name))
+         (tail-acc (%pvec-mk-sym "~ATAIL" conc-name))
 
-(defun %vec-f64-tail-off (v)
-  (declare (type %vec-f64 v) (optimize (speed 3) (safety 0)))
-  (let ((cnt (%f64-count v)))
-    (if (< cnt +branch-factor+) 0 (ash (ash (1- cnt) (- +bit-shift+)) +bit-shift+))))
+         (api-count (%pvec-mk-sym "~A-COUNT" name))
+         (api-tail-off (%pvec-mk-sym "~A-TAIL-OFF" name))
+         (api-ref (%pvec-mk-sym "~A-REF" name))
+         (api-conj (%pvec-mk-sym "~A-CONJ" name))
+         (api-assoc (%pvec-mk-sym "~A-ASSOC" name))
 
-(defun %vec-f64-ref (v index &optional not-found)
-  (declare (type %vec-f64 v)
-           (type fixnum index)
-           (optimize (speed 3) (safety 0)))
+         (empty-vec (%pvec-mk-sym "%EMPTY-~A" (subseq (string name) 1)))
+         (make-filled (%pvec-mk-sym "%MAKE-FILLED-~A" (subseq (string name) 1)))
+         (build-vec (%pvec-mk-sym "%BUILD-~A-FROM-LIST" (subseq (string name) 1)))
 
-  ;; 1. The Safe Bounds Check
-  (if (or (< index 0) (>= index (%f64-count v)))
-      (values not-found nil) ;; Return (fallback-value, NIL)
+         (clone-leaf (%pvec-mk-sym "~ACLONE-LEAF" conc-name))
+         (new-path (%pvec-mk-sym "~ANEW-PATH" conc-name))
+         (trans-name (%pvec-mk-sym "TRANSIENT-~A" name))
+         (make-trans (%pvec-mk-sym "MAKE-TRANSIENT-~A" name))
+         (trans-name-p (%pvec-mk-sym "TRANSIENT-~A-P" name))
+         (trans-conc (%pvec-mk-sym "TRANS-~A-" name))
+         (trans-count (%pvec-mk-sym "TRANS-~A-COUNT" name))
+         (trans-shift (%pvec-mk-sym "TRANS-~A-SHIFT" name))
+         (trans-root (%pvec-mk-sym "TRANS-~A-ROOT" name))
+         (trans-tail (%pvec-mk-sym "TRANS-~A-TAIL" name))
+         (trans-token (%pvec-mk-sym "TRANS-~A-TOKEN" name))
+         
+         (api-transient (%pvec-mk-sym "TRANSIENT-~A" name))
+         (api-transient-conj (%pvec-mk-sym "TRANSIENT-~A-CONJ!" name))
+         (api-transient-persistent (%pvec-mk-sym "TRANSIENT-~A-PERSISTENT!" name))
+         (push-tail (%pvec-mk-sym "~APUSH-TAIL" conc-name))
 
-      ;; 2. The Tail Fast-Path
-      (if (>= index (%vec-f64-tail-off v))
-          (values (aref (%f64-tail v) (logand index +bit-mask+)) t) ;; Return (value, T)
+         (leaf-type-def (if (eq element-type 't)
+                            `(simple-vector ,+branch-factor+)
+                            `(simple-array ,element-type (,+branch-factor+))))
+         (root-type (if (eq element-type 't)
+                        'simple-vector
+                        `(simple-array t (*))))
+         (tail-type (if (eq element-type 't)
+                        'simple-vector
+                        `(simple-array ,element-type (*))))
+         (make-tail-empty (if (eq element-type 't)
+                              `(make-array 0)
+                              `(make-array 0 :element-type ',element-type)))
+         (make-tail-len (if (eq element-type 't)
+                            `(make-array (1+ tail-len))
+                            `(make-array (1+ tail-len) :element-type ',element-type)))
+         (make-tail-1 (if (eq element-type 't)
+                          `(make-array 1)
+                          `(make-array 1 :element-type ',element-type)))
+         (make-new-tail-len (if (eq element-type 't)
+                                `(make-array (length old-tail))
+                                `(make-array (length old-tail) :element-type ',element-type))))
+    `(progn
+      (deftype ,leaf-type () ',leaf-type-def)
 
-          ;; 3. The Tree Traversal
-          (let ((node (%f64-root v))
-                (shift (%f64-shift v)))
-            (loop for level-shift from shift downto +bit-shift+ by +bit-shift+
-                  do (setf node (svref node (logand (ash index (- level-shift)) +bit-mask+))))
-            (values (aref node (logand index +bit-mask+)) t))))) ;; Return (value, T)
+      (defstruct (,name (:constructor ,make-name)
+                   (:predicate ,pred-name)
+                   (:conc-name ,conc-name))
+        (count 0 :type fixnum)
+        (shift 0 :type fixnum)
+        (root #() :type ,root-type)
+        (tail ,make-tail-empty :type ,tail-type))
 
-(defun %f64-clone-leaf (leaf)
-  (declare (type f64-leaf leaf) (optimize (speed 3) (safety 0)))
-  (copy-seq leaf))
+      (defun ,api-count (v) (declare (type ,name v)) (,count-acc v))
 
-(defun %f64-new-path (shift leaf)
-  (if (<= shift 0) leaf
-      (let ((node (make-array +branch-factor+ :initial-element nil)))
-        (setf (svref node 0) (%f64-new-path (- shift +bit-shift+) leaf))
-        node)))
+      (defun ,api-tail-off (v)
+        (declare (type ,name v) (optimize (speed 3) (safety 0)))
+        (let ((cnt (,count-acc v)))
+          (if (< cnt +branch-factor+) 0 (ash (ash (1- cnt) (- +bit-shift+)) +bit-shift+))))
 
-(defun %f64-push-tail (shift node idx tail-node)
-  (let ((new-node (%clone-node node))
-        (sub-idx (logand (ash idx (- shift)) +bit-mask+)))
-    (if (= shift +bit-shift+)
-        (setf (svref new-node sub-idx) tail-node)
-        (let ((child (svref node sub-idx)))
-          (if child
-              (setf (svref new-node sub-idx) (%f64-push-tail (- shift +bit-shift+) child idx tail-node))
-              (setf (svref new-node sub-idx) (%f64-new-path (- shift +bit-shift+) tail-node)))))
-    new-node))
+      (defun ,api-ref (v index &optional not-found)
+        (declare (type ,name v)
+                 (type fixnum index)
+                 (optimize (speed 3) (safety 0)))
+        (if (or (< index 0) (>= index (,count-acc v)))
+            (values not-found nil)
+            (if (>= index (,api-tail-off v))
+                (values (,accessor (,tail-acc v) (logand index +bit-mask+)) t)
+                (let ((node (,root-acc v))
+                      (shift (,shift-acc v)))
+                  (loop for level-shift from shift downto +bit-shift+ by +bit-shift+
+                        do (setf node (svref node (logand (ash index (- level-shift)) +bit-mask+))))
+                  (values (,accessor node (logand index +bit-mask+)) t)))))
 
-(defun %vec-f64-conj (v val)
-  (declare (type %vec-f64 v) (type double-float val) (optimize (speed 3) (safety 0)))
-  (let* ((cnt (%f64-count v))
-         (tail (%f64-tail v))
-         (tail-len (length tail)))
-    (if (< tail-len +branch-factor+)
-        (let ((new-tail (make-array (1+ tail-len) :element-type 'double-float)))
-          (replace new-tail tail)
-          (setf (aref new-tail tail-len) val)
-          (%make-vec-f64 :count (1+ cnt) :shift (%f64-shift v) :root (%f64-root v) :tail new-tail))
-        (let* ((tail-node tail)
-               (new-tail (make-array 1 :element-type 'double-float))
-               (root (%f64-root v))
-               (shift (%f64-shift v)))
-          (setf (aref new-tail 0) val)
-          (cond
-           ((zerop (length root))
-             (let ((new-root (make-array +branch-factor+)))
-               (setf (svref new-root 0) tail-node)
-               (%make-vec-f64 :count (1+ cnt) :shift +bit-shift+ :root new-root :tail new-tail)))
-           ((> (ash cnt (- +bit-shift+)) (ash 1 shift))
-             (let ((new-root (make-array +branch-factor+ :initial-element nil)))
-               (setf (svref new-root 0) root)
-               (setf (svref new-root 1) (%f64-new-path shift tail-node))
-               (%make-vec-f64 :count (1+ cnt) :shift (+ shift +bit-shift+) :root new-root :tail new-tail)))
-           (t (%make-vec-f64 :count (1+ cnt) :shift shift :root (%f64-push-tail shift root (1- cnt) tail-node) :tail new-tail)))))))
+      (defun ,clone-leaf (leaf)
+        (declare (type ,leaf-type leaf) (optimize (speed 3) (safety 0)))
+        (copy-seq leaf))
 
-(defun %vec-f64-assoc (v index new-val)
-  (declare (type %vec-f64 v) (type fixnum index) (type double-float new-val) (optimize (speed 3) (safety 0)))
-  (let ((cnt (%f64-count v)))
-    (if (>= index (%vec-f64-tail-off v))
-        (let* ((old-tail (%f64-tail v))
-               (new-tail (make-array (length old-tail) :element-type 'double-float)))
-          (replace new-tail old-tail)
-          (setf (aref new-tail (logand index +bit-mask+)) new-val)
-          (%make-vec-f64 :count cnt :shift (%f64-shift v) :root (%f64-root v) :tail new-tail))
-        (labels ((update (node level-shift)
-                         (if (= level-shift 0)
-                             (let ((new-leaf (%f64-clone-leaf node)))
-                               (setf (aref new-leaf (logand index +bit-mask+)) new-val)
-                               new-leaf)
-                             (let ((new-node (%clone-node node))
-                                   (child-idx (logand (ash index (- level-shift)) +bit-mask+)))
-                               (setf (svref new-node child-idx)
-                                 (update (svref node child-idx)
-                                         (- level-shift +bit-shift+)))
-                               new-node))))
-          (%make-vec-f64 :count cnt :shift (%f64-shift v)
-                         :root (update (%f64-root v) (%f64-shift v))
-                         :tail (%f64-tail v))))))
+      (defun ,new-path (shift leaf)
+        (if (<= shift 0) leaf
+            (let ((node (make-array +branch-factor+ :initial-element nil)))
+              (setf (svref node 0) (,new-path (- shift +bit-shift+) leaf))
+              node)))
 
-(defparameter %empty-vec-f64 (%make-vec-f64))
+      (defun ,push-tail (shift node idx tail-node)
+        (let ((new-node (%clone-node node))
+              (sub-idx (logand (ash idx (- shift)) +bit-mask+)))
+          (if (= shift +bit-shift+)
+              (setf (svref new-node sub-idx) tail-node)
+              (let ((child (svref node sub-idx)))
+                (if child
+                    (setf (svref new-node sub-idx) (,push-tail (- shift +bit-shift+) child idx tail-node))
+                    (setf (svref new-node sub-idx) (,new-path (- shift +bit-shift+) tail-node)))))
+          new-node))
 
+      (defun ,api-conj (v val)
+        (declare (type ,name v) ,@(when (not (eq element-type 't)) `((type ,element-type val))) (optimize (speed 3) (safety 0)))
+        (let* ((cnt (,count-acc v))
+               (tail (,tail-acc v))
+               (tail-len (length tail)))
+          (if (< tail-len +branch-factor+)
+              (let ((new-tail ,make-tail-len))
+                (replace new-tail tail)
+                (setf (,accessor new-tail tail-len) val)
+                (,make-name :count (1+ cnt) :shift (,shift-acc v) :root (,root-acc v) :tail new-tail))
+              (let* ((tail-node tail)
+                     (new-tail ,make-tail-1)
+                     (root (,root-acc v))
+                     (shift (,shift-acc v)))
+                (setf (,accessor new-tail 0) val)
+                (cond
+                 ((zerop (length root))
+                   (let ((new-root (make-array +branch-factor+)))
+                     (setf (svref new-root 0) tail-node)
+                     (,make-name :count (1+ cnt) :shift +bit-shift+ :root new-root :tail new-tail)))
+                 ((> (ash cnt (- +bit-shift+)) (ash 1 shift))
+                   (let ((new-root (make-array +branch-factor+ :initial-element nil)))
+                     (setf (svref new-root 0) root)
+                     (setf (svref new-root 1) (,new-path shift tail-node))
+                     (,make-name :count (1+ cnt) :shift (+ shift +bit-shift+) :root new-root :tail new-tail)))
+                 (t (,make-name :count (1+ cnt) :shift shift :root (,push-tail shift root (1- cnt) tail-node) :tail new-tail)))))))
 
-(defun %make-filled-vec-f64 (size initial-value)
-  "Creates a persistent vector of SIZE filled with INITIAL-VALUE in O(N) time but O(log N) memory."
-  (declare (type fixnum size) (optimize (speed 3) (safety 0)))
+      (defun ,api-assoc (v index new-val)
+        (declare (type ,name v) (type fixnum index) ,@(when (not (eq element-type 't)) `((type ,element-type new-val))) (optimize (speed 3) (safety 0)))
+        (let ((cnt (,count-acc v)))
+          (if (>= index (,api-tail-off v))
+              (let* ((old-tail (,tail-acc v))
+                     (new-tail ,make-new-tail-len))
+                (replace new-tail old-tail)
+                (setf (,accessor new-tail (logand index +bit-mask+)) new-val)
+                (,make-name :count cnt :shift (,shift-acc v) :root (,root-acc v) :tail new-tail))
+              (labels ((update (node level-shift)
+                               (if (= level-shift 0)
+                                   (let ((new-leaf (,clone-leaf node)))
+                                     (setf (,accessor new-leaf (logand index +bit-mask+)) new-val)
+                                     new-leaf)
+                                   (let ((new-node (%clone-node node))
+                                         (child-idx (logand (ash index (- level-shift)) +bit-mask+)))
+                                     (setf (svref new-node child-idx)
+                                       (update (svref node child-idx)
+                                               (- level-shift +bit-shift+)))
+                                     new-node))))
+                (,make-name :count cnt :shift (,shift-acc v)
+                  :root (update (,root-acc v) (,shift-acc v))
+                  :tail (,tail-acc v))))))
 
-  ;; Base Case: The vector fits entirely within the tail array
-  (if (<= size 32)
-      (let ((tail (make-array size :element-type 'double-float :initial-element initial-value)))
-        (%make-vec-f64 :count size :shift 0 :root #() :tail tail))
+      
+       (defstruct (,trans-name (:constructor ,make-trans)
+                               (:predicate ,trans-name-p)
+                               (:conc-name ,trans-conc))
+         (count 0 :type fixnum)
+         (shift 0 :type fixnum)
+         (root #() :type ,root-type)
+         (tail ,make-tail-empty :type ,tail-type)
+         (token nil))
 
-      ;; General Case: We need to build a tree
-      (let* ((tree-count (if (< size 32) 0 (ash (ash (1- size) -5) 5)))
-             (tail-len (- size tree-count))
-             ;; 1. Allocate the Tail
-             (tail (make-array tail-len :element-type 'double-float :initial-element initial-value))
-             ;; 2. The Magic: Allocate ONE leaf to represent all identical leaves
-             (shared-leaf (make-array 32 :element-type 'double-float :initial-element initial-value))
-             (nodes nil))
+       (defun ,api-transient (v)
+         (let* ((token (cons nil nil))
+                (cnt (,count-acc v))
+                (persistent-tail (,tail-acc v))
+                (tail (make-array 32 ,@(when (not (eq element-type 't)) `(:element-type ',element-type)))))
+           (replace tail persistent-tail)
+           (,make-trans :count cnt
+                        :shift (,shift-acc v)
+                        :root (,root-acc v)
+                        :tail tail
+                        :token token)))
 
-        ;; 3. Populate the bottom layer using the exact same shared leaf pointer
-        (loop repeat (ash tree-count -5) ; Equivalent to (tree-count / 32)
-              do (push shared-leaf nodes))
+       (defun ,api-transient-conj (tv val)
+         (declare ,@(when (not (eq element-type 't)) `((type ,element-type val))) (optimize (speed 3) (safety 0)))
+         (unless (,trans-token tv) (error "Transient used after persistent! call"))
+         (let* ((cnt (,trans-count tv)))
+           (when (and (> cnt 0) (zerop (logand cnt 31)))
+             (let ((root (,trans-root tv))
+                   (shift (,trans-shift tv))
+                   (node-to-push (,trans-tail tv)))
+               (let ((new-tail (make-array 32 ,@(when (not (eq element-type 't)) `(:element-type ',element-type)))))
+                 (setf (,trans-tail tv) new-tail))
+               (cond
+                ((zerop (length root))
+                  (let ((new-root (make-array +branch-factor+)))
+                    (setf (svref new-root 0) node-to-push)
+                    (setf (,trans-root tv) new-root)
+                    (setf (,trans-shift tv) +bit-shift+)))
+                ((> (ash cnt (- +bit-shift+)) (ash 1 shift))
+                  (let ((new-root (make-array +branch-factor+ :initial-element nil)))
+                    (setf (svref new-root 0) root)
+                    (setf (svref new-root 1) (,new-path shift node-to-push))
+                    (setf (,trans-root tv) new-root)
+                    (setf (,trans-shift tv) (+ shift +bit-shift+))))
+                (t
+                  (setf (,trans-root tv) (,push-tail shift root (1- cnt) node-to-push))))))
+           (let ((tail-idx (logand cnt 31)))
+             (setf (,accessor (,trans-tail tv) tail-idx) val)
+             (incf (,trans-count tv))
+             tv)))
 
-        ;; 4. Build the internal routing nodes bottom-up
-        (let ((shift 0))
-          (loop while (> (length nodes) 1)
-                do (let ((next-level nil)
-                         (current nodes))
-                     ;; Group nodes into chunks of 32
-                     (loop while current
-                           do (let ((internal (make-array 32 :initial-element nil)))
-                                (loop for i from 0 below 32
-                                      while current
-                                      do (setf (svref internal i) (pop current)))
-                                (push internal next-level)))
-                     ;; Prepare for the next level up
-                     (setf nodes (nreverse next-level))
-                     (incf shift 5)))
+       (defun ,api-transient-persistent (tv)
+         (unless (,trans-token tv) (error "Transient used after persistent! call"))
+         (setf (,trans-token tv) nil)
+         (let* ((cnt (,trans-count tv))
+                (tail (,trans-tail tv))
+                (real-tail-len (if (zerop cnt) 0 (1+ (logand (1- cnt) 31))))
+                (frozen-tail (make-array real-tail-len ,@(when (not (eq element-type 't)) `(:element-type ',element-type)))))
+           (replace frozen-tail tail :end1 real-tail-len :end2 real-tail-len)
+           (,make-name :count cnt
+                       :shift (,trans-shift tv)
+                       :root (,trans-root tv)
+                       :tail frozen-tail)))
 
-          ;; 5. The final remaining node is the root
-          (%make-vec-f64 :count size
-                         :shift shift
-                         :root (car nodes)
-                         :tail tail)))))
+       (defparameter ,empty-vec (,make-name))
 
-(defun %build-vec-f64-from-list (lst)
-  "Bulk-loads a list of elements into a persistent vector trie in strict O(N) time."
-  (let ((count (length lst)))
-    (if (<= count 32)
-        ;; Base Case: Fits entirely in the tail
-        (let ((tail (make-array count :element-type 'double-float :initial-element 0.0d0)))
-          (loop for item in lst for i from 0 do (setf (aref tail i) item))
-          (%make-vec-f64 :count count :shift 0 :root #() :tail tail))
+      (defun ,make-filled (size initial-value)
+        (declare (type fixnum size) (optimize (speed 3) (safety 0)))
+        (if (<= size 32)
+            (let ((tail (make-array size ,@(when (not (eq element-type 't)) `(:element-type ',element-type)) :initial-element initial-value)))
+              (,make-name :count size :shift 0 :root #() :tail tail))
+            (let* ((tree-count (if (< size 32) 0 (ash (ash (1- size) -5) 5)))
+                   (tail-len (- size tree-count))
+                   (tail (make-array tail-len ,@(when (not (eq element-type 't)) `(:element-type ',element-type)) :initial-element initial-value))
+                   (shared-leaf (make-array 32 ,@(when (not (eq element-type 't)) `(:element-type ',element-type)) :initial-element initial-value))
+                   (nodes nil))
+              (loop repeat (ash tree-count -5) do (push shared-leaf nodes))
+              (let ((shift 0))
+                (loop while (> (length nodes) 1)
+                      do (let ((next-level nil) (current nodes))
+                           (loop while current
+                                 do (let ((internal (make-array 32 :initial-element nil)))
+                                      (loop for i from 0 below 32 while current
+                                            do (setf (svref internal i) (pop current)))
+                                      (push internal next-level)))
+                           (setf nodes (nreverse next-level))
+                           (incf shift 5)))
+                (,make-name :count size :shift shift :root (car nodes) :tail tail)))))
 
-        ;; General Case: Build the tree bottom-up
-        (let* ((tree-count (if (< count 32) 0 (ash (ash (1- count) -5) 5)))
-               (tail-len (- count tree-count))
-               (tail (make-array tail-len :element-type 'double-float :initial-element 0.0d0))
-               (nodes nil)
-               (current lst))
+      (defun ,build-vec (lst)
+        (let ((count (length lst)))
+          (if (<= count 32)
+              (let ((tail (make-array count ,@(when (not (eq element-type 't)) `(:element-type ',element-type)) :initial-element ,fallback-val)))
+                (loop for item in lst for i from 0 do (setf (,accessor tail i) item))
+                (,make-name :count count :shift 0 :root #() :tail tail))
+              (let* ((tree-count (if (< count 32) 0 (ash (ash (1- count) -5) 5)))
+                     (tail-len (- count tree-count))
+                     (tail (make-array tail-len ,@(when (not (eq element-type 't)) `(:element-type ',element-type)) :initial-element ,fallback-val))
+                     (nodes nil)
+                     (current lst))
+                (loop repeat (ash tree-count -5)
+                      do (let ((leaf (make-array 32 ,@(when (not (eq element-type 't)) `(:element-type ',element-type)) :initial-element ,fallback-val)))
+                           (loop for i from 0 below 32
+                                 do (setf (,accessor leaf i) (car current)
+                                      current (cdr current)))
+                           (push leaf nodes)))
+                (setf nodes (nreverse nodes))
+                (loop for i from 0 below tail-len
+                      do (setf (,accessor tail i) (car current)
+                           current (cdr current)))
+                (let ((shift 0))
+                  (loop while (> (length nodes) 1)
+                        do (let ((next-level nil))
+                             (loop for chunk on nodes by (lambda (x) (nthcdr 32 x))
+                                   do (let ((internal (make-array 32 :initial-element nil)))
+                                        (loop for node in chunk for i from 0 below 32
+                                              do (setf (svref internal i) node))
+                                        (push internal next-level)))
+                             (setf nodes (nreverse next-level))
+                             (incf shift 5)))
+                  (,make-name :count count :shift shift :root (car nodes) :tail tail)))))))))
 
-          ;; 1. Build all the bottom-level leaf nodes (32 elements each)
-          (loop repeat (ash tree-count -5)
-                do (let ((leaf (make-array 32 :element-type 'double-float :initial-element 0.0d0)))
-                     (loop for i from 0 below 32
-                           do (setf (aref leaf i) (car current)
-                                current (cdr current)))
-                     (push leaf nodes)))
-          (setf nodes (nreverse nodes))
-
-          ;; 2. Fill the tail array with the remaining elements
-          (loop for i from 0 below tail-len
-                do (setf (aref tail i) (car current)
-                     current (cdr current)))
-
-          ;; 3. Build the internal routing nodes bottom-up
-          (let ((shift 0))
-            (loop while (> (length nodes) 1)
-                  do (let ((next-level nil))
-                       ;; Group nodes into chunks of 32
-                       (loop for chunk on nodes by (lambda (x) (nthcdr 32 x))
-                             do (let ((internal (make-array 32 :initial-element nil)))
-                                  (loop for node in chunk for i from 0 below 32
-                                        do (setf (svref internal i) node))
-                                  (push internal next-level)))
-                       (setf nodes (nreverse next-level))
-                       (incf shift 5)))
-
-            ;; 4. The final remaining node is our root
-            (%make-vec-t :count count
-                         :shift shift
-                         :root (car nodes)
-                         :tail tail))))))
+(define-pvec-trie %vec-f64 %f64- f64-leaf double-float 0.0d0 aref)
 
 
 ;;; ============================================================================
 ;;; %vec-f32 Implementation
 ;;; ============================================================================
 
-(deftype f32-leaf () `(simple-array single-float (,+branch-factor+)))
-
-(defstruct (%vec-f32 (:constructor %make-vec-f32)
-                     (:predicate %vec-f32?)
-                     (:conc-name %f32-))
-  (count 0 :type fixnum)
-  (shift 0 :type fixnum)
-  (root #() :type (simple-array t (*)))
-  (tail (make-array 0 :element-type 'single-float) :type (simple-array single-float (*))))
-
-(defun %vec-f32-count (v) (declare (type %vec-f32 v)) (%f32-count v))
-
-(defun %vec-f32-tail-off (v)
-  (declare (type %vec-f32 v) (optimize (speed 3) (safety 0)))
-  (let ((cnt (%f32-count v)))
-    (if (< cnt +branch-factor+) 0 (ash (ash (1- cnt) (- +bit-shift+)) +bit-shift+))))
-
-(defun %vec-f32-ref (v index &optional not-found)
-  (declare (type %vec-f32 v)
-           (type fixnum index)
-           (optimize (speed 3) (safety 0)))
-
-  ;; 1. The Safe Bounds Check
-  (if (or (< index 0) (>= index (%f32-count v)))
-      (values not-found nil) ;; Return (fallback-value, NIL)
-
-      ;; 2. The Tail Fast-Path
-      (if (>= index (%vec-f32-tail-off v))
-          (values (aref (%f32-tail v) (logand index +bit-mask+)) t) ;; Return (value, T)
-
-          ;; 3. The Tree Traversal
-          (let ((node (%f32-root v))
-                (shift (%f32-shift v)))
-            (loop for level-shift from shift downto +bit-shift+ by +bit-shift+
-                  do (setf node (svref node (logand (ash index (- level-shift)) +bit-mask+))))
-            (values (aref node (logand index +bit-mask+)) t))))) ;; Return (value, T)
-
-(defun %f32-clone-leaf (leaf)
-  (declare (type f32-leaf leaf) (optimize (speed 3) (safety 0)))
-  (copy-seq leaf))
-
-
-(defun %f32-new-path (shift leaf)
-  (if (<= shift 0) leaf
-      (let ((node (make-array +branch-factor+ :initial-element nil)))
-        (setf (svref node 0) (%f32-new-path (- shift +bit-shift+) leaf))
-        node)))
-
-(defun %f32-push-tail (shift node idx tail-node)
-  (let ((new-node (%clone-node node))
-        (sub-idx (logand (ash idx (- shift)) +bit-mask+)))
-    (if (= shift +bit-shift+)
-        (setf (svref new-node sub-idx) tail-node)
-        (let ((child (svref node sub-idx)))
-          (if child
-              (setf (svref new-node sub-idx) (%f32-push-tail (- shift +bit-shift+) child idx tail-node))
-              (setf (svref new-node sub-idx) (%f32-new-path (- shift +bit-shift+) tail-node)))))
-    new-node))
-
-(defun %vec-f32-conj (v val)
-  (declare (type %vec-f32 v) (type single-float val) (optimize (speed 3) (safety 0)))
-  (let* ((cnt (%f32-count v))
-         (tail (%f32-tail v))
-         (tail-len (length tail)))
-    (if (< tail-len +branch-factor+)
-        (let ((new-tail (make-array (1+ tail-len) :element-type 'single-float)))
-          (replace new-tail tail)
-          (setf (aref new-tail tail-len) val)
-          (%make-vec-f32 :count (1+ cnt) :shift (%f32-shift v) :root (%f32-root v) :tail new-tail))
-        (let* ((tail-node tail)
-               (new-tail (make-array 1 :element-type 'single-float))
-               (root (%f32-root v))
-               (shift (%f32-shift v)))
-          (setf (aref new-tail 0) val)
-          (cond
-           ((zerop (length root))
-             (let ((new-root (make-array +branch-factor+)))
-               (setf (svref new-root 0) tail-node)
-               (%make-vec-f32 :count (1+ cnt) :shift +bit-shift+ :root new-root :tail new-tail)))
-           ((> (ash cnt (- +bit-shift+)) (ash 1 shift))
-             (let ((new-root (make-array +branch-factor+ :initial-element nil)))
-               (setf (svref new-root 0) root)
-               (setf (svref new-root 1) (%f32-new-path shift tail-node))
-               (%make-vec-f32 :count (1+ cnt) :shift (+ shift +bit-shift+) :root new-root :tail new-tail)))
-           (t (%make-vec-f32 :count (1+ cnt) :shift shift :root (%f32-push-tail shift root (1- cnt) tail-node) :tail new-tail)))))))
-
-(defun %vec-f32-assoc (v index new-val)
-  (declare (type %vec-f32 v) (type fixnum index) (type single-float new-val) (optimize (speed 3) (safety 0)))
-  (let ((cnt (%f32-count v)))
-    (if (>= index (%vec-f32-tail-off v))
-        (let* ((old-tail (%f32-tail v))
-               (new-tail (make-array (length old-tail) :element-type 'single-float)))
-          (replace new-tail old-tail)
-          (setf (aref new-tail (logand index +bit-mask+)) new-val)
-          (%make-vec-f32 :count cnt :shift (%f32-shift v) :root (%f32-root v) :tail new-tail))
-        (labels ((update (node level-shift)
-                         (if (= level-shift 0)
-                             (let ((new-leaf (%f32-clone-leaf node)))
-                               (setf (aref new-leaf (logand index +bit-mask+)) new-val)
-                               new-leaf)
-                             (let ((new-node (%clone-node node))
-                                   (child-idx (logand (ash index (- level-shift)) +bit-mask+)))
-                               (setf (svref new-node child-idx)
-                                 (update (svref node child-idx)
-                                         (- level-shift +bit-shift+)))
-                               new-node))))
-          (%make-vec-f32 :count cnt :shift (%f32-shift v)
-                         :root (update (%f32-root v) (%f32-shift v))
-                         :tail (%f32-tail v))))))
-
-(defparameter %empty-vec-f32 (%make-vec-f32))
-
-(defun %make-filled-vec-f32 (size initial-value)
-  "Creates a persistent vector of SIZE filled with INITIAL-VALUE in O(N) time but O(log N) memory."
-  (declare (type fixnum size) (optimize (speed 3) (safety 0)))
-
-  ;; Base Case: The vector fits entirely within the tail array
-  (if (<= size 32)
-      (let ((tail (make-array size :element-type 'single-float :initial-element initial-value)))
-        (%make-vec-f32 :count size :shift 0 :root #() :tail tail))
-
-      ;; General Case: We need to build a tree
-      (let* ((tree-count (if (< size 32) 0 (ash (ash (1- size) -5) 5)))
-             (tail-len (- size tree-count))
-             ;; 1. Allocate the Tail
-             (tail (make-array tail-len :element-type 'single-float :initial-element initial-value))
-             ;; 2. The Magic: Allocate ONE leaf to represent all identical leaves
-             (shared-leaf (make-array 32 :element-type 'single-float :initial-element initial-value))
-             (nodes nil))
-
-        ;; 3. Populate the bottom layer using the exact same shared leaf pointer
-        (loop repeat (ash tree-count -5) ; Equivalent to (tree-count / 32)
-              do (push shared-leaf nodes))
-
-        ;; 4. Build the internal routing nodes bottom-up
-        (let ((shift 0))
-          (loop while (> (length nodes) 1)
-                do (let ((next-level nil)
-                         (current nodes))
-                     ;; Group nodes into chunks of 32
-                     (loop while current
-                           do (let ((internal (make-array 32 :initial-element nil)))
-                                (loop for i from 0 below 32
-                                      while current
-                                      do (setf (svref internal i) (pop current)))
-                                (push internal next-level)))
-                     ;; Prepare for the next level up
-                     (setf nodes (nreverse next-level))
-                     (incf shift 5)))
-
-          ;; 5. The final remaining node is the root
-          (%make-vec-f32 :count size
-                         :shift shift
-                         :root (car nodes)
-                         :tail tail)))))
-
-(defun %build-vec-f32-from-list (lst)
-  "Bulk-loads a list of elements into a persistent vector trie in strict O(N) time."
-  (let ((count (length lst)))
-    (if (<= count 32)
-        ;; Base Case: Fits entirely in the tail
-        (let ((tail (make-array count :element-type 'single-float :initial-element 0.0f0)))
-          (loop for item in lst for i from 0 do (setf (aref tail i) item))
-          (%make-vec-f32 :count count :shift 0 :root #() :tail tail))
-
-        ;; General Case: Build the tree bottom-up
-        (let* ((tree-count (if (< count 32) 0 (ash (ash (1- count) -5) 5)))
-               (tail-len (- count tree-count))
-               (tail (make-array tail-len :element-type 'single-float :initial-element 0.0f0))
-               (nodes nil)
-               (current lst))
-
-          ;; 1. Build all the bottom-level leaf nodes (32 elements each)
-          (loop repeat (ash tree-count -5)
-                do (let ((leaf (make-array 32 :element-type 'single-float :initial-element 0.0f0)))
-                     (loop for i from 0 below 32
-                           do (setf (aref leaf i) (car current)
-                                current (cdr current)))
-                     (push leaf nodes)))
-          (setf nodes (nreverse nodes))
-
-          ;; 2. Fill the tail array with the remaining elements
-          (loop for i from 0 below tail-len
-                do (setf (aref tail i) (car current)
-                     current (cdr current)))
-
-          ;; 3. Build the internal routing nodes bottom-up
-          (let ((shift 0))
-            (loop while (> (length nodes) 1)
-                  do (let ((next-level nil))
-                       ;; Group nodes into chunks of 32
-                       (loop for chunk on nodes by (lambda (x) (nthcdr 32 x))
-                             do (let ((internal (make-array 32 :initial-element nil)))
-                                  (loop for node in chunk for i from 0 below 32
-                                        do (setf (svref internal i) node))
-                                  (push internal next-level)))
-                       (setf nodes (nreverse next-level))
-                       (incf shift 5)))
-
-            ;; 4. The final remaining node is our root
-            (%make-vec-f32 :count count
-                           :shift shift
-                           :root (car nodes)
-                           :tail tail))))))
+(define-pvec-trie %vec-f32 %f32- f32-leaf single-float 0.0f0 aref)
 
 ;;; ============================================================================
 ;;; %vec-t Implementation
 ;;; ============================================================================
 
-(deftype t-leaf () `(simple-vector ,+branch-factor+))
-
-(defstruct (%vec-t (:constructor %make-vec-t)
-                   (:predicate %vec-t?)
-                   (:conc-name %t-))
-  (count 0 :type fixnum)
-  (shift 0 :type fixnum)
-  (root #() :type simple-vector)
-  (tail (make-array 0) :type simple-vector))
-
-(defun %vec-t-count (v) (declare (type %vec-t v)) (%t-count v))
-
-(defun %vec-t-tail-off (v)
-  (declare (type %vec-t v) (optimize (speed 3) (safety 0)))
-  (let ((cnt (%t-count v)))
-    (if (< cnt +branch-factor+) 0 (ash (ash (1- cnt) (- +bit-shift+)) +bit-shift+))))
-
-(defun %vec-t-ref (v index &optional not-found)
-  (declare (type %vec-t v)
-           (type fixnum index)
-           (optimize (speed 3) (safety 0)))
-
-  ;; 1. The Safe Bounds Check
-  (if (or (< index 0) (>= index (%t-count v)))
-      (values not-found nil) ;; Return (fallback-value, NIL)
-
-      ;; 2. The Tail Fast-Path
-      (if (>= index (%vec-t-tail-off v))
-          (values (svref (%t-tail v) (logand index +bit-mask+)) t) ;; Return (value, T)
-
-          ;; 3. The Tree Traversal
-          (let ((node (%t-root v))
-                (shift (%t-shift v)))
-            (loop for level-shift from shift downto +bit-shift+ by +bit-shift+
-                  do (setf node (svref node (logand (ash index (- level-shift)) +bit-mask+))))
-            (values (svref node (logand index +bit-mask+)) t))))) ;; Return (value, T)
-
-(defun %t-clone-leaf (leaf)
-  (declare (type t-leaf leaf) (optimize (speed 3) (safety 0)))
-  (copy-seq leaf))
-
-
-(defun %t-new-path (shift leaf)
-  (if (<= shift 0) leaf
-      (let ((node (make-array +branch-factor+ :initial-element nil)))
-        (setf (svref node 0) (%t-new-path (- shift +bit-shift+) leaf))
-        node)))
-
-(defun %t-push-tail (shift node idx tail-node)
-  (let ((new-node (%clone-node node))
-        (sub-idx (logand (ash idx (- shift)) +bit-mask+)))
-    (if (= shift +bit-shift+)
-        (setf (svref new-node sub-idx) tail-node)
-        (let ((child (svref node sub-idx)))
-          (if child
-              (setf (svref new-node sub-idx) (%t-push-tail (- shift +bit-shift+) child idx tail-node))
-              (setf (svref new-node sub-idx) (%t-new-path (- shift +bit-shift+) tail-node)))))
-    new-node))
-
-(defun %vec-t-conj (v val)
-  (declare (type %vec-t v) (optimize (speed 3) (safety 0)))
-  (let* ((cnt (%t-count v))
-         (tail (%t-tail v))
-         (tail-len (length tail)))
-    (if (< tail-len +branch-factor+)
-        (let ((new-tail (make-array (1+ tail-len))))
-          (replace new-tail tail)
-          (setf (svref new-tail tail-len) val)
-          (%make-vec-t :count (1+ cnt) :shift (%t-shift v) :root (%t-root v) :tail new-tail))
-        (let* ((tail-node tail)
-               (new-tail (make-array 1))
-               (root (%t-root v))
-               (shift (%t-shift v)))
-          (setf (svref new-tail 0) val)
-          (cond
-           ((zerop (length root))
-             (let ((new-root (make-array +branch-factor+)))
-               (setf (svref new-root 0) tail-node)
-               (%make-vec-t :count (1+ cnt) :shift +bit-shift+ :root new-root :tail new-tail)))
-           ((> (ash cnt (- +bit-shift+)) (ash 1 shift))
-             (let ((new-root (make-array +branch-factor+ :initial-element nil)))
-               (setf (svref new-root 0) root)
-               (setf (svref new-root 1) (%t-new-path shift tail-node))
-               (%make-vec-t :count (1+ cnt) :shift (+ shift +bit-shift+) :root new-root :tail new-tail)))
-           (t (%make-vec-t :count (1+ cnt) :shift shift :root (%t-push-tail shift root (1- cnt) tail-node) :tail new-tail)))))))
-
-(defun %vec-t-assoc (v index new-val)
-  (declare (type %vec-t v) (type fixnum index) (optimize (speed 3) (safety 0)))
-  (let ((cnt (%t-count v)))
-    (if (>= index (%vec-t-tail-off v))
-        (let* ((old-tail (%t-tail v))
-               (new-tail (make-array (length old-tail))))
-          (replace new-tail old-tail)
-          (setf (svref new-tail (logand index +bit-mask+)) new-val)
-          (%make-vec-t :count cnt :shift (%t-shift v) :root (%t-root v) :tail new-tail))
-        (labels ((update (node level-shift)
-                         (if (= level-shift 0)
-                             (let ((new-leaf (%t-clone-leaf node)))
-                               (setf (svref new-leaf (logand index +bit-mask+)) new-val)
-                               new-leaf)
-                             (let ((new-node (%clone-node node))
-                                   (child-idx (logand (ash index (- level-shift)) +bit-mask+)))
-                               (setf (svref new-node child-idx)
-                                 (update (svref node child-idx)
-                                         (- level-shift +bit-shift+)))
-                               new-node))))
-          (%make-vec-t :count cnt :shift (%t-shift v)
-                       :root (update (%t-root v) (%t-shift v))
-                       :tail (%t-tail v))))))
-
-(defparameter %empty-vec-t (%make-vec-t))
-
-(defun %make-filled-vec-t (size initial-value)
-  "Creates a persistent vector of SIZE filled with INITIAL-VALUE in O(N) time but O(log N) memory."
-  (declare (type fixnum size) (optimize (speed 3) (safety 0)))
-
-  ;; Base Case: The vector fits entirely within the tail array
-  (if (<= size 32)
-      (let ((tail (make-array size :initial-element initial-value)))
-        (%make-vec-t :count size :shift 0 :root #() :tail tail))
-
-      ;; General Case: We need to build a tree
-      (let* ((tree-count (if (< size 32) 0 (ash (ash (1- size) -5) 5)))
-             (tail-len (- size tree-count))
-             ;; 1. Allocate the Tail
-             (tail (make-array tail-len :initial-element initial-value))
-             ;; 2. The Magic: Allocate ONE leaf to represent all identical leaves
-             (shared-leaf (make-array 32 :initial-element initial-value))
-             (nodes nil))
-
-        ;; 3. Populate the bottom layer using the exact same shared leaf pointer
-        (loop repeat (ash tree-count -5) ; Equivalent to (tree-count / 32)
-              do (push shared-leaf nodes))
-
-        ;; 4. Build the internal routing nodes bottom-up
-        (let ((shift 0))
-          (loop while (> (length nodes) 1)
-                do (let ((next-level nil)
-                         (current nodes))
-                     ;; Group nodes into chunks of 32
-                     (loop while current
-                           do (let ((internal (make-array 32 :initial-element nil)))
-                                (loop for i from 0 below 32
-                                      while current
-                                      do (setf (svref internal i) (pop current)))
-                                (push internal next-level)))
-                     ;; Prepare for the next level up
-                     (setf nodes (nreverse next-level))
-                     (incf shift 5)))
-
-          ;; 5. The final remaining node is the root
-          (%make-vec-t :count size
-                       :shift shift
-                       :root (car nodes)
-                       :tail tail)))))
-
-(defun %build-vec-t-from-list (lst)
-  "Bulk-loads a list of elements into a persistent vector trie in strict O(N) time."
-  (let ((count (length lst)))
-    (if (<= count 32)
-        ;; Base Case: Fits entirely in the tail
-        (let ((tail (make-array count :initial-element nil)))
-          (loop for item in lst for i from 0 do (setf (svref tail i) item))
-          (%make-vec-t :count count :shift 0 :root #() :tail tail))
-
-        ;; General Case: Build the tree bottom-up
-        (let* ((tree-count (if (< count 32) 0 (ash (ash (1- count) -5) 5)))
-               (tail-len (- count tree-count))
-               (tail (make-array tail-len :initial-element nil))
-               (nodes nil)
-               (current lst))
-
-          ;; 1. Build all the bottom-level leaf nodes (32 elements each)
-          (loop repeat (ash tree-count -5)
-                do (let ((leaf (make-array 32 :initial-element nil)))
-                     (loop for i from 0 below 32
-                           do (setf (svref leaf i) (car current)
-                                current (cdr current)))
-                     (push leaf nodes)))
-          (setf nodes (nreverse nodes))
-
-          ;; 2. Fill the tail array with the remaining elements
-          (loop for i from 0 below tail-len
-                do (setf (svref tail i) (car current)
-                     current (cdr current)))
-
-          ;; 3. Build the internal routing nodes bottom-up
-          (let ((shift 0))
-            (loop while (> (length nodes) 1)
-                  do (let ((next-level nil))
-                       ;; Group nodes into chunks of 32
-                       (loop for chunk on nodes by (lambda (x) (nthcdr 32 x))
-                             do (let ((internal (make-array 32 :initial-element nil)))
-                                  (loop for node in chunk for i from 0 below 32
-                                        do (setf (svref internal i) node))
-                                  (push internal next-level)))
-                       (setf nodes (nreverse next-level))
-                       (incf shift 5)))
-
-            ;; 4. The final remaining node is our root
-            (%make-vec-t :count count
-                         :shift shift
-                         :root (car nodes)
-                         :tail tail))))))
+(define-pvec-trie %vec-t %t- t-leaf t nil svref)
 
 (defun %vec-t-iterator (v)
   "Returns a closure that lazily yields elements from the vector one at a time, or :eof."
@@ -731,211 +409,7 @@
 ;;; %vec-fix64 Implementation
 ;;; ============================================================================
 
-(deftype fix64-leaf () `(simple-array fixnum (,+branch-factor+)))
-
-(defstruct (%vec-fix64 (:constructor %make-vec-fix64)
-                       (:predicate %vec-fix64?)
-                       (:conc-name %fix64-))
-  (count 0 :type fixnum)
-  (shift 0 :type fixnum)
-  (root #() :type (simple-array t (*)))
-  (tail (make-array 0 :element-type 'fixnum) :type (simple-array fixnum (*))))
-
-(defun %vec-fix64-count (v) (declare (type %vec-fix64 v)) (%fix64-count v))
-
-(defun %vec-fix64-tail-off (v)
-  (declare (type %vec-fix64 v) (optimize (speed 3) (safety 0)))
-  (let ((cnt (%fix64-count v)))
-    (if (< cnt +branch-factor+) 0 (ash (ash (1- cnt) (- +bit-shift+)) +bit-shift+))))
-
-(defun %vec-fix64-ref (v index &optional not-found)
-  (declare (type %vec-fix64 v)
-           (type fixnum index)
-           (optimize (speed 3) (safety 0)))
-
-  ;; 1. The Safe Bounds Check
-  (if (or (< index 0) (>= index (%fix64-count v)))
-      (values not-found nil) ;; Return (fallback-value, NIL)
-
-      ;; 2. The Tail Fast-Path
-      (if (>= index (%vec-fix64-tail-off v))
-          (values (aref (%fix64-tail v) (logand index +bit-mask+)) t) ;; Return (value, T)
-
-          ;; 3. The Tree Traversal
-          (let ((node (%fix64-root v))
-                (shift (%fix64-shift v)))
-            (loop for level-shift from shift downto +bit-shift+ by +bit-shift+
-                  do (setf node (svref node (logand (ash index (- level-shift)) +bit-mask+))))
-            (values (aref node (logand index +bit-mask+)) t))))) ;; Return (value, T)
-
-
-(defun %fix64-clone-leaf (leaf)
-  (declare (type fix64-leaf leaf) (optimize (speed 3) (safety 0)))
-  (copy-seq leaf))
-
-
-(defun %fix64-new-path (shift leaf)
-  (if (<= shift 0) leaf
-      (let ((node (make-array +branch-factor+ :initial-element nil)))
-        (setf (svref node 0) (%fix64-new-path (- shift +bit-shift+) leaf))
-        node)))
-
-(defun %fix64-push-tail (shift node idx tail-node)
-  (let ((new-node (%clone-node node))
-        (sub-idx (logand (ash idx (- shift)) +bit-mask+)))
-    (if (= shift +bit-shift+)
-        (setf (svref new-node sub-idx) tail-node)
-        (let ((child (svref node sub-idx)))
-          (if child
-              (setf (svref new-node sub-idx) (%fix64-push-tail (- shift +bit-shift+) child idx tail-node))
-              (setf (svref new-node sub-idx) (%fix64-new-path (- shift +bit-shift+) tail-node)))))
-    new-node))
-
-(defun %vec-fix64-conj (v val)
-  (declare (type %vec-fix64 v) (type fixnum val) (optimize (speed 3) (safety 0)))
-  (let* ((cnt (%fix64-count v))
-         (tail (%fix64-tail v))
-         (tail-len (length tail)))
-    (if (< tail-len +branch-factor+)
-        (let ((new-tail (make-array (1+ tail-len) :element-type 'fixnum)))
-          (replace new-tail tail)
-          (setf (aref new-tail tail-len) val)
-          (%make-vec-fix64 :count (1+ cnt) :shift (%fix64-shift v) :root (%fix64-root v) :tail new-tail))
-        (let* ((tail-node tail)
-               (new-tail (make-array 1 :element-type 'fixnum))
-               (root (%fix64-root v))
-               (shift (%fix64-shift v)))
-          (setf (aref new-tail 0) val)
-          (cond
-           ((zerop (length root))
-             (let ((new-root (make-array +branch-factor+)))
-               (setf (svref new-root 0) tail-node)
-               (%make-vec-fix64 :count (1+ cnt) :shift +bit-shift+ :root new-root :tail new-tail)))
-           ((> (ash cnt (- +bit-shift+)) (ash 1 shift))
-             (let ((new-root (make-array +branch-factor+ :initial-element nil)))
-               (setf (svref new-root 0) root)
-               (setf (svref new-root 1) (%fix64-new-path shift tail-node))
-               (%make-vec-fix64 :count (1+ cnt) :shift (+ shift +bit-shift+) :root new-root :tail new-tail)))
-           (t (%make-vec-fix64 :count (1+ cnt) :shift shift :root (%fix64-push-tail shift root (1- cnt) tail-node) :tail new-tail)))))))
-
-(defun %vec-fix64-assoc (v index new-val)
-  (declare (type %vec-fix64 v) (type fixnum index) (type fixnum new-val) (optimize (speed 3) (safety 0)))
-  (let ((cnt (%fix64-count v)))
-    (if (>= index (%vec-fix64-tail-off v))
-        (let* ((old-tail (%fix64-tail v))
-               (new-tail (make-array (length old-tail) :element-type 'fixnum)))
-          (replace new-tail old-tail)
-          (setf (aref new-tail (logand index +bit-mask+)) new-val)
-          (%make-vec-fix64 :count cnt :shift (%fix64-shift v) :root (%fix64-root v) :tail new-tail))
-        (labels ((update (node level-shift)
-                         (if (= level-shift 0)
-                             (let ((new-leaf (%fix64-clone-leaf node)))
-                               (setf (aref new-leaf (logand index +bit-mask+)) new-val)
-                               new-leaf)
-                             (let ((new-node (%clone-node node))
-                                   (child-idx (logand (ash index (- level-shift)) +bit-mask+)))
-                               (setf (svref new-node child-idx)
-                                 (update (svref node child-idx)
-                                         (- level-shift +bit-shift+)))
-                               new-node))))
-          (%make-vec-fix64 :count cnt :shift (%fix64-shift v)
-                           :root (update (%fix64-root v) (%fix64-shift v))
-                           :tail (%fix64-tail v))))))
-
-(defparameter %empty-vec-fix64 (%make-vec-fix64))
-
-(defun %make-filled-vec-fix64 (size initial-value)
-  "Creates a persistent vector of SIZE filled with INITIAL-VALUE in O(N) time but O(log N) memory."
-  (declare (type fixnum size) (optimize (speed 3) (safety 0)))
-
-  ;; Base Case: The vector fits entirely within the tail array
-  (if (<= size 32)
-      (let ((tail (make-array size :element-type 'fixnum :initial-element initial-value)))
-        (%make-vec-fix64 :count size :shift 0 :root #() :tail tail))
-
-      ;; General Case: We need to build a tree
-      (let* ((tree-count (if (< size 32) 0 (ash (ash (1- size) -5) 5)))
-             (tail-len (- size tree-count))
-             ;; 1. Allocate the Tail
-             (tail (make-array tail-len :element-type 'fixnum :initial-element initial-value))
-             ;; 2. The Magic: Allocate ONE leaf to represent all identical leaves
-             (shared-leaf (make-array 32 :element-type 'fixnum :initial-element initial-value))
-             (nodes nil))
-
-        ;; 3. Populate the bottom layer using the exact same shared leaf pointer
-        (loop repeat (ash tree-count -5) ; Equivalent to (tree-count / 32)
-              do (push shared-leaf nodes))
-
-        ;; 4. Build the internal routing nodes bottom-up
-        (let ((shift 0))
-          (loop while (> (length nodes) 1)
-                do (let ((next-level nil)
-                         (current nodes))
-                     ;; Group nodes into chunks of 32
-                     (loop while current
-                           do (let ((internal (make-array 32 :initial-element nil)))
-                                (loop for i from 0 below 32
-                                      while current
-                                      do (setf (svref internal i) (pop current)))
-                                (push internal next-level)))
-                     ;; Prepare for the next level up
-                     (setf nodes (nreverse next-level))
-                     (incf shift 5)))
-
-          ;; 5. The final remaining node is the root
-          (%make-vec-fix64 :count size
-                           :shift shift
-                           :root (car nodes)
-                           :tail tail)))))
-
-(defun %build-vec-fix64-from-list (lst)
-  "Bulk-loads a list of elements into a persistent vector trie in strict O(N) time."
-  (let ((count (length lst)))
-    (if (<= count 32)
-        ;; Base Case: Fits entirely in the tail
-        (let ((tail (make-array count :element-type 'fixnum :initial-element 0)))
-          (loop for item in lst for i from 0 do (setf (aref tail i) item))
-          (%make-vec-fix64 :count count :shift 0 :root #() :tail tail))
-
-        ;; General Case: Build the tree bottom-up
-        (let* ((tree-count (if (< count 32) 0 (ash (ash (1- count) -5) 5)))
-               (tail-len (- count tree-count))
-               (tail (make-array tail-len :element-type 'fixnum :initial-element 0))
-               (nodes nil)
-               (current lst))
-
-          ;; 1. Build all the bottom-level leaf nodes (32 elements each)
-          (loop repeat (ash tree-count -5)
-                do (let ((leaf (make-array 32 :element-type 'fixnum :initial-element 0)))
-                     (loop for i from 0 below 32
-                           do (setf (aref leaf i) (car current)
-                                current (cdr current)))
-                     (push leaf nodes)))
-          (setf nodes (nreverse nodes))
-
-          ;; 2. Fill the tail array with the remaining elements
-          (loop for i from 0 below tail-len
-                do (setf (aref tail i) (car current)
-                     current (cdr current)))
-
-          ;; 3. Build the internal routing nodes bottom-up
-          (let ((shift 0))
-            (loop while (> (length nodes) 1)
-                  do (let ((next-level nil))
-                       ;; Group nodes into chunks of 32
-                       (loop for chunk on nodes by (lambda (x) (nthcdr 32 x))
-                             do (let ((internal (make-array 32 :initial-element nil)))
-                                  (loop for node in chunk for i from 0 below 32
-                                        do (setf (svref internal i) node))
-                                  (push internal next-level)))
-                       (setf nodes (nreverse next-level))
-                       (incf shift 5)))
-
-            ;; 4. The final remaining node is our root
-            (%make-vec-t :count count
-                         :shift shift
-                         :root (car nodes)
-                         :tail tail))))))
+(define-pvec-trie %vec-fix64 %fix64- fix64-leaf fixnum 0 aref)
 
 ;;; ------------------------------------------------------------------------------
 ;;; Vector storage interfaces
@@ -1466,6 +940,72 @@
 
 (declaim (inline bsearch-keys insert-at remove-at update-at))
 
+
+;;; --------------------------------- Transients -------------------------------
+
+(defstruct (btree-transient-leaf (:constructor %make-btree-transient-leaf (token count keys vals)))
+  (token nil)
+  (count 0 :type fixnum)
+  (keys #() :type simple-vector)
+  (vals #() :type simple-vector))
+
+(defstruct (btree-transient-node (:constructor %make-btree-transient-node (token count keys children)))
+  (token nil)
+  (count 0 :type fixnum)
+  (keys #() :type simple-vector)
+  (children #() :type simple-vector))
+
+(defun ensure-editable-btree-leaf (node token)
+  (if (and (btree-transient-leaf-p node) (eq token (btree-transient-leaf-token node)))
+      node
+      (let* ((is-p (btree-leaf-p node))
+             (keys (if is-p (btree-leaf-keys node) (btree-transient-leaf-keys node)))
+             (vals (if is-p (btree-leaf-vals node) (btree-transient-leaf-vals node)))
+             (count (if is-p (length keys) (btree-transient-leaf-count node)))
+             (new-keys (make-array 32 :initial-element nil))
+             (new-vals (make-array 32 :initial-element nil)))
+        (replace new-keys keys :end2 count)
+        (replace new-vals vals :end2 count)
+        (%make-btree-transient-leaf token count new-keys new-vals))))
+
+(defun ensure-editable-btree-node (node token)
+  (if (and (btree-transient-node-p node) (eq token (btree-transient-node-token node)))
+      node
+      (let* ((is-p (btree-node-p node))
+             (keys (if is-p (btree-node-keys node) (btree-transient-node-keys node)))
+             (children (if is-p (btree-node-children node) (btree-transient-node-children node)))
+             (count (if is-p (length children) (btree-transient-node-count node)))
+             (new-keys (make-array 32 :initial-element nil))
+             (new-children (make-array 32 :initial-element nil)))
+        (replace new-keys keys :end2 (max 0 (1- count)))
+        (replace new-children children :end2 count)
+        (%make-btree-transient-node token count new-keys new-children))))
+
+(defun freeze-btree-node (node)
+  (cond
+   ((btree-transient-leaf-p node)
+    (let* ((count (btree-transient-leaf-count node))
+           (new-keys (make-array count))
+           (new-vals (make-array count)))
+      (replace new-keys (btree-transient-leaf-keys node) :end2 count)
+      (replace new-vals (btree-transient-leaf-vals node) :end2 count)
+      (%make-btree-leaf new-keys new-vals)))
+   ((btree-transient-node-p node)
+    (let* ((count (btree-transient-node-count node))
+           (keys (make-array (max 0 (1- count))))
+           (children (make-array count)))
+      (replace keys (btree-transient-node-keys node) :end2 (max 0 (1- count)))
+      (loop for i from 0 below count
+            do (setf (svref children i) (freeze-btree-node (svref (btree-transient-node-children node) i))))
+      (%make-btree-node keys children)))
+   ((btree-node-p node)
+    (let* ((children (btree-node-children node))
+           (new-children (make-array (length children))))
+      (loop for i from 0 below (length children)
+            do (setf (svref new-children i) (freeze-btree-node (svref children i))))
+      (%make-btree-node (btree-node-keys node) new-children)))
+   (t node)))
+
 (defun bsearch-keys (keys key cmp)
   "Performs a native binary search with standard comparator convention
    (-1 = less-than, 0 = equal, 1 = greater-than)."
@@ -1507,6 +1047,157 @@
 ;;; -----------------------------------------------------------------------
 ;;; Lookup and mutation logic.
 ;;; -----------------------------------------------------------------------
+
+(defun btree-get-transient-aware (node key cmp &optional not-found)
+  (cond
+   ((null node) (values not-found nil))
+   ((btree-leaf-p node)
+    (let* ((keys (btree-leaf-keys node))
+           (idx (bsearch-keys keys key cmp)))
+      (if (and (< idx (length keys)) (zerop (funcall cmp key (svref keys idx))))
+          (values (svref (btree-leaf-vals node) idx) t)
+          (values not-found nil))))
+   ((btree-transient-leaf-p node)
+    (let* ((keys (btree-transient-leaf-keys node))
+           (count (btree-transient-leaf-count node))
+           (idx (bsearch-keys (subseq keys 0 count) key cmp)))
+      (if (and (< idx count) (zerop (funcall cmp key (svref keys idx))))
+          (values (svref (btree-transient-leaf-vals node) idx) t)
+          (values not-found nil))))
+   ((btree-node-p node)
+    (let* ((keys (btree-node-keys node))
+           (idx (bsearch-keys keys key cmp)))
+      (btree-get-transient-aware (svref (btree-node-children node) idx) key cmp not-found)))
+   ((btree-transient-node-p node)
+    (let* ((keys (btree-transient-node-keys node))
+           (count (btree-transient-node-count node))
+           (idx (bsearch-keys (subseq keys 0 (max 0 (1- count))) key cmp)))
+      (btree-get-transient-aware (svref (btree-transient-node-children node) idx) key cmp not-found)))))
+
+(defun btree-assoc-node! (node key val cmp token)
+  "Transient version of assoc-node."
+  (if (null node)
+      (values (%make-btree-leaf (vector key) (vector val)) nil nil nil nil)
+      
+      (if (or (btree-leaf-p node) (btree-transient-leaf-p node))
+          (let* ((enode (ensure-editable-btree-leaf node token))
+                 (keys (btree-transient-leaf-keys enode))
+                 (vals (btree-transient-leaf-vals enode))
+                 (count (btree-transient-leaf-count enode))
+                 ;; Bsearch over the active range
+                 (idx (bsearch-keys (subseq keys 0 count) key cmp)))
+            
+            (if (and (< idx count) (zerop (funcall cmp key (svref keys idx))))
+                (let ((old-val (svref vals idx)))
+                  (setf (svref vals idx) val)
+                  (values enode nil nil old-val t))
+                
+                (if (< count 32)
+                    (progn
+                      ;; Shift right
+                      (replace keys keys :start1 (1+ idx) :start2 idx :end2 count)
+                      (replace vals vals :start1 (1+ idx) :start2 idx :end2 count)
+                      (setf (svref keys idx) key)
+                      (setf (svref vals idx) val)
+                      (incf (btree-transient-leaf-count enode))
+                      (values enode nil nil nil nil))
+                    
+                    ;; Full: split
+                    (let* ((new-keys (make-array 33))
+                           (new-vals (make-array 33)))
+                      (replace new-keys keys :end2 idx)
+                      (setf (svref new-keys idx) key)
+                      (replace new-keys keys :start1 (1+ idx) :start2 idx :end2 32)
+                      (replace new-vals vals :end2 idx)
+                      (setf (svref new-vals idx) val)
+                      (replace new-vals vals :start1 (1+ idx) :start2 idx :end2 32)
+                      (multiple-value-bind (left sk right) (split-leaf new-keys new-vals)
+                        (values left sk right nil nil))))))
+
+          ;; Internal routing node
+          (let* ((enode (ensure-editable-btree-node node token))
+                 (keys (btree-transient-node-keys enode))
+                 (children (btree-transient-node-children enode))
+                 (count (btree-transient-node-count enode))
+                 (idx (bsearch-keys (subseq keys 0 (max 0 (1- count))) key cmp)))
+            (multiple-value-bind (new-child split-key split-right old-val found-p)
+                (btree-assoc-node! (svref children idx) key val cmp token)
+              (setf (svref children idx) new-child)
+              (if found-p
+                  (values enode nil nil old-val t)
+                  (if split-key
+                      (if (< count 32)
+                          (progn
+                            (replace keys keys :start1 (1+ idx) :start2 idx :end2 (1- count))
+                            (setf (svref keys idx) split-key)
+                            (replace children children :start1 (+ 2 idx) :start2 (1+ idx) :end2 count)
+                            (setf (svref children (1+ idx)) split-right)
+                            (incf (btree-transient-node-count enode))
+                            (values enode nil nil nil nil))
+                          ;; Split node
+                          (let* ((new-keys (make-array 32))
+                                 (new-children (make-array 33)))
+                            (replace new-keys keys :end2 idx)
+                            (setf (svref new-keys idx) split-key)
+                            (replace new-keys keys :start1 (1+ idx) :start2 idx :end2 31)
+                            
+                            (replace new-children children :end2 idx)
+                            (setf (svref new-children idx) new-child)
+                            (setf (svref new-children (1+ idx)) split-right)
+                            (replace new-children children :start1 (+ 2 idx) :start2 (1+ idx) :end2 32)
+                            (multiple-value-bind (left sk right) (split-node new-keys new-children)
+                              (values left sk right nil nil))))
+                      (values enode nil nil nil nil))))))))
+                      
+(defun btree-dissoc-node! (node key cmp token)
+  (cond
+   ((null node) (values nil nil nil))
+   ((or (btree-leaf-p node) (btree-transient-leaf-p node))
+    (let* ((enode (ensure-editable-btree-leaf node token))
+           (keys (btree-transient-leaf-keys enode))
+           (vals (btree-transient-leaf-vals enode))
+           (count (btree-transient-leaf-count enode))
+           (idx (bsearch-keys (subseq keys 0 count) key cmp)))
+      (if (and (< idx count) (zerop (funcall cmp key (svref keys idx))))
+          (let ((old-val (svref vals idx)))
+            (replace keys keys :start1 idx :start2 (1+ idx) :end2 count)
+            (replace vals vals :start1 idx :start2 (1+ idx) :end2 count)
+            (decf (btree-transient-leaf-count enode))
+            (if (zerop (btree-transient-leaf-count enode))
+                (values nil old-val t)
+                (values enode old-val t)))
+          (values enode nil nil))))
+   (t
+    (let* ((enode (ensure-editable-btree-node node token))
+           (keys (btree-transient-node-keys enode))
+           (children (btree-transient-node-children enode))
+           (count (btree-transient-node-count enode))
+           (idx (bsearch-keys (subseq keys 0 (max 0 (1- count))) key cmp)))
+      (multiple-value-bind (new-child old-val found-p)
+          (btree-dissoc-node! (svref children idx) key cmp token)
+        (if (not found-p)
+            (values enode nil nil)
+            (if (null new-child)
+                (progn
+                  (if (zerop idx)
+                      (replace keys keys :start1 0 :start2 1 :end2 (1- count))
+                      (replace keys keys :start1 (1- idx) :start2 idx :end2 (1- count)))
+                  (replace children children :start1 idx :start2 (1+ idx) :end2 count)
+                  (decf (btree-transient-node-count enode))
+                  (if (zerop (btree-transient-node-count enode))
+                      (values nil old-val t)
+                      (values enode old-val t)))
+                (progn
+                  (setf (svref children idx) new-child)
+                  (values enode old-val t)))))))))
+
+(defun first-key-transient-aware (node)
+  (cond
+   ((btree-leaf-p node) (svref (btree-leaf-keys node) 0))
+   ((btree-transient-leaf-p node) (svref (btree-transient-leaf-keys node) 0))
+   ((btree-node-p node) (first-key-transient-aware (svref (btree-node-children node) 0)))
+   ((btree-transient-node-p node) (first-key-transient-aware (svref (btree-transient-node-children node) 0)))))
+
 
 (defun btree-get (node key cmp &optional not-found)
   "O(log32 N) search. Returns (VALUES val found-p)."
@@ -1822,7 +1513,7 @@
   "Returns HAMT entries as a list of (key . value) cons cells."
   (let ((result nil))
     (do-hamt (k v h (nreverse result))
-      (push (cons k v) result))))
+             (push (cons k v) result))))
 
 ;;; -------------------------------------------------------------------------
 ;;; B-Tree convenience helpers
@@ -1842,4 +1533,4 @@
   "Returns btree-dict entries as a list of (key . value) cons cells."
   (let ((result nil))
     (do-btree (k v bd (nreverse result))
-      (push (cons k v) result))))
+              (push (cons k v) result))))

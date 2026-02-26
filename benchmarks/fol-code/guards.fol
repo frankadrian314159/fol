@@ -1,0 +1,36 @@
+(in-package "guards"
+  (:use "fol.core")
+  (:export <account> deposit withdraw run-bench))
+
+;; Domain class: bank account with owner and balance
+(defclass <account> []
+  [[owner   :initarg :owner]
+   [balance :initarg :balance :initform 0]])
+
+;; Cross-cutting invariant guard: declared once, enforced automatically
+;; on every update to any slot of <account>.
+;;
+;; In CL, this check must be manually coded in every update function
+;; (deposit, withdraw, transfer, ...).  One omission silently breaks
+;; the invariant.  Here it is impossible to bypass.
+(defmethod assoc :around [(acc <account>) slot val]
+  (bind [result (call-next-method)]
+    (when (< (:balance result) 0)
+      (error "~A: balance cannot go negative" (:owner acc)))
+    result))
+
+(defn deposit [acc amount]
+  (assoc acc :balance (+ (:balance acc) amount)))
+
+(defn withdraw [acc amount]
+  (assoc acc :balance (- (:balance acc) amount)))
+
+;; Benchmark: 1,000,000 valid deposits.
+;; The guard fires on every deposit; on the happy path it just reads
+;; the new balance and returns.
+(defn run-bench [iterations]
+  (bind [acc (make '<account> :owner "Alice" :balance 0)]
+    (loop [i 0 a acc]
+      (if (< i iterations)
+        (recur (inc i) (deposit a 1))
+        (:balance a)))))

@@ -389,4 +389,4 @@ For dynamic definition at runtime, the following functions are available:
 | `eval-defclass*` | Evaluate a defclass* form at runtime |
 | `eval-defmethod*` | Evaluate a defmethod* form at runtime |
 
-These are used internally by the FOL evaluator when processing definition forms.
+These are used internally by the FOL compiler when processing definition forms.

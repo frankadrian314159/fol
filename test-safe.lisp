@@ -1,0 +1,6 @@
+(require :asdf)
+(declaim (optimize (safety 3) (debug 3) (speed 0)))
+(pushnew (truename "src/") asdf:*central-registry*)
+(pushnew (truename "tests/") asdf:*central-registry*)
+(asdf:compile-system :fol-compiler :force t)
+(asdf:test-system :fol-compiler/all-tests)

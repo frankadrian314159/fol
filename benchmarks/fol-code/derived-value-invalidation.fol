@@ -1,0 +1,53 @@
+(in-package "derived-value-invalidation"
+  (:use "fol.core")
+  (:export <cart> add-item cart-total sum-reads run-bench))
+
+;; Domain class: shopping cart with a lazily cached total
+(defclass <cart> []
+  [[items  :initarg :items  :initform []]
+   [_total :initarg :_total :initform nil]])
+
+;; Automatic derived-value invalidation: whenever :items changes,
+;; the cached :_total is cleared.
+;;
+;; In CL this invalidation must be hand-coded in every function that
+;; modifies :items.  Forgetting it yields a stale cache bug.
+(defmethod assoc :around [(cart <cart>) (slot (= :items)) val]
+  (assoc (call-next-method) :_total nil))
+
+;; Add a single price integer to the cart items.
+;; The :around method fires and clears :_total automatically.
+(defn add-item [cart price]
+  (assoc cart :items (conj (:items cart) price)))
+
+;; Lazy total accessor: return cached value if present, else recompute.
+(defn cart-total [cart]
+  (if (nil? (:_total cart))
+    (reduce + 0 (:items cart))
+    (:_total cart)))
+
+;; Inner benchmark loop: read cart-total n-reads times from a cart
+;; whose :_total is already populated (all cache hits).
+(defn sum-reads [cart n-reads]
+  (loop [j 0 s 0]
+    (if (< j n-reads)
+      (recur (inc j) (+ s (cart-total cart)))
+      s)))
+
+;; Benchmark: n-items rounds of (add-item + reads-per-item reads).
+;;
+;; Each add-item call:
+;;   - triggers automatic :_total invalidation via :around
+;;   - forces one recomputation of cart-total (first read)
+;;   - stores the computed total back (enabling caching for subsequent reads)
+;;
+;; Subsequent reads-per-item reads all hit the cache.
+(defn run-bench [n-items reads-per-item]
+  (loop [i 0 cart (make '<cart>) total 0]
+    (if (< i n-items)
+      (bind [c1    (add-item cart i)
+             t1    (cart-total c1)                 ;; recompute (cache miss)
+             c2    (assoc c1 :_total t1)           ;; store computed value
+             reads (sum-reads c2 reads-per-item)]  ;; all cache hits
+        (recur (inc i) c2 (+ total reads)))
+      total)))

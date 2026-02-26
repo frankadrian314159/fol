@@ -14,21 +14,21 @@
 (defn get-module [name]
   (get @*circuit-modules* name))
 
-(defclass <component> [<persistent-object>]
+(defclass <component> []
   [[name :initarg :name] [type :initarg :type] [connections :initarg :connections]])
 
 (defn component-name [obj] (get obj :name))
 (defn component-type [obj] (get obj :type))
 (defn component-connections [obj] (get obj :connections))
 
-(defclass <module-def> [<persistent-object>]
+(defclass <module-def> []
   [[name :initarg :name] [ports :initarg :ports] [body :initarg :body]])
 
 (defn module-name [obj] (get obj :name))
 (defn module-ports [obj] (get obj :ports))
 (defn module-body [obj] (get obj :body))
 
-(defclass <logic-component> [<component> <persistent-object>]
+(defclass <logic-component> [<component>]
   [[inputs :initarg :inputs] [outputs :initarg :outputs] [delays :initarg :delays] [logic-fn :initarg :logic-fn]])
 
 (defn component-inputs [obj] (get obj :inputs))

@@ -232,6 +232,7 @@
 
 (defpackage fol.compiler.persistent
   (:use cl)
+  (:import-from fol.compiler.collections transient persistent!)
   (:export
    ;; Metaclass
    persistent-class
@@ -241,7 +242,10 @@
    %persistent-metadata
    ;; Functional update API
    update-slot
-   update-slots))
+   update-slots
+   ;; Transient support
+   transient
+   persistent!))
 
 (defpackage fol.compiler.collection-primitives
   (:use cl)
@@ -339,6 +343,7 @@
    empty?
    ;; High-level accessors
    first rest get dissoc conj size update merge
+   transient persistent!
    ;; Abstract subclasses
    <unordered-collection>
    <unordered-collection>?
@@ -490,7 +495,8 @@
   (:import-from fol.compiler.collection-primitives
                 ref storage storage-items)
   (:import-from fol.compiler.persistent
-                <persistent-object> %persistent-storage update-slot)
+                <persistent-object> %persistent-storage update-slot
+                transient persistent!)
   (:import-from fol.compiler.destructure
                 fol-type-to-cl-type)
   (:export
@@ -515,6 +521,7 @@
    lazy-seq
    ;; High-level accessors
    first rest get assoc dissoc conj size empty? count update merge
+   transient persistent!
    empty not-empty bounded-size
    ;; Array indexing
    %index

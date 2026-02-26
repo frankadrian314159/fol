@@ -20,9 +20,7 @@ only 1-3x overhead for sequential modifications. A preliminary transpiler to Com
 
 Lisp with minor optimizations reaches parity with hand-written Common Lisp code. FOL
 
-is written in Common Lisp atop FSet and Sycamore persistent data structure libraries,
-
-providing Clojure-compatible persistent collection objects and a meta-object-protocol
+is written in Common Lisp using hand-coded persistent data structures---hash array mapped tries (HAMTs) for maps and sets, persistent vector tries for vectors, and B-trees for sorted collections---providing Clojure-compatible persistent collection objects and a meta-object-protocol
 
 adapted for immutable storage.
 
@@ -74,9 +72,7 @@ could merge the two models was to try.
 
 
 
-So why build a new Lisp rather than simply building an add-on library using libraries like FSet or Sycamore (both of
-
-which are used in FOL)? The first two arguments are due to correctness. FOL, by necessity, has some objects
+So why build a new Lisp rather than simply building an add-on library? The first two arguments are due to correctness. FOL, by necessity, has some objects
 
 that are not persistent objects - primitives, mutable objects (such as streams, atoms, lazy sequences, etc.), collections
 
@@ -214,7 +210,7 @@ ice.” FOL’s = tests value equality via generic dispatch: numbers
 
 compare with numeric coercion, persistent objects compare by
 
-structural comparison of storage maps (using fset:equal?), and
+structural comparison of storage maps, and
 
 strings compare by content—subsuming the roles of eql, equal,
 
@@ -252,7 +248,7 @@ User-defined classes inherit from <persistent-object>:
 
 
 
-(defclass <person> \[<persistent-object>]
+(defclass <person> \[]
 
 \[\[name :type <string>]
 
@@ -278,37 +274,33 @@ tent hash map, enabling 𝑂(log𝑛)updates with structural sharing.
 
   Collection Implementation
 
-FOL wraps FSet and Sycamore data structures for its collections:
+FOL uses hand-coded persistent data structures for its collections:
 
 
 
-• Vectors (\[1 2 3]): 32-way branching trees supporting
+• Vectors (\[1 2 3]): 32-way branching persistent tries supporting
 
-𝑂(log32 𝑛)random access
+𝑂(log32 𝑛) random access and persistent updates via path copying with structural sharing
 
 • Maps ({:a 1 :b 2}): Hash array mapped tries (HAMTs)
 
-with efficient key-value operations
+with 𝑂(log32 𝑛) lookup, insertion, and deletion
 
-• Sets (#{1 2 3}): Weight-balanced binary trees for ordered
+• Sets (#{1 2 3}): HAMTs storing element presence, sharing the map implementation
 
-iteration
+• Sorted collections: B-trees with configurable comparators for ordered maps and sets
 
-• Lists: Persistent cons cells with standard 𝑂(1)prepend and
+• Lists: Persistent cons cells with standard 𝑂(1) prepend and
 
-𝑂(𝑛)access
+𝑂(𝑛) access
 
 
 
 FOL also provides thirteen additional collection classes from <array-dict> to <dense-int-set> to <array>.
 
-These collection classes have either been optimized to use the
+All are implemented using the hand-coded HAMT, persistent vector trie, and B-tree primitives, or have
 
-combinations of FSet and Sycamore data structures that provide the
-
-best performance at both small sizes (< 20 elements) and at scale (> 1000 elements) or have
-
-been hand-written in the case of collections not based on persistent structures (list, lazy-seq).
+been hand-written for collections not based on persistent structures (list, lazy-seq). The self-contained implementation eliminates external library dependencies for collection storage.
 
 
 
@@ -344,7 +336,7 @@ extension permits cross-metaclass inheritance (persistent classes
 
 may inherit from standard classes), but mixed hierarchies must
 
-respect the invariant that persistent slots use FSet or Sycamore storage while inherited standard slots remain mutable—finalization signals an error
+respect the invariant that persistent slots use immutable storage while inherited standard slots remain mutable—finalization signals an error
 
 if this invariant cannot be maintained. This adaptation requires the
 

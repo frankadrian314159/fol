@@ -1,0 +1,23 @@
+(defn partition [v low high]
+  (bind [pivot (get v high)]
+    (loop [j low, i (- low 1), curr-v v]
+      (if (< j high)
+        (if (<= (get curr-v j) pivot)
+          (bind [next-i (+ i 1)
+                 temp (get curr-v next-i)
+                 v1 (assoc curr-v next-i (get curr-v j))
+                 v2 (assoc v1 j temp)]
+            (recur (+ j 1) next-i v2))
+          (recur (+ j 1) i curr-v))
+        (bind [next-i (+ i 1)
+               temp (get curr-v next-i)
+               v1 (assoc curr-v next-i (get curr-v high))
+               v2 (assoc v1 high temp)]
+          [v2 next-i])))))
+
+(defn qsort [v low high]
+  (if (< low high)
+    (bind [[v-part p] (partition v low high)
+           v-left (qsort v-part low (- p 1))]
+      (qsort v-left (+ p 1) high))
+    v))

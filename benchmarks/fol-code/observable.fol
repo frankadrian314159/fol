@@ -3,7 +3,7 @@
   (:export <sensor> on-change run-bench))
 
 ;; Domain class
-(defclass <sensor> [<persistent-object>]
+(defclass <sensor> []
   [[name     :initarg :name]
    [reading  :initarg :reading  :initform 0]
    [status   :initarg :status   :initform :normal]])
