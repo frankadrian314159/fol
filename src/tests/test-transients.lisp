@@ -98,3 +98,36 @@
         (assoc! tm 's34 777)
         (let ((m2 (persistent! tm)))
           (is (= 777 (slot-value m2 's34))))))
+
+;;; --- transfer-ownership! ---
+
+(test transfer-ownership-dict
+  "After transfer, the original thread can no longer mutate the dict transient."
+  (let* ((d (fol.compiler.collection-functions:dict :a 1))
+         (td (transient d))
+         ;; Use a parked thread as the transfer target; we only need its identity.
+         (target (bt:make-thread (lambda () (bt:thread-yield)))))
+    (transfer-ownership! td target)
+    ;; Original thread's assoc! must now signal an error.
+    (is (eq t (handler-case (progn (assoc! td :b 2) nil)
+                (error () t))))))
+
+(test transfer-ownership-object
+  "After transfer, the original thread can no longer mutate the persistent-object transient."
+  (let* ((p (make-instance '<test-point> :x 1 :y 2))
+         (tp (transient p))
+         (target (bt:make-thread (lambda () (bt:thread-yield)))))
+    (transfer-ownership! tp target)
+    (is (eq t (handler-case (progn (assoc! tp 'x 99) nil)
+                (error () t))))))
+
+(test transfer-ownership-not-owner
+  "Calling transfer-ownership! when not the owner signals an error."
+  (let* ((d (fol.compiler.collection-functions:dict :a 1))
+         (td (transient d))
+         (target (bt:make-thread (lambda () (bt:thread-yield)))))
+    (transfer-ownership! td target)
+    ;; The token is now target; we are no longer the owner.
+    (is (eq t (handler-case
+                  (progn (transfer-ownership! td (bt:current-thread)) nil)
+                (error () t))))))

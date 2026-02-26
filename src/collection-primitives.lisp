@@ -209,7 +209,7 @@
         (token nil))
 
       (defun ,api-transient (v)
-        (let* ((token (cons nil nil))
+        (let* ((token (bt:current-thread))
                (cnt (,count-acc v))
                (persistent-tail (,tail-acc v))
                (tail (make-array 32 ,@(when (not (eq element-type 't)) `(:element-type ',element-type)))))
@@ -222,7 +222,8 @@
 
       (defun ,api-transient-conj (tv val)
         (declare ,@(when (not (eq element-type 't)) `((type ,element-type val))) (optimize (speed 3) (safety 0)))
-        (unless (,trans-token tv) (error "Transient used after persistent! call"))
+        (unless (eq (,trans-token tv) (bt:current-thread))
+          (error "Transient used in different thread or after persistent! call"))
         (let* ((cnt (,trans-count tv)))
           (when (and (> cnt 0) (zerop (logand cnt 31)))
                 (let ((root (,trans-root tv))
@@ -250,7 +251,8 @@
             tv)))
 
       (defun ,api-transient-persistent (tv)
-        (unless (,trans-token tv) (error "Transient used after persistent! call"))
+        (unless (eq (,trans-token tv) (bt:current-thread))
+          (error "Transient used in different thread or after persistent! call"))
         (setf (,trans-token tv) nil)
         (let* ((cnt (,trans-count tv))
                (tail (,trans-tail tv))
@@ -928,12 +930,13 @@
 (defun api-transient-hamt (h)
   (%make-transient-hamt :count (hamt-count h)
                         :root (hamt-root h)
-                        :token (cons nil nil)))
+                        :token (bt:current-thread)))
 
 (defun hamt-assoc! (th key value)
   (let ((token (transient-hamt-token th))
         (hash (sxhash key)))
-    (unless token (error "Transient used after persistent!"))
+    (unless (eq token (bt:current-thread))
+      (error "Transient used in different thread or after persistent! call"))
     (multiple-value-bind (new-root added-p)
         (assoc-node! (transient-hamt-root th) 0 hash key value token)
       (setf (transient-hamt-root th) new-root)
@@ -942,10 +945,24 @@
 
 (defun hamt-persistent! (th)
   (let ((token (transient-hamt-token th)))
-    (unless token (error "Transient used after persistent!"))
+    (unless (eq token (bt:current-thread))
+      (error "Transient used in different thread or after persistent! call"))
     (setf (transient-hamt-token th) nil)
     (%make-hamt :count (transient-hamt-count th)
                 :root (freeze-hamt-node (transient-hamt-root th)))))
+
+(defun hamt-transfer-ownership! (th new-thread)
+  "Transfer ownership of a transient HAMT to NEW-THREAD.
+   The calling thread must be the current owner.  After this call the calling
+   thread's token is replaced with NEW-THREAD's identity; any subsequent
+   assoc!/dissoc!/persistent! by the original thread will signal an error."
+  (let ((token (transient-hamt-token th)))
+    (unless token
+      (error "Cannot transfer ownership: transient has already been frozen via persistent!"))
+    (unless (eq token (bt:current-thread))
+      (error "Cannot transfer ownership: not the owner of this transient."))
+    (setf (transient-hamt-token th) new-thread)
+    th))
 
 ;;; --------------------------------- <dict-mixin> -------------------------------------
 (defclass <dict-mixin> () ((dict-storage :initarg :dict-storage :initform (%make-hamt) :accessor dict-storage)))

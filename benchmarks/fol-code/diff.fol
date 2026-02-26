@@ -1,0 +1,55 @@
+(in-package "diff"
+  (:use "fol.core")
+  (:export <metric> run-bench))
+
+;; Base class: every (assoc obj key val) call is automatically intercepted.
+;;
+;; Because OBJ is persistent, its state BEFORE the update is still fully
+;; reachable via the OBJ reference even after CALL-NEXT-METHOD returns the
+;; new snapshot RESULT.  Both snapshots exist simultaneously in memory.
+;;
+;; In mutable CL, OBJ and RESULT are the same heap cell: after the setf,
+;; the old values are gone.  Diff tracking therefore requires an explicit
+;; before-snapshot (a struct copy or hand-captured fields) at every update
+;; site.  That boilerplate must be duplicated for every class that wants
+;; change detection.  Here it is written exactly once and applies to every
+;; slot of every subclass automatically.
+(defclass <diffable> []
+  [[_changes :initarg :_changes :initform 0]])
+
+(defmethod assoc :around [(obj <diffable>) key val]
+  (bind [old-val (get obj key)
+         result  (call-next-method)]
+    (if (and (not (= key :_changes))
+             (not (= old-val val)))
+      (assoc result :_changes (inc (:_changes result)))
+      result)))
+
+;; Domain class: five-slot performance metrics snapshot.
+;; No change-detection code here -- it is inherited from <diffable>.
+(defclass <metric> [<diffable>]
+  [[cpu    :initarg :cpu    :initform 0.0]
+   [memory :initarg :memory :initform 0.0]
+   [disk   :initarg :disk   :initform 0.0]
+   [net    :initarg :net    :initform 0.0]
+   [iops   :initarg :iops   :initform 0]])
+
+;; Benchmark: N iterations, 5 assoc calls each.
+;; Returns total detected changes (expected: 5 * N).
+;;
+;; The _changes counter is reset at the start of each iteration by
+;; setting it to 0.  The five domain updates then each increment it
+;; automatically through the :around method.
+(defn run-bench [iterations]
+  (bind [m (make '<metric>
+               :cpu 0.0 :memory 0.0 :disk 0.0 :net 0.0 :iops 0)]
+    (loop [i 0 a m total 0]
+      (if (< i iterations)
+        (bind [a2 (-> (assoc a :_changes 0)
+                    (assoc :cpu    (+ 1.0 i))
+                    (assoc :memory (+ 2.0 i))
+                    (assoc :disk   (+ 3.0 i))
+                    (assoc :net    (+ 4.0 i))
+                    (assoc :iops   (inc i)))]
+          (recur (inc i) a2 (+ total (:_changes a2))))
+        total))))

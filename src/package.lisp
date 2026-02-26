@@ -270,7 +270,7 @@
    kv-conj
    ;; HAMT primitives
    %make-hamt %make-hamt-node %make-hamt-leaf %make-hamt-collision
-   api-transient-hamt hamt-assoc! hamt-persistent!
+   api-transient-hamt hamt-assoc! hamt-dissoc! hamt-persistent! hamt-transfer-ownership!
    ;; Empty instances
    %empty-vec-f64 %empty-vec-f32 %empty-vec-t %empty-vec-fix64
    ;; Internal struct accessors
@@ -419,7 +419,10 @@
    lazy-seq-cached
    realize-lazy-seq
    ;; Metadata
-   collection-metadata))
+   collection-metadata
+   ;; Transient protocol
+   transient persistent! conj! pop! assoc! dissoc! disj!
+   transfer-ownership!))
 
 (defpackage fol.compiler.string-functions
   (:use cl)

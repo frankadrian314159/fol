@@ -2,7 +2,7 @@
 %%% Do NOT edit. File created by BibTeX with style
 %%% ACM-Reference-Format-Journals [18-Jan-2012].
 
-\begin{thebibliography}{32}
+\begin{thebibliography}{20}
 
 %%% ====================================================================
 %%% NOTE TO THE USER: you can override these defaults by providing
@@ -46,17 +46,13 @@
 \newblock
 
 
-\bibitem[Baxter et~al\mbox{.}(2006)]%
-        {Baxter2006}
-\bibfield{author}{\bibinfo{person}{Gareth Baxter}, \bibinfo{person}{Marcus
-  Frean}, \bibinfo{person}{James Noble}, \bibinfo{person}{Mark Rickerby},
-  \bibinfo{person}{Hayden Smith}, \bibinfo{person}{Matt Visser},
-  \bibinfo{person}{Hayden Melton}, {and} \bibinfo{person}{Ewan Tempero}.}
-  \bibinfo{year}{2006}\natexlab{}.
-\newblock \showarticletitle{Understanding the Shape of {Java} Software}. In
-  \bibinfo{booktitle}{\emph{Proceedings of the 21st Annual ACM SIGPLAN
-  Conference on Object-Oriented Programming, Systems, Languages, and
-  Applications}}. \bibinfo{pages}{397--412}.
+\bibitem[Barendsen and Smetsers(1993)]%
+        {Barendsen1993}
+\bibfield{author}{\bibinfo{person}{Erik Barendsen} {and} \bibinfo{person}{Sjaak
+  Smetsers}.} \bibinfo{year}{1993}\natexlab{}.
+\newblock \showarticletitle{Uniqueness Typing for Functional Languages}. In
+  \bibinfo{booktitle}{\emph{Proceedings of the 5th International Workshop on
+  Implementation of Functional Languages}}. \bibinfo{pages}{1--25}.
 \newblock
 
 
@@ -95,19 +91,6 @@
 \newblock
 
 
-\bibitem[Bruni(2017)]%
-        {Bruni2017}
-\bibfield{author}{\bibinfo{person}{Camillo Bruni}.}
-  \bibinfo{year}{2017}\natexlab{}.
-\newblock \bibinfo{title}{Fast Properties in {V8}}.
-\newblock \bibinfo{howpublished}{V8 Blog}.
-\newblock
-\urldef\tempurl%
-\url{https://v8.dev/blog/fast-properties}
-\showURL{%
-\tempurl}
-
-
 \bibitem[Burke(2007)]%
         {Burke2007}
 \bibfield{author}{\bibinfo{person}{Scott~L Burke}.}
@@ -132,43 +115,6 @@
 \newblock
 
 
-\bibitem[Chambers and Chen(1999)]%
-        {Chambers1999}
-\bibfield{author}{\bibinfo{person}{Craig Chambers} {and}
-  \bibinfo{person}{Weimin Chen}.} \bibinfo{year}{1999}\natexlab{}.
-\newblock \showarticletitle{Efficient Multiple and Predicate Dispatching}. In
-  \bibinfo{booktitle}{\emph{Proceedings of the 14th ACM SIGPLAN conference on
-  Object-oriented programming, systems, languages, and applications}}.
-  \bibinfo{pages}{238--255}.
-\newblock
-
-
-\bibitem[Clifton et~al\mbox{.}(2000)]%
-        {Clifton2000}
-\bibfield{author}{\bibinfo{person}{Curtis Clifton}, \bibinfo{person}{Gary~T.
-  Leavens}, \bibinfo{person}{Craig Chambers}, {and} \bibinfo{person}{Todd
-  Millstein}.} \bibinfo{year}{2000}\natexlab{}.
-\newblock \showarticletitle{MultiJava: Modular Open Classes and Symmetric
-  Multiple Dispatch for Java}. In \bibinfo{booktitle}{\emph{Proceedings of the
-  15th ACM SIGPLAN Conference on Object-Oriented Programming, Systems,
-  Languages, and Applications}}. \bibinfo{publisher}{ACM},
-  \bibinfo{pages}{130--145}.
-\newblock
-
-
-\bibitem[Concas et~al\mbox{.}(2007)]%
-        {Concas2007}
-\bibfield{author}{\bibinfo{person}{Giulio Concas}, \bibinfo{person}{Michele
-  Marchesi}, \bibinfo{person}{Sandro Pinna}, {and} \bibinfo{person}{Nicola
-  Serra}.} \bibinfo{year}{2007}\natexlab{}.
-\newblock \showarticletitle{Power Laws in a Large Object-Oriented Software
-  System}.
-\newblock \bibinfo{journal}{\emph{IEEE Transactions on Software Engineering}}
-  \bibinfo{volume}{33}, \bibinfo{number}{10} (\bibinfo{year}{2007}),
-  \bibinfo{pages}{687--708}.
-\newblock
-
-
 \bibitem[Czaplicki(2012)]%
         {Czaplicki2012}
 \bibfield{author}{\bibinfo{person}{Evan Czaplicki}.}
@@ -188,17 +134,6 @@
 \newblock \bibinfo{journal}{\emph{J. Comput. System Sci.}}
   \bibinfo{volume}{38}, \bibinfo{number}{1} (\bibinfo{year}{1989}),
   \bibinfo{pages}{86--124}.
-\newblock
-
-
-\bibitem[Emir et~al\mbox{.}(2007)]%
-        {Emir2007}
-\bibfield{author}{\bibinfo{person}{Burak Emir}, \bibinfo{person}{Martin
-  Odersky}, {and} \bibinfo{person}{John Williams}.}
-  \bibinfo{year}{2007}\natexlab{}.
-\newblock \showarticletitle{Matching Objects with Patterns}. In
-  \bibinfo{booktitle}{\emph{ECOOP 2007--Object-Oriented Programming}}.
-  \bibinfo{publisher}{Springer}, \bibinfo{pages}{273--298}.
 \newblock
 
 
@@ -226,14 +161,13 @@
 \tempurl}
 
 
-\bibitem[Flatt et~al\mbox{.}(2006)]%
-        {Flatt2006}
-\bibfield{author}{\bibinfo{person}{Matthew Flatt},
-  \bibinfo{person}{Robert~Bruce Findler}, {and} \bibinfo{person}{Matthias
-  Felleisen}.} \bibinfo{year}{2006}\natexlab{}.
-\newblock \showarticletitle{Scheme with Classes, Mixins, and Traits}. In
-  \bibinfo{booktitle}{\emph{Asian Symposium on Programming Languages and
-  Systems}}. \bibinfo{publisher}{Springer}, \bibinfo{pages}{270--289}.
+\bibitem[Flatt et~al\mbox{.}(2015)]%
+        {Flatt2015}
+\bibfield{author}{\bibinfo{person}{Matthew Flatt} {et~al\mbox{.}}}
+  \bibinfo{year}{2015}\natexlab{}.
+\newblock \showarticletitle{The Racket Manifesto}. In
+  \bibinfo{booktitle}{\emph{20 Years of the {P}ast and 20 Years of the {F}uture
+  ({S}napshots), {D}agstuhl {S}eminar 15451}}.
 \newblock
 
 
@@ -283,57 +217,6 @@
 \newblock
 
 
-\bibitem[Kmett(2012)]%
-        {Kmett2012}
-\bibfield{author}{\bibinfo{person}{Edward Kmett}.}
-  \bibinfo{year}{2012}\natexlab{}.
-\newblock \showarticletitle{Lenses, Folds, and Traversals}. In
-  \bibinfo{booktitle}{\emph{Workshop on Generic Programming}}.
-\newblock
-
-
-\bibitem[Lanza and Marinescu(2006)]%
-        {Lanza2006}
-\bibfield{author}{\bibinfo{person}{Michele Lanza} {and} \bibinfo{person}{Radu
-  Marinescu}.} \bibinfo{year}{2006}\natexlab{}.
-\newblock \bibinfo{booktitle}{\emph{Object-Oriented Metrics in Practice}}.
-\newblock \bibinfo{publisher}{Springer}.
-\newblock
-
-
-\bibitem[Okasaki(1998)]%
-        {Okasaki1998}
-\bibfield{author}{\bibinfo{person}{Chris Okasaki}.}
-  \bibinfo{year}{1998}\natexlab{}.
-\newblock \bibinfo{booktitle}{\emph{Purely Functional Data Structures}}.
-\newblock \bibinfo{publisher}{Cambridge University Press}.
-\newblock
-
-
-\bibitem[Orleans(2002)]%
-        {Orleans2002}
-\bibfield{author}{\bibinfo{person}{Doug Orleans}.}
-  \bibinfo{year}{2002}\natexlab{}.
-\newblock \showarticletitle{Filtered Dispatch}. In
-  \bibinfo{booktitle}{\emph{Proceedings of the 17th ACM SIGPLAN conference on
-  Object-oriented programming, systems, languages, and applications}}.
-  \bibinfo{pages}{20--26}.
-\newblock
-
-
-\bibitem[redline6561(2015)]%
-        {ImmutableStructures}
-\bibfield{author}{\bibinfo{person}{redline6561}.}
-  \bibinfo{year}{2015}\natexlab{}.
-\newblock \bibinfo{title}{Immutable-structures: Common Lisp immutable data
-  structures}.
-\newblock
-\urldef\tempurl%
-\url{https://github.com/redline6561/immutable-structures}
-\showURL{%
-\tempurl}
-
-
 \bibitem[Smith and Bates(2023)]%
         {Smith2023}
 \bibfield{author}{\bibinfo{person}{Robert Smith} {and} \bibinfo{person}{Cole
@@ -341,27 +224,6 @@
 \newblock \showarticletitle{Coalton: Efficient, Statically Typed Functional
   Programming on Common Lisp}. In \bibinfo{booktitle}{\emph{Proceedings of the
   16th European Lisp Symposium}}.
-\newblock
-
-
-\bibitem[Sved\"ang(2018)]%
-        {Svedang2018}
-\bibfield{author}{\bibinfo{person}{Erik Sved\"ang}.}
-  \bibinfo{year}{2018}\natexlab{}.
-\newblock \bibinfo{title}{Carp: A Statically Typed Lisp Without a GC}.
-\newblock
-\urldef\tempurl%
-\url{https://github.com/carp-lang/Carp}
-\showURL{%
-\tempurl}
-
-
-\bibitem[Tarver(2011)]%
-        {Tarver2011}
-\bibfield{author}{\bibinfo{person}{Mark Tarver}.}
-  \bibinfo{year}{2011}\natexlab{}.
-\newblock \bibinfo{booktitle}{\emph{The Shen Language}}.
-\newblock \bibinfo{publisher}{Upaya Books}.
 \newblock
 
 
@@ -376,18 +238,6 @@
 \newblock
 
 
-\bibitem[Tobin-Hochstadt et~al\mbox{.}(2011)]%
-        {TobinHochstadt2011}
-\bibfield{author}{\bibinfo{person}{Sam Tobin-Hochstadt},
-  \bibinfo{person}{Vincent St-Amour}, \bibinfo{person}{Ryan Culpepper},
-  \bibinfo{person}{Matthew Flatt}, {and} \bibinfo{person}{Matthias Felleisen}.}
-  \bibinfo{year}{2011}\natexlab{}.
-\newblock \showarticletitle{Languages as Libraries}. In
-  \bibinfo{booktitle}{\emph{Proceedings of the 32nd ACM SIGPLAN Conference on
-  Programming Language Design and Implementation}}. \bibinfo{pages}{132--141}.
-\newblock
-
-
 \bibitem[Ungar and Smith(1987)]%
         {Ungar1987}
 \bibfield{author}{\bibinfo{person}{David Ungar} {and}
@@ -395,6 +245,15 @@
 \newblock \showarticletitle{Self: The power of simplicity}. In
   \bibinfo{booktitle}{\emph{ACM SIGPLAN Notices}}, Vol.~\bibinfo{volume}{22}.
   \bibinfo{publisher}{ACM}, \bibinfo{pages}{227--242}.
+\newblock
+
+
+\bibitem[Wadler(1990)]%
+        {Wadler1990}
+\bibfield{author}{\bibinfo{person}{Philip Wadler}.}
+  \bibinfo{year}{1990}\natexlab{}.
+\newblock \showarticletitle{Linear Types Can Change the World!}. In
+  \bibinfo{booktitle}{\emph{Programming Concepts and Methods}}.
 \newblock
 
 

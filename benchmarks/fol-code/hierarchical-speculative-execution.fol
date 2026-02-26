@@ -1,0 +1,80 @@
+(in-package "hse"
+  (:use "fol.core")
+  (:export <regulated-account> deposit run-bench))
+
+;; Three-level constraint hierarchy for speculative updates.
+;;
+;; In FOL, each class in the hierarchy contributes one :around assoc method.
+;; The methods compose automatically via call-next-method: the most derived
+;; class runs first and can either reject (returning the old persistent
+;; snapshot with zero side effects) or delegate to the next level.
+;;
+;; In mutable CL, this layered validation cannot be expressed as CLOS method
+;; combinations because there is no persistent "old snapshot" to return on
+;; failure -- the object would have to be explicitly rolled back.  Instead, all
+;; validation levels must be flattened into one function, breaking the
+;; open/closed principle.
+
+;; --------------------------------------------------------------------------
+;; Level 1: Non-negative values.
+;; The most permissive constraint; applies to all validated objects.
+;; --------------------------------------------------------------------------
+(defclass <validated> []
+  [[owner :initarg :owner :initform ""]])
+
+(defmethod assoc :around [(obj <validated>) key val]
+  (if (< val 0)
+    obj                  ; reject: negative value, return old snapshot unchanged
+    (call-next-method))) ; accept: propagate to the next level
+
+;; --------------------------------------------------------------------------
+;; Level 2: Balance ceiling.
+;; Adds a per-account upper bound on top of Level 1.
+;; --------------------------------------------------------------------------
+(defclass <bounded-account> [<validated>]
+  [[balance :initarg :balance :initform 0]
+   [limit   :initarg :limit   :initform 1000]])
+
+(defmethod assoc :around [(acc <bounded-account>) key val]
+  ;; call-next-method invokes Level 1 first; if Level 1 accepted,
+  ;; tentative is the new snapshot -- check the balance ceiling.
+  ;; If Level 1 rejected, tentative IS acc (old snapshot), whose
+  ;; balance satisfies the ceiling, so the rejection propagates cleanly.
+  (bind [tentative (call-next-method)]
+    (if (> (:balance tentative) (:limit acc))
+      acc           ; reject: over ceiling, return old snapshot
+      tentative)))  ; accept: within ceiling
+
+;; --------------------------------------------------------------------------
+;; Level 3: Per-transaction delta cap.
+;; The tightest constraint; runs first in the :around chain.
+;; --------------------------------------------------------------------------
+(defclass <regulated-account> [<bounded-account>]
+  [[tx-cap :initarg :tx-cap :initform 100]])
+
+(defmethod assoc :around [(acc <regulated-account>) key val]
+  ;; Check the transaction delta before propagating to Level 2.
+  (if (and (= key :balance)
+           (> (- val (:balance acc)) (:tx-cap acc)))
+    acc                  ; reject: single transaction too large
+    (call-next-method))) ; accept: within per-transaction cap
+
+;; --------------------------------------------------------------------------
+;; Domain operation
+;; --------------------------------------------------------------------------
+(defn deposit [acc amount]
+  (assoc acc :balance (+ (:balance acc) amount)))
+
+;; --------------------------------------------------------------------------
+;; Benchmark: N valid deposits (amount 1, passes all three levels).
+;; Every deposit call traverses the three :around methods in sequence.
+;; Returns the final balance (= N if all deposits were accepted).
+;; --------------------------------------------------------------------------
+(defn run-bench [iterations]
+  (bind [acc (make '<regulated-account>
+                :owner "Alice" :balance 0
+                :limit 2000000 :tx-cap 1000000)]
+    (loop [i 0 a acc]
+      (if (< i iterations)
+        (recur (inc i) (deposit a 1))
+        (:balance a)))))

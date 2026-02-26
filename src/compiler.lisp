@@ -1794,27 +1794,62 @@
                  (body-nodes (cdr clause))
                  (param-list (fol-vector-to-list param-vec))
                  (has-specializers (some (lambda (p) (listp p)) param-list)))
-            (if has-specializers
-                ;; Has type/pred specializers - emit dispatched defun
-                ;; TODO: Dispatched methods with qualifiers? 
-                ;; CLOS doesn't support qualifiers on random functions.
-                (compile-defmethod-clauses name clauses)
-                ;; Simple params - emit CL defmethod
-                (multiple-value-bind (regular-params rest-param)
-                    (fol.compiler.destructure:parse-params param-list)
-                  (let* ((lambda-list (if rest-param
-                                          (append regular-params (list '&rest rest-param))
-                                          regular-params))
-                         (emitted-body (mapcar #'emit-node body-nodes)))
-                    (if qualifier
-                        `(defmethod ,name ,qualifier ,lambda-list
-                           ,@(when *extra-special-vars*
-                                   `((cl:declare (cl:special ,@(remove-duplicates *extra-special-vars*)))))
-                           ,@emitted-body)
-                        `(defmethod ,name ,lambda-list
-                           ,@(when *extra-special-vars*
-                                   `((cl:declare (cl:special ,@(remove-duplicates *extra-special-vars*)))))
-                           ,@emitted-body))))))
+            (if (cl:and has-specializers
+                        ;; All specializers are pure type-name symbols (no predicate forms)?
+                        (cl:every (lambda (p)
+                                    (cl:or (cl:symbolp p)
+                                           (cl:and (cl:listp p)
+                                                   (cl:= (cl:length p) 2)
+                                                   (cl:symbolp (cl:second p)))))
+                                  param-list))
+                ;; All type specializers: emit proper CLOS defmethod with class specializers.
+                ;; Add &rest kvps for lambda-list congruence with generics like assoc.
+                (cl:let* ((kvps-sym 'kvps)
+                          (clos-lambda-list
+                           (cl:append
+                            (cl:mapcar (lambda (p)
+                                         (cl:if (cl:listp p)
+                                                (cl:list (cl:first p) (cl:second p))
+                                                p))
+                                       param-list)
+                            (cl:list '&rest kvps-sym)))
+                          (param-names
+                           (cl:mapcar (lambda (p)
+                                        (cl:if (cl:listp p) (cl:first p) p))
+                                      param-list))
+                          (emitted-body (cl:mapcar #'emit-node body-nodes))
+                          ;; Declare only the actual method params special.
+                          ;; *extra-special-vars* may contain function-name symbols
+                          ;; added by collection-as-function dispatch (e.g. NUMBER?)
+                          ;; which must NOT appear in DECLARE SPECIAL.
+                          (all-special (remove-duplicates
+                                         (cl:append param-names (cl:list kvps-sym)))))
+                  (cl:if qualifier
+                      `(defmethod ,name ,qualifier ,clos-lambda-list
+                         (cl:declare (cl:special ,@all-special) (cl:ignore ,kvps-sym))
+                         ,@emitted-body)
+                      `(defmethod ,name ,clos-lambda-list
+                         (cl:declare (cl:special ,@all-special) (cl:ignore ,kvps-sym))
+                         ,@emitted-body)))
+                ;; Has predicate specializers: use COND dispatch
+                (if has-specializers
+                    (compile-defmethod-clauses name clauses)
+                    ;; No specializers: emit simple CL defmethod
+                    (multiple-value-bind (regular-params rest-param)
+                        (fol.compiler.destructure:parse-params param-list)
+                      (let* ((lambda-list (if rest-param
+                                              (append regular-params (list '&rest rest-param))
+                                              regular-params))
+                             (emitted-body (mapcar #'emit-node body-nodes)))
+                        (if qualifier
+                            `(defmethod ,name ,qualifier ,lambda-list
+                               ,@(when *extra-special-vars*
+                                       `((cl:declare (cl:special ,@(remove-duplicates *extra-special-vars*)))))
+                               ,@emitted-body)
+                            `(defmethod ,name ,lambda-list
+                               ,@(when *extra-special-vars*
+                                       `((cl:declare (cl:special ,@(remove-duplicates *extra-special-vars*)))))
+                               ,@emitted-body)))))))
           ;; Multi-clause: emit dispatched defun
           (compile-defmethod-clauses name clauses)))))
 

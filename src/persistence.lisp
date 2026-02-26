@@ -28,6 +28,12 @@
 Objects with more than this many slots overflow the remainder into a
 persistent vector trie.  See file header for threshold rationale.")
 
+(defclass persistent-direct-slot-definition (closer-mop:standard-direct-slot-definition)
+    ((alias :initarg :alias :initform nil :accessor slot-definition-alias)))
+
+(defclass persistent-effective-slot-definition (closer-mop:standard-effective-slot-definition)
+    ((alias :initarg :alias :initform nil :accessor slot-definition-alias)))
+
 (defclass persistent-class (standard-class)
     ((%slot-count :accessor persistent-class-slot-count
                   :initform 0
@@ -37,8 +43,25 @@ persistent vector trie.  See file header for threshold rationale.")
                         :documentation "Hash table mapping overflow slots (>= +native-slot-limit+) to vector indices.")
      (%keyword-to-slot :accessor persistent-class-keyword-to-slot
                        :initform (make-hash-table :test 'eq)
-                       :documentation "Hash table mapping keywords to slot name symbols."))
-  (:documentation "Hybrid split layout metaclass: first +native-slot-limit+ native slots, rest overflow to persistent vector."))
+                       :documentation "Hash table mapping keywords to slot name symbols.")
+     (%slot-aliases :accessor persistent-class-slot-aliases
+                    :initform (make-hash-table :test 'eq)
+                    :documentation "Maps slot name symbols to their old-name aliases."))
+  (:documentation "Hybrid split layout metaclass with slot aliasing support."))
+
+(defmethod closer-mop:direct-slot-definition-class ((class persistent-class) &rest initargs)
+  (declare (ignore initargs))
+  (find-class 'persistent-direct-slot-definition))
+
+(defmethod closer-mop:effective-slot-definition-class ((class persistent-class) &rest initargs)
+  (declare (ignore initargs))
+  (find-class 'persistent-effective-slot-definition))
+
+(defmethod closer-mop:compute-effective-slot-definition ((class persistent-class) name direct-slots)
+  (let ((effective-slot (call-next-method)))
+    (setf (slot-definition-alias effective-slot)
+      (some #'slot-definition-alias direct-slots))
+    effective-slot))
 
 (defmethod closer-mop:validate-superclass ((class persistent-class)
                                            (superclass standard-class))
@@ -65,10 +88,19 @@ persistent vector trie.  See file header for threshold rationale.")
 
     (setf (persistent-class-slot-count class) count)
 
-    ;; Populate keyword to slot name map for all slots (even overflow ones)
-    (dolist (slot user-slots)
-      (let ((name (closer-mop:slot-definition-name slot)))
-        (setf (gethash (intern (string name) :keyword) kw-map) name)))
+    ;; Populate keyword to slot name map and alias map
+    (let ((alias-map (make-hash-table :test 'eq)))
+      (dolist (slot user-slots)
+        (let ((name (closer-mop:slot-definition-name slot))
+              (alias (slot-definition-alias slot)))
+          (setf (gethash (intern (string name) :keyword) kw-map) name)
+          (when alias
+                (setf (gethash name alias-map) alias)
+                ;; Also map the alias keyword to this slot if not already mapped
+                (let ((alias-kw (intern (string alias) :keyword)))
+                  (unless (gethash alias-kw kw-map)
+                    (setf (gethash alias-kw kw-map) name))))))
+      (setf (persistent-class-slot-aliases class) alias-map))
     (setf (persistent-class-keyword-to-slot class) kw-map)
 
     (if (<= count +native-slot-limit+)
@@ -107,9 +139,9 @@ persistent vector trie.  See file header for threshold rationale.")
      (%metadata :accessor %persistent-metadata
                 :initarg :metadata :initform nil
                 :documentation "Optional metadata dict associated with this object.")
-     (%transient-p :accessor %transient-p
-                   :initform nil
-                   :documentation "T if object is in a mutable transient state.")
+     (%transient-owner :accessor %transient-owner
+                       :initform nil
+                       :documentation "Thread that owns this transient object, or NIL if persistent.")
      (%transient-buffer :accessor %transient-buffer
                         :initform nil
                         :documentation "Mutable array for overflow slots when transient."))
@@ -121,11 +153,21 @@ persistent vector trie.  See file header for threshold rationale.")
 ;;; ============================================================================
 
 (defmethod initialize-instance :around ((object <persistent-object>) &rest initargs &key &allow-other-keys)
-  "Allow slot writes during initialization. &allow-other-keys permits overflow initargs
-   for objects with > +native-slot-limit+ slots (whose overflow slots are not in the effective-slots list)."
-  (declare (ignore initargs))
-  (let ((*initializing-persistent-object* t))
-    (call-next-method)))
+  "Allow slot writes during initialization and handle slot aliasing in initargs."
+  (let* ((class (class-of object))
+         (aliases (persistent-class-slot-aliases class))
+         (new-initargs (copy-list initargs)))
+    ;; Check aliases in initargs
+    (maphash (lambda (sname alias)
+               (let* ((kw (intern (string sname) :keyword))
+                      (alias-name (if (symbolp alias) (string alias) alias))
+                      (alias-kw (intern (string alias-name) :keyword)))
+                 (when (and (eq (getf new-initargs kw :not-found) :not-found)
+                            (not (eq (getf new-initargs alias-kw :not-found) :not-found)))
+                       (setf (getf new-initargs kw) (getf new-initargs alias-kw)))))
+             aliases)
+    (let ((*initializing-persistent-object* t))
+      (apply #'call-next-method object new-initargs))))
 (defmethod initialize-instance :after ((object <persistent-object>) &rest initargs)
   "Populate the overflow <vector> from initargs."
   (let* ((class (class-of object))
@@ -138,7 +180,12 @@ persistent vector trie.  See file header for threshold rationale.")
             ;; 2. Loop through the unordered hash map and slot the values perfectly into place
             (maphash (lambda (slot-name idx)
                        (let* ((kw (intern (string slot-name) :keyword))
+                              (alias (gethash slot-name (persistent-class-slot-aliases class)))
+                              (alias-kw (and alias (intern (string alias) :keyword)))
                               (init-val (getf initargs kw :not-found)))
+                         ;; If not found under the primary name, check the alias
+                         (when (and (eq init-val :not-found) alias-kw)
+                               (setf init-val (getf initargs alias-kw :not-found)))
                          (unless (eq init-val :not-found)
                            (setf (aref temp-arr idx) init-val))))
                      (persistent-class-overflow-indices class))
@@ -168,8 +215,8 @@ persistent vector trie.  See file header for threshold rationale.")
                   (error "Slot ~A is unbound." slot-name)
                   val)))
           (setf
-            (if (or *initializing-persistent-object* (%transient-p object))
-                (if (%transient-p object)
+            (if (or *initializing-persistent-object* (eq (%transient-owner object) (bt:current-thread)))
+                (if (%transient-owner object)
                     (if (%transient-buffer object)
                         (setf (aref (%transient-buffer object) idx) new-value)
                         (setf (%persistent-vector object)
@@ -182,7 +229,7 @@ persistent vector trie.  See file header for threshold rationale.")
                 (not (eq (aref (%transient-buffer object) idx) :unbound))
                 (not (eq (fol.compiler.collection-primitives:ref (%persistent-vector object) idx) :unbound))))
           (slot-makunbound
-            (if (%transient-p object)
+            (if (eq (%transient-owner object) (bt:current-thread))
                 (if (%transient-buffer object)
                     (setf (aref (%transient-buffer object) idx) :unbound)
                     (setf (%persistent-vector object)
@@ -191,116 +238,129 @@ persistent vector trie.  See file header for threshold rationale.")
           ;; Genuine missing slot
           (t (call-next-method))))))
 
-  (defmethod (setf closer-mop:slot-value-using-class) (new-value
-                                                       (class persistent-class)
-                                                       object
-                                                       (slot closer-mop:standard-effective-slot-definition))
-    "Prevent mutation of native slots after initialization."
-    (let ((slot-name (closer-mop:slot-definition-name slot)))
-      (if (or (member slot-name '(%persistent-vector %metadata %persistent-storage %transient-p))
-              *initializing-persistent-object*
-              (%transient-p object))
-          (call-next-method)
-          (error "Cannot set slot ~A on persistent object. Use UPDATE-SLOT or TRANSIENT." slot-name))))
+(defun %transient-p (object)
+  "Return T if the object is transient (has a thread owner)."
+  (not (null (%transient-owner object))))
 
-  #+sbcl
-  (defmethod sb-mop:slot-makunbound-using-class ((class persistent-class)
-                                                 object
-                                                 (slot closer-mop:standard-effective-slot-definition))
-    "Prevent slot-makunbound on native persistent slots."
-    (let ((slot-name (closer-mop:slot-definition-name slot)))
-      (if (or (member slot-name '(%persistent-vector %metadata %persistent-storage %transient-p))
-              (%transient-p object))
-          (call-next-method)
-          (error "Cannot makunbound persistent slots."))))
+(defmethod (setf closer-mop:slot-value-using-class) (new-value
+                                                     (class persistent-class)
+                                                     object
+                                                     (slot closer-mop:standard-effective-slot-definition))
+  "Prevent mutation of native slots after initialization."
+  (let ((slot-name (closer-mop:slot-definition-name slot)))
+    (if (or (member slot-name '(%persistent-vector %metadata %persistent-storage %transient-owner %transient-buffer))
+            *initializing-persistent-object*
+            (eq (%transient-owner object) (bt:current-thread)))
+        (call-next-method)
+        (if (%transient-owner object)
+            (error "Cannot mutate transient object from different thread.")
+            (error "Cannot set slot ~A on persistent object. Use UPDATE-SLOT or TRANSIENT." slot-name)))))
 
-  ;;; ============================================================================
-  ;;; Functional Update API
-  ;;; ============================================================================
+#+sbcl
+(defmethod sb-mop:slot-makunbound-using-class ((class persistent-class)
+                                               object
+                                               (slot closer-mop:standard-effective-slot-definition))
+  "Prevent slot-makunbound on native persistent slots."
+  (let ((slot-name (closer-mop:slot-definition-name slot)))
+    (if (or (member slot-name '(%persistent-vector %metadata %persistent-storage %transient-owner %transient-buffer))
+            (eq (%transient-owner object) (bt:current-thread)))
+        (call-next-method)
+        (error "Cannot makunbound persistent slots."))))
 
-  (defun %persistent-storage (obj)
-    "Compatibility accessor. Returns either the map or vector storage."
-    (let ((class (class-of obj)))
-      (if (> (persistent-class-slot-count class) +native-slot-limit+)
-          (%persistent-vector obj)
-          ;; For native, we could return a map, but it's expensive.
-          ;; Most FOL code should use slot-value now.
-          nil)))
+;;; ============================================================================
+;;; Functional Update API
+;;; ============================================================================
 
-  (defun slot-name-from-keyword (class keyword)
-    "Map a keyword back to a slot name symbol using the class's cached map."
-    (gethash keyword (persistent-class-keyword-to-slot class)))
+(defun %persistent-storage (obj)
+  "Compatibility accessor. Returns either the map or vector storage."
+  (let ((class (class-of obj)))
+    (if (> (persistent-class-slot-count class) +native-slot-limit+)
+        (%persistent-vector obj)
+        ;; For native, we could return a map, but it's expensive.
+        ;; Most FOL code should use slot-value now.
+        nil)))
 
-  (defun update-slot (object key new-value)
-    "Return a new persistent object with KEY (slot name or keyword) updated to NEW-VALUE."
-    (update-slots object key new-value))
+(defun slot-name-from-keyword (class keyword)
+  "Map a keyword back to a slot name symbol using the class's cached map."
+  (gethash keyword (persistent-class-keyword-to-slot class)))
 
-  (defun update-slots (object &rest slot-name-value-pairs)
-    "Return a new persistent object with multiple slots updated.
+(defun update-slot (object key new-value)
+  "Return a new persistent object with KEY (slot name or keyword) updated to NEW-VALUE."
+  (update-slots object key new-value))
+
+(defun update-slots (object &rest slot-name-value-pairs)
+  "Return a new persistent object with multiple slots updated.
    Takes alternating slot-name (or keyword) value pairs.
    Efficiently routes updates to native CLOS slots or the overflow <vector>."
-    (let* ((class (class-of object))
-           (is-wide (> (persistent-class-slot-count class) +native-slot-limit+)))
+  (let* ((class (class-of object))
+         (is-wide (> (persistent-class-slot-count class) +native-slot-limit+)))
 
-      (when (%transient-p object)
+    (when (eq (%transient-owner object) (bt:current-thread))
+          (loop for (key value) on slot-name-value-pairs by #'cddr
+                for slot-name = (if (keywordp key) (slot-name-from-keyword class key) key)
+                do (if slot-name
+                       (setf (slot-value object slot-name) value)
+                       (error "Unknown slot/attribute: ~A" key)))
+          (return-from update-slots object))
+
+    (let ((*initializing-persistent-object* t)
+          (new-obj (allocate-instance class)))
+      ;; allocate-instance does not apply initforms, so explicitly initialize
+      ;; the system slots that are excluded from slot-copying below.
+      (setf (%transient-owner new-obj) nil)
+      (setf (%transient-buffer new-obj) nil)
+      ;; 1. Shallow copy all native slots (up to +native-slot-limit+ user slots + %persistent-vector)
+      (dolist (slot (closer-mop:class-slots class))
+        (let* ((sname (closer-mop:slot-definition-name slot))
+               (alias (gethash sname (persistent-class-slot-aliases class))))
+          (unless (member sname '(%persistent-vector %metadata %persistent-storage %transient-owner %transient-buffer))
+            (cond ((slot-boundp object sname)
+                    (setf (slot-value new-obj sname) (slot-value object sname)))
+                  ((and alias (slot-boundp object alias))
+                    (setf (slot-value new-obj sname) (slot-value object alias)))))))
+
+      (if is-wide
+          ;; Strategy 2: Wide object - route updates to native or overflow
+          (let* ((overflow-indices (persistent-class-overflow-indices class))
+                 (size (hash-table-count overflow-indices))
+                 (temp-array (make-array size :initial-element :unbound))
+                 (vector-mutated-p nil))
+
+            ;; 1. Initialize overflow buffer from old object (by name and alias)
+            (maphash (lambda (sname idx)
+                       (let ((alias (gethash sname (persistent-class-slot-aliases class))))
+                         (cond ((slot-boundp object sname)
+                                 (setf (aref temp-array idx) (slot-value object sname)))
+                               ((and alias (slot-boundp object alias))
+                                 (setf (aref temp-array idx) (slot-value object alias))))))
+                     overflow-indices)
+
             (loop for (key value) on slot-name-value-pairs by #'cddr
                   for slot-name = (if (keywordp key) (slot-name-from-keyword class key) key)
-                  do (if slot-name
-                         (setf (slot-value object slot-name) value)
-                         (error "Unknown slot/attribute: ~A" key)))
-            (return-from update-slots object))
+                  for overflow-idx = (and slot-name (gethash slot-name overflow-indices))
+                  do (if overflow-idx
+                         (progn
+                          (setf (aref temp-array overflow-idx) value)
+                          (setf vector-mutated-p t))
 
-      (let ((*initializing-persistent-object* t)
-            (new-obj (allocate-instance class)))
-        ;; 1. Shallow copy all native slots (up to +native-slot-limit+ user slots + %persistent-vector)
-        (dolist (slot (closer-mop:class-slots class))
-          (let ((sname (closer-mop:slot-definition-name slot)))
-            (when (slot-boundp object sname)
-                  (setf (slot-value new-obj sname) (slot-value object sname)))))
+                         ;; It's a native slot. Overwrite the copied value.
+                         (if slot-name
+                             (setf (slot-value new-obj slot-name) value)
+                             (error "Unknown slot/attribute: ~A" key))))
 
-        (if is-wide
-            ;; Strategy 2: Wide object - route updates to native or overflow
-            (let* ((overflow-indices (persistent-class-overflow-indices class))
-                   (old-vec (and (slot-boundp object '%persistent-vector)
-                                 (%persistent-vector object)))
-                   (temp-array nil)
-                   (vector-mutated-p nil))
+            ;; If any overflow slots were touched, freeze the mutated array back to the persistent <vector>
+            (when vector-mutated-p
+                  (setf (%persistent-vector new-obj)
+                    (make-instance 'fol.compiler.collections:<vector>
+                      :storage (fol.compiler.collection-primitives::%build-vec-t-from-list
+                                (coerce temp-array 'list))))))
 
-              (loop for (key value) on slot-name-value-pairs by #'cddr
-                    for slot-name = (if (keywordp key) (slot-name-from-keyword class key) key)
-                    for overflow-idx = (and slot-name (gethash slot-name overflow-indices))
-                    do (if overflow-idx
-                           ;; It's an overflow slot. Initialize temp-array if we haven't yet.
-                           (progn
-                            (unless temp-array
-                              (setf temp-array (make-array (hash-table-count overflow-indices)
-                                                 :initial-element :unbound))
-                              ;; Copy old vector contents into the mutable buffer
-                              (when old-vec
-                                    (loop for i from 0 below (fol.compiler.collections:collection-size old-vec)
-                                          do (setf (aref temp-array i) (fol.compiler.collections:collection-ref old-vec i)))))
-
-                            (setf (aref temp-array overflow-idx) value)
-                            (setf vector-mutated-p t))
-
-                           ;; It's a native slot. Overwrite the copied value.
-                           (if slot-name
-                               (setf (slot-value new-obj slot-name) value)
-                               (error "Unknown slot/attribute: ~A" key))))
-
-              ;; If any overflow slots were touched, freeze the mutated array back to the persistent <vector>
-              (when vector-mutated-p
-                    (setf (%persistent-vector new-obj)
-                      (make-instance 'fol.compiler.collections:<vector>
-                        :storage (fol.compiler.collection-primitives::%build-vec-t-from-list
-                                  (coerce temp-array 'list))))))
-
-            ;; Strategy 1: Small object - purely native overwrite
-            (loop for (key value) on slot-name-value-pairs by #'cddr
-                  for slot-name = (if (keywordp key) (slot-name-from-keyword class key) key)
-                  do (if slot-name
-                         (setf (slot-value new-obj slot-name) value)
-                         (error "Unknown slot/attribute: ~A" key))))
+          ;; Strategy 1: Small object - purely native overwrite
+          (loop for (key value) on slot-name-value-pairs by #'cddr
+                for slot-name = (if (keywordp key) (slot-name-from-keyword class key) key)
+                do (if slot-name
+                       (setf (slot-value new-obj slot-name) value)
+                       (error "Unknown slot/attribute: ~A" key))))
 
       ;; Ensure metadata carries over
       (when (slot-boundp object '%metadata)

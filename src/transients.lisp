@@ -81,6 +81,24 @@
   (make-instance '<dict>
     :dict-storage (fol.compiler.collection-primitives:hamt-persistent! th)))
 
+;;; --- Ownership Transfer ---
+
+(defgeneric transfer-ownership! (transient new-thread)
+  (:documentation
+   "Transfer ownership of TRANSIENT to NEW-THREAD.
+    The calling thread must be the current owner.  After the call the calling
+    thread's token is atomically replaced with NEW-THREAD's identity; any
+    subsequent assoc!, conj!, dissoc!, disj!, or persistent! by the original
+    thread will signal an error.  This enables linear hand-off between threads
+    in actor-pipeline patterns (Thread A builds, Thread B enriches, Thread C
+    freezes) while still catching use-after-transfer at runtime.  Full
+    compile-time verification that the caller holds no other references would
+    require linear types; this implementation provides the pragmatic equivalent
+    by invalidating the original owner's access rather than preventing it."))
+
+(defmethod transfer-ownership! ((th fol.compiler.collection-primitives::transient-hamt) new-thread)
+  (fol.compiler.collection-primitives:hamt-transfer-ownership! th new-thread))
+
 (in-package :fol.compiler.persistent)
 
 ;;; ===========================================================================
@@ -98,8 +116,8 @@
         (let ((sname (closer-mop:slot-definition-name slot)))
           (when (slot-boundp object sname)
                 (setf (slot-value new-obj sname) (slot-value object sname)))))
-      ;; Mark as transient
-      (setf (%transient-p new-obj) t)
+      ;; Mark as transient and set owner
+      (setf (%transient-owner new-obj) (bt:current-thread))
       ;; If wide, prepare the mutable buffer
       (when (> (persistent-class-slot-count class) +native-slot-limit+)
             (let* ((overflow-indices (persistent-class-overflow-indices class))
@@ -114,8 +132,10 @@
 
 (defmethod persistent! ((object <persistent-object>))
   "Freeze a transient object, making it immutable. Returns the object."
-  (unless (%transient-p object)
-    (error "Object is not transient."))
+  (unless (eq (%transient-owner object) (bt:current-thread))
+    (if (%transient-owner object)
+        (error "Cannot freeze transient object from different thread.")
+        (error "Object is not transient.")))
   (let* ((class (class-of object))
          (is-wide (> (persistent-class-slot-count class) +native-slot-limit+)))
     ;; If wide, freeze the buffer
@@ -128,13 +148,25 @@
                         :storage (fol.compiler.collection-primitives::%build-vec-t-from-list
                                   (coerce buffer 'list))))
                     (setf (%transient-buffer object) nil)))))
-    ;; Unset transient bit
-    (setf (%transient-p object) nil)
+    ;; Unset transient owner
+    (setf (%transient-owner object) nil)
     object))
 
 (defmethod fol.compiler.collections:assoc! ((object <persistent-object>) key value)
   "Update a slot in a transient persistent object in-place."
-  (unless (%transient-p object)
-    (error "Cannot use assoc! on a non-transient object."))
+  (unless (eq (%transient-owner object) (bt:current-thread))
+    (error "Cannot use assoc! on a non-transient or thread-confined object."))
   (update-slot object key value)
+  object)
+
+(defmethod fol.compiler.collections:transfer-ownership! ((object <persistent-object>) new-thread)
+  "Transfer ownership of a transient persistent object to NEW-THREAD.
+   The calling thread must be the current owner.  After the call the calling
+   thread's token is replaced with NEW-THREAD's identity; any subsequent
+   assoc! or persistent! by the original thread will signal an error."
+  (unless (eq (%transient-owner object) (bt:current-thread))
+    (if (%transient-owner object)
+        (error "Cannot transfer ownership: not the owner of this transient.")
+        (error "Cannot transfer ownership: object is not transient.")))
+  (setf (%transient-owner object) new-thread)
   object)
