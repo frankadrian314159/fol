@@ -321,6 +321,20 @@
        :slots slots
        :form form))))
 
+(defun parse-defstruct (form)
+  "Parse (defstruct <name> slot*).
+   Each slot is either a bare symbol or a vector [name :default val].
+   Emits a persistent defclass with <name>-<slot> accessors and a keyword constructor."
+  (destructuring-bind (op name &rest slot-specs) form
+    (declare (ignore op))
+    (let ((slots (mapcar (lambda (s)
+                           (if (fol-vector-p s) (fol-vector-to-list s) s))
+                         slot-specs)))
+      (fol.compiler.ast:make-defstruct-node
+       :name name
+       :slots slots
+       :form form))))
+
 (defun parse-defgeneric (form)
   "Parse a defgeneric form:
    (defgeneric name [params] option*)               - single pattern
@@ -797,6 +811,7 @@
   (setf (gethash "SET" special-forms) #'parse-set)
   (setf (gethash "DEFMACRO" special-forms) #'parse-defmacro)
   (setf (gethash "DEFCLASS" special-forms) #'parse-defclass)
+  (setf (gethash "DEFSTRUCT" special-forms) #'parse-defstruct)
   (setf (gethash "DEFGENERIC" special-forms) #'parse-defgeneric)
   (setf (gethash "DEFMETHOD" special-forms) #'parse-defmethod)
   (setf (gethash "DEF" special-forms) #'parse-def)
@@ -1577,6 +1592,52 @@
                      append (list kw sname))))
        ',name)))
 
+(defun emit-defstruct (node)
+  "Emit a defstruct node as a persistent defclass with auto-generated accessors and constructor.
+   Slot syntax: bare symbol for no default, or (name :default val) for an initform.
+   Accessors are named <struct-name>-<slot-name>.
+   Constructor is make-<struct-name> with keyword args (using defaults where provided)."
+  (let* ((name  (fol.compiler.ast:defstruct-node-name node))
+         (slots (fol.compiler.ast:defstruct-node-slots node))
+         (name-str (symbol-name name))
+         (pkg      (symbol-package name))
+         ;; Parse each slot into (slot-name storage-key accessor-name default has-default)
+         (slot-infos
+          (loop for slot in slots
+                for slot-spec    = (if (listp slot) slot (list slot))
+                for slot-name    = (first slot-spec)
+                for has-default  = (member :default (rest slot-spec))
+                for default      = (when has-default (second has-default))
+                for storage-key  = (intern (string slot-name) :keyword)
+                for accessor     = (intern (format nil "~A-~A" name-str (symbol-name slot-name)) pkg)
+                collect (list slot-name storage-key accessor default has-default)))
+         (constructor-name (intern (format nil "MAKE-~A" name-str) pkg))
+         ;; CL defclass slot specs: (slot-name :initarg :slot-name [:initform default])
+         (cl-slot-specs
+          (loop for (sname storage-key accessor default has-default) in slot-infos
+                collect (if has-default
+                            `(,sname :initarg ,storage-key
+                                     :initform ,(emit-initform default))
+                            `(,sname :initarg ,storage-key)))))
+    `(cl:progn
+       (cl:defclass ,name (fol.compiler.persistent:<persistent-object>)
+         ,cl-slot-specs
+         (:metaclass fol.compiler.persistent:persistent-class))
+       ;; <struct-name>-<slot-name> accessor for each slot
+       ,@(loop for (sname storage-key accessor default has-default) in slot-infos
+               collect `(cl:defun ,accessor (object)
+                          (fol.compiler.collection-functions:get object ,storage-key)))
+       ;; Keyword constructor; slots with defaults use (key default) form
+       (cl:defun ,constructor-name
+           (&key ,@(loop for (sname storage-key accessor default has-default) in slot-infos
+                         collect (if has-default
+                                     `(,sname ,(emit-initform default))
+                                     sname)))
+         (cl:make-instance ',name
+           ,@(loop for (sname storage-key) in slot-infos
+                   append (list storage-key sname))))
+       ',name)))
+
 (defun emit-defgeneric (node)
   "Emit a defgeneric node as CL defgeneric.
    Single-pattern: (defgeneric name (params) options...)
@@ -2181,6 +2242,7 @@
     (fol.compiler.ast:set-node (emit-set node))
     (fol.compiler.ast:defmacro-node (emit-defmacro node))
     (fol.compiler.ast:defclass-node (emit-defclass node))
+    (fol.compiler.ast:defstruct-node (emit-defstruct node))
     (fol.compiler.ast:defgeneric-node (emit-defgeneric node))
     (fol.compiler.ast:defmethod-node (emit-defmethod node))
     (fol.compiler.ast:def-node (emit-def node))

@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FOL Presentation - Slide Viewer</title>
+    <!-- Modern Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Marked.js for Markdown -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- Highlight.js for Code -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/lisp.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #08080a;
+            --accent-color: #8b5cf6; /* Violet */
+            --text-color: #e2e8f0;
+            --slide-bg: rgba(22, 22, 28, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --font-main: 'Outfit', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: var(--font-main);
+            height: 100vh;
+            overflow: hidden;
+            background: radial-gradient(circle at 50% 50%, #1a152e 0%, #08080a 70%);
+        }
+
+        #app {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        /* Slide Container */
+        #slides-viewport {
+            width: 85vw;
+            height: 75vh;
+            position: relative;
+            perspective: 1000px;
+        }
+
+        .slide {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            padding: 4rem;
+            background: var(--slide-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            opacity: 0;
+            transform: scale(0.95) translateY(20px);
+            transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+            pointer-events: none;
+            overflow-y: auto;
+        }
+
+        .slide.active {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+            pointer-events: auto;
+            z-index: 10;
+        }
+
+        .slide.prev {
+            transform: translateX(-100%) rotateY(15deg);
+            opacity: 0;
+        }
+
+        .slide.next {
+            transform: translateX(100%) rotateY(-15deg);
+            opacity: 0;
+        }
+
+        /* Markdown Styling */
+        .slide h1 {
+            font-size: 3.5rem;
+            font-weight: 800;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(to right, #fff, var(--accent-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            line-height: 1.1;
+        }
+
+        .slide h2 {
+            font-size: 2.5rem;
+            font-weight: 600;
+            margin-bottom: 2rem;
+            color: var(--accent-color);
+        }
+
+        .slide h3 {
+            font-size: 1.8rem;
+            margin: 1.5rem 0 1rem;
+            color: #a78bfa;
+        }
+
+        .slide p, .slide li {
+            font-size: 1.4rem;
+            line-height: 1.6;
+            margin-bottom: 0.8rem;
+            color: #cbd5e1;
+        }
+
+        .slide ul {
+            list-style-position: inside;
+            margin-left: 1rem;
+        }
+
+        .slide code {
+            font-family: var(--font-mono);
+            background: rgba(0,0,0,0.3);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 1.1rem;
+        }
+
+        .slide pre {
+            background: #0d0d12 !important;
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin: 1.5rem 0;
+            border: 1px solid var(--glass-border);
+            font-size: 1.1rem;
+            line-height: 1.4;
+        }
+
+        /* Controls */
+        #controls {
+            position: fixed;
+            bottom: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            z-index: 100;
+            background: rgba(30,30,40,0.5);
+            padding: 0.8rem 2rem;
+            border-radius: 50px;
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+        }
+
+        button {
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 1.2rem;
+            transition: all 0.2s;
+            opacity: 0.6;
+        }
+
+        button:hover {
+            opacity: 1;
+            transform: scale(1.1);
+            color: var(--accent-color);
+        }
+
+        #slide-indicator {
+            font-weight: 600;
+            font-size: 1.1rem;
+            min-width: 80px;
+            text-align: center;
+            color: #94a3b8;
+        }
+
+        /* Speaker Notes Panel */
+        #speaker-notes-toggle {
+            position: fixed;
+            top: 2rem;
+            right: 2rem;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--glass-border);
+            color: #94a3b8;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            z-index: 100;
+        }
+
+        #speaker-notes-panel {
+            position: fixed;
+            bottom: 0;
+            right: 0;
+            width: 350px;
+            height: 100vh;
+            background: #111116;
+            border-left: 1px solid var(--glass-border);
+            padding: 2.5rem;
+            transform: translateX(100%);
+            transition: transform 0.4s ease;
+            z-index: 90;
+            overflow-y: auto;
+        }
+
+        #speaker-notes-panel.visible {
+            transform: translateX(0);
+        }
+
+        #speaker-notes-panel h4 {
+            color: var(--accent-color);
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1rem;
+            font-size: 0.9rem;
+        }
+
+        #notes-content {
+            font-size: 1.1rem;
+            line-height: 1.6;
+            color: #94a3b8;
+        }
+
+        /* Progress Bar */
+        #progress-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            height: 4px;
+            background: var(--accent-color);
+            width: 0%;
+            transition: width 0.3s;
+            box-shadow: 0 0 10px var(--accent-color);
+            z-index: 110;
+        }
+    </style>
+</head>
+<body>
+
+<div id="app">
+    <div id="slides-viewport"></div>
+    
+    <div id="controls">
+        <button id="prevBtn">← Previous</button>
+        <div id="slide-indicator">0 / 0</div>
+        <button id="nextBtn">Next →</button>
+    </div>
+
+    <button id="speaker-notes-toggle">Show Speaker Notes</button>
+    <div id="speaker-notes-panel">
+        <h4>Speaker Notes</h4>
+        <div id="notes-content"></div>
+    </div>
+
+    <div id="progress-bar"></div>
+</div>
+
+<!-- Slide Content Template -->
+<script id="slides-raw" type="text/markdown">
+# FOL: A Functional Object Lisp
+## Closing the Gap Between CLOS and Clojure
+
+**Presenter:** Frank Adrian  
+**Conference:** European Lisp Symposium 2026  
+**Location:** Krakow, Poland
+
+---
+
+## The Vision: Best of Both Worlds
+
+*   **CLOS:** 
+    *   Powerful Metaobject Protocol (MOP)
+    *   Extensible Method Combinations
+    *   Constraint: Rooted in mutable state
+*   **Clojure:**
+    *   Persistent Data Structures
+    *   Value-centric programming
+    *   Constraint: Protocol-based dispatch lacks MOP introspection
+*   **FOL:** Every object is a CLOS instance *and* a persistent record.
+
+**Speaker Notes:** 
+FOL isn't just a library; it's a synthesis. We want the versioning power of Clojure with the architectural "superpowers" of the CLOS MOP.
+
+---
+
+## Why Another Lisp?
+
+*   **The Problem with Libraries:**
+    *   `FSet` and friends provide structures but don't integrate easily with `defclass`.
+    *   Standard CLOS `:around` methods can't easily roll back state.
+*   **The FOL Approach:**
+    *   Persistence is a property of the **Metaclass**, not the user code.
+    *   Transparently intercepting slot access to ensure immutability.
+    *   Enforcing invariants that library-based approaches in CL cannot guarantee.
+
+**Speaker Notes:** 
+In Common Lisp, persistence usually requires discipline (don't use `setf`). In FOL, persistence is enforced by the compiler and the runtime metaobjects.
+
+---
+
+## Internal Structures: The Hybrid Layout
+
+*   **Identity vs. Value:**
+    *   Identity refers to an **Epoch** (a specific version).
+    *   `assoc` creates the "next" identity value.
+*   **Storage Strategy ($T=8$):**
+    *   **Native Path:** $\le 8$ slots use native CLOS slots (Speed).
+    *   **Overflow Path:** $> 8$ slots utilize a Persistent Vector Trie (Scalability).
+*   **Structural Sharing:** Only modified branches are reallocated.
+*   **Collections:**
+    *   Sets, Maps, Vectors: Persistent by default.
+    *   Vectors: 32-way tries.
+    *   Sets, Maps: 32-way HAMTs.
+    *   Ordered collections: 32-way B-Trees.
+
+**Speaker Notes:** 
+We use a hybrid approach to bridge the "persistence tax." If you have a small object, it's nearly as fast as a mutable one. If it's huge, we fall back to HAMT-style tries.
+
+---
+
+## FOL by Example
+
+```lisp
+;; Define a persistent class
+(defclass <sensor> [] [[id] [val]])
+
+;; Create and update
+(def s1 (make <sensor> :id 101 :val 22.5))
+(def s2 (assoc s1 :val 23.1)) ; s1 is unchanged
+
+;; Multi-pattern predicate dispatch
+(defn alert [({:keys [val]} (>= 35))]
+  (print "ALERT: Critical Temperature Exceeded! Shutting down system.")
+  (shutdown-system))
+            [({:keys [val]} (< 35))]
+  (print "ALERT: Critical Temperature!")
+            [({:keys [val]} (< 30))]
+  (print "WARNING: Elevated Temperature!")
+            [({:keys [val]} (< 20))]
+  (print "Normal Temperature")
+
+;; Predicate dispatch on (obj (fn arg0 arg1 ...)) evaluates as (fn obj arg0 arg1 ...)
+```
+
+**Speaker Notes:** 
+Syntax is Clojure-inspired but the semantics are full CLOS. Note the power of combine map-destructuring with value-based predicates in `defn`.
+
+---
+
+## The Specificity Calculus
+
+Predicate dispatch is undecidable in general. We solve this via:
+
+**4-Level Category Precedence:**
+1.  **Predicates:** `(x (even?))` (Highest)
+2.  **Types:** `(x <integer>)`
+3.  **Destructuring:** `[x y]`
+4.  **Wildcards:** `x` (Lowest)
+
+*   **Tie-breaking:** Definition order.
+*   **Result:** Predictive, inspectable, and decidable dispatch.
+
+**Speaker Notes:** 
+Researchers often struggle with predicate dispatch because it looks like a theorem-prover problem. FOL makes it a "syntactic precedence" problem.
+
+---
+
+## MOP Extensions for Persistence
+
+*   **Intercepting the Protocol:**
+    *   `slot-value-using-class`: Routes between Native/Trie.
+    *   `(setf slot-value-using-class)`: Specialized on `persistent-class` to signal `mutation-error`.
+*   **Bootstrap Safety:**
+    *   `%metadata` and `%persistent-vector` slots remain native.
+    *   Prevents infinite recursion in the introspection logic.
+
+**Speaker Notes:** 
+The MOP allows us to redefine what "accessing a slot" means. We turn a write into an error and a read into a potential trie-lookup.
+
+---
+
+## Lazy Schema Evolution
+
+*   **Immutable Snapshots:** Existing instances are frozen Schema V1 records.
+*   **JIT Migration:**
+    *   Definitions can change (renames, additions).
+    *   Functional updates (`assoc`) allocate Schema V2 instances.
+    *   **`:alias` Protocol:** Renamed slots pull from legacy data during the copy.
+*   **Safety:** Single-hop resolution only (Prevents $O(N)$ lookup chains).
+
+**Speaker Notes:** 
+In mutable CLOS, you have `update-instance-for-redefined-class`. In FOL, we don't need to mutate; we just migrate slots when you create the "next" version of the object.
+
+---
+
+## Engineering the Threshold ($T=8$)
+
+*   **The Micro-Overhead:**
+    *   2 Native Slots: **33x** slower than `setf`.
+    *   128 Slots: **447x** slower than `setf`.
+*   **Why $T=8$?**
+    *   HAMT path base-cost is ~106ns (4x native element copy).
+    *   Object studies (Muschevici et al.) show 90% of classes have $\le 12$ fields.
+    *   $T=8$ maximizes the "Native Fast Path" for the majority of use cases.
+
+**Speaker Notes:** 
+We did the math. Persistence has a cost. By keeping the first 8 slots native, we minimize that cost for 80-90% of typical domain objects.
+
+---
+
+## Suitability: The Performance Envelope
+
+*   **When to AVOID FOL:**
+    *   Tight imperative mutation loops (e.g., in-place Quicksort).
+*   **When to USE FOL:**
+    *   State-heavy logic (Simulations, Event Sourcing).
+*   **The LSim Results:**
+    *   4,000-gate simulation: **1.27x** parity with native CL.
+    *   Memory Pressure: **0.59x** of CL (Structural sharing beats deep-copy).
+
+**Speaker Notes:** 
+Persistence isn't just about safety; it's about memory efficiency at scale. When you stop "defensively copying," the GC pressure actually drops.
+
+---
+
+## LLM Experience Report
+
+*   **Agentic Pair-Programming:**
+    *   **Successes:** HAMT implementation; generating 100+ sequence functions; property-based test suites.
+    *   **Weakness:** High-level architectural consistency requires human "guardrails."
+*   **The "Boilerplate Slayer":**
+    *   Automating the `reducible` protocol across 19 collection types.
+    *   Reducing development time for routine MOP specialization.
+
+**Speaker Notes:** 
+FOL was developed with an AI agent (Antigravity). It excelled at "Mechanical implementation" but still needed the researcher to define the "Specificity Calculus."
+
+---
+
+## Conclusion
+
+*   **FOL:** A successful synthesis of persistence and CLOS.
+*   **Principle:** Persistence as a modular engineering cost.
+*   **Future:**
+    *   Parallel collections (Fork-join over tries).
+    *   Native LLVM compiler backend.
+    *   VSCode persistence debugger.
+
+**Full Source:** `github.com/frankadrian314159/fol`
+
+**Questions?**
+
+**Speaker Notes:** 
+FOL proves that you don't have to give up the MOP to get Clojure's benefits. We can have both.
+</script>
+
+<script>
+    const slidesRaw = document.getElementById('slides-raw').textContent;
+    const slidesViewport = document.getElementById('slides-viewport');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const indicator = document.getElementById('slide-indicator');
+    const progressBar = document.getElementById('progress-bar');
+    const notesPanel = document.getElementById('speaker-notes-panel');
+    const notesContent = document.getElementById('notes-content');
+    const notesToggle = document.getElementById('speaker-notes-toggle');
+
+    let currentSlide = 0;
+    let slides = [];
+
+    function init() {
+        // Parse Slides
+        const rawChunks = slidesRaw.split('\n---\n');
+        
+        rawChunks.forEach((chunk, index) => {
+            const slideDiv = document.createElement('div');
+            slideDiv.className = 'slide';
+            if (index === 0) slideDiv.className += ' active';
+            
+            // Extract Speaker Notes
+            const parts = chunk.split('**Speaker Notes:**');
+            const content = parts[0];
+            const notes = parts[1] || "No notes for this slide.";
+            
+            slideDiv.innerHTML = marked.parse(content);
+            slideDiv.dataset.notes = notes;
+            slidesViewport.appendChild(slideDiv);
+            slides.push(slideDiv);
+        });
+
+        updateUI();
+        hljs.highlightAll();
+    }
+
+    function updateUI() {
+        slides.forEach((slide, i) => {
+            slide.classList.remove('active', 'prev', 'next');
+            if (i === currentSlide) slide.classList.add('active');
+            else if (i < currentSlide) slide.classList.add('prev');
+            else slide.classList.add('next');
+        });
+
+        indicator.innerText = `${currentSlide + 1} / ${slides.length}`;
+        progressBar.style.width = `${((currentSlide + 1) / slides.length) * 100}%`;
+        
+        // Update Speaker Notes
+        notesContent.innerHTML = marked.parse(slides[currentSlide].dataset.notes);
+    }
+
+    function moveSlide(dir) {
+        if (dir === 'next' && currentSlide < slides.length - 1) {
+            currentSlide++;
+        } else if (dir === 'prev' && currentSlide > 0) {
+            currentSlide--;
+        }
+        updateUI();
+    }
+
+    // Keyboard Navigation
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'n') moveSlide('next');
+        if (e.key === 'ArrowLeft' || e.key === 'p') moveSlide('prev');
+    });
+
+    prevBtn.onclick = () => moveSlide('prev');
+    nextBtn.onclick = () => moveSlide('next');
+
+    // Notes Toggle
+    notesToggle.onclick = () => {
+        const isVisible = notesPanel.classList.contains('visible');
+        notesPanel.classList.toggle('visible');
+        notesToggle.innerText = isVisible ? 'Show Speaker Notes' : 'Hide Speaker Notes';
+    };
+
+    init();
+</script>
+
+</body>
+</html>

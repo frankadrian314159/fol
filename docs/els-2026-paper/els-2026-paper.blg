@@ -29,6 +29,7 @@ Warning--page numbers missing in both pages and numpages fields in Flatt2015
 Warning--empty publisher in Hickey2008
 Warning--empty address in Hickey2008
 Warning--empty address in Kiczales1991
+Warning--empty address in Muschevici2008
 Warning--empty publisher in Smith2023
 Warning--empty address in Smith2023
 Warning--page numbers missing in both pages and numpages fields in Smith2023
@@ -39,45 +40,45 @@ Warning--empty address in Ungar1987
 Warning--empty publisher in Wadler1990
 Warning--empty address in Wadler1990
 Warning--page numbers missing in both pages and numpages fields in Wadler1990
-You've used 20 entries,
+You've used 22 entries,
             6273 wiz_defined-function locations,
-            1647 strings with 21198 characters,
-and the built_in function-call counts, 19940 in all, are:
-= -- 2220
-> -- 572
+            1662 strings with 21639 characters,
+and the built_in function-call counts, 22441 in all, are:
+= -- 2552
+> -- 650
 < -- 0
-+ -- 194
-- -- 218
-* -- 1278
-:= -- 1965
-add.period$ -- 97
-call.type$ -- 20
-change.case$ -- 125
-chr.to.int$ -- 20
-cite$ -- 45
-duplicate$ -- 1942
-empty$ -- 1368
-format.name$ -- 262
-if$ -- 4697
++ -- 222
+- -- 242
+* -- 1456
+:= -- 2193
+add.period$ -- 107
+call.type$ -- 22
+change.case$ -- 141
+chr.to.int$ -- 22
+cite$ -- 48
+duplicate$ -- 2166
+empty$ -- 1525
+format.name$ -- 294
+if$ -- 5329
 int.to.chr$ -- 2
 int.to.str$ -- 1
-missing$ -- 66
-newline$ -- 203
-num.names$ -- 140
-pop$ -- 835
+missing$ -- 75
+newline$ -- 218
+num.names$ -- 154
+pop$ -- 926
 preamble$ -- 1
-purify$ -- 285
+purify$ -- 317
 quote$ -- 0
-skip$ -- 725
+skip$ -- 805
 stack$ -- 0
-substring$ -- 1398
-swap$ -- 152
+substring$ -- 1591
+swap$ -- 176
 text.length$ -- 0
 text.prefix$ -- 0
 top$ -- 0
-type$ -- 528
-warning$ -- 25
-while$ -- 141
+type$ -- 574
+warning$ -- 26
+while$ -- 153
 width$ -- 0
-write$ -- 415
-(There were 25 warnings)
+write$ -- 453
+(There were 26 warnings)

@@ -215,6 +215,13 @@
   (superclasses nil :read-only t)
   (slots nil :read-only t))
 
+(defstruct (defstruct-node (:include ast-node))
+  "Struct definition: (defstruct <name> slot*).
+   Each slot is either a symbol or a list (name :default val).
+   Emits a defclass with <name>-<slot> accessors and a keyword constructor."
+  (name nil :read-only t)
+  (slots nil :read-only t))
+
 (defstruct (defgeneric-node (:include ast-node))
   "Generic function definition: (defgeneric name [params] option*) or
    multi-pattern: (defgeneric name ([params1] [params2] ...) option*)."

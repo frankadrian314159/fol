@@ -104,6 +104,7 @@
    invoke-restart-node invoke-restart-node-p invoke-restart-node-name invoke-restart-node-args
    ;; Class system
    defclass-node defclass-node-p defclass-node-name defclass-node-superclasses defclass-node-slots
+   defstruct-node defstruct-node-p defstruct-node-name defstruct-node-slots
    defgeneric-node defgeneric-node-p defgeneric-node-name
    defgeneric-node-lambda-lists defgeneric-node-options
    defmethod-node defmethod-node-p defmethod-node-name defmethod-node-qualifier defmethod-node-clauses
@@ -143,7 +144,7 @@
    make-quote-node make-thread-first-node make-thread-last-node
    make-handler-case-node make-handler-bind-node make-restart-case-node
    make-signal-node make-error-node make-warn-node make-invoke-restart-node
-   make-defclass-node make-defgeneric-node make-defmethod-node make-defmacro-node
+   make-defclass-node make-defstruct-node make-defgeneric-node make-defmethod-node make-defmacro-node
    make-defdynamic-node make-binding-node
    make-vector-node make-dict-node make-set-node))
 
