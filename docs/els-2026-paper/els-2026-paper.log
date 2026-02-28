@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.2.2)  28 FEB 2026 01:32
+This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.2.2)  28 FEB 2026 01:38
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1244,24 +1244,27 @@ Overfull \hbox (8.51212pt too wide) in paragraph at lines 432--433
 LaTeX Font Info:    Font shape `TS1/LinuxLibertineT-TLF/b/n' will be
 (Font)              scaled to size 9.0pt on input line 474.
  [7.7{C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/libertine/lb
-tn_7f4ce4.enc}] (els-2026-paper.bbl
-Underfull \vbox (badness 10000) has occurred while \output is active []
+tn_7f4ce4.enc}]
+Overfull \hbox (15.14677pt too wide) in paragraph at lines 539--540
+\T1/LinuxLibertineT-TLF/m/n/9 (-20) based or-dered dis-patch en-sures pre-dicta
+bil-ity by in-spec-tion. \T1/LinuxLibertineT-TLF/b/n/9 (-20) Racket \T1/LinuxLi
+bertineT-TLF/m/n/9 (-20) [[]]
+ []
 
-
+(els-2026-paper.bbl
 
 Package balance Warning: You have called \balance in second column
 (balance)                Columns might not be balanced.
 
 [8.8]
-LaTeX Info: Redefining \tempurl on input line 172.
-LaTeX Info: Redefining \tempurl on input line 205.
+LaTeX Info: Redefining \tempurl on input line 192.
 
-Underfull \hbox (badness 3646) in paragraph at lines 199--208
+Underfull \hbox (badness 3646) in paragraph at lines 186--195
 []\T1/LinuxLibertineT-TLF/m/n/7 (+20) Rich Hickey. 2009.  Are We There Yet?  JV
 M Lan-guages Sum-mit
  []
 
-LaTeX Info: Redefining \tempurl on input line 218.
+LaTeX Info: Redefining \tempurl on input line 205.
 )
 
 Class acmart Warning: Some images may lack descriptions.
@@ -1279,6 +1282,9 @@ rtant steps when creating your papers will ensure that the widest possible audi
 ence can ingest your work..
 
 
+Overfull \vbox (1.319pt too high) has occurred while \output is active []
+
+
 (C:\Users\frank\AppData\Local\Programs\MiKTeX\tex/generic/stringenc\se-pdfdoc.d
 ef
 File: se-pdfdoc.def 2019/11/29 v1.12 stringenc: PDFDocEncoding
@@ -1294,11 +1300,11 @@ Package rerunfilecheck Info: File `els-2026-paper.out' has not changed.
 (rerunfilecheck)             Checksum: 3F1341E6A158DE764D81C949D8E7B8F6;4062.
  ) 
 Here is how much of TeX's memory you used:
- 23732 strings out of 467871
- 386090 string characters out of 5418377
- 1165883 words of memory out of 5000000
- 51307 multiletter control sequences out of 15000+600000
- 853527 words of font info for 555 fonts, out of 8000000 for 9000
+ 23719 strings out of 467871
+ 385790 string characters out of 5418377
+ 1165069 words of memory out of 5000000
+ 51304 multiletter control sequences out of 15000+600000
+ 852732 words of font info for 549 fonts, out of 8000000 for 9000
  1302 hyphenation exceptions out of 8191
  90i,21n,131p,1773b,1220s stack positions out of 10000i,1000n,20000p,200000b,200000s
 <C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/inconsolata/
@@ -1320,9 +1326,9 @@ TXMI.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/newtx
 newtx/txmiaX.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/publ
 ic/newtx/txsym.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/pu
 blic/newtx/txsys.pfb>
-Output written on els-2026-paper.pdf (9 pages, 620906 bytes).
+Output written on els-2026-paper.pdf (9 pages, 620259 bytes).
 PDF statistics:
- 426 PDF objects out of 1000 (max. 8388607)
- 135 named destinations out of 1000 (max. 500000)
+ 423 PDF objects out of 1000 (max. 8388607)
+ 134 named destinations out of 1000 (max. 500000)
  122569 words of extra memory for PDF output out of 128383 (max. 10000000)
 

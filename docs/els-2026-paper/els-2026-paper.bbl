@@ -2,7 +2,7 @@
 %%% Do NOT edit. File created by BibTeX with style
 %%% ACM-Reference-Format-Journals [18-Jan-2012].
 
-\begin{thebibliography}{22}
+\begin{thebibliography}{21}
 
 %%% ====================================================================
 %%% NOTE TO THE USER: you can override these defaults by providing
@@ -159,19 +159,6 @@
   Dispatch}. In \bibinfo{booktitle}{\emph{ECOOP'98—Object-Oriented
   Programming}}. \bibinfo{publisher}{Springer}, \bibinfo{pages}{186--211}.
 \newblock
-
-
-\bibitem[Eslick and Hyde(2008)]%
-        {Eslick2008}
-\bibfield{author}{\bibinfo{person}{Ian Eslick} {and} \bibinfo{person}{Ben
-  Hyde}.} \bibinfo{year}{2008}\natexlab{}.
-\newblock \bibinfo{title}{Elephant: A Persistent Object Database for Common
-  Lisp}.
-\newblock
-\urldef\tempurl%
-\url{https://common-lisp.net/project/elephant/}
-\showURL{%
-\tempurl}
 
 
 \bibitem[Flatt et~al\mbox{.}(2015)]%
