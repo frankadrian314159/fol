@@ -1593,28 +1593,26 @@
        ',name)))
 
 (defun emit-defstruct (node)
-  "Emit a defstruct node as a persistent defclass with auto-generated accessors and constructor.
+  "Emit a defstruct node as a persistent defclass with slot accessor methods and a make method.
    Slot syntax: bare symbol for no default, or (name :default val) for an initform.
-   Accessors are named <struct-name>-<slot-name>.
-   Constructor is make-<struct-name> with keyword args (using defaults where provided)."
+   For each slot, emits a (defmethod get ((obj <name>) (key (eql :slot)) &optional default))
+   so that (:slot obj) dispatch is type-specific.
+   Constructor is (defmethod make ((class (eql '<name>)) &rest args)) forwarding to make-instance;
+   initforms on the defclass handle default slot values."
   (let* ((name  (fol.compiler.ast:defstruct-node-name node))
          (slots (fol.compiler.ast:defstruct-node-slots node))
-         (name-str (symbol-name name))
-         (pkg      (symbol-package name))
-         ;; Parse each slot into (slot-name storage-key accessor-name default has-default)
+         ;; Parse each slot into (slot-name storage-key default has-default)
          (slot-infos
           (loop for slot in slots
-                for slot-spec    = (if (listp slot) slot (list slot))
-                for slot-name    = (first slot-spec)
-                for has-default  = (member :default (rest slot-spec))
-                for default      = (when has-default (second has-default))
-                for storage-key  = (intern (string slot-name) :keyword)
-                for accessor     = (intern (format nil "~A-~A" name-str (symbol-name slot-name)) pkg)
-                collect (list slot-name storage-key accessor default has-default)))
-         (constructor-name (intern (format nil "MAKE-~A" name-str) pkg))
+                for slot-spec   = (if (listp slot) slot (list slot))
+                for slot-name   = (first slot-spec)
+                for has-default = (member :default (rest slot-spec))
+                for default     = (when has-default (second has-default))
+                for storage-key = (intern (string slot-name) :keyword)
+                collect (list slot-name storage-key default has-default)))
          ;; CL defclass slot specs: (slot-name :initarg :slot-name [:initform default])
          (cl-slot-specs
-          (loop for (sname storage-key accessor default has-default) in slot-infos
+          (loop for (sname storage-key default has-default) in slot-infos
                 collect (if has-default
                             `(,sname :initarg ,storage-key
                                      :initform ,(emit-initform default))
@@ -1623,19 +1621,15 @@
        (cl:defclass ,name (fol.compiler.persistent:<persistent-object>)
          ,cl-slot-specs
          (:metaclass fol.compiler.persistent:persistent-class))
-       ;; <struct-name>-<slot-name> accessor for each slot
-       ,@(loop for (sname storage-key accessor default has-default) in slot-infos
-               collect `(cl:defun ,accessor (object)
-                          (fol.compiler.collection-functions:get object ,storage-key)))
-       ;; Keyword constructor; slots with defaults use (key default) form
-       (cl:defun ,constructor-name
-           (&key ,@(loop for (sname storage-key accessor default has-default) in slot-infos
-                         collect (if has-default
-                                     `(,sname ,(emit-initform default))
-                                     sname)))
-         (cl:make-instance ',name
-           ,@(loop for (sname storage-key) in slot-infos
-                   append (list storage-key sname))))
+       ;; Per-slot get methods: (:slot obj) dispatches here for type-specific access
+       ,@(loop for (sname storage-key default has-default) in slot-infos
+               collect `(cl:defmethod fol.compiler.collection-functions:get
+                            ((obj ,name) (key (cl:eql ,storage-key)) &optional default)
+                          (cl:declare (cl:ignore key default))
+                          (cl:slot-value obj ',sname)))
+       ;; Constructor via make generic: (make '<name> :slot val ...)
+       (cl:defmethod fol.compiler.primitives:make ((class (cl:eql ',name)) &rest args)
+         (cl:apply #'cl:make-instance ',name args))
        ',name)))
 
 (defun emit-defgeneric (node)
