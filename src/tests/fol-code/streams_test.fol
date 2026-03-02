@@ -1,0 +1,86 @@
+;;; Streams Tests
+;;;
+;;; Tests for fol.compiler.streams module.
+;;; Covers stream creation, type predicates, and basic I/O operations.
+
+;;; ============================================================================
+;;; Stream Type Predicates
+;;; ============================================================================
+
+;;; Input stream predicate
+(bind [stream (fol.compiler.streams:string-input-stream "hello")]
+  (assert (fol.compiler.streams:<input-stream>? stream) "string-input-stream is <input-stream>?"))
+
+;;; Output stream predicate
+(bind [stream (fol.compiler.streams:string-output-stream)]
+  (assert (fol.compiler.streams:<output-stream>? stream) "string-output-stream is <output-stream>?"))
+
+;;; ============================================================================
+;;; String Input Stream - Create and verify type
+;;; ============================================================================
+
+;;; Create string input stream
+(bind [stream (fol.compiler.streams:string-input-stream "test data")]
+  (assert stream "string-input-stream creates stream"))
+
+;;; String input stream type predicate
+(bind [stream (fol.compiler.streams:string-input-stream "hello")]
+  (assert (fol.compiler.streams:<string-input-stream>? stream) "<string-input-stream>? identifies stream"))
+
+;;; Not an output stream
+(bind [stream (fol.compiler.streams:string-input-stream "test")]
+  (assert (not (fol.compiler.streams:<output-stream>? stream)) "input stream is not output stream"))
+
+;;; ============================================================================
+;;; String Output Stream - Create and verify type
+;;; ============================================================================
+
+;;; Create string output stream
+(bind [stream (fol.compiler.streams:string-output-stream)]
+  (assert stream "string-output-stream creates stream"))
+
+;;; String output stream type predicate
+(bind [stream (fol.compiler.streams:string-output-stream)]
+  (assert (fol.compiler.streams:<string-output-stream>? stream) "<string-output-stream>? identifies stream"))
+
+;;; Not an input stream
+(bind [stream (fol.compiler.streams:string-output-stream)]
+  (assert (not (fol.compiler.streams:<input-stream>? stream)) "output stream is not input stream"))
+
+;;; ============================================================================
+;;; Get Output String - Extract accumulated output
+;;; ============================================================================
+
+;;; Get output from empty stream
+(bind [stream (fol.compiler.streams:string-output-stream)]
+  (bind [output (fol.compiler.streams:get-output-string stream)]
+    (assert (= output "") "get-output-string returns empty from new stream")))
+
+;;; ============================================================================
+;;; Input Stream Operations
+;;; ============================================================================
+
+;;; Create input stream with content
+(bind [stream (fol.compiler.streams:string-input-stream "hello")]
+  (assert (fol.compiler.streams:<input-stream>? stream) "input stream created with content")
+  (assert stream "stream is non-nil"))
+
+;;; ============================================================================
+;;; Output Stream Operations
+;;; ============================================================================
+
+;;; Create output stream
+(bind [stream (fol.compiler.streams:string-output-stream)]
+  (assert (fol.compiler.streams:<output-stream>? stream) "output stream created")
+  (assert stream "stream is non-nil"))
+
+;;; ============================================================================
+;;; Stream Class Hierarchy
+;;; ============================================================================
+
+;;; Both input and output are streams
+(bind [in-stream (fol.compiler.streams:string-input-stream "test")]
+  (bind [out-stream (fol.compiler.streams:string-output-stream)]
+    (assert (fol.compiler.streams:<input-stream>? in-stream) "input stream verified")
+    (assert (fol.compiler.streams:<output-stream>? out-stream) "output stream verified")))
+

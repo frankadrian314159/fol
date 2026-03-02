@@ -1,0 +1,117 @@
+;;; String Functions Tests
+;;;
+;;; Tests for fol.compiler.string-functions module.
+;;; Covers string manipulation, case conversion, and predicates.
+
+;;; ============================================================================
+;;; String Concatenation - str function
+;;; ============================================================================
+
+;;; Concatenate strings
+(bind [result (fol.compiler.string-functions:str "hello" " " "world")]
+  (assert (= result "hello world") "str concatenates strings"))
+
+;;; Single string
+(bind [result (fol.compiler.string-functions:str "test")]
+  (assert (= result "test") "str with single arg"))
+
+;;; Multiple arguments
+(bind [result (fol.compiler.string-functions:str "a" "b" "c")]
+  (assert (= result "abc") "str concatenates multiple args"))
+
+;;; ============================================================================
+;;; Size - String length
+;;; ============================================================================
+
+;;; String length
+(bind [result (fol.compiler.string-functions:size "hello")]
+  (assert (= result 5) "size returns correct length"))
+
+;;; Empty string
+(bind [result (fol.compiler.string-functions:size "")]
+  (assert (= result 0) "size of empty string is 0"))
+
+;;; ============================================================================
+;;; Subs - Substring extraction
+;;; ============================================================================
+
+;;; Substring with start and end
+(bind [result (fol.compiler.string-functions:subs "hello" 1 4)]
+  (assert (= result "ell") "subs extracts substring"))
+
+;;; Substring from position
+(bind [result (fol.compiler.string-functions:subs "hello" 2)]
+  (assert (= result "llo") "subs from start to end"))
+
+;;; ============================================================================
+;;; Case Conversion
+;;; ============================================================================
+
+;;; Uppercase
+(bind [result (fol.compiler.string-functions:upper-case "hello")]
+  (assert (= result "HELLO") "upper-case converts to uppercase"))
+
+;;; Lowercase
+(bind [result (fol.compiler.string-functions:lower-case "HELLO")]
+  (assert (= result "hello") "lower-case converts to lowercase"))
+
+;;; Capitalize
+(bind [result (fol.compiler.string-functions:capitalize "hello")]
+  (assert (= result "Hello") "capitalize capitalizes first letter"))
+
+;;; ============================================================================
+;;; Trim - Remove whitespace
+;;; ============================================================================
+
+;;; Trim both sides
+(bind [result (fol.compiler.string-functions:trim "  hello  ")]
+  (assert (= result "hello") "trim removes leading and trailing whitespace"))
+
+;;; Trim left
+(bind [result (fol.compiler.string-functions:triml "  hello")]
+  (assert (= result "hello") "triml removes leading whitespace"))
+
+;;; Trim right
+(bind [result (fol.compiler.string-functions:trimr "hello  ")]
+  (assert (= result "hello") "trimr removes trailing whitespace"))
+
+;;; ============================================================================
+;;; String Predicates
+;;; ============================================================================
+
+;;; Starts with
+(bind [result (fol.compiler.string-functions:starts-with? "hello" "he")]
+  (assert result "starts-with? detects prefix"))
+
+;;; Ends with
+(bind [result (fol.compiler.string-functions:ends-with? "hello" "lo")]
+  (assert result "ends-with? detects suffix"))
+
+;;; Includes
+(bind [result (fol.compiler.string-functions:includes? "hello" "ll")]
+  (assert result "includes? detects substring"))
+
+;;; Not includes
+(bind [result (fol.compiler.string-functions:includes? "hello" "xx")]
+  (assert (not result) "includes? returns false for missing"))
+
+;;; Not blank
+(bind [result (fol.compiler.string-functions:blank? "hello")]
+  (assert (not result) "blank? returns false for non-blank"))
+
+;;; ============================================================================
+;;; Index - Find substring position
+;;; ============================================================================
+
+;;; Find substring
+(bind [result (fol.compiler.string-functions:index-of "hello" "ll")]
+  (assert (= result 2) "index-of finds substring position"))
+
+;;; Last index
+(bind [result (fol.compiler.string-functions:last-index-of "hello" "l")]
+  (assert (= result 3) "last-index-of finds last position"))
+
+;;; Not found
+(bind [result (fol.compiler.string-functions:index-of "hello" "xx")]
+  (assert (nil? result) "index-of returns nil when not found"))
+

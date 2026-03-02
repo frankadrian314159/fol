@@ -1,0 +1,106 @@
+;;; Seq Functions Tests
+;;;
+;;; Tests for fol.compiler.seq-functions module.
+;;; Covers core sequence functions: range, sort, distinct, concat, etc.
+
+;;; ============================================================================
+;;; Range - Generate integer sequences
+;;; ============================================================================
+
+;;; Range with end only
+(bind [result (range 5)]
+  (assert (= (count result) 5) "range 5 generates 5 elements"))
+
+;;; Range with start and end
+(bind [result (range 2 5)]
+  (assert (= (count result) 3) "range 2 5 generates 3 elements")
+  (assert (= (first result) 2) "range starts at correct position"))
+
+;;; Range with step
+(bind [result (range 0 10 2)]
+  (assert (= (count result) 5) "range with step works correctly"))
+
+;;; ============================================================================
+;;; Sort - Sort sequences
+;;; ============================================================================
+
+;;; Sort numbers
+(bind [result (sort [3 1 4 1 5])]
+  (assert (= (first result) 1) "sort puts smallest first")
+  (assert (= (last result) 5) "sort puts largest last"))
+
+;;; Sort already sorted
+(bind [result (sort [1 2 3])]
+  (assert (= (count result) 3) "sort preserves length"))
+
+;;; ============================================================================
+;;; Distinct - Remove duplicates
+;;; ============================================================================
+
+;;; Remove duplicate elements
+(bind [result (distinct [1 2 2 3 1 4])]
+  (assert (= (count result) 4) "distinct removes duplicates")
+  (assert (= (first result) 1) "distinct preserves order"))
+
+;;; No duplicates
+(bind [result (distinct [1 2 3])]
+  (assert (= (count result) 3) "distinct on unique returns same length"))
+
+;;; ============================================================================
+;;; Concat - Join sequences
+;;; ============================================================================
+
+;;; Concat two vectors
+(bind [result (concat [1 2] [3 4])]
+  (assert (= (count result) 4) "concat combines elements")
+  (assert (= (first result) 1) "concat preserves order"))
+
+;;; Concat multiple
+(bind [result (concat [1] [2] [3])]
+  (assert (= (count result) 3) "concat multiple sequences"))
+
+;;; ============================================================================
+;;; Take - Take first N elements
+;;; ============================================================================
+
+;;; Take 2 elements
+(bind [result (take 2 [1 2 3 4 5])]
+  (assert (= (count result) 2) "take returns requested count")
+  (assert (= (first result) 1) "take preserves first elements"))
+
+;;; Take more than available
+(bind [result (take 10 [1 2 3])]
+  (assert (= (count result) 3) "take more than available returns all"))
+
+;;; ============================================================================
+;;; Drop - Drop first N elements
+;;; ============================================================================
+
+;;; Drop 2 elements
+(bind [result (drop 2 [1 2 3 4 5])]
+  (assert (= (count result) 3) "drop removes initial elements")
+  (assert (= (first result) 3) "drop preserves remaining elements"))
+
+;;; Drop none
+(bind [result (drop 0 [1 2 3])]
+  (assert (= (count result) 3) "drop 0 returns all"))
+
+;;; ============================================================================
+;;; Reverse - Reverse sequence order
+;;; ============================================================================
+
+;;; Reverse vector
+(bind [result (reverse [1 2 3])]
+  (assert (= (first result) 3) "reverse puts last first")
+  (assert (= (last result) 1) "reverse puts first last")
+  (assert (= (count result) 3) "reverse preserves length"))
+
+;;; ============================================================================
+;;; Group By - Partition sequence by predicate result
+;;; ============================================================================
+
+;;; Group by parity
+(bind [result (group-by fol.compiler.arithmetic-functions:odd? [1 2 3 4])]
+  (assert (<dict>? result) "group-by returns dict")
+  (assert (= (count result) 2) "group-by creates separate groups"))
+

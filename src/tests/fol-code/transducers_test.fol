@@ -1,0 +1,89 @@
+;;; Transducers Tests
+;;;
+;;; Tests for fol.compiler.transducers module.
+;;; Covers basic transduction and composition.
+
+;;; ============================================================================
+;;; Basic Transduction
+;;; ============================================================================
+
+;;; Transduce with map and sum
+(bind [result (fol.compiler.transducers:transduce
+               (fol.compiler.transducers:map inc)
+               +
+               0
+               [1 2 3])]
+  (assert (= result 9) "transduce with map increments then sums"))
+
+;;; Transduce with filter and sum
+(bind [result (fol.compiler.transducers:transduce
+               (fol.compiler.transducers:filter fol.compiler.arithmetic-functions:even?)
+               +
+               0
+               [1 2 3 4])]
+  (assert (= result 6) "transduce with filter sums evens"))
+
+;;; ============================================================================
+;;; Take Transducer
+;;; ============================================================================
+
+;;; Take first 2 with vector construction
+(bind [result (fol.compiler.transducers:transduce
+               (fol.compiler.transducers:take 2)
+               (fol.compiler.transducers:completing fol.compiler.collection-functions:conj)
+               []
+               [1 2 3 4 5])]
+  (assert (= (count result) 2) "take 2 limits elements")
+  (assert (= (first result) 1) "take preserves order"))
+
+;;; ============================================================================
+;;; Drop Transducer
+;;; ============================================================================
+
+;;; Drop first 2 elements
+(bind [result (fol.compiler.transducers:transduce
+               (fol.compiler.transducers:drop 2)
+               (fol.compiler.transducers:completing fol.compiler.collection-functions:conj)
+               []
+               [1 2 3 4 5])]
+  (assert (= (count result) 3) "drop 2 skips elements")
+  (assert (= (first result) 3) "drop removes first elements"))
+
+;;; ============================================================================
+;;; Partition Transducer
+;;; ============================================================================
+
+;;; Partition by 2
+(bind [result (fol.compiler.transducers:transduce
+               (fol.compiler.transducers:partition-all 2)
+               (fol.compiler.transducers:completing fol.compiler.collection-functions:conj)
+               []
+               [1 2 3 4])]
+  (assert (= (count result) 2) "partition-all groups elements")
+  (assert (= (count (first result)) 2) "partition groups by size"))
+
+;;; ============================================================================
+;;; Replace Transducer
+;;; ============================================================================
+
+;;; Replace values using transducer
+(bind [result (fol.compiler.transducers:transduce
+               (fol.compiler.transducers:replace {2 20})
+               (fol.compiler.transducers:completing fol.compiler.collection-functions:conj)
+               []
+               [1 2 3])]
+  (assert (= (count result) 3) "replace preserves count")
+  (assert (= (nth result 1) 20) "replace changes values"))
+
+;;; ============================================================================
+;;; Keep Transducer
+;;; ============================================================================
+
+;;; Keep non-nil results
+(bind [result (fol.compiler.transducers:transduce
+               (fol.compiler.transducers:keep (fn [x] (if (fol.compiler.arithmetic-functions:even? x) (* x 2))))
+               (fol.compiler.transducers:completing fol.compiler.collection-functions:conj)
+               []
+               [1 2 3 4])]
+  (assert (= (count result) 2) "keep filters nils"))
+
