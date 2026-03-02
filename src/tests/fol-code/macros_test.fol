@@ -1,43 +1,241 @@
 ;;; Macros Tests
+;;;
+;;; Tests for fol.macros module.
+;;; Covers conditional, binding, loop, threading, and utility macros.
 
-;;; Thread-first (->)
-(assert (= (-> 5 (+ 3) (* 2)) 16) "thread-first")
+;;; ============================================================================
+;;; Conditional Macros
+;;; ============================================================================
 
-;;; Thread-last (->>)
-(assert (= (->> 5 (+ 3) (* 2)) 16) "thread-last")
+;;; when - execute body if test is true
+(assert (= (when true 42) 42) "when true returns body result")
+(assert (= (when false 42) nil) "when false returns nil")
+(assert (= (when true 1 2 3) 3) "when with multiple exprs returns last")
 
-;;; when
-(assert (= (when true :a) :a) "when true")
-(assert (= (when false :a) nil) "when false")
+;;; when-not - execute body if test is false
+(assert (= (when-not false 42) 42) "when-not false returns body result")
+(assert (= (when-not true 42) nil) "when-not true returns nil")
+(assert (= (when-not false 1 2 3) 3) "when-not with multiple exprs returns last")
 
-;;; if-let
-(assert (= (if-let [x 10] x :fail) 10) "if-let success")
-(assert (= (if-let [x nil] x :fail) :fail) "if-let fail")
+;;; if-not - if test is false then then; else else
+(assert (= (if-not true 42 99) 99) "if-not true goes to else")
+(assert (= (if-not false 42 99) 42) "if-not false goes to then")
+(assert (= (if-not false 42) nil) "if-not false without else returns result")
 
-;;; when-let
-(assert (= (when-let [x 10] x) 10) "when-let success")
-(assert (= (when-let [x nil] x) nil) "when-let fail")
+;;; ============================================================================
+;;; Binding Macros - when-let
+;;; ============================================================================
 
-;;; dotimes
-(assert (= (bind [res (atom [])]
-             (dotimes [i 3]
-               (swap! res conj i))
-             @res)
-           [0 1 2]) "dotimes")
+;;; when-let with non-nil binding
+(assert (= (when-let [x 5] (+ x 1)) 6) "when-let binds and returns body")
 
-;;; for (currently eager vector)
-(assert (= (for [x [1 2 3]] (* x 2)) [2 4 6]) "for comprehension")
+;;; when-let with nil binding
+(assert (= (when-let [x nil] 42) nil) "when-let with nil returns nil")
 
-;;; cond->
-(assert (= (cond-> 1
-             true (+ 1)
-             false (+ 10)
-             (= 2 2) (* 3))
-           6) "cond->")
+;;; when-let with false binding (logically false)
+(assert (= (when-let [x false] 42) nil) "when-let with false returns nil")
 
-;;; cond->>
-(assert (= (cond->> 1
-             true (+ 1)
-             false (+ 10)
-             (= 2 2) (- 10))
-           8) "cond->>") ; (- 10 2) = 8
+;;; ============================================================================
+;;; Binding Macros - if-let
+;;; ============================================================================
+
+;;; if-let with non-nil binding
+(assert (= (if-let [x 5] (+ x 1) 0) 6) "if-let with non-nil executes then")
+
+;;; if-let with nil binding
+(assert (= (if-let [x nil] 99 42) 42) "if-let with nil executes else")
+
+;;; if-let with false binding
+(assert (= (if-let [x false] 99 42) 42) "if-let with false executes else")
+
+;;; ============================================================================
+;;; Binding Macros - when-some
+;;; ============================================================================
+
+;;; when-some with some value
+(assert (= (when-some [x 5] (+ x 1)) 6) "when-some with value returns body")
+
+;;; when-some with nil
+(assert (= (when-some [x nil] 42) nil) "when-some with nil returns nil")
+
+;;; when-some with false (false is nil, so fails some? check)
+(assert (= (when-some [x false] "pass") nil) "when-some with false fails check")
+
+;;; ============================================================================
+;;; Binding Macros - if-some
+;;; ============================================================================
+
+;;; if-some with some value
+(assert (= (if-some [x 5] (+ x 1) 0) 6) "if-some with value executes then")
+
+;;; if-some with nil
+(assert (= (if-some [x nil] 99 42) 42) "if-some with nil executes else")
+
+;;; if-some with false (false is nil, so fails some? check)
+(assert (= (if-some [x false] "pass" "fail") "fail") "if-some with false fails check")
+
+;;; ============================================================================
+;;; Binding Macros - when-first
+;;; ============================================================================
+
+;;; when-first with non-empty sequence
+(assert (= (when-first [x [1 2 3]] (+ x 10)) 11) "when-first binds first element")
+
+;;; when-first with empty sequence
+(assert (= (when-first [x []] 42) nil) "when-first with empty seq returns nil")
+
+;;; when-first with vector
+(assert (= (when-first [x [5]] (inc x)) 6) "when-first increments first element")
+
+;;; ============================================================================
+;;; Loop Macros - dotimes
+;;; ============================================================================
+
+;;; dotimes simple count (returns nil)
+(def acc (atom 0))
+(dotimes [i 3] (swap! acc (fn [a] (+ a 1))))
+(assert (= @acc 3) "dotimes executes body 3 times")
+
+;;; dotimes with different count
+(def acc2 (atom 0))
+(dotimes [i 5] (swap! acc2 (fn [a] (+ a i))))
+(assert (= @acc2 10) "dotimes with counter 0+1+2+3+4=10")
+
+;;; ============================================================================
+;;; Loop Macros - doseq
+;;; ============================================================================
+
+;;; doseq over vector
+(def sum-vec (atom 0))
+(doseq [x [1 2 3]] (swap! sum-vec (fn [a] (+ a x))))
+(assert (= @sum-vec 6) "doseq sums vector elements")
+
+;;; doseq with side effects
+(def items (atom []))
+(doseq [x [10 20 30]]
+  (swap! items (fn [a] (conj a x))))
+(assert (= @items [10 20 30]) "doseq collects items")
+
+;;; ============================================================================
+;;; Loop Macros - for (list comprehension)
+;;; ============================================================================
+
+;;; for mapping over sequence
+(def for-result1 (for [x [1 2 3]] (inc x)))
+(assert (= (first for-result1) 2) "for returns first element")
+(assert (= (first (rest for-result1)) 3) "for returns second element")
+(assert (= (first (rest (rest for-result1))) 4) "for returns third element")
+
+;;; for with expression
+(def for-result2 (for [x [5 10]] (* x 2)))
+(assert (= (first for-result2) 10) "for multiplies first element")
+(assert (= (first (rest for-result2)) 20) "for multiplies second element")
+
+;;; ============================================================================
+;;; Threading Macros - thread-first (->)
+;;; ============================================================================
+
+;;; thread-first with single form
+(assert (= (-> 5 (+ 10)) 15) "-> threads value as first arg")
+
+;;; thread-first with multiple forms
+(assert (= (-> 5 (+ 10) (* 2)) 30) "-> threads through multiple forms")
+
+;;; thread-first with function symbol
+(assert (= (-> 5 inc inc) 7) "-> works with function symbols")
+
+;;; thread-first composition
+(assert (= (-> 2 (+ 3) (* 4) (- 1)) 19) "-> complex threading")
+
+;;; ============================================================================
+;;; Threading Macros - thread-last (->>)
+;;; ============================================================================
+
+;;; thread-last with single form
+(assert (= (->> 5 (+ 10)) 15) "->> threads value as last arg")
+
+;;; thread-last composition
+(assert (= (->> 5 (* 2) (+ 1)) 11) "->> last arg threading")
+
+;;; ============================================================================
+;;; Threading Macros - as->
+;;; ============================================================================
+
+;;; as-> binding and using name
+(assert (= (as-> 5 x (+ x 10) (- x 5)) 10) "as-> binds and threads through expressions")
+
+;;; as-> with multiple bindings (3 * 2 = 6, 6 + 1 = 7, 7 - 2 = 5)
+(assert (= (as-> 3 x (* x 2) (+ x 1) (- x 2)) 5) "as-> complex transformations")
+
+;;; ============================================================================
+;;; Threading Macros - cond->
+;;; ============================================================================
+
+;;; cond-> with true condition
+(assert (= (cond-> 5 true (+ 10)) 15) "cond-> executes with true condition")
+
+;;; cond-> with false condition
+(assert (= (cond-> 5 false (+ 10)) 5) "cond-> skips with false condition")
+
+;;; cond-> with multiple conditions
+(assert (= (cond-> 5 true (+ 10) true (* 2)) 30) "cond-> chains multiple conditions")
+
+;;; cond-> partial execution
+(assert (= (cond-> 5 true (+ 10) false (* 2)) 15) "cond-> skips later false conditions")
+
+;;; ============================================================================
+;;; Threading Macros - cond->>
+;;; ============================================================================
+
+;;; cond->> with true condition (thread last)
+(assert (= (cond->> 5 true (+ 10)) 15) "cond->> executes with true condition")
+
+;;; cond->> with false condition
+(assert (= (cond->> 5 false (+ 10)) 5) "cond->> skips with false condition")
+
+;;; cond->> with multiple conditions
+(assert (= (cond->> 5 true (* 2) true (+ 10)) 20) "cond->> chains multiple conditions (thread-last)")
+
+
+;;; ============================================================================
+;;; Dynamic Binding Macros - with-redefs
+;;; ============================================================================
+
+;;; with-redefs temporarily rebinds variables
+(def myvar 10)
+(assert (= (with-redefs [myvar 20] myvar) 20) "with-redefs temporarily rebinds")
+(assert (= myvar 10) "with-redefs restores original binding")
+
+;;; ============================================================================
+;;; Utility Macros - comment
+;;; ============================================================================
+
+;;; comment ignores body and returns nil
+(assert (= (comment 1 2 3 4 5) nil) "comment returns nil")
+(assert (= (do (comment (/ 1 0)) 42) 42) "comment prevents evaluation")
+
+;;; ============================================================================
+;;; Utility Macros - assert
+;;; ============================================================================
+
+;;; assert passes when test is true
+(assert true "simple true assertion")
+(assert (= 1 1) "equality assertion")
+
+;;; ============================================================================
+;;; Macro Composition
+;;; ============================================================================
+
+;;; when with filtering in doseq
+(def macro-comp-result (atom []))
+(doseq [x [1 2 3]]
+  (when (> x 1)
+    (swap! macro-comp-result (fn [a] (conj a x)))))
+(assert (= @macro-comp-result [2 3]) "when inside doseq filters elements")
+
+;;; if-let with for
+(def if-let-for (if-let [x 5] (for [i [1 2 3]] (+ x i)) []))
+(assert (= (first if-let-for) 6) "if-let with for first element")
+
+;;; Combining cond-> with multiple operations
+(assert (= (cond-> 10 true (+ 5) true (* 2) true (- 5)) 25) "cond-> multiple threading")

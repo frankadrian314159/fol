@@ -576,7 +576,7 @@
   (error "POSITIVE? requires a real number, got ~A of type ~A" num (type-of num)))
 
 (defmethod positive? (obj)
-  (error "POSITIVE? requires a real number, got ~A of type ~A" obj (type-of obj))
+  (error "POSITIVE? requires a real number, got ~A of type ~A" obj (type-of obj)))
 
 
 (defgeneric negative? (num)
@@ -600,8 +600,6 @@
   t)
 
 (defmethod integral? ((num number))
-  nil)
-
   nil)
 
 (defmethod integral? (obj)

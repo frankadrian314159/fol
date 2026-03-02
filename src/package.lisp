@@ -85,9 +85,9 @@
    if-node if-node-p if-node-test if-node-then if-node-else
    do-node do-node-p do-node-body
    bind-node bind-node-p bind-node-bindings bind-node-body
-   fn-node fn-node-p fn-node-name fn-node-clauses
+   fn-node fn-node-p fn-node-name fn-node-clauses fn-node-docstring
    def-node def-node-p def-node-name def-node-value
-   defn-node defn-node-p defn-node-name defn-node-clauses
+   defn-node defn-node-p defn-node-name defn-node-clauses defn-node-docstring
    loop-node loop-node-p loop-node-bindings loop-node-body
    recur-node recur-node-p recur-node-args
    quote-node quote-node-p quote-node-value
@@ -106,8 +106,9 @@
    defclass-node defclass-node-p defclass-node-name defclass-node-superclasses defclass-node-slots
    defstruct-node defstruct-node-p defstruct-node-name defstruct-node-slots
    defgeneric-node defgeneric-node-p defgeneric-node-name
-   defgeneric-node-lambda-lists defgeneric-node-options
+   defgeneric-node-lambda-lists defgeneric-node-options defgeneric-node-docstring
    defmethod-node defmethod-node-p defmethod-node-name defmethod-node-qualifier defmethod-node-clauses
+   defmethod-node-docstring
    ;; Collection literals
    vector-node vector-node-p vector-node-elements
    dict-node dict-node-p dict-node-entries
@@ -119,6 +120,7 @@
    make-binding-node
    ;; Macro
    defmacro-node defmacro-node-p defmacro-node-name defmacro-node-params defmacro-node-body
+   defmacro-node-docstring
    ;; Additional special forms
    cond-node cond-node-p cond-node-clauses make-cond-node
    cond-thread-first-node cond-thread-first-node-p cond-thread-first-node-expr cond-thread-first-node-clauses make-cond-thread-first-node
@@ -131,8 +133,8 @@
    in-package-node in-package-node-p in-package-node-name in-package-node-options in-package-node-body make-in-package-node
    swap-node swap-node-p swap-node-atom-expr swap-node-fn-expr swap-node-args make-swap-node
    ;; Functional special forms
-   defn-private-node defn-private-node-p defn-private-node-name defn-private-node-clauses make-defn-private-node
-   definline-node definline-node-p definline-node-name definline-node-clauses make-definline-node
+   defn-private-node defn-private-node-p defn-private-node-name defn-private-node-clauses defn-private-node-docstring make-defn-private-node
+   definline-node definline-node-p definline-node-name definline-node-clauses definline-node-docstring make-definline-node
    as-thread-node as-thread-node-p as-thread-node-expr as-thread-node-name as-thread-node-forms make-as-thread-node
    some-thread-first-node some-thread-first-node-p some-thread-first-node-forms make-some-thread-first-node
    some-thread-last-node some-thread-last-node-p some-thread-last-node-forms make-some-thread-last-node
@@ -842,7 +844,7 @@
    spit slurp
    ;; Printing
    pr prn print format printf println newline print-table
-   pprint cl-format
+   pprint
    ;; String IO
    pr-str prn-str print-str println-str
    ;; Reading

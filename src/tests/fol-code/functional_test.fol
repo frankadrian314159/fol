@@ -1,0 +1,215 @@
+;;; Functional Operations Tests
+;;;
+;;; Tests for fol.compiler.functional module.
+;;; Covers higher-order function utilities: identity, constantly, comp, complement,
+;;; partial, juxt, memoize, fnil, every-pred, some-fn, apply, trampoline.
+
+;;; ============================================================================
+;;; Identity Function
+;;; ============================================================================
+
+;;; identity returns argument unchanged
+(assert (= (identity 42) 42) "identity with integer")
+(assert (= (identity nil) nil) "identity with nil")
+(assert (= (identity "hello") "hello") "identity with string")
+(assert (= (identity true) true) "identity with boolean")
+(assert (= (identity [1 2 3]) [1 2 3]) "identity with vector")
+(assert (= (identity {:a 1}) {:a 1}) "identity with dict")
+
+;;; ============================================================================
+;;; Constantly Function
+;;; ============================================================================
+
+;;; constantly returns a function that always returns the same value
+(assert (= ((constantly 42)) 42) "constantly with no args")
+(assert (= ((constantly 42) 1) 42) "constantly ignores one arg")
+(assert (= ((constantly 42) 1 2 3) 42) "constantly ignores multiple args")
+
+(assert (= ((constantly nil) 1 2 3) nil) "constantly returns nil")
+
+(assert (= ((constantly "constant") 100) "constant") "constantly returns string")
+
+;;; ============================================================================
+;;; Comp - Function Composition
+;;; ============================================================================
+
+;;; comp with no arguments returns identity
+(assert (= ((comp) 5) 5) "comp with no args")
+
+;;; comp with single function returns that function
+(assert (= ((comp inc) 5) 6) "comp with single function")
+
+;;; comp with two functions
+(assert (= ((comp inc inc) 0) 2) "comp two increments")
+
+(assert (= ((comp (fn [x] (* x 2)) inc) 5) 12) "comp inc then double")
+
+;;; comp with three functions
+(assert (= ((comp dec (fn [x] (* x 2)) inc) 5) 11) "comp three functions")
+
+;;; comp works with string conversion
+(assert (= ((comp str inc) 41) "42") "comp str and inc")
+
+;;; ============================================================================
+;;; Complement - Function Negation
+;;; ============================================================================
+
+;;; complement returns logical negation of a predicate
+(assert ((complement (fn [x] (= x 0))) 1) "complement zero? returns true for 1")
+(assert (not ((complement (fn [x] (= x 0))) 0)) "complement zero? returns false for 0")
+
+(assert ((complement (fn [x] (< 0 x))) 0) "complement positive? returns true for 0")
+(assert ((complement (fn [x] (< 0 x))) -1) "complement positive? returns true for -1")
+(assert (not ((complement (fn [x] (< 0 x))) 5)) "complement positive? returns false for 5")
+
+(assert ((complement empty?) [1 2 3]) "complement empty? returns true for non-empty")
+(assert (not ((complement empty?) [])) "complement empty? returns false for empty")
+
+;;; ============================================================================
+;;; Partial - Partial Application
+;;; ============================================================================
+
+;;; partial binds first arguments to a function
+(assert (= ((partial + 10) 5) 15) "partial + 10 with one arg")
+
+(assert (= ((partial + 10 20) 5) 35) "partial + 10 20 with one arg")
+(assert (= ((partial + 10 20) 5 3) 38) "partial + 10 20 with two args")
+
+;;; partial with multiplication
+(assert (= ((partial * 3) 4) 12) "partial * 3")
+
+;;; partial with string operations
+(assert (= ((partial str "hello") " world") "hello world") "partial str prepend")
+
+;;; ============================================================================
+;;; Juxt - Juxtaposition
+;;; ============================================================================
+
+;;; juxt applies all functions to same arguments and returns list
+(def juxt-result ((juxt inc dec) 5))
+(assert (= (first juxt-result) 6) "juxt inc result")
+(assert (= (first (rest juxt-result)) 4) "juxt dec result")
+
+;;; juxt with multiple functions returns list of results
+(def juxt-multi ((juxt identity inc (fn [x] (* x 2))) 5))
+(assert (= (first juxt-multi) 5) "juxt identity")
+(assert (= (first (rest juxt-multi)) 6) "juxt inc")
+(assert (= (first (rest (rest juxt-multi))) 10) "juxt double")
+
+;;; ============================================================================
+;;; Memoization
+;;; ============================================================================
+
+;;; memoize caches function results
+(def memoized-fn (memoize (fn [x] (* x x))))
+(assert (= (memoized-fn 5) 25) "memoized first call")
+(assert (= (memoized-fn 5) 25) "memoized second call (cached)")
+(assert (= (memoized-fn 6) 36) "memoized different arg")
+
+;;; memoize works with nil arguments
+(def memo-nil (memoize (fn [x] (if x x 0))))
+(assert (= (memo-nil nil) 0) "memoize with nil arg")
+(assert (= (memo-nil 5) 5) "memoize with non-nil arg")
+
+;;; memoize with multiple arguments
+(def memo-add (memoize (fn [a b] (+ a b))))
+(assert (= (memo-add 1 2) 3) "memoize two args first call")
+(assert (= (memo-add 1 2) 3) "memoize two args cached")
+(assert (= (memo-add 3 4) 7) "memoize different args")
+
+;;; ============================================================================
+;;; Fnil - Nil Substitution
+;;; ============================================================================
+
+;;; fnil replaces nil with defaults
+(assert (= ((fnil + 0 0) nil 5) 5) "fnil first nil replaced")
+(assert (= ((fnil + 0 0) 3 nil) 3) "fnil second nil replaced")
+(assert (= ((fnil + 0 0) nil nil) 0) "fnil both nil replaced")
+(assert (= ((fnil + 0 0) 2 3) 5) "fnil no nil values")
+
+;;; fnil with string defaults
+(assert (= ((fnil str "N/A") nil) "N/A") "fnil string default")
+(assert (= ((fnil str "N/A") "hello") "hello") "fnil string no nil")
+
+;;; fnil with multiple defaults
+(assert (= ((fnil str "A" "B" "C") nil nil nil) "ABC") "fnil all defaults")
+(assert (= ((fnil str "A" "B" "C") "X" nil "Z") "XBZ") "fnil partial defaults")
+
+;;; ============================================================================
+;;; Every-Pred - All Predicates True
+;;; ============================================================================
+
+;;; every-pred combines predicates with AND logic
+(assert ((every-pred (fn [x] (< 0 x))) 5) "every-pred positive true")
+(assert (not ((every-pred (fn [x] (< 0 x))) -1)) "every-pred positive false")
+
+;;; every-pred with multiple predicates
+(assert ((every-pred (fn [x] (< 0 x)) (fn [x] (< x 100))) 5) "every-pred both preds true")
+(assert (not ((every-pred (fn [x] (< 0 x)) (fn [x] (< x 100))) -1)) "every-pred one pred false")
+
+;;; every-pred with multiple arguments
+(assert ((every-pred (fn [x] (< 0 x))) 5 3 1) "every-pred all positive")
+(assert (not ((every-pred (fn [x] (< 0 x))) 5 0 1)) "every-pred one not positive")
+
+;;; ============================================================================
+;;; Some-Fn - Any Function True
+;;; ============================================================================
+
+;;; some-fn combines functions with OR logic
+(assert ((some-fn (fn [x] (< x 0)) (fn [x] (< 0 x))) 1) "some-fn second matches")
+(assert ((some-fn (fn [x] (< x 0)) (fn [x] (< 0 x))) -1) "some-fn first matches")
+
+;;; some-fn with string and arithmetic tests
+(assert ((some-fn (fn [x] (< x 0)) (fn [x] (= "hello" x))) "hello") "some-fn string matches")
+(assert (not ((some-fn (fn [x] (< x 0)) (fn [x] (= "hello" x))) 5)) "some-fn no match")
+
+;;; some-fn with multiple arguments
+(assert ((some-fn (fn [x] (= x 1)) (fn [x] (= x 2))) 1 3 5) "some-fn one matches")
+(assert (not ((some-fn (fn [x] (= x 10)) (fn [x] (= x 20))) 1 2 3)) "some-fn none match")
+
+;;; ============================================================================
+;;; Apply - Function Application
+;;; ============================================================================
+
+;;; apply spreads sequences as arguments (using lists)
+(assert (= (apply + '(1 2 3)) 6) "apply with list")
+(assert (= (apply - '(10 3)) 7) "apply subtraction")
+(assert (= (apply * '(2 3 4)) 24) "apply multiplication")
+
+;;; apply with function + multiple args + list
+(assert (= (apply + 1 2 '(3 4)) 10) "apply with mixed args")
+
+;;; ============================================================================
+;;; Trampoline - Recursion
+;;; ============================================================================
+
+;;; trampoline with immediate value
+(assert (= (trampoline + 1 2 3) 6) "trampoline non-function result")
+
+;;; trampoline with function that returns value
+(assert (= (trampoline (fn [] "done")) "done") "trampoline immediate result")
+
+;;; trampoline with nested function calls
+(assert (= (trampoline (fn [] (fn [] (fn [] "done")))) "done") "trampoline nested thunks")
+
+;;; ============================================================================
+;;; Functional Composition Chains
+;;; ============================================================================
+
+;;; Multiple compositions together
+(assert (= ((comp str inc) 41) "42") "compose inc and stringify")
+
+(assert (= ((comp str (fn [x] (* x 2))) 21) "42") "compose double and stringify")
+
+;;; ============================================================================
+;;; Higher-Order Function Combinations
+;;; ============================================================================
+
+;;; Composing multiple higher-order functions
+(def add-5 ((fn [n] (partial + n)) 5))
+(assert (= (add-5 3) 8) "higher-order function factory")
+
+;;; Memoized composed function
+(def memoized-composition (memoize (comp str inc)))
+(assert (= (memoized-composition 41) "42") "memoized composition first")
+(assert (= (memoized-composition 41) "42") "memoized composition cached")

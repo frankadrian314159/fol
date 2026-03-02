@@ -1,0 +1,257 @@
+;;; Bitwise Operation Functions Tests
+;;;
+;;; Tests for fol.compiler.bitwise-operation-functions.
+;;; Uses FOL hex literals (0xNN) and radix literals (2rNNNN).
+
+;;; ============================================================================
+;;; bitnot — one's complement
+;;; ============================================================================
+
+(assert (= (bitnot  0) -1) "bitnot 0 = -1")
+(assert (= (bitnot -1)  0) "bitnot -1 = 0")
+(assert (= (bitnot  1) -2) "bitnot 1 = -2")
+(assert (= (bitnot  5) -6) "bitnot 5 = -6")
+
+;;; bitnot is its own inverse
+(assert (= (bitnot (bitnot 42)) 42) "bitnot is self-inverse")
+
+;;; ============================================================================
+;;; bitand — variadic AND
+;;; ============================================================================
+
+(assert (= (bitand)        -1) "bitand no args = -1 (identity)")
+(assert (= (bitand  5)      5) "bitand single arg = itself")
+(assert (= (bitand  5  3)   1) "bitand 5 3 = 1")
+(assert (= (bitand  7  0)   0) "bitand with 0 = 0")
+(assert (= (bitand -1  5)   5) "bitand -1 x = x")
+(assert (= (bitand 0xff 0x0f) 15) "bitand 0xff 0x0f = 15")
+
+;;; Multiple args (left-to-right reduction)
+(assert (= (bitand 15 7 3) 3) "bitand 15 7 3 = 3")
+
+;;; ============================================================================
+;;; bitor — variadic OR
+;;; ============================================================================
+
+(assert (= (bitor)          0) "bitor no args = 0 (identity)")
+(assert (= (bitor   5)      5) "bitor single arg = itself")
+(assert (= (bitor   5  3)   7) "bitor 5 3 = 7")
+(assert (= (bitor   0  5)   5) "bitor 0 x = x")
+(assert (= (bitor  -1  0)  -1) "bitor -1 x = -1")
+(assert (= (bitor 0xf0 0x0f) 0xff) "bitor 0xf0 0x0f = 0xff")
+
+;;; Multiple args
+(assert (= (bitor 1 2 4) 7) "bitor 1 2 4 = 7")
+
+;;; ============================================================================
+;;; bitxor — variadic XOR
+;;; ============================================================================
+
+(assert (= (bitxor)          0) "bitxor no args = 0 (identity)")
+(assert (= (bitxor   5)      5) "bitxor single arg = itself")
+(assert (= (bitxor   5  3)   6) "bitxor 5 3 = 6")
+(assert (= (bitxor   5  5)   0) "bitxor x x = 0")
+(assert (= (bitxor   0  5)   5) "bitxor 0 x = x")
+
+;;; Multiple args
+(assert (= (bitxor 1 2 4)    7) "bitxor 1 2 4 = 7")
+(assert (= (bitxor 7 3 5)    1) "bitxor 7 3 5 = 1")
+
+;;; ============================================================================
+;;; bit-nand and bit-nor
+;;; ============================================================================
+
+;;; bit-nand: NOT AND
+(assert (= (bit-nand)      0) "bit-nand no args = bitnot(-1) = 0")
+(assert (= (bit-nand 5 3) -2) "bit-nand 5 3 = bitnot(1) = -2")
+(assert (= (bit-nand 0 0) -1) "bit-nand 0 0 = bitnot(0) = -1")
+
+;;; bit-nor: NOT OR
+(assert (= (bit-nor)       -1) "bit-nor no args = bitnot(0) = -1")
+(assert (= (bit-nor 5 3)   -8) "bit-nor 5 3 = bitnot(7) = -8")
+(assert (= (bit-nor 0 0)   -1) "bit-nor 0 0 = bitnot(0) = -1")
+
+;;; ============================================================================
+;;; bit-andc1 — AND(NOT x, y)
+;;; ============================================================================
+
+(assert (= (bit-andc1 5 3)   2) "bit-andc1 5 3 = AND(~5, 3) = 2")
+(assert (= (bit-andc1 0 5)   5) "bit-andc1 0 5 = AND(~0, 5) = 5")
+(assert (= (bit-andc1 5 0)   0) "bit-andc1 5 0 = AND(~5, 0) = 0")
+(assert (= (bit-andc1 -1 5)  0) "bit-andc1 -1 5 = AND(0, 5) = 0")
+
+;;; ============================================================================
+;;; bit-andc2 — AND(x, NOT y)
+;;; ============================================================================
+
+(assert (= (bit-andc2 5 3)   4) "bit-andc2 5 3 = AND(5, ~3) = 4")
+(assert (= (bit-andc2 5 0)   5) "bit-andc2 5 0 = AND(5, ~0) = 5")
+(assert (= (bit-andc2 0 5)   0) "bit-andc2 0 5 = AND(0, ~5) = 0")
+(assert (= (bit-andc2 5 -1)  0) "bit-andc2 5 -1 = AND(5, 0) = 0")
+
+;;; ============================================================================
+;;; bit-orc1 — OR(NOT x, y)
+;;; ============================================================================
+
+(assert (= (bit-orc1 5 3)   -5) "bit-orc1 5 3 = OR(~5, 3) = -5")
+(assert (= (bit-orc1 -1 0)   0) "bit-orc1 -1 0 = OR(0, 0) = 0")
+(assert (= (bit-orc1 0 0)   -1) "bit-orc1 0 0 = OR(-1, 0) = -1")
+
+;;; ============================================================================
+;;; bit-orc2 — OR(x, NOT y)
+;;; ============================================================================
+
+(assert (= (bit-orc2 5 3)   -3) "bit-orc2 5 3 = OR(5, ~3) = -3")
+(assert (= (bit-orc2 0 -1)   0) "bit-orc2 0 -1 = OR(0, 0) = 0")
+(assert (= (bit-orc2 0 0)   -1) "bit-orc2 0 0 = OR(0, -1) = -1")
+
+;;; ============================================================================
+;;; bit-test — check whether a bit is set
+;;; ============================================================================
+
+;;; 5 = 0b0101
+(assert      (bit-test 5 0)        "bit-test 5 bit-0 is set")
+(assert (not (bit-test 5 1))       "bit-test 5 bit-1 is clear")
+(assert      (bit-test 5 2)        "bit-test 5 bit-2 is set")
+(assert (not (bit-test 5 3))       "bit-test 5 bit-3 is clear")
+
+(assert (not (bit-test 0 0))       "bit-test 0 bit-0 is clear")
+(assert      (bit-test -1 0)       "bit-test -1 bit-0 is set (all bits)")
+(assert      (bit-test -1 63)      "bit-test -1 bit-63 is set")
+
+;;; ============================================================================
+;;; bit-set — set a bit
+;;; ============================================================================
+
+(assert (= (bit-set 5 1) 7)   "bit-set 5 bit-1 → 7")
+(assert (= (bit-set 0 3) 8)   "bit-set 0 bit-3 → 8")
+(assert (= (bit-set 5 2) 5)   "bit-set already-set bit is idempotent")
+(assert (= (bit-set 0 0) 1)   "bit-set 0 bit-0 → 1")
+
+;;; ============================================================================
+;;; bit-clear — clear a bit
+;;; ============================================================================
+
+(assert (= (bit-clear 7 1)  5) "bit-clear 7 bit-1 → 5")
+(assert (= (bit-clear 5 0)  4) "bit-clear 5 bit-0 → 4")
+(assert (= (bit-clear 0 3)  0) "bit-clear already-clear bit is idempotent")
+(assert (= (bit-clear 15 0) 14) "bit-clear 15 bit-0 → 14")
+
+;;; ============================================================================
+;;; bit-flip — toggle a bit
+;;; ============================================================================
+
+(assert (= (bit-flip 5 0)  4) "bit-flip 5 bit-0 → 4 (was set)")
+(assert (= (bit-flip 5 1)  7) "bit-flip 5 bit-1 → 7 (was clear)")
+(assert (= (bit-flip 0 3)  8) "bit-flip 0 bit-3 → 8")
+(assert (= (bit-flip 8 3)  0) "bit-flip 8 bit-3 → 0")
+
+;;; Flipping the same bit twice restores the original
+(assert (= (bit-flip (bit-flip 42 5) 5) 42) "bit-flip twice is identity")
+
+;;; ============================================================================
+;;; bit-count — count set bits
+;;; ============================================================================
+
+(assert (= (bit-count 0)   0) "bit-count 0 = 0")
+(assert (= (bit-count 1)   1) "bit-count 1 = 1")
+(assert (= (bit-count 3)   2) "bit-count 3 = 2")
+(assert (= (bit-count 5)   2) "bit-count 5 = 2")
+(assert (= (bit-count 7)   3) "bit-count 7 = 3")
+(assert (= (bit-count 0xff) 8) "bit-count 0xff = 8")
+(assert (= (bit-count 255)  8) "bit-count 255 = 8")
+
+;;; ============================================================================
+;;; bit-shift — left and right shifts
+;;; ============================================================================
+
+;;; Left shifts (positive count)
+(assert (= (bit-shift 1  0)   1) "bit-shift 1 left 0 = 1")
+(assert (= (bit-shift 1  1)   2) "bit-shift 1 left 1 = 2")
+(assert (= (bit-shift 1  3)   8) "bit-shift 1 left 3 = 8")
+(assert (= (bit-shift 5  2)  20) "bit-shift 5 left 2 = 20")
+(assert (= (bit-shift 0  8)   0) "bit-shift 0 left 8 = 0")
+
+;;; Right shifts (negative count — arithmetic)
+(assert (= (bit-shift  8 -1)  4) "bit-shift 8 right 1 = 4")
+(assert (= (bit-shift 20 -2)  5) "bit-shift 20 right 2 = 5")
+(assert (= (bit-shift  1 -1)  0) "bit-shift 1 right 1 = 0")
+
+;;; Arithmetic right shift preserves sign
+(assert (= (bit-shift -8 -1) -4) "bit-shift -8 right 1 = -4 (arithmetic)")
+(assert (= (bit-shift -1 -4) -1) "bit-shift -1 right 4 = -1 (sign extension)")
+
+;;; ============================================================================
+;;; bit-rotate — rotate within a fixed-width field
+;;; ============================================================================
+
+;;; Rotate left by 0 = identity
+(assert (= (bit-rotate 5 0 8) 5)  "bit-rotate 5 by 0 in 8 bits = 5")
+
+;;; Rotate left in 4-bit field: 0001 → 0010
+(assert (= (bit-rotate 1 1 4)  2) "bit-rotate 1 left 1 in 4 bits = 2")
+(assert (= (bit-rotate 1 2 4)  4) "bit-rotate 1 left 2 in 4 bits = 4")
+(assert (= (bit-rotate 1 3 4)  8) "bit-rotate 1 left 3 in 4 bits = 8")
+
+;;; High bit wraps around
+(assert (= (bit-rotate 8 1 4)  1) "bit-rotate 8 left 1 in 4 bits wraps to 1")
+
+;;; Full rotation in 8-bit field
+(assert (= (bit-rotate 1   1 8)   2) "bit-rotate 1 left 1 in 8 bits = 2")
+(assert (= (bit-rotate 128 1 8)   1) "bit-rotate 0x80 left 1 in 8 bits wraps to 1")
+
+;;; Rotating by the field width is identity
+(assert (= (bit-rotate 5 8 8) 5)  "bit-rotate by full width = identity")
+(assert (= (bit-rotate 5 4 4) 5)  "bit-rotate 5 by 4 in 4 bits = identity")
+
+;;; ============================================================================
+;;; Bignum tests — operations on arbitrarily large integers
+;;; ============================================================================
+
+;;; Large numbers beyond fixnum range (2^63 on 64-bit systems)
+(def big-1 (expt 2 64))
+(def big-2 (expt 2 65))
+(def big-mixed (* (expt 2 100) 0xff))
+
+;;; bitnot on bignums
+(assert (= (bitnot big-1) (- (+ big-1 1))) "bitnot bignum")
+
+;;; bitand on bignums
+(assert (= (bitand big-1 0xff) 0) "bitand large even bignum with 0xff = 0")
+(assert (= (bitand big-mixed 0xff) 0) "bitand shifted bignum with 0xff = 0 (no low bits set)")
+
+;;; bitor on bignums
+(assert (= (bitor big-1 big-2) (+ big-1 big-2)) "bitor disjoint powers of 2 = sum")
+(assert (> (bitor big-1 0xff) big-1) "bitor adds bits to bignum")
+
+;;; bitxor on bignums
+(assert (= (bitxor big-1 big-1) 0) "bitxor bignum with itself = 0")
+(assert (= (bitxor big-1 big-2) (+ big-1 big-2)) "bitxor disjoint powers of 2 = sum")
+
+;;; bit-test on bignums at various positions
+(assert (bit-test big-1 64) "bit-test bignum detects bit at position 64")
+(assert (not (bit-test big-1 65)) "bit-test bignum detects unset bit beyond low bits")
+
+;;; bit-set/clear/flip on bignums
+(assert (= (bit-set big-1 100) (+ big-1 (expt 2 100))) "bit-set on bignum")
+(assert (= (bit-clear big-2 65) 0) "bit-clear on bignum removes only bit")
+(assert (= (bit-flip big-1 64) 0) "bit-flip on bignum removes only bit")
+
+;;; bit-count on large numbers
+(assert (= (bit-count (- (expt 2 100) 1)) 100) "bit-count 2^100-1 = 100 set bits")
+(assert (= (bit-count (expt 2 100)) 1) "bit-count 2^100 = 1")
+
+;;; bit-shift on bignums
+(assert (= (bit-shift big-1 10) (* big-1 (expt 2 10))) "bit-shift left on bignum")
+(assert (= (bit-shift big-2 -1) big-1) "bit-shift right on bignum")
+
+;;; Complex bignum operations
+(def large-mask (- (expt 2 128) 1))
+(assert (= (bitand large-mask (expt 2 200)) 0) "bitand with all-1s mask below range")
+(assert (= (bitor 0 large-mask) large-mask) "bitor with all-1s mask preserves mask")
+
+;;; Negative bignum handling
+(def neg-big (- (expt 2 100)))
+(assert (= (bitnot neg-big) (- (+ neg-big 1))) "bitnot negative bignum")
+(assert (= (bitand neg-big 0xff) 0) "bitand negative bignum with small positive")
+(assert (bit-test neg-big 100) "bit-test on negative bignum (sign extension)")

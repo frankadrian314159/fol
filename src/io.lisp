@@ -66,7 +66,7 @@
 
 (defun printf (fmt &rest args)
   "Prints formatted output to *out*."
-  (apply #'cl-format t fmt args))
+  (apply #'format t fmt args))
 
 (defun newline ()
   "Prints a newline to *out*."
@@ -120,16 +120,13 @@
   "Pretty prints object x to *out*."
   (cl:pprint x (fol.compiler.streams::output-stream-stream fol.compiler.streams:*out*)))
 
-(defun cl-format (stream format-string &rest args)
-  "Wrapper around CL:FORMAT."
+(defun format (stream format-string &rest args)
+  "Wrapper around CL:FORMAT.
+   Stream can be t (for *out*), nil (for string), or a stream object."
   (apply #'cl:format (if (eq stream t)
                          (fol.compiler.streams::output-stream-stream fol.compiler.streams:*out*)
                          stream)
     format-string args))
-
-(defun format (format-string &rest args)
-  "Returns a formatted string."
-  (apply #'cl:format nil format-string args))
 
 
 ;;; String IO

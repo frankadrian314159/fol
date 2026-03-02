@@ -80,7 +80,8 @@
 (defstruct (fn-node (:include ast-node))
   "Anonymous function: (fn name [params] body) or multi-clause (fn name ([p1] b1) ([p2] b2))."
   (name nil :read-only t) ; optional name for self-reference
-  (clauses nil :read-only t)) ; list of (params . body) for multi-clause
+  (clauses nil :read-only t) ; list of (params . body) for multi-clause
+  (docstring nil :read-only t)) ; optional docstring
 
 (defstruct (def-node (:include ast-node))
   "Top-level definition: (def name value)."
@@ -94,9 +95,11 @@
   (value nil :read-only t)) ; AST node for the value
 
 (defstruct (defn-node (:include ast-node))
-  "Named function definition: (defn name ([params] body) ...)."
+  "Named function definition: (defn name ([params] body) ...).
+   Optionally includes a docstring as the first body element."
   (name nil :read-only t)
-  (clauses nil :read-only t)) ; list of (params . body) clause nodes
+  (clauses nil :read-only t) ; list of (params . body) clause nodes
+  (docstring nil :read-only t)) ; optional docstring
 
 (defstruct (loop-node (:include ast-node))
   "Loop with recur: (loop [bindings] body)."
@@ -156,12 +159,14 @@
 (defstruct (defn-private-node (:include ast-node))
   "Private function: (defn- name [params] body)."
   (name nil :read-only t)
-  (clauses nil :read-only t)) ; list of (params . body-nodes)
+  (clauses nil :read-only t) ; list of (params . body-nodes)
+  (docstring nil :read-only t)) ; optional docstring
 
 (defstruct (definline-node (:include ast-node))
   "Inline function: (definline name [params] body)."
   (name nil :read-only t)
-  (clauses nil :read-only t)) ; list of (params . body-nodes)
+  (clauses nil :read-only t) ; list of (params . body-nodes)
+  (docstring nil :read-only t)) ; optional docstring
 
 ;;; ---------------------------------------------------------------------------
 ;;; Condition Handling
@@ -227,14 +232,16 @@
    multi-pattern: (defgeneric name ([params1] [params2] ...) option*)."
   (name nil :read-only t)
   (lambda-lists nil :read-only t) ; list of param vectors (single or multi-pattern)
-  (options nil :read-only t)) ; generic function options
+  (options nil :read-only t) ; generic function options
+  (docstring nil :read-only t)) ; optional docstring
 
 (defstruct (defmethod-node (:include ast-node))
   "Method definition: (defmethod name [params] body) or
    multi-clause: (defmethod name ([params1] body1) ([params2] body2) ...)."
   (name nil :read-only t)
   (qualifier nil :read-only t)
-  (clauses nil :read-only t)) ; list of (params . body-nodes), like fn-node
+  (clauses nil :read-only t) ; list of (params . body-nodes), like fn-node
+  (docstring nil :read-only t)) ; optional docstring
 
 ;;; ---------------------------------------------------------------------------
 ;;; Macros
@@ -244,7 +251,8 @@
   "Macro definition: (defmacro name [params] body)."
   (name nil :read-only t)
   (params nil :read-only t)
-  (body nil :read-only t))
+  (body nil :read-only t)
+  (docstring nil :read-only t)) ; optional docstring
 
 ;;; ---------------------------------------------------------------------------
 ;;; Additional Special Forms

@@ -1,0 +1,22 @@
+(with-open-file (s "c:/Users/frank/Projects/FOL/fol/src/collection-primitives.lisp")
+  (let ((count 0)
+        (line 1)
+        (col 0)
+        (in-string nil)
+        (in-comment nil))
+    (loop
+     (let ((c (read-char s nil :eof)))
+       (if (eq c :eof)
+           (return (format t "Final Balance: ~D~%" count))
+           (progn
+            (incf col)
+            (cond
+             (in-comment (when (eq c #\Newline) (setf in-comment nil line (1+ line) col 0)))
+             (in-string (cond ((eq c #\\) (read-char s)) ; skip escaped char
+                              ((eq c #\") (setf in-string nil))))
+             (t (cond ((eq c #\;) (setf in-comment t))
+                      ((eq c #\") (setf in-string t))
+                      ((eq c #\() (incf count))
+                      ((eq c #\)) (decf count)
+                                  (when (< count 0) (return (format t "Unmatched ) at ~D:~D~%" line col))))
+                      ((eq c #\Newline) (incf line) (setf col 0)))))))))))

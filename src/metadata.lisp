@@ -118,10 +118,10 @@
 (defun doc (name)
   "Returns the :doc entry from the metadata of NAME."
   (let ((m (meta name)))
-    (when m
-      (if (typep m 'fol.compiler.collections:<dict>)
-          (fol.compiler.collections:get m :doc)
-          (cl:getf m :doc)))))
+    (cond
+      ((null m) nil)
+      ((listp m) (cl:getf m :doc))
+      (t (ignore-errors (fol.compiler.collections:get m :doc))))))
 
 ;;; ============================================================================
 ;;; find-doc - Search all symbols for matching :doc
@@ -145,7 +145,7 @@
 (defun test (name)
   "Returns the :test entry from the metadata of NAME."
   (let ((m (meta name)))
-    (when m
-      (if (typep m 'fol.compiler.collections:<dict>)
-          (fol.compiler.collections:get m :test)
-          (cl:getf m :test)))))
+    (cond
+      ((null m) nil)
+      ((listp m) (cl:getf m :test))
+      (t (ignore-errors (fol.compiler.collections:get m :test))))))

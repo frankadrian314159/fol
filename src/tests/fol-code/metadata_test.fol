@@ -1,0 +1,135 @@
+;;; Metadata Tests
+;;;
+;;; Tests for fol.compiler.metadata module.
+;;; Covers meta, with-meta, and vary-meta on collections.
+
+;;; ============================================================================
+;;; meta - Retrieve metadata
+;;; ============================================================================
+
+;;; meta returns nil for objects without metadata
+(assert (= (meta 42) nil) "meta returns nil for numbers")
+(assert (= (meta "hello") nil) "meta returns nil for strings")
+(assert (= (meta [1 2 3]) nil) "meta returns nil for vectors without metadata")
+(assert (= (meta {:a 1}) nil) "meta returns nil for dicts without metadata")
+
+;;; ============================================================================
+;;; with-meta - Set metadata on collections
+;;; ============================================================================
+
+;;; with-meta on vectors
+(def vec-with-meta (with-meta [1 2 3] {:source "test"}))
+(assert (= (meta vec-with-meta) {:source "test"}) "with-meta sets vector metadata")
+(assert (= (count vec-with-meta) 3) "with-meta preserves vector elements")
+(assert (= (first vec-with-meta) 1) "with-meta preserves first element")
+
+;;; with-meta on dicts
+(def dict-with-meta (with-meta {:a 1 :b 2} {:tag "config"}))
+(assert (= (meta dict-with-meta) {:tag "config"}) "with-meta sets dict metadata")
+(assert (= (count dict-with-meta) 2) "with-meta preserves dict entries")
+(assert (= (get dict-with-meta :a) 1) "with-meta preserves dict values")
+
+;;; with-meta on sets
+(def set-with-meta (with-meta #{1 2 3} {:unique true}))
+(assert (= (meta set-with-meta) {:unique true}) "with-meta sets set metadata")
+(assert (contains? set-with-meta 2) "with-meta preserves set contents")
+
+;;; with-meta with multiple metadata entries
+(def multi-meta (with-meta [1 2] {:version 1 :author "test" :timestamp 12345}))
+(assert (= (meta multi-meta) {:version 1 :author "test" :timestamp 12345}) "with-meta supports multiple metadata entries")
+
+;;; ============================================================================
+;;; with-meta - Overwrite existing metadata
+;;; ============================================================================
+
+;;; replacing metadata
+(def v1-original (with-meta [1 2] {:old "metadata"}))
+(assert (= (meta v1-original) {:old "metadata"}) "first with-meta sets metadata")
+
+(def v1-replaced (with-meta v1-original {:new "metadata"}))
+(assert (= (meta v1-replaced) {:new "metadata"}) "with-meta replaces metadata")
+(assert (= (meta v1-original) {:old "metadata"}) "original with replaced metadata unchanged")
+(assert (= (count v1-replaced) 2) "with-meta preserves elements after replacement")
+
+;;; ============================================================================
+;;; vary-meta - Apply function to metadata
+;;; ============================================================================
+
+;;; vary-meta on vectors
+(def v-original (with-meta [1 2 3] {:count 0}))
+(def v-varied (vary-meta v-original (fn [m] (assoc m :count 1))))
+(assert (= (get (meta v-varied) :count) 1) "vary-meta modifies count")
+(assert (= (get (meta v-original) :count) 0) "vary-meta doesn't affect original")
+
+;;; vary-meta with multiple keys
+(def d-original (with-meta {:a 1} {:version 1 :hits 0}))
+(def d-varied (vary-meta d-original (fn [m] (assoc m :hits 1))))
+(assert (= (get (meta d-varied) :hits) 1) "vary-meta increments hits")
+(assert (= (get (meta d-varied) :version) 1) "vary-meta preserves other keys")
+
+;;; vary-meta with nil metadata
+(def v-nil-meta (vary-meta [1 2] (fn [m] (if m m {:new "value"}))))
+(assert (= (meta v-nil-meta) {:new "value"}) "vary-meta handles nil metadata")
+
+;;; vary-meta on dict
+(def dict-varied (vary-meta (with-meta {:x 10} {:tag "original"}) (fn [m] (assoc m :tag "modified"))))
+(assert (= (get (meta dict-varied) :tag) "modified") "vary-meta modifies dict metadata")
+
+;;; vary-meta on set
+(def set-varied (vary-meta (with-meta #{1 2 3} {:size 3}) (fn [m] (assoc m :size 4))))
+(assert (= (get (meta set-varied) :size) 4) "vary-meta modifies set metadata")
+
+;;; ============================================================================
+;;; Chaining operations
+;;; ============================================================================
+
+;;; with-meta and vary-meta together
+(def chained (-> (with-meta [10 20] {:version 1})
+                 (vary-meta (fn [m] (assoc m :version 2)))))
+(assert (= (get (meta chained) :version) 2) "chaining with-meta and vary-meta")
+(assert (= (first chained) 10) "chaining preserves collection contents")
+
+;;; Multiple with-meta calls
+(def multi-meta-chain (-> [1 2 3]
+                          (with-meta {:step 1})
+                          (with-meta {:step 2})))
+(assert (= (get (meta multi-meta-chain) :step) 2) "multiple with-meta calls override")
+
+;;; with-meta on result of collection operation
+(def from-conj (with-meta (conj [1 2] 3) {:created "conj"}))
+(assert (= (count from-conj) 3) "with-meta on conj result works")
+(assert (= (get (meta from-conj) :created) "conj") "metadata on conj result set")
+
+;;; ============================================================================
+;;; Edge cases
+;;; ============================================================================
+
+;;; with-meta with empty metadata dict
+(def empty-meta-vec (with-meta [1 2] {}))
+(assert (= (meta empty-meta-vec) {}) "with-meta accepts empty dict")
+
+;;; with-meta with complex metadata values
+(def complex-meta (with-meta [1 2] {:nested {:a {:b 1}} :list [1 2 3]}))
+(assert (= (get (meta complex-meta) :nested) {:a {:b 1}}) "with-meta supports nested metadata")
+(assert (= (get (meta complex-meta) :list) [1 2 3]) "with-meta supports list metadata")
+
+;;; ============================================================================
+;;; Integration with collections
+;;; ============================================================================
+
+;;; Metadata on different collection types
+(def vec-meta (with-meta [1 2 3] {:type "vector"}))
+(def dict-meta (with-meta {:x 10} {:type "dict"}))
+(def set-meta (with-meta #{1 2 3} {:type "set"}))
+
+(assert (= (get (meta vec-meta) :type) "vector") "vector metadata preserved")
+(assert (= (get (meta dict-meta) :type) "dict") "dict metadata preserved")
+(assert (= (get (meta set-meta) :type) "set") "set metadata preserved")
+
+;;; Metadata on transformed collections
+(def transformed (with-meta (map inc [1 2 3]) {:operation "map"}))
+(assert (= (get (meta transformed) :operation) "map") "map result metadata preserved")
+
+;;; Metadata on filtered collections
+(def filtered (with-meta (filter odd? [1 2 3 4 5]) {:predicate "odd?"}))
+(assert (= (get (meta filtered) :predicate) "odd?") "filter result metadata preserved")

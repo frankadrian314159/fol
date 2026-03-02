@@ -1,0 +1,252 @@
+;;; Arithmetic Functions Tests
+;;;
+;;; Tests for fol.compiler.arithmetic-functions.
+;;; Each assertion calls (assert <condition> <message>).
+
+;;; ============================================================================
+;;; Helper for floating-point approximate equality
+;;; ============================================================================
+
+(defn approx= [a b eps]
+  "True when |a - b| < eps."
+  (< (abs (- a b)) eps))
+
+;;; ============================================================================
+;;; + (addition)
+;;; ============================================================================
+
+(assert (= (+) 0)                 "+ no args returns identity 0")
+(assert (= (+ 5) 5)               "+ one arg returns it unchanged")
+(assert (= (+ 2 3) 5)             "+ two integers")
+(assert (= (+ 1 2 3 4 5) 15)      "+ multiple args")
+(assert (= (+ -3 3) 0)            "+ cancelling negatives")
+(assert (= (+ 1/2 1/2) 1)         "+ rationals sum to integer")
+(assert (= (+ 0 0 0) 0)           "+ all zeros")
+
+;;; ============================================================================
+;;; - (subtraction / negation)
+;;; ============================================================================
+
+(assert (= (- 5) -5)              "- negation of positive")
+(assert (= (- -7) 7)              "- negation of negative")
+(assert (= (- 0) 0)               "- negation of zero")
+(assert (= (- 10 3) 7)            "- two args")
+(assert (= (- 10 3 2) 5)          "- multiple args left-to-right")
+(assert (= (- 1 1) 0)             "- self cancels")
+
+;;; ============================================================================
+;;; * (multiplication)
+;;; ============================================================================
+
+(assert (= (*) 1)                 "* no args returns identity 1")
+(assert (= (* 5) 5)               "* one arg returns it unchanged")
+(assert (= (* 2 3) 6)             "* two args")
+(assert (= (* 2 3 4) 24)          "* multiple args")
+(assert (= (* -2 3) -6)           "* negative operand")
+(assert (= (* -2 -3) 6)           "* both operands negative")
+(assert (= (* 0 99999) 0)         "* by zero")
+(assert (= (* 1/2 4) 2)           "* rational")
+
+;;; ============================================================================
+;;; / (division / reciprocal)
+;;; ============================================================================
+
+(assert (= (/ 10 2) 5)            "/ exact integer division")
+(assert (= (/ 12 3 2) 2)          "/ multiple args left-to-right")
+(assert (= (/ 1) 1)               "/ reciprocal of 1")
+(assert (= (/ 2) 1/2)             "/ reciprocal as ratio")
+(assert (= (/ 3 4) 3/4)           "/ ratio result")
+
+;;; ============================================================================
+;;; abs
+;;; ============================================================================
+
+(assert (= (abs 7) 7)             "abs of positive integer")
+(assert (= (abs -7) 7)            "abs of negative integer")
+(assert (= (abs 0) 0)             "abs of zero")
+(assert (= (abs -3/4) 3/4)        "abs of negative ratio")
+(assert (approx= (abs -2.5) 2.5 1e-10) "abs of negative float")
+
+;;; ============================================================================
+;;; inc and dec
+;;; ============================================================================
+
+(assert (= (inc 0) 1)             "inc 0 -> 1")
+(assert (= (inc 5) 6)             "inc 5 -> 6")
+(assert (= (inc -1) 0)            "inc -1 -> 0")
+(assert (= (dec 0) -1)            "dec 0 -> -1")
+(assert (= (dec 5) 4)             "dec 5 -> 4")
+(assert (= (dec 1) 0)             "dec 1 -> 0")
+
+;;; ============================================================================
+;;; Trigonometric functions
+;;; ============================================================================
+
+(assert (approx= (sin 0.0)  0.0 1e-10)  "sin 0 = 0")
+(assert (approx= (cos 0.0)  1.0 1e-10)  "cos 0 = 1")
+(assert (approx= (tan 0.0)  0.0 1e-10)  "tan 0 = 0")
+(assert (approx= (asin 0.0) 0.0 1e-10)  "asin 0 = 0")
+(assert (approx= (acos 1.0) 0.0 1e-10)  "acos 1 = 0")
+(assert (approx= (atan 0.0) 0.0 1e-10)  "atan 0 = 0")
+
+;;; atan2 at (0, 1): angle from positive x-axis to (x=1, y=0) = 0
+(assert (approx= (atan2 0.0 1.0) 0.0 1e-10) "atan2 0 1 = 0")
+
+;;; sin and cos at pi/2 (= acos 0); 1e-6 tolerance covers single-float rounding
+(bind [half-pi (acos 0.0)]
+  (assert (approx= (sin half-pi) 1.0 1e-6)  "sin(pi/2) = 1")
+  (assert (approx= (cos half-pi) 0.0 1e-6)  "cos(pi/2) ≈ 0"))
+
+;;; ============================================================================
+;;; Hyperbolic functions
+;;; ============================================================================
+
+(assert (approx= (sinh 0.0)  0.0 1e-10) "sinh 0 = 0")
+(assert (approx= (cosh 0.0)  1.0 1e-10) "cosh 0 = 1")
+(assert (approx= (tanh 0.0)  0.0 1e-10) "tanh 0 = 0")
+(assert (approx= (asinh 0.0) 0.0 1e-10) "asinh 0 = 0")
+(assert (approx= (acosh 1.0) 0.0 1e-10) "acosh 1 = 0")
+(assert (approx= (atanh 0.0) 0.0 1e-10) "atanh 0 = 0")
+
+;;; ============================================================================
+;;; Exponential and logarithmic functions
+;;; ============================================================================
+
+(assert (approx= (exp 0.0)  1.0           1e-10) "exp 0 = 1")
+(assert (approx= (exp 1.0)  2.71828182845 1e-5)  "exp 1 ≈ e")
+(assert (approx= (ln 1.0)   0.0           1e-10) "ln 1 = 0")
+(assert (approx= (sqrt 4.0) 2.0           1e-10) "sqrt 4 = 2")
+(assert (approx= (sqrt 9.0) 3.0           1e-10) "sqrt 9 = 3")
+(assert (= (expt 2 10) 1024)                      "expt 2 10 = 1024")
+(assert (= (expt 3  3)   27)                      "expt 3 3 = 27")
+(assert (approx= (expt 4.0 0.5) (sqrt 4.0) 1e-10) "expt 4.0 0.5 = sqrt 4")
+
+;;; ============================================================================
+;;; GCD and LCM
+;;; ============================================================================
+
+(assert (= (gcd)        0)   "gcd no args = 0")
+(assert (= (gcd 12)    12)   "gcd single arg = itself")
+(assert (= (gcd 12  8)  4)   "gcd 12 8 = 4")
+(assert (= (gcd 12  8 6) 2)  "gcd 12 8 6 = 2")
+(assert (= (gcd  0  5)  5)   "gcd 0 5 = 5")
+(assert (= (gcd  7  0)  7)   "gcd 7 0 = 7")
+
+(assert (= (lcm)         1)  "lcm no args = 1")
+(assert (= (lcm  4)      4)  "lcm single arg = itself")
+(assert (= (lcm  4  6)  12)  "lcm 4 6 = 12")
+(assert (= (lcm  4  6 10) 60) "lcm 4 6 10 = 60")
+(assert (= (lcm  3  0)   0)  "lcm 3 0 = 0")
+
+;;; ============================================================================
+;;; even? and odd?
+;;; ============================================================================
+
+(assert (even?  0)          "even? 0")
+(assert (even?  2)          "even? 2")
+(assert (even? -4)          "even? -4")
+(assert (not (even?  1))    "not even? 1")
+(assert (not (even? -3))    "not even? -3")
+
+(assert (odd?  1)           "odd? 1")
+(assert (odd? -3)           "odd? -3")
+(assert (not (odd?  0))     "not odd? 0")
+(assert (not (odd?  4))     "not odd? 4")
+
+;;; ============================================================================
+;;; zero?, positive?, negative?
+;;; ============================================================================
+
+(assert (zero?  0)          "zero? 0 (integer)")
+(assert (zero?  0.0)        "zero? 0.0 (float)")
+(assert (not (zero?  1))    "not zero? 1")
+(assert (not (zero? -1))    "not zero? -1")
+
+(assert (positive?  1)      "positive? 1")
+(assert (positive?  0.5)    "positive? 0.5")
+(assert (not (positive?  0)) "not positive? 0")
+(assert (not (positive? -1)) "not positive? -1")
+
+(assert (negative? -1)      "negative? -1")
+(assert (negative? -0.5)    "negative? -0.5")
+(assert (not (negative?  0)) "not negative? 0")
+(assert (not (negative?  1)) "not negative? 1")
+
+;;; ============================================================================
+;;; nat-int?, pos-int?, neg-int?
+;;; ============================================================================
+
+(assert (nat-int?  0)           "nat-int? 0")
+(assert (nat-int?  5)           "nat-int? 5")
+(assert (not (nat-int? -1))     "not nat-int? -1")
+(assert (not (nat-int?  1.5))   "not nat-int? float")
+
+(assert (pos-int?  1)           "pos-int? 1")
+(assert (pos-int?  100)         "pos-int? 100")
+(assert (not (pos-int?  0))     "not pos-int? 0")
+(assert (not (pos-int? -1))     "not pos-int? -1")
+(assert (not (pos-int?  1.5))   "not pos-int? float")
+
+(assert (neg-int? -1)           "neg-int? -1")
+(assert (neg-int? -100)         "neg-int? -100")
+(assert (not (neg-int?  0))     "not neg-int? 0")
+(assert (not (neg-int?  1))     "not neg-int? 1")
+(assert (not (neg-int? -1.5))   "not neg-int? float")
+
+;;; ============================================================================
+;;; NaN?, Inf?, -Inf?, infinite? — negative cases with normal numbers
+;;; ============================================================================
+
+(assert (not (NaN?      0))      "not NaN? 0")
+(assert (not (NaN?      1.5))    "not NaN? 1.5")
+(assert (not (NaN?     -1))      "not NaN? -1")
+(assert (not (Inf?      1000.0)) "not Inf? 1000.0")
+(assert (not (Inf?      0.0))    "not Inf? 0.0")
+(assert (not (-Inf?    -1000.0)) "not -Inf? -1000.0")
+(assert (not (infinite? 42))     "not infinite? integer")
+(assert (not (infinite? 3.14))   "not infinite? ordinary float")
+
+;;; ============================================================================
+;;; int — type conversion to integer
+;;; ============================================================================
+
+(assert (= (int  5)     5)   "int integer unchanged")
+(assert (= (int  3.7)   3)   "int float truncates toward zero")
+(assert (= (int -3.7)  -3)   "int negative float truncates toward zero")
+(assert (= (int  1/2)   0)   "int ratio truncates toward zero")
+(assert (= (int -3/2)  -1)   "int negative ratio truncates toward zero")
+(assert (= (int true)   1)   "int true = 1")
+(assert (= (int false)  0)   "int false = 0")
+
+;;; ============================================================================
+;;; <single-float> and <double-float>
+;;; ============================================================================
+
+(assert (approx= (<single-float>  5)   5.0  1e-5)  "<single-float> integer")
+(assert (approx= (<single-float>  1/2) 0.5  1e-5)  "<single-float> ratio")
+(assert (approx= (<single-float> -3)  -3.0  1e-5)  "<single-float> negative integer")
+
+(assert (approx= (<double-float>  5)   5.0  1e-10) "<double-float> integer")
+(assert (approx= (<double-float>  1/2) 0.5  1e-10) "<double-float> ratio")
+(assert (approx= (<double-float> -3)  -3.0  1e-10) "<double-float> negative integer")
+
+;;; ============================================================================
+;;; parse-int and parse-double
+;;; ============================================================================
+
+(assert (= (parse-int  "42")   42)  "parse-int positive")
+(assert (= (parse-int "-17")  -17)  "parse-int negative")
+(assert (= (parse-int  "0")     0)  "parse-int zero")
+
+(assert (approx= (parse-double  "3.14")  3.14 1e-5)   "parse-double decimal")
+(assert (approx= (parse-double  "42")   42.0  1e-10)  "parse-double integer string")
+(assert (approx= (parse-double "-1.5") -1.5   1e-10)  "parse-double negative")
+
+;;; ============================================================================
+;;; rationalize, numerator, denominator
+;;; ============================================================================
+
+(assert (= (numerator   3/4)  3) "numerator 3/4")
+(assert (= (denominator 3/4)  4) "denominator 3/4")
+(assert (= (numerator     5)  5) "numerator of integer")
+(assert (= (denominator   5)  1) "denominator of integer")

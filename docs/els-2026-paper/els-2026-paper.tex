@@ -124,10 +124,11 @@ The hybrid layout uses a specialized \texttt{persistent-effective-}{\allowbreak}
 \texttt{slot-makunbound-using-class} & Blocked & Immutability invariant \\
 \texttt{validate-superclass} & Extended & Cross-metaclass mixing \\
 \texttt{initialize-instance} & Extended & Populates base object and overflow trie from initargs \\
+\texttt{compute-slots} & Specialized & Implements hybrid native/trie layout \\
 \texttt{update-instance-for-redefined-class} & Omitted & Instances are immutable; lazy migration instead (Sec.~3.3) \\
 \texttt{change-class} & Omitted & Violates immutability \\
 \midrule
-\multicolumn{3}{l}{\textit{Class computation, method combination, allocation: standard CLOS behavior inherited unchanged.}} \\
+\multicolumn{3}{l}{\textit{Method combination, allocation: standard CLOS behavior inherited unchanged.}} \\
 \bottomrule
 \end{tabular}
 \end{table*}

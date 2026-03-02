@@ -41,8 +41,8 @@
       (is (search "2" out)))))
 
 (test format-test
-  (is (string= "Hello World" (fol.compiler.io:format "Hello ~A" "World")))
-  (is (string= "Num: 42" (fol.compiler.io:format "Num: ~A" 42))))
+  (is (string= "Hello World" (fol.compiler.io:format nil "Hello ~A" "World")))
+  (is (string= "Num: 42" (fol.compiler.io:format nil "Num: ~A" 42))))
 
 (test printf-test
   (is (string= "Hello World" 

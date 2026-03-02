@@ -1,0 +1,253 @@
+;;; Comparison Operations Tests
+;;;
+;;; Tests for fol.compiler.compareops.lisp.
+;;; Covers equality, ordering, min/max operations.
+
+;;; ============================================================================
+;;; Equality (=)
+;;; ============================================================================
+
+;;; = with integers
+(assert (= 5 5) "= two equal integers")
+(assert (= 0 0) "= two zeros")
+(assert (= -5 -5) "= two equal negative integers")
+(assert (not (= 5 6)) "= unequal integers returns false")
+
+;;; = with multiple arguments (all must be equal)
+(assert (= 1 1 1 1) "= multiple equal arguments")
+(assert (not (= 1 1 2 1)) "= stops at first inequality")
+(assert (= 3) "= single argument is true")
+(assert (= ) "= no arguments is true (vacuous truth)")
+
+;;; = with floats
+(assert (= 3.14 3.14) "= equal floats")
+(assert (not (= 3.14 3.15)) "= unequal floats")
+
+;;; = with rationals
+(assert (= 1/2 1/2) "= equal rationals")
+(assert (= 2/4 1/2) "= equivalent rationals")
+(assert (not (= 1/2 1/3)) "= unequal rationals")
+
+;;; = with mixed numeric types
+(assert (= 5 5.0) "= integer and float with same value")
+(assert (= 2 2/1) "= integer and rational equivalence")
+(assert (= 0 0.0) "= zero integer and float")
+
+;;; = with strings
+(assert (= "hello" "hello") "= equal strings")
+(assert (not (= "hello" "world")) "= unequal strings")
+(assert (= "" "") "= empty strings")
+
+;;; = with booleans (true and false are T and NIL in CL)
+(assert (= true true) "= true true")
+
+;;; = with nil
+(assert (= nil nil) "= nil nil")
+
+;;; = with keywords
+(assert (= :key :key) "= equal keywords")
+(assert (not (= :key :other)) "= unequal keywords")
+
+;;; = with vectors
+(assert (= [] []) "= empty vectors")
+(assert (= [1 2 3] [1 2 3]) "= equal vectors")
+(assert (not (= [1 2] [1 2 3])) "= vectors of different lengths")
+
+;;; = with dicts
+(assert (= {} {}) "= empty dicts")
+(assert (= {:a 1 :b 2} {:a 1 :b 2}) "= equal dicts")
+(assert (not (= {:a 1} {:a 2})) "= dicts with different values")
+
+;;; = with sets
+(assert (= #{} #{}) "= empty sets")
+(assert (= #{1 2 3} #{1 2 3}) "= equal sets")
+(assert (not (= #{1 2} #{1 2 3})) "= sets of different sizes")
+
+;;; ============================================================================
+;;; Inequality (/=)
+;;; ============================================================================
+
+;;; /= with integers
+(assert (/= 5 6) "/= unequal integers")
+(assert (not (/= 5 5)) "/= equal integers returns false")
+
+;;; /= with multiple arguments (all must be different)
+(assert (/= 1 2 3 4) "/= all different arguments")
+(assert (not (/= 1 2 2 3)) "/= stops at first equality")
+(assert (/= 5) "/= single argument is true")
+(assert (/= ) "/= no arguments is true")
+
+;;; /= with floats and strings
+(assert (/= 1.5 2.5) "/= unequal floats")
+(assert (/= "a" "b") "/= unequal strings")
+
+;;; ============================================================================
+;;; Less-Than (<)
+;;; ============================================================================
+
+;;; < with integers
+(assert (< 1 2) "< 1 < 2")
+(assert (< 1 2 3 4 5) "< increasing sequence")
+(assert (not (< 2 1)) "< 2 > 1 returns false")
+(assert (not (< 5 5)) "< equal numbers returns false")
+
+;;; < with floats
+(assert (< 1.5 2.5) "< 1.5 < 2.5")
+(assert (< -1.5 0.0) "< negative < zero")
+
+;;; < with mixed numeric types
+(assert (< 1 1.5) "< integer < float")
+(assert (< 1/2 1.0) "< rational < float")
+
+;;; < with strings (lexicographic)
+(assert (< "a" "b") "< 'a' < 'b'")
+(assert (< "abc" "abd") "< 'abc' < 'abd'")
+(assert (not (< "z" "a")) "< 'z' > 'a' returns false")
+
+;;; < with single argument
+(assert (< 5) "< single argument is true")
+
+;;; ============================================================================
+;;; Greater-Than (>)
+;;; ============================================================================
+
+;;; > with integers
+(assert (> 5 4) "> 5 > 4")
+(assert (> 5 4 3 2 1) "> decreasing sequence")
+(assert (not (> 3 5)) "> 3 < 5 returns false")
+(assert (not (> 5 5)) "> equal numbers returns false")
+
+;;; > with floats and strings
+(assert (> 5.5 4.5) "> 5.5 > 4.5")
+(assert (> "z" "a") "> 'z' > 'a'")
+
+;;; > with single argument
+(assert (> 5) "> single argument is true")
+
+;;; ============================================================================
+;;; Less-Than-Or-Equal (<=)
+;;; ============================================================================
+
+;;; <= with integers
+(assert (<= 1 2) "<= 1 < 2")
+(assert (<= 5 5) "<= 5 = 5")
+(assert (<= 1 2 2 3) "<= non-decreasing sequence")
+(assert (not (<= 5 4)) "<= 5 > 4 returns false")
+
+;;; <= with floats and strings
+(assert (<= 3.0 3.0) "<= equal floats")
+(assert (<= "abc" "abc") "<= equal strings")
+
+;;; <= with single argument
+(assert (<= 5) "<= single argument is true")
+
+;;; ============================================================================
+;;; Greater-Than-Or-Equal (>=)
+;;; ============================================================================
+
+;;; >= with integers
+(assert (>= 5 4) ">= 5 > 4")
+(assert (>= 5 5) ">= 5 = 5")
+(assert (>= 5 5 4 3) ">= non-increasing sequence")
+(assert (not (>= 3 4)) ">= 3 < 4 returns false")
+
+;;; >= with floats and strings
+(assert (>= 3.0 3.0) ">= equal floats")
+(assert (>= "z" "z") ">= equal strings")
+
+;;; >= with single argument
+(assert (>= 5) ">= single argument is true")
+
+;;; ============================================================================
+;;; Min and Max
+;;; ============================================================================
+
+;;; min with integers
+(assert (= (min 5) 5) "min single argument")
+(assert (= (min 3 1 4 1 5) 1) "min finds smallest")
+(assert (= (min 1 2 3) 1) "min with ascending sequence")
+(assert (= (min 5 4 3) 3) "min with descending sequence")
+
+;;; min with floats
+(assert (= (min 3.5 1.2 2.8) 1.2) "min with floats")
+
+;;; min with mixed types
+(assert (= (min 5 2.5 3) 2.5) "min with mixed numeric types")
+(assert (= (min 1/2 1 0.25) 0.25) "min with integer, rational, float")
+
+;;; min with negative numbers
+(assert (= (min -5 -2 0 3) -5) "min with negative numbers")
+
+;;; max with integers
+(assert (= (max 5) 5) "max single argument")
+(assert (= (max 3 1 4 1 5) 5) "max finds largest")
+(assert (= (max 1 2 3) 3) "max with ascending sequence")
+(assert (= (max 5 4 3) 5) "max with descending sequence")
+
+;;; max with floats
+(assert (= (max 3.5 1.2 2.8) 3.5) "max with floats")
+
+;;; max with mixed types
+(assert (= (max 5 2.5 3) 5) "max with mixed numeric types")
+
+;;; max with negative numbers
+(assert (= (max -5 -2 0 3) 3) "max with negative numbers")
+(assert (= (max -5 -2 -10) -2) "max with all negative numbers")
+
+;;; min and max with equal values
+(assert (= (min 5 5 5) 5) "min with all equal values")
+(assert (= (max 5 5 5) 5) "max with all equal values")
+
+;;; ============================================================================
+;;; Comparison Chaining
+;;; ============================================================================
+
+;;; Multiple comparison operations
+(assert (and (< 1 2) (< 2 3)) "chained < comparisons")
+(assert (and (= 5 5) (< 5 10)) "mixed = and < comparisons")
+(assert (and (>= 10 5) (> 5 0)) "chained >= and > comparisons")
+
+;;; Boolean results can be used in conditionals
+(def x 5)
+(assert (if (< x 10) true false) "if < comparison returns true")
+(assert (if (> x 10) false true) "if > comparison returns false")
+
+;;; ============================================================================
+;;; Type Comparisons
+;;; ============================================================================
+
+;;; Comparing different numeric types
+(assert (= 2 2.0 2/1) "all numeric representations of 2 are equal")
+(assert (< 1 1.5 2) "numeric chain with different types")
+
+;;; Comparing booleans (true is T, false is NIL)
+(assert (= true true) "true = true")
+
+;;; Zero variations
+(assert (= 0 0.0 0/1) "all zeros are equal")
+(assert (= -0.0 0.0) "negative zero equals positive zero")
+
+;;; ============================================================================
+;;; Edge Cases
+;;; ============================================================================
+
+;;; Empty comparisons
+(assert (= ) "= with no args is vacuously true")
+(assert (/= ) "/= with no args is vacuously true")
+(assert (< ) "< with no args is vacuously true")
+(assert (> ) "> with no args is vacuously true")
+(assert (<= ) "<= with no args is vacuously true")
+(assert (>= ) ">= with no args is vacuously true")
+
+;;; Single element collections equal themselves
+(def v1 [5])
+(assert (= v1 v1) "vector equals itself")
+
+(def d1 {:a 1})
+(assert (= d1 d1) "dict equals itself")
+
+;;; Order of elements doesn't matter for set equality
+(def s1 #{1 2 3})
+(def s2 #{3 2 1})
+(assert (= s1 s2) "sets with same elements are equal")
+

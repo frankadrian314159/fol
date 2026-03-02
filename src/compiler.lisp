@@ -295,15 +295,22 @@
      :form form)))
 
 (defun parse-defmacro (form)
-  "Parse a defmacro form: (defmacro name [params] body ...).
+  "Parse a defmacro form: (defmacro name [params] body ...) or
+   (defmacro name [params] \"doc\" body ...).
    Params support destructuring but not predicate specializers."
   (destructuring-bind (op name params &rest body) form
     (declare (ignore op))
-    (fol.compiler.ast:make-defmacro-node
-     :name name
-     :params params
-     :body (mapcar #'parse-form body)
-     :form form)))
+    ;; Check if first element of body is a string (docstring)
+    (let ((docstring (and (>= (length body) 1) (stringp (first body)) (first body)))
+          (actual-body (if (and (>= (length body) 1) (stringp (first body)))
+                           (rest body)
+                           body)))
+      (fol.compiler.ast:make-defmacro-node
+       :name name
+       :params params
+       :body (mapcar #'parse-form actual-body)
+       :docstring docstring
+       :form form))))
 
 (defun parse-defclass (form)
   "Parse a defclass form: (defclass <name> [supers] [slots] option*).
@@ -329,7 +336,7 @@
     (declare (ignore op))
     (let ((slots (mapcar (lambda (s)
                            (if (fol-vector-p s) (fol-vector-to-list s) s))
-                         slot-specs)))
+                     slot-specs)))
       (fol.compiler.ast:make-defstruct-node
        :name name
        :slots slots
@@ -337,26 +344,33 @@
 
 (defun parse-defgeneric (form)
   "Parse a defgeneric form:
-   (defgeneric name [params] option*)               - single pattern
-   (defgeneric name ([params1] [params2] ...) option*) - multi-pattern"
+   (defgeneric name [params] option*)                    - single pattern
+   (defgeneric name [params] \"doc\" option*)            - with docstring
+   (defgeneric name ([params1] [params2] ...) option*)   - multi-pattern"
   (destructuring-bind (op name lambda-spec &rest options) form
     (declare (ignore op))
-    (let ((lambda-lists
-           (cond
-            ;; Single pattern: a vector
-            ((fol-vector-p lambda-spec)
-              (list (fol-vector-to-list lambda-spec)))
-            ;; Multi-pattern: list of vectors
-            ((and (listp lambda-spec)
-                  (not (null lambda-spec))
-                  (every #'fol-vector-p lambda-spec))
-              (mapcar #'fol-vector-to-list lambda-spec))
-            (t (error "Invalid defgeneric lambda-list: ~S" lambda-spec)))))
-      (fol.compiler.ast:make-defgeneric-node
-       :name name
-       :lambda-lists lambda-lists
-       :options options
-       :form form))))
+    ;; Check if first element of options is a docstring
+    (let ((docstring (and (>= (length options) 1) (stringp (first options)) (first options)))
+          (actual-options (if (and (>= (length options) 1) (stringp (first options)))
+                              (rest options)
+                              options)))
+      (let ((lambda-lists
+             (cond
+              ;; Single pattern: a vector
+              ((fol-vector-p lambda-spec)
+                (list (fol-vector-to-list lambda-spec)))
+              ;; Multi-pattern: list of vectors
+              ((and (listp lambda-spec)
+                    (not (null lambda-spec))
+                    (every #'fol-vector-p lambda-spec))
+                (mapcar #'fol-vector-to-list lambda-spec))
+              (t (error "Invalid defgeneric lambda-list: ~S" lambda-spec)))))
+        (fol.compiler.ast:make-defgeneric-node
+         :name name
+         :lambda-lists lambda-lists
+         :options actual-options
+         :docstring docstring
+         :form form)))))
 
 (defun parse-defmethod (form)
   "Parse a defmethod form:
@@ -499,18 +513,36 @@
                                   (not (null (first forms)))
                                   (fol-vector-p (first (first forms))))))
       (cond
-       ;; Single clause: (defn name [params] body ...)
+       ;; Single clause: (defn name [params] body ...) or (defn name "doc" [params] body ...)
        ((and (>= (length args) 1)
              (fol-vector-p (first args)))
          (fol.compiler.ast:make-defn-node
           :name name
           :clauses (list (cons (first args) (mapcar #'parse-form (rest args))))
           :form form))
+       ;; Single clause with docstring: (defn name "doc" [params] body ...)
+       ((and (>= (length args) 2)
+             (stringp (first args))
+             (fol-vector-p (second args)))
+         (fol.compiler.ast:make-defn-node
+          :name name
+          :clauses (list (cons (second args) (mapcar #'parse-form (cddr args))))
+          :docstring (first args)
+          :form form))
        ;; Multi-clause: (defn name ([p1] b1 ...) ([p2] b2 ...) ...)
        ((multi-clause-p args)
          (fol.compiler.ast:make-defn-node
           :name name
           :clauses (mapcar #'parse-clause args)
+          :form form))
+       ;; Multi-clause with docstring: (defn name "doc" ([p1] b1 ...) ([p2] b2 ...) ...)
+       ((and (>= (length args) 2)
+             (stringp (first args))
+             (multi-clause-p (rest args)))
+         (fol.compiler.ast:make-defn-node
+          :name name
+          :clauses (mapcar #'parse-clause (rest args))
+          :docstring (first args)
           :form form))
        (t (error "Invalid defn form: ~S" form))))))
 
@@ -534,10 +566,26 @@
           :name name
           :clauses (list (cons (first args) (mapcar #'parse-form (rest args))))
           :form form))
+       ((and (>= (length args) 2)
+             (stringp (first args))
+             (fol-vector-p (second args)))
+         (fol.compiler.ast:make-defn-private-node
+          :name name
+          :clauses (list (cons (second args) (mapcar #'parse-form (cddr args))))
+          :docstring (first args)
+          :form form))
        ((multi-clause-p args)
          (fol.compiler.ast:make-defn-private-node
           :name name
           :clauses (mapcar #'parse-clause args)
+          :form form))
+       ((and (>= (length args) 2)
+             (stringp (first args))
+             (multi-clause-p (rest args)))
+         (fol.compiler.ast:make-defn-private-node
+          :name name
+          :clauses (mapcar #'parse-clause (rest args))
+          :docstring (first args)
           :form form))
        (t (error "Invalid defn- form: ~S" form))))))
 
@@ -561,10 +609,26 @@
           :name name
           :clauses (list (cons (first args) (mapcar #'parse-form (rest args))))
           :form form))
+       ((and (>= (length args) 2)
+             (stringp (first args))
+             (fol-vector-p (second args)))
+         (fol.compiler.ast:make-definline-node
+          :name name
+          :clauses (list (cons (second args) (mapcar #'parse-form (cddr args))))
+          :docstring (first args)
+          :form form))
        ((multi-clause-p args)
          (fol.compiler.ast:make-definline-node
           :name name
           :clauses (mapcar #'parse-clause args)
+          :form form))
+       ((and (>= (length args) 2)
+             (stringp (first args))
+             (multi-clause-p (rest args)))
+         (fol.compiler.ast:make-definline-node
+          :name name
+          :clauses (mapcar #'parse-clause (rest args))
+          :docstring (first args)
           :form form))
        (t (error "Invalid definline form: ~S" form))))))
 
@@ -1488,14 +1552,25 @@
 
 (defun emit-defmacro (node)
   "Emit a defmacro node as CL defmacro with destructured parameter list.
-   Uses emit-macro-lambda-list for FOL-to-CL lambda list conversion."
+   Uses emit-macro-lambda-list for FOL-to-CL lambda list conversion.
+   Also emits metadata setting code if docstring is present."
   (let* ((name (fol.compiler.ast:defmacro-node-name node))
          (params (fol.compiler.ast:defmacro-node-params node))
          (body (fol.compiler.ast:defmacro-node-body node))
+         (docstring (fol.compiler.ast:defmacro-node-docstring node))
          (param-list (fol-vector-to-list params))
          (cl-lambda-list (fol.compiler.destructure:emit-macro-lambda-list param-list))
          (emitted-body (mapcar #'emit-node body)))
-    `(cl:defmacro ,name ,cl-lambda-list ,@emitted-body)))
+    (let ((defmacro-form `(cl:defmacro ,name ,cl-lambda-list ,@emitted-body))
+          (metadata-form (when docstring
+                           `(fol.compiler.metadata:alter-meta! (quote ,name)
+                              (fn [m] (fol.compiler.collection-functions:merge m
+                                        (fol.compiler.collection-functions:dict
+                                         :doc ,docstring
+                                         :name (quote ,name))))))))
+      (if metadata-form
+          `(cl:progn ,defmacro-form ,metadata-form)
+          defmacro-form))))
 
 (defun emit-initform (value)
   "Convert a FOL initform value to a CL form that produces it.
@@ -1599,15 +1674,15 @@
    so that (:slot obj) dispatch is type-specific.
    Constructor is (defmethod make ((class (eql '<name>)) &rest args)) forwarding to make-instance;
    initforms on the defclass handle default slot values."
-  (let* ((name  (fol.compiler.ast:defstruct-node-name node))
+  (let* ((name (fol.compiler.ast:defstruct-node-name node))
          (slots (fol.compiler.ast:defstruct-node-slots node))
          ;; Parse each slot into (slot-name storage-key default has-default)
          (slot-infos
           (loop for slot in slots
-                for slot-spec   = (if (listp slot) slot (list slot))
-                for slot-name   = (first slot-spec)
+                for slot-spec = (if (listp slot) slot (list slot))
+                for slot-name = (first slot-spec)
                 for has-default = (member :default (rest slot-spec))
-                for default     = (when has-default (second has-default))
+                for default = (when has-default (second has-default))
                 for storage-key = (intern (string slot-name) :keyword)
                 collect (list slot-name storage-key default has-default)))
          ;; CL defclass slot specs: (slot-name :initarg :slot-name [:initform default])
@@ -1615,7 +1690,7 @@
           (loop for (sname storage-key default has-default) in slot-infos
                 collect (if has-default
                             `(,sname :initarg ,storage-key
-                                     :initform ,(emit-initform default))
+                               :initform ,(emit-initform default))
                             `(,sname :initarg ,storage-key)))))
     `(cl:progn
        (cl:defclass ,name (fol.compiler.persistent:<persistent-object>)
@@ -1624,7 +1699,7 @@
        ;; Per-slot get methods: (:slot obj) dispatches here for type-specific access
        ,@(loop for (sname storage-key default has-default) in slot-infos
                collect `(cl:defmethod fol.compiler.collection-functions:get
-                            ((obj ,name) (key (cl:eql ,storage-key)) &optional default)
+                          ((obj ,name) (key (cl:eql ,storage-key)) &optional default)
                           (cl:declare (cl:ignore key default))
                           (cl:slot-value obj ',sname)))
        ;; Constructor via make generic: (make '<name> :slot val ...)
@@ -1635,19 +1710,32 @@
 (defun emit-defgeneric (node)
   "Emit a defgeneric node as CL defgeneric.
    Single-pattern: (defgeneric name (params) options...)
-   Multi-pattern: creates internal generics + dispatcher function."
+   Multi-pattern: creates internal generics + dispatcher function.
+   Also emits metadata setting code if docstring is present."
   (let ((name (fol.compiler.ast:defgeneric-node-name node))
         (lambda-lists (fol.compiler.ast:defgeneric-node-lambda-lists node))
-        (options (fol.compiler.ast:defgeneric-node-options node)))
+        (options (fol.compiler.ast:defgeneric-node-options node))
+        (docstring (fol.compiler.ast:defgeneric-node-docstring node)))
     ;; Track this function for Lisp-1 compatibility in compile-file
     (when *file-function-defs*
           (pushnew name *file-function-defs* :test #'string=))
-    (if (= (length lambda-lists) 1)
-        ;; Single pattern
-        (let ((params (fol.compiler.destructure:strip-specializers (first lambda-lists))))
-          `(cl:defgeneric ,name ,params ,@options))
-        ;; Multi-pattern: create internal generics + dispatcher
-        (emit-defgeneric-multi-pattern name lambda-lists options))))
+    (let ((defgeneric-form
+           (if (= (length lambda-lists) 1)
+               ;; Single pattern
+               (let ((params (fol.compiler.destructure:strip-specializers (first lambda-lists))))
+                 `(cl:defgeneric ,name ,params ,@options))
+               ;; Multi-pattern: create internal generics + dispatcher
+               (emit-defgeneric-multi-pattern name lambda-lists options)))
+          (metadata-form (when docstring
+                           `(fol.compiler.metadata:alter-meta! (quote ,name)
+                              (fn [m] (fol.compiler.collection-functions:merge m
+                                        (fol.compiler.collection-functions:dict
+                                         :doc ,docstring
+                                         :arglists ,(list 'quote lambda-lists)
+                                         :name (quote ,name))))))))
+      (if metadata-form
+          `(cl:progn ,defgeneric-form ,metadata-form)
+          defgeneric-form))))
 
 (defun emit-defgeneric-multi-pattern (name lambda-lists options)
   "Emit CL code for a multi-pattern defgeneric.
@@ -1837,85 +1925,99 @@
 (defun emit-defmethod (node)
   "Emit a defmethod node as CL code.
    Single-clause with type specializers: CL defmethod.
-   Multi-clause or predicate dispatch: defun with cond dispatcher."
+   Multi-clause or predicate dispatch: defun with cond dispatcher.
+   Also emits metadata setting code if docstring is present."
   (let ((name (fol.compiler.ast:defmethod-node-name node))
         (qualifier (fol.compiler.ast:defmethod-node-qualifier node))
-        (clauses (fol.compiler.ast:defmethod-node-clauses node)))
+        (clauses (fol.compiler.ast:defmethod-node-clauses node))
+        (docstring (fol.compiler.ast:defmethod-node-docstring node)))
     (let ((*extra-special-vars* nil))
-      (if (= (length clauses) 1)
-          ;; Single clause - check if it has specializers
-          (let* ((clause (first clauses))
-                 (param-vec (car clause))
-                 (body-nodes (cdr clause))
-                 (param-list (fol-vector-to-list param-vec))
-                 (has-specializers (some (lambda (p) (listp p)) param-list)))
-            (if (cl:and has-specializers
-                        ;; All specializers are pure type-name symbols (no predicate forms)?
-                        (cl:every (lambda (p)
-                                    (cl:or (cl:symbolp p)
-                                           (cl:and (cl:listp p)
-                                                   (cl:= (cl:length p) 2)
-                                                   (cl:symbolp (cl:second p)))))
-                                  param-list))
-                ;; All type specializers: emit proper CLOS defmethod with class specializers.
-                ;; Add &rest kvps for lambda-list congruence with generics like assoc.
-                (cl:let* ((kvps-sym 'kvps)
-                          (clos-lambda-list
-                           (cl:append
-                            (cl:mapcar (lambda (p)
-                                         (cl:if (cl:listp p)
-                                                (cl:list (cl:first p) (cl:second p))
-                                                p))
-                                       param-list)
-                            (cl:list '&rest kvps-sym)))
-                          (param-names
-                           (cl:mapcar (lambda (p)
-                                        (cl:if (cl:listp p) (cl:first p) p))
-                                      param-list))
-                          (emitted-body (cl:mapcar #'emit-node body-nodes))
-                          ;; Declare only the actual method params special.
-                          ;; *extra-special-vars* may contain function-name symbols
-                          ;; added by collection-as-function dispatch (e.g. NUMBER?)
-                          ;; which must NOT appear in DECLARE SPECIAL.
-                          (all-special (remove-duplicates
-                                         (cl:append param-names (cl:list kvps-sym)))))
-                  (cl:if qualifier
-                      `(defmethod ,name ,qualifier ,clos-lambda-list
-                         (cl:declare (cl:special ,@all-special) (cl:ignore ,kvps-sym))
-                         ,@emitted-body)
-                      `(defmethod ,name ,clos-lambda-list
-                         (cl:declare (cl:special ,@all-special) (cl:ignore ,kvps-sym))
-                         ,@emitted-body)))
-                ;; Has predicate specializers: use COND dispatch
-                (if has-specializers
-                    (compile-defmethod-clauses name clauses)
-                    ;; No specializers: emit simple CL defmethod
-                    (multiple-value-bind (regular-params rest-param)
-                        (fol.compiler.destructure:parse-params param-list)
-                      (let* ((lambda-list (if rest-param
-                                              (append regular-params (list '&rest rest-param))
-                                              regular-params))
-                             (emitted-body (mapcar #'emit-node body-nodes)))
-                        (if qualifier
-                            `(defmethod ,name ,qualifier ,lambda-list
-                               ,@(when *extra-special-vars*
-                                       `((cl:declare (cl:special ,@(remove-duplicates *extra-special-vars*)))))
-                               ,@emitted-body)
-                            `(defmethod ,name ,lambda-list
-                               ,@(when *extra-special-vars*
-                                       `((cl:declare (cl:special ,@(remove-duplicates *extra-special-vars*)))))
-                               ,@emitted-body)))))))
-          ;; Multi-clause: emit dispatched defun
-          (compile-defmethod-clauses name clauses)))))
+      ;; Compute the defmethod form once
+      (let ((method-form
+             (if (= (length clauses) 1)
+                 ;; Single clause - check if it has specializers
+                 (let* ((clause (first clauses))
+                        (param-vec (car clause))
+                        (body-nodes (cdr clause))
+                        (param-list (fol-vector-to-list param-vec))
+                        (has-specializers (some (lambda (p) (listp p)) param-list)))
+                   (if (and has-specializers
+                            ;; All specializers are pure type-name symbols (no predicate forms)?
+                            (every (lambda (p)
+                                     (or (symbolp p)
+                                         (and (listp p)
+                                              (= (length p) 2)
+                                              (symbolp (second p)))))
+                                   param-list))
+                       ;; All type specializers: emit proper CLOS defmethod with class specializers.
+                       ;; Add &rest kvps for lambda-list congruence with generics like assoc.
+                       (let* ((kvps-sym 'kvps)
+                              (clos-lambda-list
+                               (append
+                                (mapcar (lambda (p)
+                                          (if (listp p)
+                                              (list (first p) (second p))
+                                              p))
+                                        param-list)
+                                (list '&rest kvps-sym)))
+                              (param-names
+                               (mapcar (lambda (p)
+                                         (if (listp p) (first p) p))
+                                       param-list))
+                              (emitted-body (mapcar #'emit-node body-nodes))
+                              ;; Declare only the actual method params special.
+                              ;; *extra-special-vars* may contain function-name symbols
+                              ;; added by collection-as-function dispatch (e.g. NUMBER?)
+                              ;; which must NOT appear in DECLARE SPECIAL.
+                              (all-special (remove-duplicates
+                                            (append param-names (list kvps-sym)))))
+                         (if qualifier
+                             `(defmethod ,name ,qualifier ,clos-lambda-list
+                                (declare (special ,@all-special) (ignore ,kvps-sym))
+                                ,@emitted-body)
+                             `(defmethod ,name ,clos-lambda-list
+                                (declare (special ,@all-special) (ignore ,kvps-sym))
+                                ,@emitted-body)))
+                       ;; Has predicate specializers or no specializers
+                       (if has-specializers
+                           (compile-defmethod-clauses name clauses)
+                           ;; No specializers: emit simple CL defmethod
+                           (multiple-value-bind (regular-params rest-param)
+                               (fol.compiler.destructure:parse-params param-list)
+                             (let* ((lambda-list (if rest-param
+                                                     (append regular-params (list '&rest rest-param))
+                                                     regular-params))
+                                    (emitted-body (mapcar #'emit-node body-nodes)))
+                               (if qualifier
+                                   `(defmethod ,name ,qualifier ,lambda-list
+                                      ,@(when *extra-special-vars*
+                                              `((declare (special ,@(remove-duplicates *extra-special-vars*)))))
+                                      ,@emitted-body)
+                                   `(defmethod ,name ,lambda-list
+                                      ,@(when *extra-special-vars*
+                                              `((declare (special ,@(remove-duplicates *extra-special-vars*)))))
+                                      ,@emitted-body)))))))
+                 ;; Multi-clause: emit dispatched defun
+                 (compile-defmethod-clauses name clauses))))
+        ;; Wrap with metadata assignment if docstring is present
+        (if docstring
+            (let ((metadata-form
+                   `(fol.compiler.metadata:alter-meta! (quote ,name)
+                      (fn [m] (fol.compiler.collection-functions:merge m
+                                (fol.compiler.collection-functions:dict
+                                 :doc ,docstring
+                                 :name (quote ,name)))))))
+              `(progn ,method-form ,metadata-form))
+            method-form)))))
 
 (defun emit-def (node)
-  "Emit a def node as CL defvar."
+  "Emit a def node as CL defparameter (always update value)."
   (let ((name (fol.compiler.ast:def-node-name node))
         (value (fol.compiler.ast:def-node-value node)))
     (pushnew name *extra-special-vars*)
     (if value
-        `(defvar ,name ,(emit-node value))
-        `(defvar ,name))))
+        `(cl:defparameter ,name ,(emit-node value))
+        `(cl:defvar ,name))))
 
 (defun emit-defdynamic (node)
   "Emit a defdynamic node as CL defvar.
@@ -1951,13 +2053,53 @@
                        (emit-node fn-expr-node))))
       `(fol.compiler.mutable:swap! ,atom-expr ,fn-expr ,@args))))
 
+;;; ---------------------------------------------------------------------------
+;;; Helper: Build metadata dictionary from function metadata
+;;; ---------------------------------------------------------------------------
+
+(defun build-function-metadata (name docstring clauses)
+  "Build a metadata dictionary for a function.
+   Returns a dict with :doc, :arglists, and :name keys (if available)."
+  (let ((metadata-entries nil))
+    ;; Add docstring if present
+    (when docstring
+      (push `:doc metadata-entries)
+      (push docstring metadata-entries))
+    ;; Add arglists from clauses (convert param vectors to lists)
+    (let ((arglists (mapcar (lambda (clause)
+                              (let ((params (car clause)))
+                                (if (fol-vector-p params)
+                                    (fol-vector-to-list params)
+                                    params)))
+                            clauses)))
+      (push `:arglists metadata-entries)
+      (push arglists metadata-entries))
+    ;; Add function name
+    (push `:name metadata-entries)
+    (push name metadata-entries)
+    ;; Build dict form: (fol.compiler.collection-functions:dict :key1 val1 :key2 val2 ...)
+    `(fol.compiler.collection-functions:dict ,@(reverse metadata-entries))))
+
+(defun emit-metadata-assignment (name docstring clauses)
+  "Emit code to set metadata on a function symbol.
+   Returns the metadata assignment form, or nil if no metadata."
+  (when docstring
+    (let ((metadata-dict (build-function-metadata name docstring clauses)))
+      `(fol.compiler.metadata:alter-meta! (quote ,name)
+         (lambda (m)
+           (if m
+               (fol.compiler.collection-functions:merge m ,metadata-dict)
+               ,metadata-dict))))))
+
 (defun emit-defn (node)
   "Emit a defn node as (defun name ...).
    Puts the function in the function slot, not the value slot.
    For single-clause: (defun name (params) body...)
-   For multi-clause: (defun name (&rest args) (cond ...))"
+   For multi-clause: (defun name (&rest args) (cond ...))
+   Also emits metadata setting code if docstring is present."
   (let* ((name (fol.compiler.ast:defn-node-name node))
          (clauses (fol.compiler.ast:defn-node-clauses node))
+         (docstring (fol.compiler.ast:defn-node-docstring node))
          (lambda-form (compile-fn clauses)))
     ;; Track this function for Lisp-1 compatibility in compile-file
     (when *file-function-defs*
@@ -1966,7 +2108,11 @@
     ;; Extract params and body to create defun
     (let ((params (second lambda-form))
           (body (cddr lambda-form)))
-      `(cl:defun ,name ,params ,@body))))
+      (let ((defun-form `(cl:defun ,name ,params ,@body))
+            (metadata-form (emit-metadata-assignment name docstring clauses)))
+        (if metadata-form
+            `(cl:progn ,defun-form ,metadata-form)
+            defun-form)))))
 
 (defun emit-letfn (node)
   "Emit a letfn node as CL labels.

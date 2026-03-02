@@ -1,0 +1,233 @@
+;;; Merged Functions Tests
+;;;
+;;; Tests for fol.compiler.merged-functions module.
+;;; Covers polymorphic join/replace, reduced values, and transducers.
+
+;;; ============================================================================
+;;; String Join
+;;; ============================================================================
+
+;;; join with string separator
+(assert (= (join "," [1 2 3]) "1,2,3") "join comma with numbers")
+(assert (= (join "-" ["a" "b" "c"]) "a-b-c") "join dash with strings")
+(assert (= (join "" [1 2 3]) "123") "join empty separator")
+
+;;; join with single element
+(assert (= (join "," [42]) "42") "join single element")
+
+;;; join with empty collection
+(assert (= (join "," []) "") "join empty collection")
+
+;;; join with character separator
+(assert (= (join #\: ["x" "y" "z"]) "x:y:z") "join character separator")
+
+;;; ============================================================================
+;;; Map Function - Collection Operations
+;;; ============================================================================
+
+;;; map with single collection
+(assert (= (map inc [1 2 3]) [2 3 4]) "map inc returns incremented")
+
+;;; map with multiple collections (zip)
+(assert (= (map + [1 2 3] [10 20 30]) [11 22 33]) "map + zips collections")
+
+;;; map with function result
+(assert (= (map (fn [x] (* x 2)) [1 2 3]) [2 4 6]) "map double")
+
+;;; ============================================================================
+;;; Filter Function - Collection Operations
+;;; ============================================================================
+
+;;; filter with predicate
+(assert (= (filter odd? [1 2 3 4 5]) [1 3 5]) "filter odd numbers")
+
+;;; filter with custom function
+(assert (= (filter (fn [x] (> x 2)) [1 2 3 4]) [3 4]) "filter greater than 2")
+
+;;; filter empty collection
+(assert (= (filter odd? []) []) "filter empty collection")
+
+;;; ============================================================================
+;;; Remove Function - Collection Operations
+;;; ============================================================================
+
+;;; remove with predicate (inverse of filter)
+(assert (= (remove odd? [1 2 3 4 5]) [2 4]) "remove odd numbers")
+
+;;; remove with custom function
+(assert (= (remove (fn [x] (> x 2)) [1 2 3 4]) [1 2]) "remove greater than 2")
+
+;;; ============================================================================
+;;; Keep Function - Collection Operations
+;;; ============================================================================
+
+;;; keep with non-nil results
+(assert (= (keep (fn [x] (if (odd? x) (* x 2) nil)) [1 2 3 4 5]) [2 6 10]) "keep doubles odd numbers")
+
+;;; ============================================================================
+;;; Take Function - Collection Operations
+;;; ============================================================================
+
+;;; take first n elements
+(assert (= (take 3 [1 2 3 4 5]) [1 2 3]) "take 3 elements")
+
+;;; take more than available
+(assert (= (take 10 [1 2 3]) [1 2 3]) "take more than available")
+
+;;; take zero elements
+(assert (= (take 0 [1 2 3]) []) "take 0 elements")
+
+;;; ============================================================================
+;;; Drop Function - Collection Operations
+;;; ============================================================================
+
+;;; drop first n elements
+(assert (= (drop 2 [1 2 3 4 5]) [3 4 5]) "drop 2 elements")
+
+;;; drop all elements
+(assert (= (drop 5 [1 2 3]) []) "drop all elements")
+
+;;; drop zero elements
+(assert (= (drop 0 [1 2 3]) [1 2 3]) "drop 0 elements")
+
+;;; ============================================================================
+;;; Take-While Function - Collection Operations
+;;; ============================================================================
+
+;;; take while predicate is true
+(assert (= (take-while (fn [x] (< x 5)) [1 2 3 4 5 6]) [1 2 3 4]) "take while less than 5")
+
+;;; take-while with all true
+(assert (= (take-while (fn [x] (> x 0)) [1 2 3 4]) [1 2 3 4]) "take while all true")
+
+;;; take-while with none true
+(assert (= (take-while (fn [x] (> x 10)) [1 2 3]) []) "take while none true")
+
+;;; ============================================================================
+;;; Drop-While Function - Collection Operations
+;;; ============================================================================
+
+;;; drop while predicate is true
+(assert (= (drop-while (fn [x] (< x 5)) [1 2 3 4 5 6 1]) [5 6 1]) "drop while less than 5")
+
+;;; drop-while with none true
+(assert (= (drop-while (fn [x] (> x 10)) [1 2 3]) [1 2 3]) "drop while none true")
+
+;;; ============================================================================
+;;; Map-Indexed Function - Collection Operations
+;;; ============================================================================
+
+;;; map-indexed applies index and value
+(def indexed (map-indexed (fn [i x] [i x]) [:a :b :c]))
+(assert (= (first indexed) [0 :a]) "map-indexed first element")
+
+;;; ============================================================================
+;;; Keep-Indexed Function - Collection Operations
+;;; ============================================================================
+
+;;; keep-indexed keeps non-nil results with index
+(def kept-indexed (keep-indexed (fn [i x] (if (odd? i) x nil)) [10 20 30 40 50]))
+(assert (= (first kept-indexed) 20) "keep-indexed odd indices")
+
+;;; ============================================================================
+;;; Distinct Function - Collection Operations
+;;; ============================================================================
+
+;;; distinct removes duplicates preserving order
+(assert (= (distinct [1 2 1 3 2 4]) [1 2 3 4]) "distinct removes duplicates")
+
+;;; distinct with strings
+(assert (= (distinct ["a" "b" "a" "c"]) ["a" "b" "c"]) "distinct strings")
+
+;;; ============================================================================
+;;; Dedupe Function - Collection Operations
+;;; ============================================================================
+
+;;; dedupe removes consecutive duplicates
+(assert (= (dedupe [1 1 2 1 1 3 3]) [1 2 1 3]) "dedupe consecutive")
+
+;;; dedupe with no duplicates
+(assert (= (dedupe [1 2 3 4]) [1 2 3 4]) "dedupe no duplicates")
+
+;;; ============================================================================
+;;; Interpose Function - Collection Operations
+;;; ============================================================================
+
+;;; interpose inserts separator between elements
+(assert (= (interpose 0 [1 2 3]) [1 0 2 0 3]) "interpose 0")
+
+;;; interpose with strings
+(assert (= (interpose "," ["a" "b" "c"]) ["a" "," "b" "," "c"]) "interpose comma")
+
+;;; interpose single element
+(assert (= (interpose 0 [1]) [1]) "interpose single element")
+
+;;; ============================================================================
+;;; Partition-All Function - Collection Operations
+;;; ============================================================================
+
+;;; partition-all groups into fixed-size groups
+(def parts (partition-all 3 [1 2 3 4 5]))
+(assert (= (first parts) [1 2 3]) "partition-all first group")
+(assert (= (first (rest parts)) [4 5]) "partition-all last partial group")
+
+;;; partition-all exact multiple
+(assert (= (partition-all 2 [1 2 3 4]) [[1 2] [3 4]]) "partition-all exact multiple")
+
+;;; ============================================================================
+;;; Partition-By Function - Collection Operations
+;;; ============================================================================
+
+;;; partition-by groups by consecutive equal predicate values
+(def by-parity (partition-by even? [1 1 2 2 3]))
+(assert (= (first by-parity) [1 1]) "partition-by first group")
+
+;;; partition-by with custom function
+(def by-length (partition-by (fn [x] (> x 5)) [1 1 6 6 3 3]))
+(assert (= (first by-length) [1 1]) "partition-by length first group")
+
+;;; ============================================================================
+;;; Take-Nth Function - Collection Operations
+;;; ============================================================================
+
+;;; take-nth returns every nth element
+(assert (= (take-nth 2 [1 2 3 4 5 6]) [1 3 5]) "take-nth every 2nd")
+
+;;; take-nth with step 3
+(assert (= (take-nth 3 [1 2 3 4 5 6 7 8 9]) [1 4 7]) "take-nth every 3rd")
+
+;;; ============================================================================
+;;; Mapcat Function - Collection Operations
+;;; ============================================================================
+
+;;; mapcat maps then concatenates
+(assert (= (mapcat (fn [x] [x (* x 2)]) [1 2 3]) [1 2 2 4 3 6]) "mapcat concat results")
+
+;;; ============================================================================
+;;; String Replace
+;;; ============================================================================
+
+;;; replace string with literal
+(assert (= (replace "hello world" "world" "FOL") "hello FOL") "replace literal string")
+
+;;; replace character
+(assert (= (replace "hello" "l" "*") "he**o") "replace character")
+
+;;; replace no match
+(assert (= (replace "hello" "x" "y") "hello") "replace no match")
+
+;;; ============================================================================
+;;; Reduced Values for Transducers
+;;; ============================================================================
+
+;;; reduced? checks if value is reduced
+(assert (reduced? (reduced 42)) "reduced? detects reduced value")
+(assert (not (reduced? 42)) "reduced? false for non-reduced")
+
+;;; unreduced unwraps reduced values
+(assert (= (unreduced (reduced 42)) 42) "unreduced unwraps value")
+(assert (= (unreduced 42) 42) "unreduced preserves non-reduced")
+
+;;; ensure-reduced wraps or preserves
+(assert (reduced? (ensure-reduced 42)) "ensure-reduced wraps value")
+(assert (reduced? (ensure-reduced (reduced 99))) "ensure-reduced preserves reduced")

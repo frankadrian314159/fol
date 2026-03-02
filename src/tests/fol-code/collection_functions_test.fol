@@ -1,0 +1,162 @@
+;;; Collection Functions Tests
+;;;
+;;; Tests for fol.compiler.collection-functions.
+;;; Covers vectors, dicts, sets, and deques.
+
+;;; ============================================================================
+;;; Vector/Sequence Operations
+;;; ============================================================================
+
+;;; count
+(assert (= (count []) 0) "count empty vector = 0")
+(assert (= (count [1 2 3]) 3) "count vector")
+(assert (= (count "abc") 3) "count string")
+
+;;; first and rest
+(assert (= (first [1 2 3]) 1) "first vector element")
+(assert (= (first [42]) 42) "first single-element vector")
+(assert (= (rest [1 2 3]) [2 3]) "rest skips first")
+(assert (= (rest [1]) []) "rest of single-element is empty")
+
+;;; nth — by index with optional default
+(assert (= (nth [10 20 30] 0) 10) "nth index 0")
+(assert (= (nth [10 20 30] 2) 30) "nth last index")
+(assert (= (nth [10 20 30] 5 :not-found) :not-found) "nth out of bounds with default")
+
+;;; peek and pop (Clojure semantics: on vectors, work from the end)
+(assert (= (peek [1 2 3]) 3) "peek last element of vector")
+(assert (= (pop [1 2 3]) [1 2]) "pop removes last element")
+(assert (= (pop [1]) []) "pop single element vector")
+
+;;; ============================================================================
+;;; Vector Modification
+;;; ============================================================================
+
+;;; assoc on vector (index-based)
+(assert (= (assoc [1 2 3] 1 99) [1 99 3]) "assoc replaces vector element")
+(assert (= (assoc [10] 0 20) [20]) "assoc single element vector")
+
+;;; update on vector
+(def inc-fn (fn [x] (+ x 1)))
+(assert (= (update [1 2 3] 1 inc-fn) [1 3 3]) "update applies function")
+
+;;; into — collect from one into another
+(assert (= (into [1 2] [3 4 5]) [1 2 3 4 5]) "into appends sequence")
+(assert (= (into [] [7 8]) [7 8]) "into empty vector")
+
+;;; empty
+(assert (= (empty [1 2 3]) []) "empty returns empty vector")
+(assert (= (empty []) []) "empty of empty is empty")
+
+;;; ============================================================================
+;;; Dictionary Operations
+;;; ============================================================================
+
+;;; get with optional default
+(assert (= (get {:a 1 :b 2} :a) 1) "get dict value")
+(assert (= (get {:a 1} :x :default) :default) "get missing key with default")
+(assert (nil? (get {:a 1} :x)) "get missing key returns nil")
+
+;;; assoc on dict (key-value pairs)
+(assert (= (assoc {:a 1} :b 2) {:a 1 :b 2}) "assoc adds key-value")
+(assert (= (assoc {:a 1 :b 2} :a 99) {:a 99 :b 2}) "assoc replaces value")
+(assert (= (assoc {} :x 10 :y 20) {:x 10 :y 20}) "assoc multiple pairs")
+
+;;; dissoc — remove keys
+(assert (= (dissoc {:a 1 :b 2 :c 3} :b) {:a 1 :c 3}) "dissoc removes key")
+(assert (= (dissoc {:a 1 :b 2} :a :b) {}) "dissoc all keys")
+
+;;; update — transform value at key
+(assert (= (update {:a 1 :b 2} :a inc-fn) {:a 2 :b 2}) "update applies function to value")
+
+;;; merge dicts
+(assert (= (merge {:a 1} {:b 2} {:c 3}) {:a 1 :b 2 :c 3}) "merge multiple dicts")
+(assert (= (merge {:a 1 :b 2} {:b 99}) {:a 1 :b 99}) "merge later value wins")
+
+;;; find — get entry (returns cons pair)
+(def found (find {:a 1 :b 2} :a))
+(assert (= (first found) :a) "find returns cons pair with key")
+(assert (= (rest found) 1) "find returns cons pair with value")
+
+;;; get-in — nested access (keys must be a list)
+(def nested-dict {:a {:b {:c 42}}})
+(assert (= (get-in nested-dict '(:a :b :c)) 42) "get-in nested access")
+
+(def dict-with-missing {:a {:b 1}})
+(assert (= (get-in dict-with-missing '(:a :missing) :default) :default) "get-in with default")
+
+;;; merge-with — merge with function
+(def sum-fn (fn [a b] (+ a b)))
+(assert (= (merge-with sum-fn {:a 1 :b 2} {:a 10 :b 20}) {:a 11 :b 22}) "merge-with sums values")
+
+;;; ============================================================================
+;;; Set Operations
+;;; ============================================================================
+
+;;; contains? — check membership
+(assert (contains? #{1 2 3} 2) "contains? member in set")
+(assert (not (contains? #{1 2 3} 4)) "contains? non-member not in set")
+(assert (not (contains? #{} 1)) "contains? empty set has no members")
+
+;;; disj — remove from set
+(assert (= (disj #{1 2 3} 2) #{1 3}) "disj removes element")
+(assert (= (disj #{1 2 3} 1 3) #{2}) "disj removes multiple")
+
+;;; union, difference, intersection
+(def set-a #{1 2 3})
+(def set-b #{2 3 4})
+(assert (= (union set-a set-b) #{1 2 3 4}) "union combines sets")
+(assert (= (difference set-a set-b) #{1}) "difference removes common elements")
+(assert (= (intersection set-a set-b) #{2 3}) "intersection keeps common elements")
+
+;;; subset? and superset?
+(assert (subset? #{1 2} #{1 2 3}) "subset? true for actual subset")
+(assert (not (subset? #{1 2 3} #{1 2})) "subset? false when not subset")
+(assert (superset? #{1 2 3} #{1 2}) "superset? true for actual superset")
+
+;;; select — filter set by predicate
+(def even-pred (fn [x] (even? x)))
+(assert (= (select even-pred #{1 2 3 4}) #{2 4}) "select filters set elements")
+
+;;; ============================================================================
+;;; Deque (Double-Ended Queue) Operations
+;;; ============================================================================
+
+;;; Standard deque operations: push (back), pop (front), peek (front)
+(def dq (deque 1 2 3))
+(assert (= (peek dq) 1) "deque peek front")
+(assert (= (pop dq) (deque 2 3)) "deque pop front")
+(assert (= (push dq 0) (deque 1 2 3 0)) "deque push to back")
+
+;;; Reverse deque operations: rpush (front), rpop (back), rpeek (back)
+(assert (= (rpeek dq) 3) "deque rpeek back")
+(assert (= (rpop dq) (deque 1 2)) "deque rpop back")
+(assert (= (rpush dq 0) (deque 0 1 2 3)) "deque rpush to front")
+
+;;; ============================================================================
+;;; Reduce Operations
+;;; ============================================================================
+
+;;; reduce-kv — reduce over dict entries
+(def add-vals (fn [acc k v] (+ acc v)))
+(assert (= (reduce-kv add-vals 0 {:a 10 :b 20 :c 30}) 60) "reduce-kv sums values")
+
+;;; ============================================================================
+;;; Edge Cases and Combined Operations
+;;; ============================================================================
+
+;;; Multiple operations chained
+(def dict1 {:a 1 :b 2})
+(def dict2 (assoc dict1 :c 3))
+(def dict3 (update dict2 :a inc-fn))
+(assert (= dict3 {:a 2 :b 2 :c 3}) "chained dict operations")
+
+;;; Empty collection handling
+(assert (= (merge {} {:a 1}) {:a 1}) "merge empty dict")
+(assert (= (into [] []) []) "into empty vectors")
+(assert (= (union #{} #{1}) #{1}) "union with empty set")
+
+;;; Nested vector access in dict
+(def dict-with-vector {:x [10 20 30]})
+(assert (= (get-in dict-with-vector '(:x)) [10 20 30]) "get-in returns nested vector")
+

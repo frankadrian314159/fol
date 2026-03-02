@@ -1,0 +1,266 @@
+;;; Logical Operations Tests
+;;;
+;;; Tests for fol.compiler.logical-operation-functions module.
+;;; Covers logical and bitwise operations: and, or, xor, not, nand, nor, implies.
+
+;;; ============================================================================
+;;; NOT Operation - Boolean
+;;; ============================================================================
+
+;;; not negates booleans
+(assert (= (not true) false) "not true returns false")
+(assert (= (not false) true) "not false returns true")
+(assert (= (not nil) true) "not nil returns true")
+
+;;; not with double negation
+(assert (= (not (not true)) true) "double not true returns true")
+(assert (= (not (not false)) false) "double not false returns false")
+
+;;; ============================================================================
+;;; NOT Operation - Integer (Bitwise)
+;;; ============================================================================
+
+;;; not performs bitwise NOT on integers
+(assert (= (not 0) -1) "not 0 returns -1 (all bits set)")
+(assert (= (not -1) 0) "not -1 returns 0 (all bits clear)")
+(assert (= (not 1) -2) "not 1 returns -2")
+(assert (= (not 5) -6) "not 5 returns -6")
+
+;;; ============================================================================
+;;; AND Operation - Boolean
+;;; ============================================================================
+
+;;; and with booleans
+(assert (= (and true true) true) "true and true returns true")
+(assert (= (and true false) false) "true and false returns false")
+(assert (= (and false true) false) "false and true returns false")
+(assert (= (and false false) false) "false and false returns false")
+
+;;; and with no arguments returns true (identity)
+(assert (= (and) true) "and with no args returns true")
+
+;;; and with single argument
+(assert (= (and true) true) "and single true returns true")
+(assert (= (and false) false) "and single false returns false")
+
+;;; and with multiple booleans
+(assert (= (and true true true) true) "and three trues returns true")
+(assert (= (and true true false) false) "and with one false returns false")
+(assert (= (and false false false) false) "and three falses returns false")
+
+;;; ============================================================================
+;;; OR Operation - Boolean
+;;; ============================================================================
+
+;;; or with booleans
+(assert (= (or true true) true) "true or true returns true")
+(assert (= (or true false) true) "true or false returns true")
+(assert (= (or false true) true) "false or true returns true")
+(assert (= (or false false) false) "false or false returns false")
+
+;;; or with no arguments returns false (identity)
+(assert (= (or) false) "or with no args returns false")
+
+;;; or with single argument
+(assert (= (or true) true) "or single true returns true")
+(assert (= (or false) false) "or single false returns false")
+
+;;; or with multiple booleans
+(assert (= (or false false false) false) "or three falses returns false")
+(assert (= (or false false true) true) "or with one true returns true")
+(assert (= (or true true true) true) "or three trues returns true")
+
+;;; ============================================================================
+;;; XOR Operation - Boolean
+;;; ============================================================================
+
+;;; xor with booleans (odd number of trues)
+(assert (= (xor true true) false) "true xor true returns false")
+(assert (= (xor true false) true) "true xor false returns true")
+(assert (= (xor false true) true) "false xor true returns true")
+(assert (= (xor false false) false) "false xor false returns false")
+
+;;; xor with no arguments returns false
+(assert (= (xor) false) "xor with no args returns false")
+
+;;; xor with single argument
+(assert (= (xor true) true) "xor single true returns true")
+(assert (= (xor false) false) "xor single false returns false")
+
+;;; xor with three booleans (odd parity test)
+(assert (= (xor true true true) true) "xor three trues returns true (odd number)")
+(assert (= (xor true true false) false) "xor two trues one false returns false (even number)")
+(assert (= (xor true false false) true) "xor one true two falses returns true (odd number)")
+(assert (= (xor false false false) false) "xor three falses returns false (even number)")
+
+;;; ============================================================================
+;;; NAND Operation - Boolean
+;;; ============================================================================
+
+;;; nand = NOT (AND)
+(assert (= (nand true true) false) "nand true true returns false")
+(assert (= (nand true false) true) "nand true false returns true")
+(assert (= (nand false true) true) "nand false true returns true")
+(assert (= (nand false false) true) "nand false false returns true")
+
+;;; nand with no arguments returns false (NOT (AND()) = NOT (true) = false)
+(assert (= (nand) false) "nand with no args returns false")
+
+;;; nand with single argument
+(assert (= (nand true) false) "nand single true returns false")
+(assert (= (nand false) true) "nand single false returns true")
+
+;;; ============================================================================
+;;; NOR Operation - Boolean
+;;; ============================================================================
+
+;;; nor = NOT (OR)
+(assert (= (nor true true) false) "nor true true returns false")
+(assert (= (nor true false) false) "nor true false returns false")
+(assert (= (nor false true) false) "nor false true returns false")
+(assert (= (nor false false) true) "nor false false returns true")
+
+;;; nor with no arguments returns true (NOT (OR()) = NOT (false) = true)
+(assert (= (nor) true) "nor with no args returns true")
+
+;;; nor with single argument
+(assert (= (nor true) false) "nor single true returns false")
+(assert (= (nor false) true) "nor single false returns true")
+
+;;; ============================================================================
+;;; IMPLIES Operation - Boolean (A → B)
+;;; ============================================================================
+
+;;; implies (if A then B)
+(assert (= (implies true true) true) "true implies true returns true")
+(assert (= (implies true false) false) "true implies false returns false")
+(assert (= (implies false true) true) "false implies true returns true")
+(assert (= (implies false false) true) "false implies false returns true")
+
+;;; ============================================================================
+;;; AND Operation - Integer (Bitwise)
+;;; ============================================================================
+
+;;; and with integers (bitwise AND)
+(assert (= (and 5 3) 1) "5 and 3 returns 1 (bitwise)")
+(assert (= (and 12 10) 8) "12 and 10 returns 8")
+(assert (= (and 15 7) 7) "15 and 7 returns 7")
+(assert (= (and 0 5) 0) "0 and 5 returns 0")
+
+;;; and with single integer
+(assert (= (and 42) 42) "and single integer returns that integer")
+
+;;; and with multiple integers
+(assert (= (and 15 7 3) 3) "and 15 7 3 returns 3")
+
+;;; ============================================================================
+;;; OR Operation - Integer (Bitwise)
+;;; ============================================================================
+
+;;; or with integers (bitwise OR)
+(assert (= (or 5 3) 7) "5 or 3 returns 7 (bitwise)")
+(assert (= (or 12 10) 14) "12 or 10 returns 14")
+(assert (= (or 8 4) 12) "8 or 4 returns 12")
+
+;;; or with single integer
+(assert (= (or 42) 42) "or single integer returns that integer")
+
+;;; or with multiple integers
+(assert (= (or 8 4 2) 14) "or 8 4 2 returns 14")
+
+;;; ============================================================================
+;;; XOR Operation - Integer (Bitwise)
+;;; ============================================================================
+
+;;; xor with integers (bitwise XOR)
+(assert (= (xor 5 3) 6) "5 xor 3 returns 6 (bitwise)")
+(assert (= (xor 12 10) 6) "12 xor 10 returns 6")
+(assert (= (xor 15 7) 8) "15 xor 7 returns 8")
+
+;;; xor with single integer
+(assert (= (xor 42) 42) "xor single integer returns that integer")
+
+;;; xor with multiple integers
+;;; (xor 7 3) = 0b111 XOR 0b011 = 0b100 = 4
+;;; (xor 4 2) = 0b100 XOR 0b010 = 0b110 = 6
+(assert (= (xor 7 3 2) 6) "xor 7 3 2 returns 6")
+
+;;; ============================================================================
+;;; NAND Operation - Integer (Bitwise)
+;;; ============================================================================
+
+;;; nand with integers (bitwise NAND = NOT AND)
+(assert (= (nand 5 3) -2) "nand 5 3 returns -2 (bitwise)")
+(assert (= (nand 15 7) -8) "nand 15 7 returns -8")
+
+;;; nand with single integer
+(assert (= (nand 1) -2) "nand 1 returns -2")
+(assert (= (nand 0) -1) "nand 0 returns -1")
+
+;;; ============================================================================
+;;; NOR Operation - Integer (Bitwise)
+;;; ============================================================================
+
+;;; nor with integers (bitwise NOR = NOT OR)
+(assert (= (nor 5 3) -8) "nor 5 3 returns -8 (bitwise)")
+(assert (= (nor 0 0) -1) "nor 0 0 returns -1 (all bits set)")
+
+;;; nor with single integer
+(assert (= (nor 1) -2) "nor 1 returns -2")
+
+;;; ============================================================================
+;;; De Morgan's Laws
+;;; ============================================================================
+
+;;; NOT (A AND B) = (NOT A) OR (NOT B)
+(assert (= (not (and true true)) (or (not true) (not true))) "De Morgan: not(a and b) = (not a) or (not b)")
+(assert (= (not (and true false)) (or (not true) (not false))) "De Morgan with mixed values")
+
+;;; NOT (A OR B) = (NOT A) AND (NOT B)
+(assert (= (not (or true false)) (and (not true) (not false))) "De Morgan: not(a or b) = (not a) and (not b)")
+
+;;; ============================================================================
+;;; Bitwise Equivalences
+;;; ============================================================================
+
+;;; Bitwise operations preserve associativity
+(assert (= (and (and 7 5) 3) (and 7 (and 5 3))) "and is associative")
+(assert (= (or (or 7 5) 3) (or 7 (or 5 3))) "or is associative")
+(assert (= (xor (xor 7 5) 3) (xor 7 (xor 5 3))) "xor is associative")
+
+;;; Bitwise operations preserve commutativity
+(assert (= (and 5 3) (and 3 5)) "and is commutative")
+(assert (= (or 5 3) (or 3 5)) "or is commutative")
+(assert (= (xor 5 3) (xor 3 5)) "xor is commutative")
+
+;;; ============================================================================
+;;; Identity Laws (Logical - All Booleans)
+;;; ============================================================================
+
+;;; Identity for AND (true with boolean)
+(assert (= (and true true) true) "and true true returns true")
+(assert (= (and true false) false) "and true false returns false")
+
+;;; Identity for OR (false with boolean)
+(assert (= (or false true) true) "or false true returns true")
+(assert (= (or false false) false) "or false false returns false")
+
+;;; Identity for XOR (false with boolean)
+(assert (= (xor false true) true) "xor false true returns true")
+(assert (= (xor false false) false) "xor false false returns false")
+
+;;; ============================================================================
+;;; Identity Laws (Bitwise - All Integers)
+;;; ============================================================================
+
+;;; Identity for AND with integers
+(assert (= (and 0 5) 0) "and 0 5 returns 0 (bitwise)")
+(assert (= (and -1 5) 5) "and -1 5 returns 5 (bitwise, -1 = all bits set)")
+
+;;; Identity for OR with integers
+(assert (= (or 0 5) 5) "or 0 5 returns 5 (bitwise)")
+(assert (= (or 0 0) 0) "or 0 0 returns 0 (bitwise)")
+
+;;; Identity for XOR with integers
+(assert (= (xor 0 5) 5) "xor 0 5 returns 5 (bitwise)")
+(assert (= (xor 0 0) 0) "xor 0 0 returns 0 (bitwise)")

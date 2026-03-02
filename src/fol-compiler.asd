@@ -99,8 +99,19 @@
                                               (:file "test-reducers" :depends-on ("lib-tests-package")))))
            :perform (test-op (o s) (symbol-call :fol.compiler.tests.lib :run-lib-tests)))
 
+(defsystem "fol-compiler/fol-tests"
+           :description "Standalone end-to-end tests written in FOL syntax."
+           :depends-on ("fol-compiler" "fiveam")
+           :components ((:module "fol-tests"
+                                 :pathname "tests"
+                                 :components
+                                 ((:file "fol-tests-package")
+                                  (:file "fol-tests-runner" :depends-on ("fol-tests-package")))))
+           :perform (test-op (o s) (symbol-call :fol.compiler.fol-tests :run-fol-tests)))
+
 (defsystem "fol-compiler/all-tests"
-           :depends-on ("fol-compiler/tests" "fol-compiler/tests/lib")
+           :depends-on ("fol-compiler/tests" "fol-compiler/tests/lib" "fol-compiler/fol-tests")
            :perform (test-op (o s)
                              (uiop:symbol-call :fol.compiler.tests :run-compiler-tests)
-                             (uiop:symbol-call :fol.compiler.tests.lib :run-lib-tests)))
+                             (uiop:symbol-call :fol.compiler.tests.lib :run-lib-tests)
+                             (uiop:symbol-call :fol.compiler.fol-tests :run-fol-tests)))

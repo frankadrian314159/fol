@@ -1,0 +1,140 @@
+;;; Destructuring Tests
+;;;
+;;; Tests for fol.compiler.destructure module.
+;;; Tests pattern matching and parameter destructuring in function definitions.
+
+;;; ============================================================================
+;;; Basic Parameter Destructuring
+;;; ============================================================================
+
+;;; Simple positional parameters
+(defn add-two [a b] (+ a b))
+(assert (= (add-two 3 4) 7) "positional parameters work")
+(assert (= (add-two 10 20) 30) "positional parameters with different values")
+
+;;; Multiple positional parameters
+(defn multiply-three [x y z] (* (* x y) z))
+(assert (= (multiply-three 2 3 4) 24) "three positional parameters")
+
+;;; Single parameter
+(defn identity-fn [x] x)
+(assert (= (identity-fn 42) 42) "single parameter function")
+(assert (= (identity-fn "hello") "hello") "single parameter preserves value type")
+
+;;; ============================================================================
+;;; Rest Parameters
+;;; ============================================================================
+
+;;; Rest parameter with no required params
+(defn all-args [& args] args)
+(assert (= (all-args) nil) "rest with no args returns nil")
+(assert (= (all-args 1) '(1)) "rest collects single argument")
+(assert (= (all-args 1 2 3) '(1 2 3)) "rest collects multiple arguments")
+
+;;; Rest parameter after required params
+(defn first-and-rest [first & rest] (list first rest))
+(def result (first-and-rest 1 2 3 4))
+(assert (= (first result) 1) "first param extracted")
+(assert (= (nth result 1) '(2 3 4)) "rest params collected")
+
+;;; Rest parameter with multiple required params
+(defn first-two-and-rest [a b & rest] (list a b rest))
+(def result2 (first-two-and-rest 1 2 3 4 5))
+(assert (= (first result2) 1) "first required param extracted")
+(assert (= (nth result2 1) 2) "second required param extracted")
+(assert (= (nth result2 2) '(3 4 5)) "remaining params in rest")
+
+;;; ============================================================================
+;;; Destructuring in Bind
+;;; ============================================================================
+
+;;; Simple variable binding
+(def bind-test (bind [x 10] x))
+(assert (= bind-test 10) "bind single variable")
+
+(def bind-multi (bind [x 5 y 3] (+ x y)))
+(assert (= bind-multi 8) "bind multiple variables")
+
+;;; Binding with expressions
+(def bind-expr (bind [a 2 b 3 c (+ a b)] c))
+(assert (= bind-expr 5) "bind with computed values")
+
+;;; ============================================================================
+;;; Destructuring in fn (anonymous functions)
+;;; ============================================================================
+
+;;; Anonymous functions with multiple params
+(def multiply-fn (fn [x y] (* x y)))
+(assert (= (multiply-fn 5 4) 20) "fn with multiple parameters")
+
+;;; Anonymous functions with rest
+(def collect-fn (fn [first & rest] (list first rest)))
+(def fn-result (collect-fn 1 2 3))
+(assert (= (first fn-result) 1) "fn with rest collects args")
+(assert (= (nth fn-result 1) '(2 3)) "fn rest collects remaining args")
+
+;;; ============================================================================
+;;; Parameter Type Preservation
+;;; ============================================================================
+
+;;; Parameters preserve collection types
+(defn first-elem [coll] (first coll))
+(assert (= (first-elem [1 2 3]) 1) "vector parameter")
+(assert (= (first-elem '(1 2 3)) 1) "list parameter")
+
+;;; Parameters preserve nested structures
+(defn extract-nested [data] (get data :nested))
+(def nested-data {:nested {:value 42}})
+(assert (= (extract-nested nested-data) {:value 42}) "nested dict parameter")
+
+;;; ============================================================================
+;;; Parameter Evaluation Order
+;;; ============================================================================
+
+;;; Parameters evaluated left to right
+(defn ordered [a b c] (+ a b c))
+(assert (= (ordered 1 2 3) 6) "parameters evaluated in order")
+
+;;; ============================================================================
+;;; Calculation with Parameters
+;;; ============================================================================
+
+;;; Using destructured parameters in computation
+(defn rectangle-area [width height]
+  (* width height))
+(assert (= (rectangle-area 5 4) 20) "compute with destructured params")
+
+;;; Function handling variable numbers of arguments
+(defn sum-all [& values]
+  (if (empty? values)
+    0
+    (apply + values)))
+(assert (= (sum-all) 0) "sum-all with no args")
+(assert (= (sum-all 5) 5) "sum-all with one arg")
+(assert (= (sum-all 1 2 3) 6) "sum-all with multiple args")
+
+;;; ============================================================================
+;;; Function Composition with Destructuring
+;;; ============================================================================
+
+;;; Chaining functions with parameters
+(defn double [x] (* x 2))
+(defn add-one [x] (+ x 1))
+(assert (= (add-one (double 5)) 11) "function composition with parameters")
+
+;;; Multiple functions with different arities
+(defn min-two [a b] (if (< a b) a b))
+(defn max-two [a b] (if (> a b) a b))
+(assert (= (min-two 5 3) 3) "min function with two params")
+(assert (= (max-two 5 3) 5) "max function with two params")
+
+;;; ============================================================================
+;;; Nested Function Definitions
+;;; ============================================================================
+
+;;; Outer and inner functions with parameters
+(defn outer [x]
+  (defn inner [y] (+ x y))
+  (inner 10))
+(assert (= (outer 5) 15) "nested function definitions with parameters")
+

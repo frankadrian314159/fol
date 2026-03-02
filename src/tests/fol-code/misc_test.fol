@@ -1,0 +1,23 @@
+;;; FOL Miscellaneous Functions Tests
+
+;;; intern tests
+(assert (<symbol>? (intern "TEST-SYM")) "intern string -> symbol")
+(assert (= (symbol-name (intern "lowercase")) "LOWERCASE") "intern string upcases")
+(assert (= (symbol-name (intern 'my-sym)) "MY-SYM") "intern symbol")
+(assert (<keyword>? (intern "MY-KW" :keyword)) "intern keyword")
+(assert (= (intern "SYM" :cl-user) (intern "SYM" :cl-user)) "intern is idempotent")
+
+;;; defonce tests
+(defonce *test-once* 1)
+(assert (= *test-once* 1) "defonce sets initial value")
+
+(defonce *test-once* 2)
+(assert (= *test-once* 1) "defonce does not overwrite")
+
+(defonce *test-nil* nil)
+(assert (nil? *test-nil*) "defonce can set nil")
+(defonce *test-nil* :ignored)
+(assert (nil? *test-nil*) "defonce does not overwrite nil")
+
+(defonce *test-special* 99)
+(assert (= *test-special* 99) "defonce defines special var")

@@ -1,0 +1,290 @@
+;;; Collections Tests
+;;;
+;;; Tests for fol.compiler.collections.lisp.
+;;; Covers collection base class, type predicates, and collection protocol.
+
+;;; ============================================================================
+;;; Collection Base Class and Type Predicates
+;;; ============================================================================
+
+;;; <collection>? type predicate
+(assert (<collection>? []) "<collection>? true for empty vector")
+(assert (<collection>? [1 2 3]) "<collection>? true for vector")
+(assert (<collection>? {}) "<collection>? true for empty dict")
+(assert (<collection>? {:a 1}) "<collection>? true for dict")
+(assert (<collection>? #{}) "<collection>? true for empty set")
+(assert (<collection>? #{1 2}) "<collection>? true for set")
+(assert (not (<collection>? 42)) "<collection>? false for number")
+(assert (not (<collection>? "string")) "<collection>? false for string")
+(assert (not (<collection>? nil)) "<collection>? false for nil")
+
+;;; ============================================================================
+;;; Vector Type Predicates
+;;; ============================================================================
+
+;;; <vector>? — test vector class membership
+(assert (<vector>? []) "<vector>? true for empty vector")
+(assert (<vector>? [1]) "<vector>? true for single-element vector")
+(assert (<vector>? [1 2 3 4 5]) "<vector>? true for vector")
+(assert (not (<vector>? {})) "<vector>? false for dict")
+(assert (not (<vector>? #{})) "<vector>? false for set")
+(assert (not (<vector>? nil)) "<vector>? false for nil")
+
+;;; ============================================================================
+;;; Dictionary Type Predicates
+;;; ============================================================================
+
+;;; <dict>? — test dict class membership
+(assert (<dict>? {}) "<dict>? true for empty dict")
+(assert (<dict>? {:a 1}) "<dict>? true for dict")
+(assert (<dict>? {:x 10 :y 20}) "<dict>? true for multi-entry dict")
+(assert (not (<dict>? [])) "<dict>? false for vector")
+(assert (not (<dict>? #{})) "<dict>? false for set")
+(assert (not (<dict>? nil)) "<dict>? false for nil")
+
+;;; <ordered-dict>? — ordered insertion order
+(def od (ordered-dict :a 1 :b 2))
+(assert (<ordered-dict>? od) "<ordered-dict>? true for ordered-dict")
+(assert (<dict>? od) "<ordered-dict>? also passes <dict>? (inheritance)")
+
+;;; ============================================================================
+;;; Set Type Predicates
+;;; ============================================================================
+
+;;; <set>? — test set class membership
+(assert (<set>? #{}) "<set>? true for empty set")
+(assert (<set>? #{1}) "<set>? true for single-element set")
+(assert (<set>? #{1 2 3}) "<set>? true for set")
+(assert (not (<set>? [])) "<set>? false for vector")
+(assert (not (<set>? {})) "<set>? false for dict")
+(assert (not (<set>? nil)) "<set>? false for nil")
+
+;;; <sorted-set>? — ordered by comparator
+(def ss (sorted-set 3 1 2))
+(assert (<sorted-set>? ss) "<sorted-set>? true for sorted-set")
+(assert (<set>? ss) "<sorted-set>? also passes <set>? (inheritance)")
+
+;;; ============================================================================
+;;; Bag Type Predicates
+;;; ============================================================================
+
+;;; <bag>? — multiset
+(def b (bag 1 2 2 3 3 3))
+(assert (<bag>? b) "<bag>? true for bag")
+(assert (<collection>? b) "<bag>? also passes <collection>? (inheritance)")
+(assert (not (<set>? b)) "<bag>? false for set (not a set)")
+
+;;; ============================================================================
+;;; Deque Type Predicates
+;;; ============================================================================
+
+;;; <deque>? — double-ended queue
+(def dq (deque 1 2 3))
+(assert (<deque>? dq) "<deque>? true for deque")
+(assert (<collection>? dq) "<deque>? also passes <collection>? (inheritance)")
+(assert (not (<vector>? dq)) "<deque>? false for vector (different type)")
+
+;;; ============================================================================
+;;; List Type Predicates
+;;; ============================================================================
+
+;;; <list>? — only true for actual <list> class, not ranges/lazy-seqs
+(assert (not (<list>? (range 1 4))) "<list>? false for range-generated lazy-seq")
+
+;;; ============================================================================
+;;; Collection Protocol: size and empty-p
+;;; ============================================================================
+
+;;; collection-size
+(assert (= (collection-size []) 0) "collection-size empty vector = 0")
+(assert (= (collection-size [1 2 3]) 3) "collection-size vector")
+(assert (= (collection-size {}) 0) "collection-size empty dict = 0")
+(assert (= (collection-size {:a 1 :b 2}) 2) "collection-size dict")
+(assert (= (collection-size #{}) 0) "collection-size empty set = 0")
+(assert (= (collection-size #{1 2 3}) 3) "collection-size set")
+;;; collection-size for bags
+(def bag-test (bag 1 2 2 3 3 3))
+(assert (not (collection-empty-p bag-test)) "collection-empty-p false for non-empty bag")
+
+;;; collection-empty-p
+(assert (collection-empty-p []) "collection-empty-p true for empty vector")
+(assert (not (collection-empty-p [1])) "collection-empty-p false for non-empty vector")
+(assert (collection-empty-p {}) "collection-empty-p true for empty dict")
+(assert (not (collection-empty-p {:a 1})) "collection-empty-p false for non-empty dict")
+(assert (collection-empty-p #{}) "collection-empty-p true for empty set")
+(assert (not (collection-empty-p #{1})) "collection-empty-p false for non-empty set")
+
+;;; ============================================================================
+;;; Collection Protocol: seq conversion
+;;; ============================================================================
+
+;;; collection-seq — convert to CL list
+(assert (= (collection-seq []) nil) "collection-seq empty vector = nil")
+(assert (= (collection-seq [1 2 3]) '(1 2 3)) "collection-seq vector to list")
+
+;;; Dict entries as cons pairs
+(def dict-entries (collection-seq {:a 1 :b 2}))
+(assert (= (length dict-entries) 2) "collection-seq dict has N entries")
+(assert (consp (first dict-entries)) "collection-seq dict entry is cons pair")
+
+;;; Set elements
+(assert (= (length (collection-seq #{1 2 3})) 3) "collection-seq set to list")
+
+;;; ============================================================================
+;;; Array Type Predicates
+;;; ============================================================================
+
+;;; Arrays are special multi-dimensional vectors
+;;; (not commonly constructed in tests, skip detailed array testing)
+
+;;; ============================================================================
+;;; Metadata Support
+;;; ============================================================================
+
+;;; Collections can have optional metadata
+(def v-with-meta [1 2 3])
+(def d-with-meta {:a 1})
+
+;;; collection-metadata accessor
+(assert (nil? (collection-metadata v-with-meta)) "collection-metadata nil by default for vector")
+(assert (nil? (collection-metadata d-with-meta)) "collection-metadata nil by default for dict")
+
+;;; ============================================================================
+;;; Composite Type Checks
+;;; ============================================================================
+
+;;; Multiple collection types
+(def vectors [[] [1] [1 2 3]])
+(assert (every? <vector>? vectors) "every? <vector>? true for all vectors")
+
+(def dicts [{} {:a 1} {:x 10 :y 20}])
+(assert (every? <dict>? dicts) "every? <dict>? true for all dicts")
+
+(def sets [#{} #{1} #{1 2 3}])
+(assert (every? <set>? sets) "every? <set>? true for all sets")
+
+;;; Mixed collections fail specific type checks
+(def mixed [[] {} #{}])
+(assert (every? <collection>? mixed) "every? <collection>? true for mixed types")
+(assert (not (every? <vector>? mixed)) "every? <vector>? false for mixed types")
+
+;;; ============================================================================
+;;; Sequential vs Associative Collections
+;;; ============================================================================
+
+;;; sequential? — vectors, lists, deques
+(assert (sequential? []) "sequential? true for vector")
+(assert (sequential? [1 2 3]) "sequential? true for vector with elements")
+(assert (sequential? (deque 1 2)) "sequential? true for deque")
+(assert (sequential? (range 1 4)) "sequential? true for lazy list")
+(assert (not (sequential? {})) "sequential? false for dict")
+(assert (not (sequential? #{})) "sequential? false for set")
+
+;;; associative? — dicts, vectors (by index)
+(assert (associative? {}) "associative? true for dict")
+(assert (associative? {:a 1}) "associative? true for dict with entries")
+(assert (associative? []) "associative? true for vector (index-based)")
+(assert (associative? [1 2 3]) "associative? true for vector")
+(assert (not (associative? #{})) "associative? false for set")
+
+;;; ============================================================================
+;;; Sorted vs Unordered Collections
+;;; ============================================================================
+
+;;; sorted? — for sorted-dict, sorted-set, int-dict, int-set
+(def ss2 (sorted-set 5 2 8 1))
+(assert (sorted? ss2) "sorted? true for sorted-set")
+
+(assert (not (sorted? #{})) "sorted? false for unordered set")
+(assert (not (sorted? [])) "sorted? false for vector")
+(assert (not (sorted? {})) "sorted? false for dict")
+
+;;; ============================================================================
+;;; Reversible Collections
+;;; ============================================================================
+
+;;; reversible? — vectors, deques, sorted collections
+(assert (reversible? []) "reversible? true for vector")
+(assert (reversible? [1 2 3]) "reversible? true for vector with elements")
+(assert (reversible? (deque 1 2 3)) "reversible? true for deque")
+
+(def ss3 (sorted-set 1 2 3))
+(assert (reversible? ss3) "reversible? true for sorted-set")
+
+(assert (not (reversible? {})) "reversible? false for dict")
+
+;;; ============================================================================
+;;; Counted Collections
+;;; ============================================================================
+
+;;; counted? — all FOL collections are counted (O(1) size)
+(assert (counted? []) "counted? true for vector")
+(assert (counted? {}) "counted? true for dict")
+(assert (counted? #{}) "counted? true for set")
+(assert (counted? (deque 1 2)) "counted? true for deque")
+(assert (counted? (bag 1 2 2)) "counted? true for bag")
+
+;;; ============================================================================
+;;; Dense Integer Set — efficient storage for non-negative integers
+;;; ============================================================================
+
+;;; <dense-int-set>? type predicate
+(assert (<dense-int-set>? (dense-int-set)) "<dense-int-set>? true for empty dense-int-set")
+(assert (<dense-int-set>? (dense-int-set 1 2 3)) "<dense-int-set>? true for dense-int-set")
+(assert (<set>? (dense-int-set)) "<dense-int-set>? also passes <set>? (inheritance)")
+(assert (<collection>? (dense-int-set)) "<dense-int-set>? also passes <collection>? (inheritance)")
+(assert (not (<dense-int-set>? #{})) "<dense-int-set>? false for regular set")
+
+;;; Dense integer set creation
+(def dis1 (dense-int-set))
+(def dis2 (dense-int-set 1))
+(def dis3 (dense-int-set 1 2 3))
+(def dis-large (dense-int-set 1 5 10 20 50 100))
+
+;;; Basic collection operations on dense-int-set
+(assert (= (collection-size dis1) 0) "dense-int-set empty has size 0")
+(assert (= (collection-size dis2) 1) "dense-int-set {1} has size 1")
+(assert (= (collection-size dis3) 3) "dense-int-set {1,2,3} has size 3")
+(assert (= (collection-size dis-large) 6) "dense-int-set with 6 elements has size 6")
+
+(assert (collection-empty-p dis1) "empty dense-int-set is empty")
+
+;;; Dense integer set operations via generic functions
+;;; Note: union/intersection/difference work through binary-* dispatch on dense-int-set
+
+;;; Test with regular sets as reference (same generic functions)
+(def reg-a #{1 2 3})
+(def reg-b #{2 3 4 5})
+(def reg-union (union reg-a reg-b))
+(assert (= (collection-size reg-union) 5) "union of regular sets {1,2,3} and {2,3,4,5} has size 5")
+
+(def reg-inter (intersection reg-a reg-b))
+(assert (= (collection-size reg-inter) 2) "intersection of regular sets has size 2")
+
+(def reg-diff (difference reg-a reg-b))
+(assert (= (collection-size reg-diff) 1) "difference of regular sets has size 1")
+
+;;; Dense integer set creation and basic properties
+(def dis-big (dense-int-set 0 10 50 100 500 1000))
+(assert (= (collection-size dis-big) 6) "dense-int-set with 6 elements has correct size")
+(assert (<dense-int-set>? dis-big) "<dense-int-set>? returns true for created set")
+
+;;; Verify dense-int-set is a collection
+(assert (<collection>? dis-big) "dense-int-set is a collection")
+(assert (<set>? dis-big) "dense-int-set is a set")
+
+;;; Test comparison with empty dense-int-set
+(def dis-empty (dense-int-set))
+(assert (collection-empty-p dis-empty) "empty dense-int-set is empty")
+(assert (= (collection-size dis-empty) 0) "empty dense-int-set has size 0")
+
+;;; Test that type predicate distinguishes from other sets
+(def regular-set #{1 2 3})
+(def sorted-set-val (sorted-set 1 2 3))
+(assert (not (<dense-int-set>? regular-set)) "<dense-int-set>? false for regular set")
+(assert (not (<dense-int-set>? sorted-set-val)) "<dense-int-set>? false for sorted-set")
+
+;;; Dense integer set conversion to sequence
+(def dis-seq (collection-seq dis-big))
+(assert (listp dis-seq) "collection-seq returns a list for dense-int-set")
+

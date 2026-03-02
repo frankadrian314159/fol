@@ -1,0 +1,298 @@
+;;; Compiler Tests
+;;;
+;;; Tests for fol.compiler.compiler module.
+;;; Tests basic compilation behavior and language constructs.
+
+;;; ============================================================================
+;;; Literals and Basic Forms
+;;; ============================================================================
+
+;;; Integer literals
+(assert (= 42 42) "integer literal compiles and evaluates")
+(assert (= -100 -100) "negative integer literal compiles")
+(assert (= 0 0) "zero literal compiles")
+
+;;; Float literals
+(assert (= 3.14 3.14) "float literal compiles")
+(assert (= -2.5 -2.5) "negative float literal compiles")
+
+;;; String literals
+(assert (= "hello" "hello") "string literal compiles")
+(assert (= "" "") "empty string literal compiles")
+
+;;; Keyword literals
+(assert (= :symbol :symbol) "keyword literal compiles")
+(assert (= :a :a) "single-letter keyword compiles")
+
+;;; Boolean literals
+(assert (= true true) "true literal compiles")
+(assert (= nil nil) "nil literal compiles")
+
+;;; Vector literals
+(assert (= [] []) "empty vector literal compiles")
+(assert (= [1 2 3] [1 2 3]) "vector literal compiles")
+(assert (= [true false nil] [true false nil]) "vector with mixed types compiles")
+
+;;; Dict literals
+(assert (= {} {}) "empty dict literal compiles")
+(assert (= {:a 1} {:a 1}) "dict literal compiles")
+(assert (= {:x 10 :y 20} {:x 10 :y 20}) "dict with multiple entries compiles")
+
+;;; Set literals
+(assert (= #{} #{}) "empty set literal compiles")
+(assert (= #{1 2 3} #{1 2 3}) "set literal compiles")
+
+;;; ============================================================================
+;;; Symbol References
+;;; ============================================================================
+
+;;; Function calls on defined symbols
+(def my-value 42)
+(assert (= my-value 42) "symbol reference resolves to value")
+
+(def my-string "test")
+(assert (= my-string "test") "symbol references work for strings")
+
+;;; ============================================================================
+;;; Function Calls
+;;; ============================================================================
+
+;;; Simple function calls
+(assert (= (+ 1 2) 3) "addition function call compiles")
+(assert (= (* 3 4) 12) "multiplication function call compiles")
+(assert (= (- 10 3) 7) "subtraction function call compiles")
+
+;;; Function calls with variables
+(def x 5)
+(def y 3)
+(assert (= (+ x y) 8) "function call with variables compiles")
+
+;;; Nested function calls
+(assert (= (+ (* 2 3) 4) 10) "nested function calls compile")
+(assert (= (* (+ 1 2) (- 5 2)) 9) "deeply nested calls compile")
+
+;;; Function calls returning booleans
+(assert (= 5) "= with single argument compiles")
+(assert (< 1 2 3) "< with multiple arguments compiles")
+(assert (> 5 3 1) "> with multiple arguments compiles")
+
+;;; ============================================================================
+;;; Special Form: if
+;;; ============================================================================
+
+;;; if with true condition
+(assert (= (if true 1 2) 1) "if true evaluates then branch")
+
+;;; if with false condition
+(assert (= (if nil 1 2) 2) "if nil evaluates else branch")
+
+;;; if with comparison
+(assert (= (if (< 1 2) :yes :no) :yes) "if with < comparison")
+
+;;; Nested if
+(assert (= (if (< 1 2) (if true "a" "b") "c") "a") "nested if compiles")
+
+;;; ============================================================================
+;;; Special Form: do
+;;; ============================================================================
+
+;;; do with multiple forms
+(assert (= (do 1 2 3) 3) "do returns last form")
+(assert (= (do (+ 1 2) (* 3 4)) 12) "do evaluates all forms, returns last")
+
+;;; do with side effects via definitions
+(do
+  (def temp-var 100)
+  (assert (= temp-var 100) "definition in do compiles"))
+
+;;; ============================================================================
+;;; Special Form: bind (let)
+;;; ============================================================================
+
+;;; bind with single binding
+(assert (= (bind [x 5] x) 5) "bind single variable")
+(assert (= (bind [x 5] (+ x 3)) 8) "bind variable in expression")
+
+;;; bind with multiple bindings
+(assert (= (bind [x 2 y 3] (+ x y)) 5) "bind multiple variables")
+
+;;; bind with nested bindings
+(assert (= (bind [a 1] (bind [b 2] (+ a b))) 3) "nested bind compiles")
+
+;;; bind with extracted vector elements
+(def my-vec [10 20 30])
+(assert (= (bind [first (nth my-vec 0) second (nth my-vec 1)] (+ first second)) 30) "bind with vector element extraction")
+
+;;; ============================================================================
+;;; Special Form: quote
+;;; ============================================================================
+
+;;; quote symbols
+(assert (= 'x 'x) "quote symbol")
+(assert (= 'my-symbol 'my-symbol) "quoted identifier")
+
+;;; quote lists
+(assert (= '(1 2 3) '(1 2 3)) "quote list")
+
+;;; ============================================================================
+;;; Special Form: def
+;;; ============================================================================
+
+;;; def creates bindings
+(def const-value 999)
+(assert (= const-value 999) "def creates top-level binding")
+
+;;; def with complex expressions
+(def computed (* 5 5))
+(assert (= computed 25) "def with computed value")
+
+;;; ============================================================================
+;;; Special Form: defn (function definition)
+;;; ============================================================================
+
+;;; Simple function with one clause
+(defn add-five [x] (+ x 5))
+(assert (= (add-five 10) 15) "defn single clause compiles")
+
+;;; Function with multiple parameters
+(defn add-three [a b c] (+ a b c))
+(assert (= (add-three 1 2 3) 6) "defn multiple parameters")
+
+;;; Function returning boolean
+(defn positive? [n] (< 0 n))
+(assert (positive? 4) "defn returning boolean")
+(assert (not (positive? -5)) "defn boolean returns false")
+
+;;; Function with nested expressions
+(defn double-then-add [x] (+ (* x 2) 1))
+(assert (= (double-then-add 5) 11) "defn with nested expressions")
+
+;;; ============================================================================
+;;; Special Form: fn (anonymous function)
+;;; ============================================================================
+
+;;; Anonymous function with single clause
+(def increment (fn [x] (+ x 1)))
+(assert (= (increment 5) 6) "fn single clause compiles")
+
+;;; Anonymous function in call position
+(assert (= ((fn [x] (* x 2)) 3) 6) "fn in call position compiles")
+
+;;; Anonymous function with multiple parameters
+(def multiply (fn [a b] (* a b)))
+(assert (= (multiply 3 4) 12) "fn multiple parameters")
+
+;;; ============================================================================
+;;; Special Form: loop/recur
+;;; ============================================================================
+
+;;; Simple loop with recur
+(defn countdown [n]
+  (loop [i n]
+    (if (<= i 0)
+      "done"
+      (recur (- i 1)))))
+(assert (= (countdown 5) "done") "loop/recur compiles")
+
+;;; Loop accumulating a result
+(defn sum-to-n [n]
+  (loop [i n total 0]
+    (if (<= i 0)
+      total
+      (recur (- i 1) (+ total i)))))
+(assert (= (sum-to-n 5) 15) "loop with accumulator")
+
+;;; ============================================================================
+;;; Special Form: -> (thread first)
+;;; ============================================================================
+
+;;; Thread first with functions
+(assert (= (-> 5 (+ 3) (* 2)) 16) "thread first compiles")
+
+;;; Thread first with bare symbol
+(assert (= (-> 5 inc) 6) "thread first with bare symbol")
+
+;;; ============================================================================
+;;; Special Form: ->> (thread last)
+;;; ============================================================================
+
+;;; Thread last with cons-like operation
+(assert (= (->> 5 (+ 3)) 8) "thread last compiles")
+
+;;; ============================================================================
+;;; Collections in Compilation
+;;; ============================================================================
+
+;;; Vector access
+(def my-vector [10 20 30])
+(assert (= (nth my-vector 0) 10) "vector access compiles")
+(assert (= (nth my-vector 1) 20) "vector index 1 access")
+
+;;; Dict access
+(def my-dict {:name "Alice" :age 30})
+(assert (= (get my-dict :name) "Alice") "dict access compiles")
+
+;;; Set operations
+(def my-set #{1 2 3})
+(assert (contains? my-set 2) "set contains? compiles")
+
+;;; ============================================================================
+;;; Macros
+;;; ============================================================================
+
+;;; and macro
+(assert (and true true) "and macro compiles")
+(assert (not (and true false)) "and macro short-circuits")
+
+;;; or macro
+(assert (or false true) "or macro compiles")
+(assert (or false false false true) "or macro with multiple args")
+
+;;; when macro
+(assert (= (when true 5) 5) "when true evaluates body")
+(assert (nil? (when false 5)) "when false returns nil")
+
+;;; unless macro
+(assert (= (unless false 10) 10) "unless false evaluates body")
+(assert (nil? (unless true 10)) "unless true returns nil")
+
+;;; ============================================================================
+;;; Variable Scope
+;;; ============================================================================
+
+;;; Local variables shadow outer bindings
+(def outer-x 100)
+(assert (= (bind [outer-x 50] outer-x) 50) "bind shadows outer variable")
+(assert (= outer-x 100) "outer variable unchanged after bind")
+
+;;; Nested scopes
+(assert (=
+  (bind [a 1]
+    (bind [b 2]
+      (bind [a 3]
+        a)))
+  3)
+"nested bind scopes work correctly")
+
+;;; ============================================================================
+;;; Type Coercion and Operations
+;;; ============================================================================
+
+;;; Arithmetic with different numeric types
+(assert (= (+ 1 2.5) 3.5) "integer + float compiles")
+(assert (= (* 3 1/2) 3/2) "integer * rational compiles")
+
+;;; String operations
+(assert (= (str "hello" " " "world") "hello world") "str concatenation compiles")
+
+;;; ============================================================================
+;;; Error Conditions (should not raise at compile time)
+;;; ============================================================================
+
+;;; Division that might error at runtime (but compiles)
+(assert (= (/ 10 2) 5) "division compiles")
+
+;;; Function that might error with wrong input (but compiles)
+(defn safe-len [coll] (if coll (count coll) 0))
+(assert (= (safe-len [1 2 3]) 3) "conditional function compiles")
+

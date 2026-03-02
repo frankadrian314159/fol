@@ -1,0 +1,99 @@
+;;; FOL Mutable Functions Tests
+
+;;; ---------------------------------------------------------------------------
+;;; Atoms
+;;; ---------------------------------------------------------------------------
+
+(bind [a (atom 10)]
+  (assert (= (deref a) 10) "atom initial value")
+  (assert (= (reset! a 20) 20) "reset! atom")
+  (assert (= (deref a) 20) "deref after reset!")
+  (assert (= (swap! a (fn [x] (inc x))) 21) "swap! atom")
+  (assert (= (deref a) 21) "deref after swap!")
+  (assert (compare-and-set! a 21 30) "compare-and-set! success")
+  (assert (= (deref a) 30) "deref after CAS")
+  (assert (not (compare-and-set! a 21 40)) "compare-and-set! fail")
+  (assert (= (deref a) 30) "deref after failed CAS"))
+
+(bind [a (atom 10)]
+  (bind [[old new] (swap-vals! a (fn [x] (inc x)))]
+    (assert (= old 10) "swap-vals! old val")
+    (assert (= new 11) "swap-vals! new val"))
+  (bind [[old new] (reset-vals! a 99)]
+    (assert (= old 11) "reset-vals! old val")
+    (assert (= new 99) "reset-vals! new val")))
+
+;;; ---------------------------------------------------------------------------
+;;; Refs & STM
+;;; ---------------------------------------------------------------------------
+
+(bind [/r1 (ref 0)
+       /r2 (ref 10)]
+  (sync nil
+    (ref-set /r1 5)
+    (alter /r2 (fn [a b] (+ a b)) 10))
+  (assert (= (deref /r1) 5) "ref-set in sync")
+  (assert (= (deref /r2) 20) "alter in sync"))
+
+(bind [/r1 (ref 0)]
+  (sync nil
+    (commute /r1 (fn [a b] (+ a b)) 1))
+  (assert (= (deref /r1) 1) "commute in sync"))
+
+;;; ---------------------------------------------------------------------------
+;;; Agents
+;;; ---------------------------------------------------------------------------
+
+(bind [ag (agent 0)]
+  (send ag (fn [x] (inc x)))
+  (await ag)
+  (assert (= (deref ag) 1) "agent send inc")
+  (send-off ag (fn [v] (+ v 10)))
+  (await ag)
+  (assert (= (deref ag) 11) "agent send-off fn"))
+
+;;; ---------------------------------------------------------------------------
+;;; Futures & Promises
+;;; ---------------------------------------------------------------------------
+
+(bind [fut (future (+ 1 2))]
+  (assert (= (deref fut) 3) "future result")
+  (assert (future-done? fut) "future done"))
+
+(bind [p (promise)]
+  (future 
+    (cl:sleep 0.1)
+    (deliver p :ready))
+  (assert (= (deref p) :ready) "promise delivered"))
+
+;;; ---------------------------------------------------------------------------
+;;; Parallel Processing
+;;; ---------------------------------------------------------------------------
+
+(bind [res (vec (pmap (fn [x] (inc x)) [1 2 3]))]
+  (assert (= res [2 3 4]) "pmap result"))
+
+(bind [res (vec (pcalls (fn [] 1) (fn [] 2)))]
+  (assert (= res [1 2]) "pcalls result"))
+
+(bind [res (vec (pvalues (+ 10 1) (+ 20 2)))]
+  (assert (= res [11 22]) "pvalues result"))
+
+;;; ---------------------------------------------------------------------------
+;;; Validators & Watchers
+;;; ---------------------------------------------------------------------------
+
+(bind [a (atom 10 :validator (fn [x] (> x 0)))]
+  (assert (= (deref a) 10) "atom with validator")
+  (handler-case (reset! a -1)
+    (cl:error (e) (assert true "validator rejected negative")))
+  (assert (= (deref a) 10) "value unchanged after invalid reset!"))
+
+(bind [a (atom 0)
+       witness (atom nil)]
+  (add-watch a :my-watch (fn [k r o n] (reset! witness n)))
+  (reset! a 42)
+  (assert (= (deref witness) 42) "watcher notified")
+  (remove-watch a :my-watch)
+  (reset! a 99)
+  (assert (= (deref witness) 42) "watcher removed"))

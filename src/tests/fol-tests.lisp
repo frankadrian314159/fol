@@ -34,6 +34,6 @@
 
 (test run-fol-tests
   "Run all FOL-level tests."
-  (let ((tests '("reader_syntax_test.fol" "special_forms_test.fol" "macros_test.fol" "functions_test.fol" "negative_test.fol")))
+  (let ((tests '("reader_syntax_test.fol" "special_forms_test.fol" "macros_test.fol" "functions_test.fol" "negative_test.fol" "arithmetic_test.fol" "bitwise_test.fol" "collection_functions_test.fol" "collections_test.fol" "compareops_test.fol" "compiler_test.fol" "destructure_test.fol" "functional_test.fol" "logical_operations_test.fol" "merged_functions_test.fol")))
     (dolist (test tests)
       (is (load-and-run-fol-test test)))))

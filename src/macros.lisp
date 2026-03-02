@@ -160,14 +160,14 @@
           (item (gensym "ITEM-")))
       `(bind ,(cl:list result '(fol.compiler.collection-functions:vector))
              (loop ,(cl:list
-                     s `(fol.compiler.seq-functions:seq ,seq-expr)
-                     result result)
+                      s `(fol.compiler.seq-functions:seq ,seq-expr)
+                      result result)
                    (if (fol.compiler.primitives:truthy? ,s)
                        (do
-                        (bind ,(cl:list item `(first ,s))
-                              (bind ,(cl:list name item)
-                                    (recur (rest ,s)
-                                           (conj ,result (do ,@body))))))
+                           (bind ,(cl:list item `(first ,s))
+                                 (bind ,(cl:list name item)
+                                       (recur (rest ,s)
+                                              (conj ,result (do ,@body))))))
                        ,result))))))
 
 ;;; ===========================================================================
@@ -240,34 +240,34 @@
 (defmacro some-> (expr &rest forms)
   "Nil-safe thread-first. Like ->, but returns nil as soon as any intermediate
    result is nil."
-    (cl:if (cl:null forms)
-      expr
-      (cl:let ((g (cl:gensym "EXPR-"))
-            (result expr))
-        (cl:dolist (form forms)
-          (cl:let ((threaded (cl:if (cl:consp form)
-                              `(,(cl:first form) ,g ,@(cl:rest form))
-                              `(,form ,g))))
-            (cl:setf result
-              `(bind ,(cl:list g result)
-                     (when (fol.compiler.primitive-functions:some? ,g) ,threaded)))))
-        result)))
+  (cl:if (cl:null forms)
+         expr
+         (cl:let ((g (cl:gensym "EXPR-"))
+                  (result expr))
+           (cl:dolist (form forms)
+             (cl:let ((threaded (cl:if (cl:consp form)
+                                       `(,(cl:first form) ,g ,@(cl:rest form))
+                                       `(,form ,g))))
+               (cl:setf result
+                 `(bind ,(cl:list g result)
+                        (when (fol.compiler.primitive-functions:some? ,g) ,threaded)))))
+           result)))
 
 (defmacro some->> (expr &rest forms)
   "Nil-safe thread-last. Like ->>, but returns nil as soon as any intermediate
    result is nil."
-    (cl:if (cl:null forms)
-      expr
-      (cl:let ((g (cl:gensym "EXPR-"))
-            (result expr))
-        (cl:dolist (form forms)
-          (cl:let ((threaded (cl:if (cl:consp form)
-                              `(,(cl:first form) ,@(cl:rest form) ,g)
-                              `(,form ,g))))
-            (cl:setf result
-              `(bind ,(cl:list g result)
-                     (when (fol.compiler.primitive-functions:some? ,g) ,threaded)))))
-        result)))
+  (cl:if (cl:null forms)
+         expr
+         (cl:let ((g (cl:gensym "EXPR-"))
+                  (result expr))
+           (cl:dolist (form forms)
+             (cl:let ((threaded (cl:if (cl:consp form)
+                                       `(,(cl:first form) ,@(cl:rest form) ,g)
+                                       `(,form ,g))))
+               (cl:setf result
+                 `(bind ,(cl:list g result)
+                        (when (fol.compiler.primitive-functions:some? ,g) ,threaded)))))
+           result)))
 
 ;;; Helper to convert bindings to list
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -280,7 +280,7 @@
      ;; Fallback: try to treat as collection if standard-object
      ((cl:typep x 'cl:standard-object)
        (cl:handler-case
-           (fol.compiler.collections:collection-seq x)
+         (fol.compiler.collections:collection-seq x)
          (cl:error (e)
            (cl:error "ensure-list failed on standard-object ~S: ~A" x e))))
      (cl:t (cl:error "ensure-list: Expected a sequence, got ~S of type ~S" x (cl:type-of x))))))
@@ -345,7 +345,7 @@
   "Creates local mutable variables for use within body.
    bindings is a list of [name initial-value ...] pairs."
   (cl:let ((pairs (cl:loop for (var val) on (cl:coerce bindings 'cl:list) by #'cl:cddr
-                      collect (cl:list var val))))
+                  collect (cl:list var val))))
     `(bind ,(cl:apply #'cl:list (cl:mapcan (cl:lambda (pair) (cl:list (cl:first pair) `(atom ,(cl:second pair)))) pairs))
            ,@body)))
 
@@ -356,15 +356,15 @@
 (defmacro time (&body body)
   "Evaluates body, prints the time it took to execute, and returns the result."
   (cl:let ((start (cl:gensym "START-"))
-        (end (cl:gensym "END-"))
-        (result (cl:gensym "RESULT-")))
+           (end (cl:gensym "END-"))
+           (result (cl:gensym "RESULT-")))
     `(bind ,(cl:list start '(cl:get-internal-real-time))
            (bind ,(cl:list result `(do ,@body))
                  (bind ,(cl:list end '(cl:get-internal-real-time))
                        (cl:format cl:t "Elapsed time: ~,3F msecs~%"
-                                      (cl:* (cl:/ (cl:coerce (cl:- ,end ,start) 'cl:float)
-                                                  (cl:coerce cl:internal-time-units-per-second 'cl:float))
-                                            1000.0))
+                         (cl:* (cl:/ (cl:coerce (cl:- ,end ,start) 'cl:float)
+                                 (cl:coerce cl:internal-time-units-per-second 'cl:float))
+                           1000.0))
                        ,result)))))
 
 (defmacro comment (&rest _)
@@ -437,4 +437,10 @@
   (fol.compiler:register-macro 'assert (macro-function 'assert))
   (fol.compiler:register-macro 'doc (macro-function 'doc))
   (fol.compiler:register-macro 'lazy-cat (macro-function 'lazy-cat))
-  (fol.compiler:register-macro 'delay (macro-function 'delay)))
+  (fol.compiler:register-macro 'delay (macro-function 'delay))
+  (fol.compiler:register-macro 'defonce (macro-function 'fol.compiler.misc-functions:defonce))
+  (fol.compiler:register-macro 'sync (macro-function 'fol.compiler.mutable-functions:sync))
+  (fol.compiler:register-macro 'future (macro-function 'fol.compiler.mutable-functions:future))
+  (fol.compiler:register-macro 'pcalls (macro-function 'fol.compiler.mutable-functions:pcalls))
+  (fol.compiler:register-macro 'pvalues (macro-function 'fol.compiler.mutable-functions:pvalues))
+  (fol.compiler:register-macro 'io! (macro-function 'fol.compiler.mutable-functions:io!)))
