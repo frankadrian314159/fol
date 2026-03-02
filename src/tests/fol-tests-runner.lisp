@@ -109,6 +109,10 @@ Returns T on success; prints error details and returns NIL on failure."
       "FOL-level tests for mutable-functions.lisp."
       (is (load-and-run-fol-test "mutable_test.fol")))
 
+(test primitive-functions
+      "FOL-level tests for primitive-functions.lisp."
+      (is (load-and-run-fol-test "primitive_functions_test.fol")))
+
 ;;; -------------------------------------------------------------------------
 ;;; Entry point
 ;;; -------------------------------------------------------------------------

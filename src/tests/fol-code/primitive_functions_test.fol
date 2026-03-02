@@ -1,0 +1,194 @@
+;;; Primitive Functions Tests
+;;;
+;;; Tests for fol.compiler.primitive-functions module.
+;;; Covers type predicates, equality, and collection category predicates.
+
+;;; ============================================================================
+;;; Nil and Truthiness Predicates
+;;; ============================================================================
+
+(assert (fol.compiler.primitive-functions:nil? nil) "nil? returns true for nil")
+(assert (not (fol.compiler.primitive-functions:nil? 0)) "nil? returns false for 0")
+(assert (not (fol.compiler.primitive-functions:nil? "")) "nil? returns false for empty string")
+(assert (not (fol.compiler.primitive-functions:nil? [])) "nil? returns false for empty vector")
+
+(assert (fol.compiler.primitive-functions:some? 0) "some? returns true for 0")
+(assert (fol.compiler.primitive-functions:some? "") "some? returns true for empty string")
+(assert (fol.compiler.primitive-functions:some? []) "some? returns true for empty vector")
+(assert (fol.compiler.primitive-functions:some? {:a 1}) "some? returns true for dict")
+(assert (not (fol.compiler.primitive-functions:some? nil)) "some? returns false for nil")
+
+;;; ============================================================================
+;;; Collection Predicates
+;;; ============================================================================
+
+(assert (fol.compiler.primitive-functions:<seq>? [1 2 3]) "<seq>? returns true for vector")
+(assert (not (fol.compiler.primitive-functions:<seq>? 42)) "<seq>? returns false for number")
+(assert (not (fol.compiler.primitive-functions:<seq>? nil)) "<seq>? returns false for nil")
+
+(assert (fol.compiler.primitive-functions:<collection>? [1 2 3]) "<collection>? returns true for vector")
+(assert (fol.compiler.primitive-functions:<collection>? []) "<collection>? returns true for empty vector")
+(assert (fol.compiler.primitive-functions:<collection>? {:a 1}) "<collection>? returns true for dict")
+(assert (fol.compiler.primitive-functions:<collection>? #{1 2}) "<collection>? returns true for set")
+(assert (not (fol.compiler.primitive-functions:<collection>? 42)) "<collection>? returns false for number")
+(assert (not (fol.compiler.primitive-functions:<collection>? nil)) "<collection>? returns false for nil")
+
+(assert (fol.compiler.primitive-functions:<vector>? [1 2 3]) "<vector>? returns true for vector")
+(assert (fol.compiler.primitive-functions:<vector>? []) "<vector>? returns true for empty vector")
+(assert (not (fol.compiler.primitive-functions:<vector>? 42)) "<vector>? returns false for number")
+(assert (not (fol.compiler.primitive-functions:<vector>? {:a 1})) "<vector>? returns false for dict")
+(assert (not (fol.compiler.primitive-functions:<vector>? nil)) "<vector>? returns false for nil")
+
+(assert (fol.compiler.primitive-functions:<dict>? {:a 1}) "<dict>? returns true for dict")
+(assert (fol.compiler.primitive-functions:<dict>? {}) "<dict>? returns true for empty dict")
+(assert (not (fol.compiler.primitive-functions:<dict>? [1 2])) "<dict>? returns false for vector")
+(assert (not (fol.compiler.primitive-functions:<dict>? 42)) "<dict>? returns false for number")
+(assert (not (fol.compiler.primitive-functions:<dict>? nil)) "<dict>? returns false for nil")
+
+(assert (fol.compiler.primitive-functions:<set>? #{1 2 3}) "<set>? returns true for set")
+(assert (fol.compiler.primitive-functions:<set>? #{}) "<set>? returns true for empty set")
+(assert (not (fol.compiler.primitive-functions:<set>? [1 2])) "<set>? returns false for vector")
+(assert (not (fol.compiler.primitive-functions:<set>? 42)) "<set>? returns false for number")
+
+;;; ============================================================================
+;;; Type Predicates
+;;; ============================================================================
+
+(assert (fol.compiler.primitive-functions:<keyword>? :foo) "<keyword>? returns true for keyword")
+(assert (fol.compiler.primitive-functions:<keyword>? :bar) "<keyword>? returns true for another keyword")
+(assert (not (fol.compiler.primitive-functions:<keyword>? 'foo)) "<keyword>? returns false for symbol")
+(assert (not (fol.compiler.primitive-functions:<keyword>? "foo")) "<keyword>? returns false for string")
+(assert (not (fol.compiler.primitive-functions:<keyword>? 42)) "<keyword>? returns false for number")
+
+(assert (fol.compiler.primitive-functions:<symbol>? 'foo) "<symbol>? returns true for symbol")
+(assert (fol.compiler.primitive-functions:<symbol>? 'bar) "<symbol>? returns true for another symbol")
+(assert (not (fol.compiler.primitive-functions:<symbol>? "foo")) "<symbol>? returns false for string")
+(assert (not (fol.compiler.primitive-functions:<symbol>? 42)) "<symbol>? returns false for number")
+
+(assert (fol.compiler.primitive-functions:<string>? "foo") "<string>? returns true for string")
+(assert (fol.compiler.primitive-functions:<string>? "") "<string>? returns true for empty string")
+(assert (not (fol.compiler.primitive-functions:<string>? 'foo)) "<string>? returns false for symbol")
+(assert (not (fol.compiler.primitive-functions:<string>? 42)) "<string>? returns false for number")
+(assert (not (fol.compiler.primitive-functions:<string>? nil)) "<string>? returns false for nil")
+
+(assert (fol.compiler.primitive-functions:<char>? \a) "<char>? returns true for character")
+(assert (fol.compiler.primitive-functions:<char>? \z) "<char>? returns true for another character")
+(assert (not (fol.compiler.primitive-functions:<char>? "a")) "<char>? returns false for string")
+(assert (not (fol.compiler.primitive-functions:<char>? 42)) "<char>? returns false for number")
+
+(assert (fol.compiler.primitive-functions:<number>? 42) "<number>? returns true for integer")
+(assert (fol.compiler.primitive-functions:<number>? 3.14) "<number>? returns true for float")
+(assert (fol.compiler.primitive-functions:<number>? 0) "<number>? returns true for zero")
+(assert (not (fol.compiler.primitive-functions:<number>? "42")) "<number>? returns false for string")
+(assert (not (fol.compiler.primitive-functions:<number>? nil)) "<number>? returns false for nil")
+
+(assert (fol.compiler.primitive-functions:<integer>? 42) "<integer>? returns true for integer")
+(assert (fol.compiler.primitive-functions:<integer>? 0) "<integer>? returns true for zero")
+(assert (not (fol.compiler.primitive-functions:<integer>? 3.14)) "<integer>? returns false for float")
+(assert (not (fol.compiler.primitive-functions:<integer>? "42")) "<integer>? returns false for string")
+
+(assert (fol.compiler.primitive-functions:<float>? 3.14) "<float>? returns true for float")
+(assert (not (fol.compiler.primitive-functions:<float>? 42)) "<float>? returns false for integer")
+(assert (not (fol.compiler.primitive-functions:<float>? "3.14")) "<float>? returns false for string")
+
+(assert (fol.compiler.primitive-functions:<rational>? 3/2) "<rational>? returns true for ratio")
+
+(assert (fol.compiler.primitive-functions:<fn>? inc) "<fn>? returns true for function")
+(assert (fol.compiler.primitive-functions:<fn>? (fn [x] (inc x))) "<fn>? returns true for lambda")
+(assert (not (fol.compiler.primitive-functions:<fn>? 42)) "<fn>? returns false for number")
+(assert (not (fol.compiler.primitive-functions:<fn>? [1 2])) "<fn>? returns false for vector")
+(assert (not (fol.compiler.primitive-functions:<fn>? nil)) "<fn>? returns false for nil")
+
+;;; ============================================================================
+;;; Equality Predicates
+;;; ============================================================================
+
+(assert (fol.compiler.primitive-functions:identical? nil nil) "identical? returns true for same nil")
+(assert (fol.compiler.primitive-functions:identical? 42 42) "identical? returns true for same number")
+(assert (not (fol.compiler.primitive-functions:identical? 42 43)) "identical? returns false for different numbers")
+
+(assert (fol.compiler.primitive-functions:=? 42 42) "=? returns true for equal numbers")
+(assert (fol.compiler.primitive-functions:=? "foo" "foo") "=? returns true for equal strings")
+(assert (fol.compiler.primitive-functions:=? [1 2 3] [1 2 3]) "=? returns true for equal vectors")
+(assert (fol.compiler.primitive-functions:=? {:a 1} {:a 1}) "=? returns true for equal dicts")
+(assert (not (fol.compiler.primitive-functions:=? 42 43)) "=? returns false for different numbers")
+(assert (not (fol.compiler.primitive-functions:=? [1 2] [1 3])) "=? returns false for different vectors")
+
+;;; ============================================================================
+;;; Collection Category Predicates
+;;; ============================================================================
+
+(assert (fol.compiler.primitive-functions:sequential? [1 2 3]) "sequential? returns true for vector")
+(assert (not (fol.compiler.primitive-functions:sequential? {:a 1})) "sequential? returns false for dict")
+(assert (not (fol.compiler.primitive-functions:sequential? 42)) "sequential? returns false for number")
+
+(assert (fol.compiler.primitive-functions:associative? {:a 1}) "associative? returns true for dict")
+(assert (fol.compiler.primitive-functions:associative? [1 2 3]) "associative? returns true for vector (indexed)")
+(assert (not (fol.compiler.primitive-functions:associative? #{1 2})) "associative? returns false for set")
+
+(assert (fol.compiler.primitive-functions:counted? [1 2 3]) "counted? returns true for vector")
+(assert (fol.compiler.primitive-functions:counted? {:a 1}) "counted? returns true for dict")
+(assert (fol.compiler.primitive-functions:counted? #{1 2}) "counted? returns true for set")
+(assert (not (fol.compiler.primitive-functions:counted? 42)) "counted? returns false for number")
+
+(assert (fol.compiler.primitive-functions:reversible? [1 2 3]) "reversible? returns true for vector")
+(assert (not (fol.compiler.primitive-functions:reversible? {:a 1})) "reversible? returns false for dict")
+
+;;; ============================================================================
+;;; Edge Cases and Combined Tests
+;;; ============================================================================
+
+(assert (and (fol.compiler.primitive-functions:some? 0)
+             (not (fol.compiler.primitive-functions:nil? 0)))
+  "Falsy values are not nil")
+
+(assert (and (fol.compiler.primitive-functions:<collection>? [])
+             (fol.compiler.primitive-functions:counted? []))
+  "Empty vector is collection and counted")
+
+(assert (and (fol.compiler.primitive-functions:<vector>? [])
+             (fol.compiler.primitive-functions:sequential? []))
+  "Empty vector is sequential")
+
+(assert (and (fol.compiler.primitive-functions:<vector>? [1])
+             (fol.compiler.primitive-functions:associative? [1]))
+  "Single-element vector is associative")
+
+;;; ============================================================================
+;;; Type Combinations
+;;; ============================================================================
+
+(bind [v [1 2 3]
+       d {:a 1 :b 2}
+       s #{1 2 3}
+       n 42]
+  (assert (and (fol.compiler.primitive-functions:<collection>? v)
+               (fol.compiler.primitive-functions:<vector>? v)
+               (fol.compiler.primitive-functions:sequential? v)
+               (fol.compiler.primitive-functions:counted? v))
+    "Vector properties")
+  (assert (and (fol.compiler.primitive-functions:<collection>? d)
+               (fol.compiler.primitive-functions:<dict>? d)
+               (fol.compiler.primitive-functions:associative? d)
+               (fol.compiler.primitive-functions:counted? d))
+    "Dict properties")
+  (assert (and (fol.compiler.primitive-functions:<collection>? s)
+               (fol.compiler.primitive-functions:<set>? s)
+               (fol.compiler.primitive-functions:counted? s))
+    "Set properties")
+  (assert (and (fol.compiler.primitive-functions:<number>? n)
+               (fol.compiler.primitive-functions:<integer>? n)
+               (not (fol.compiler.primitive-functions:<float>? n)))
+    "Number properties"))
+
+;;; ============================================================================
+;;; Predicate Negations and Edge Cases
+;;; ============================================================================
+
+(assert (not (fol.compiler.primitive-functions:nil? 1)) "nil? false for number")
+(assert (not (fol.compiler.primitive-functions:nil? "x")) "nil? false for string")
+(assert (not (fol.compiler.primitive-functions:<vector>? {:a 1})) "<vector>? false for dict")
+(assert (not (fol.compiler.primitive-functions:<dict>? [1 2])) "<dict>? false for vector")
+(assert (not (fol.compiler.primitive-functions:<string>? :foo)) "<string>? false for keyword")
+(assert (not (fol.compiler.primitive-functions:<keyword>? 'foo)) "<keyword>? false for symbol")
+(assert (not (fol.compiler.primitive-functions:<fn>? 42)) "<fn>? false for number")
