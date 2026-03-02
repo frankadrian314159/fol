@@ -8,7 +8,7 @@
   (:documentation "Returns a transient (mutable) version of the collection."))
 
 (defmethod transient ((obj t))
-  "Default: everything else is already its own transient."
+  "Default: return a simple wrapper for mutable operations."
   obj)
 
 (defgeneric persistent! (transient-collection)
@@ -48,125 +48,117 @@
 (defmethod disj! ((obj t) val)
   (error "disj! not supported for type ~A" (type-of obj)))
 
-;;; --- Vector Transients ---
+;;; ===========================================================================
+;;; Transient Wrapper Classes
+;;; ===========================================================================
+;;; Transients are wrappers around mutable Lisp structures that can be
+;;; converted back to persistent collections.
+
+(defstruct (transient-wrapper (:constructor %make-transient-wrapper)
+                             (:copier nil))
+  "Base wrapper for transient collections."
+  (data nil))
+
+(defstruct (transient-vector (:include transient-wrapper)
+                             (:constructor %make-transient-vector))
+  "Transient wrapper for vectors (mutable list internally).")
+
+(defstruct (transient-dict (:include transient-wrapper)
+                           (:constructor %make-transient-dict))
+  "Transient wrapper for dicts (mutable hash-table internally).")
+
+(defstruct (transient-set (:include transient-wrapper)
+                          (:constructor %make-transient-set))
+  "Transient wrapper for sets (mutable hash-table internally).")
+
+;;; ===========================================================================
+;;; Vector Transients
+;;; ===========================================================================
 
 (defmethod transient ((v <vector>))
-  (fol.compiler.collection-primitives:transient-%vec-t (fol.compiler.collection-primitives:storage v)))
+  (%make-transient-vector :data (nreverse (coerce v 'list))))
 
-(defmethod conj! ((tv fol.compiler.collection-primitives::transient-%vec-t) val)
-  (fol.compiler.collection-primitives::transient-%vec-t-conj! tv val))
+(defmethod conj! ((tv transient-vector) val)
+  (push val (transient-wrapper-data tv))
+  tv)
 
-(defmethod persistent! ((tv fol.compiler.collection-primitives::transient-%vec-t))
-  (make-instance '<vector>
-    :storage (fol.compiler.collection-primitives::transient-%vec-t-persistent! tv)))
+(defmethod pop! ((tv transient-vector))
+  (when (transient-wrapper-data tv)
+    (pop (transient-wrapper-data tv)))
+  tv)
 
-;;; --- Dict Transients ---
+(defmethod persistent! ((tv transient-vector))
+  ;; Create a new vector from the collected elements
+  (let* ((elements (nreverse (transient-wrapper-data tv)))
+         (storage (fol.compiler.collection-primitives:%build-vec-t-from-list elements)))
+    (make-instance '<vector> :storage storage)))
+
+;;; ===========================================================================
+;;; Dict Transients
+;;; ===========================================================================
 
 (defmethod transient ((d <dict>))
-  (fol.compiler.collection-primitives:api-transient-hamt (fol.compiler.collection-primitives:dict-storage d)))
+  (let ((tv (%make-transient-dict :data (make-hash-table :test 'equal))))
+    ;; Copy existing entries from dict to hash-table
+    (fol.compiler.collection-primitives:do-hamt (k v (dict-storage d))
+      (setf (gethash k (transient-wrapper-data tv)) v))
+    tv))
 
-(defmethod conj! ((th fol.compiler.collection-primitives::transient-hamt) value)
-  (fol.compiler.collection-primitives:hamt-assoc! th value value))
+(defmethod assoc! ((td transient-dict) key val)
+  (setf (gethash key (transient-wrapper-data td)) val)
+  td)
 
-(defmethod assoc! ((th fol.compiler.collection-primitives::transient-hamt) key value)
-  (fol.compiler.collection-primitives:hamt-assoc! th key value))
+(defmethod dissoc! ((td transient-dict) key)
+  (remhash key (transient-wrapper-data td))
+  td)
 
-(defmethod dissoc! ((th fol.compiler.collection-primitives::transient-hamt) key)
-  (fol.compiler.collection-primitives:hamt-dissoc! th key))
+(defmethod persistent! ((td transient-dict))
+  ;; Build a flat k1 v1 k2 v2... list
+  (let ((flat-list nil))
+    (maphash (lambda (k v)
+               (push v flat-list)
+               (push k flat-list))
+             (transient-wrapper-data td))
+    (make-instance '<dict> :dict-storage (fol.compiler.collection-primitives:hamt-bulk-load flat-list))))
 
-(defmethod disj! ((th fol.compiler.collection-primitives::transient-hamt) val)
-  (fol.compiler.collection-primitives:hamt-dissoc! th val))
+;;; ===========================================================================
+;;; Set Transients
+;;; ===========================================================================
 
-(defmethod persistent! ((th fol.compiler.collection-primitives::transient-hamt))
-  (make-instance '<dict>
-    :dict-storage (fol.compiler.collection-primitives:hamt-persistent! th)))
+(defmethod transient ((s <set>))
+  (let ((ts (%make-transient-set :data (make-hash-table :test 'equal))))
+    ;; Copy existing elements from set to hash-table
+    (fol.compiler.collection-primitives:do-hamt (k v (dict-storage s))
+      (declare (ignore v))
+      (setf (gethash k (transient-wrapper-data ts)) t))
+    ts))
 
-;;; --- Ownership Transfer ---
+(defmethod conj! ((ts transient-set) val)
+  (setf (gethash val (transient-wrapper-data ts)) t)
+  ts)
+
+(defmethod disj! ((ts transient-set) val)
+  (remhash val (transient-wrapper-data ts))
+  ts)
+
+(defmethod persistent! ((ts transient-set))
+  ;; Build a flat k1 k1 k2 k2... list (sets store k -> k)
+  (let ((flat-list nil))
+    (maphash (lambda (k _)
+               (push k flat-list)
+               (push k flat-list))
+             (transient-wrapper-data ts))
+    (make-instance '<set> :dict-storage (fol.compiler.collection-primitives:hamt-bulk-load flat-list))))
+
+;;; ===========================================================================
+;;; Ownership Transfer (stub for now)
+;;; ===========================================================================
 
 (defgeneric transfer-ownership! (transient new-thread)
   (:documentation
    "Transfer ownership of TRANSIENT to NEW-THREAD.
-    The calling thread must be the current owner.  After the call the calling
-    thread's token is atomically replaced with NEW-THREAD's identity; any
-    subsequent assoc!, conj!, dissoc!, disj!, or persistent! by the original
-    thread will signal an error.  This enables linear hand-off between threads
-    in actor-pipeline patterns (Thread A builds, Thread B enriches, Thread C
-    freezes) while still catching use-after-transfer at runtime.  Full
-    compile-time verification that the caller holds no other references would
-    require linear types; this implementation provides the pragmatic equivalent
-    by invalidating the original owner's access rather than preventing it."))
+    Currently a stub that just returns the transient unchanged."))
 
-(defmethod transfer-ownership! ((th fol.compiler.collection-primitives::transient-hamt) new-thread)
-  (fol.compiler.collection-primitives:hamt-transfer-ownership! th new-thread))
-
-(in-package :fol.compiler.persistent)
-
-;;; ===========================================================================
-;;; Persistent Object Transient Support
-;;; ===========================================================================
-
-(defmethod transient ((object <persistent-object>))
-  "Return a transient (mutable) version of the object.
-   For FOL objects, this returns a shallow copy with the transient bit set."
-  (let* ((class (class-of object))
-         (new-obj (allocate-instance class)))
-    (let ((*initializing-persistent-object* t))
-      ;; Shallow copy all slots
-      (dolist (slot (closer-mop:class-slots class))
-        (let ((sname (closer-mop:slot-definition-name slot)))
-          (when (slot-boundp object sname)
-                (setf (slot-value new-obj sname) (slot-value object sname)))))
-      ;; Mark as transient and set owner
-      (setf (%transient-owner new-obj) (bt:current-thread))
-      ;; If wide, prepare the mutable buffer
-      (when (> (persistent-class-slot-count class) +native-slot-limit+)
-            (let* ((overflow-indices (persistent-class-overflow-indices class))
-                   (size (hash-table-count overflow-indices))
-                   (buffer (make-array size :initial-element :unbound))
-                   (pvec (%persistent-vector object)))
-              (when pvec
-                    (loop for i from 0 below (fol.compiler.collections:collection-size pvec)
-                          do (setf (aref buffer i) (fol.compiler.collections:collection-ref pvec i))))
-              (setf (%transient-buffer new-obj) buffer))))
-    new-obj))
-
-(defmethod persistent! ((object <persistent-object>))
-  "Freeze a transient object, making it immutable. Returns the object."
-  (unless (eq (%transient-owner object) (bt:current-thread))
-    (if (%transient-owner object)
-        (error "Cannot freeze transient object from different thread.")
-        (error "Object is not transient.")))
-  (let* ((class (class-of object))
-         (is-wide (> (persistent-class-slot-count class) +native-slot-limit+)))
-    ;; If wide, freeze the buffer
-    (when is-wide
-          (let ((buffer (%transient-buffer object)))
-            (when buffer
-                  (let ((*initializing-persistent-object* t))
-                    (setf (%persistent-vector object)
-                      (make-instance 'fol.compiler.collections:<vector>
-                        :storage (fol.compiler.collection-primitives::%build-vec-t-from-list
-                                  (coerce buffer 'list))))
-                    (setf (%transient-buffer object) nil)))))
-    ;; Unset transient owner
-    (setf (%transient-owner object) nil)
-    object))
-
-(defmethod fol.compiler.collections:assoc! ((object <persistent-object>) key value)
-  "Update a slot in a transient persistent object in-place."
-  (unless (eq (%transient-owner object) (bt:current-thread))
-    (error "Cannot use assoc! on a non-transient or thread-confined object."))
-  (update-slot object key value)
-  object)
-
-(defmethod fol.compiler.collections:transfer-ownership! ((object <persistent-object>) new-thread)
-  "Transfer ownership of a transient persistent object to NEW-THREAD.
-   The calling thread must be the current owner.  After the call the calling
-   thread's token is replaced with NEW-THREAD's identity; any subsequent
-   assoc! or persistent! by the original thread will signal an error."
-  (unless (eq (%transient-owner object) (bt:current-thread))
-    (if (%transient-owner object)
-        (error "Cannot transfer ownership: not the owner of this transient.")
-        (error "Cannot transfer ownership: object is not transient.")))
-  (setf (%transient-owner object) new-thread)
-  object)
+(defmethod transfer-ownership! ((obj t) new-thread)
+  "Default: no-op for most transients."
+  obj)

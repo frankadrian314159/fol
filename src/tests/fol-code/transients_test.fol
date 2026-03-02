@@ -1,0 +1,129 @@
+;;; Transients Tests
+;;;
+;;; Tests for transient collections (fol.compiler.collections).
+;;; Covers conversion between persistent and transient, mutation operations.
+
+;;; ============================================================================
+;;; Vector Transients - Create, mutate, convert back
+;;; ============================================================================
+
+;;; Create transient vector
+(bind [trans (transient [1 2 3])]
+  (assert trans "transient vector created"))
+
+;;; Transient vector conj!
+(bind [trans (transient [1 2 3])]
+  (bind [trans2 (conj! trans 4)]
+    (assert (= trans2 trans) "conj! returns same transient")))
+
+;;; Transient vector persistent!
+(bind [trans (transient [1 2 3])]
+  (bind [p (persistent! trans)]
+    (assert (<vector>? p) "persistent! returns vector")
+    (assert (= (count p) 3) "persistent vector has correct count")))
+
+;;; Vector transient with mutations
+(bind [trans (transient [1 2 3])]
+  (bind [trans2 (conj! trans 4)]
+    (bind [result (persistent! trans2)]
+      (assert (= (count result) 4) "mutations applied to transient")
+      (assert (= (last result) 4) "conj! added element"))))
+
+;;; ============================================================================
+;;; Vector Transient Pop
+;;; ============================================================================
+
+;;; Pop from transient vector
+(bind [trans (transient [1 2 3])]
+  (bind [trans2 (pop! trans)]
+    (bind [result (persistent! trans2)]
+      (assert (= (count result) 2) "pop! removes element")
+      (assert (= (last result) 2) "pop! removes last element"))))
+
+;;; ============================================================================
+;;; Dict Transients - Create, assoc!, dissoc!, convert back
+;;; ============================================================================
+
+;;; Create transient dict
+(bind [trans (transient {:a 1})]
+  (assert trans "transient dict created"))
+
+;;; Transient dict assoc!
+(bind [trans (transient {:a 1})]
+  (bind [trans2 (assoc! trans :b 2)]
+    (assert (= trans2 trans) "assoc! returns same transient")))
+
+;;; Dict transient assoc and convert back
+(bind [trans (transient {:a 1})]
+  (bind [trans2 (assoc! trans :b 2)]
+    (bind [result (persistent! trans2)]
+      (assert (<dict>? result) "persistent! returns dict")
+      (assert (= (count result) 2) "assoc! added entry")
+      (assert (= (get result :b) 2) "assoc! set correct value"))))
+
+;;; Dict transient dissoc!
+(bind [trans (transient {:a 1 :b 2})]
+  (bind [trans2 (dissoc! trans :a)]
+    (bind [result (persistent! trans2)]
+      (assert (= (count result) 1) "dissoc! removed entry")
+      (assert (nil? (get result :a)) "dissoc! removed key"))))
+
+;;; Dict transient multiple operations
+(bind [trans (transient {:a 1})]
+  (bind [trans2 (assoc! trans :b 2)]
+    (bind [trans3 (assoc! trans2 :c 3)]
+      (bind [result (persistent! trans3)]
+        (assert (= (count result) 3) "multiple assoc! operations work")
+        (assert (= (get result :c) 3) "final assoc! value correct")))))
+
+;;; ============================================================================
+;;; Set Transients - Create, conj!, disj!, convert back
+;;; ============================================================================
+
+;;; Create transient set
+(bind [trans (transient #{1 2})]
+  (assert trans "transient set created"))
+
+;;; Set transient conj!
+(bind [trans (transient #{1 2})]
+  (bind [trans2 (conj! trans 3)]
+    (bind [result (persistent! trans2)]
+      (assert (<set>? result) "persistent! returns set")
+      (assert (= (count result) 3) "conj! added element")
+      (assert (contains? result 3) "conj! element in result"))))
+
+;;; Set transient disj!
+(bind [trans (transient #{1 2 3})]
+  (bind [trans2 (disj! trans 2)]
+    (bind [result (persistent! trans2)]
+      (assert (= (count result) 2) "disj! removed element")
+      (assert (not (contains? result 2)) "disj! element no longer present"))))
+
+;;; Set transient multiple operations
+(bind [trans (transient #{1})]
+  (bind [trans2 (conj! trans 2)]
+    (bind [trans3 (conj! trans2 3)]
+      (bind [trans4 (disj! trans3 1)]
+        (bind [result (persistent! trans4)]
+          (assert (= (count result) 2) "multiple operations work")
+          (assert (= result #{2 3}) "final set is correct"))))))
+
+;;; ============================================================================
+;;; Building Collections with Transients
+;;; ============================================================================
+
+;;; Build vector with transient
+(bind [trans (transient [])]
+  (bind [trans2 (conj! trans 1)]
+    (bind [trans3 (conj! trans2 2)]
+      (bind [trans4 (conj! trans3 3)]
+        (bind [result (persistent! trans4)]
+          (assert (= result [1 2 3]) "transient building works"))))))
+
+;;; Build dict with transient
+(bind [trans (transient {})]
+  (bind [trans2 (assoc! trans :a 1)]
+    (bind [trans3 (assoc! trans2 :b 2)]
+      (bind [result (persistent! trans3)]
+        (assert (= result {:a 1 :b 2}) "dict transient building works")))))
+
