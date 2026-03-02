@@ -1,0 +1,136 @@
+;;; REPL Tests
+;;;
+;;; Tests for fol.repl module.
+;;; Covers compile-fol-string and run-fol-string functions.
+
+;;; ============================================================================
+;;; compile-fol-string - Compile a string to a CL form
+;;; ============================================================================
+
+;;; compile-fol-string with simple expression returns non-nil
+(bind [result (fol.repl:compile-fol-string "42")]
+  (assert result "compile-fol-string returns non-nil"))
+
+;;; compile-fol-string with arithmetic expression
+(bind [result (fol.repl:compile-fol-string "(+ 1 2)")]
+  (assert result "compile-fol-string compiles arithmetic"))
+
+;;; compile-fol-string with vector literal
+(bind [result (fol.repl:compile-fol-string "[1 2 3]")]
+  (assert result "compile-fol-string compiles vector literal"))
+
+;;; compile-fol-string with dict literal
+(bind [result (fol.repl:compile-fol-string "{:a 1}")]
+  (assert result "compile-fol-string compiles dict literal"))
+
+;;; ============================================================================
+;;; run-fol-string - Compile and evaluate a string
+;;; ============================================================================
+
+;;; run-fol-string with integer literal
+(bind [result (fol.repl:run-fol-string "42")]
+  (assert (= result 42) "run-fol-string evaluates integer"))
+
+;;; run-fol-string with nil
+(bind [result (fol.repl:run-fol-string "nil")]
+  (assert (nil? result) "run-fol-string evaluates nil"))
+
+;;; run-fol-string with keyword
+(bind [result (fol.repl:run-fol-string ":keyword")]
+  (assert (= result :keyword) "run-fol-string evaluates keyword"))
+
+;;; run-fol-string with float
+(bind [result (fol.repl:run-fol-string "3.14")]
+  (assert (= result 3.14) "run-fol-string evaluates float"))
+
+;;; ============================================================================
+;;; Arithmetic Expressions
+;;; ============================================================================
+
+;;; Addition
+(bind [result (fol.repl:run-fol-string "(+ 1 2)")]
+  (assert (= result 3) "run-fol-string evaluates addition"))
+
+;;; Multiplication
+(bind [result (fol.repl:run-fol-string "(* 3 4)")]
+  (assert (= result 12) "run-fol-string evaluates multiplication"))
+
+;;; Nested arithmetic
+(bind [result (fol.repl:run-fol-string "(+ (* 2 3) 4)")]
+  (assert (= result 10) "run-fol-string evaluates nested arithmetic"))
+
+;;; ============================================================================
+;;; Collection Literals
+;;; ============================================================================
+
+;;; Vector literal
+(bind [result (fol.repl:run-fol-string "[1 2 3]")]
+  (assert (<vector>? result) "run-fol-string evaluates vector literal")
+  (assert (= (count result) 3) "vector has correct length"))
+
+;;; Dict literal
+(bind [result (fol.repl:run-fol-string "{:a 1 :b 2}")]
+  (assert (<dict>? result) "run-fol-string evaluates dict literal")
+  (assert (= (count result) 2) "dict has correct size"))
+
+;;; Set literal
+(bind [result (fol.repl:run-fol-string "#{1 2 3}")]
+  (assert (<set>? result) "run-fol-string evaluates set literal")
+  (assert (= (count result) 3) "set has correct size"))
+
+;;; ============================================================================
+;;; Binding Expressions
+;;; ============================================================================
+
+;;; Simple bind
+(bind [result (fol.repl:run-fol-string "(bind [x 5] x)")]
+  (assert (= result 5) "run-fol-string evaluates bind with variable"))
+
+;;; Bind with arithmetic
+(bind [result (fol.repl:run-fol-string "(bind [x 5] (* x x))")]
+  (assert (= result 25) "run-fol-string evaluates bind with arithmetic"))
+
+;;; Bind with multiple variables
+(bind [result (fol.repl:run-fol-string "(bind [x 2 y 3] (+ x y))")]
+  (assert (= result 5) "run-fol-string evaluates bind with multiple variables"))
+
+;;; ============================================================================
+;;; Function Calls
+;;; ============================================================================
+
+;;; Anonymous function call
+(bind [result (fol.repl:run-fol-string "((fn [x] (* x 2)) 5)")]
+  (assert (= result 10) "run-fol-string evaluates anonymous function"))
+
+;;; First on vector
+(bind [result (fol.repl:run-fol-string "(first [10 20 30])")]
+  (assert (= result 10) "run-fol-string evaluates first on vector"))
+
+;;; Count on collection
+(bind [result (fol.repl:run-fol-string "(count [1 2 3 4 5])")]
+  (assert (= result 5) "run-fol-string evaluates count"))
+
+;;; ============================================================================
+;;; Complex Expressions
+;;; ============================================================================
+
+;;; Nested bind and arithmetic
+(bind [result (fol.repl:run-fol-string "(bind [a 3 b 4] (+ (* a a) (* b b)))")]
+  (assert (= result 25) "run-fol-string evaluates complex bind and arithmetic"))
+
+;;; Map over collection (simple version using vector construction)
+(bind [result (fol.repl:run-fol-string "[1 2 3]")]
+  (assert (= (first result) 1) "run-fol-string evaluates vector and first"))
+
+;;; ============================================================================
+;;; Error Handling
+;;; ============================================================================
+
+;;; Valid code that returns false (not an error)
+(bind [result (fol.repl:run-fol-string "false")]
+  (assert (not result) "run-fol-string evaluates false"))
+
+;;; Boolean true
+(bind [result (fol.repl:run-fol-string "true")]
+  (assert result "run-fol-string evaluates true"))
+

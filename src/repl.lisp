@@ -23,9 +23,10 @@
        ;; - is the form currently being evaluated
        (let ((- input))
          (handler-case
-             (let ((compiled (fol.compiler:compile-form input)))
+             (let* ((compiled (fol.compiler:compile-form input))
+                    (code (fol.compiler:compilation-result-code compiled)))
                ;; Eval the compiled CL code
-               (let ((values (multiple-value-list (eval compiled))))
+               (let ((values (multiple-value-list (eval code))))
 
                  ;; Update value history (/ // ///)
                  (shiftf /// // / values)
@@ -53,8 +54,9 @@
 
 (defun run-fol-string (string)
   "Compiles and runs a FOL string. Returns the result of evaluation."
-  (let ((compiled (compile-fol-string string)))
-    (eval compiled)))
+  (let* ((compiled (compile-fol-string string))
+         (code (fol.compiler:compilation-result-code compiled)))
+    (eval code)))
 
 (defun run-fol-file (path)
   "Compiles and runs a FOL file."
