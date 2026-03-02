@@ -1,0 +1,90 @@
+;;; Reader Tests
+;;;
+;;; Tests for fol.compiler.reader module.
+;;; Covers FOL readtable, collection literals, character literals, and numeric literals.
+
+;;; ============================================================================
+;;; Vector Literals
+;;; ============================================================================
+
+(assert (= [1 2 3] [1 2 3]) "vector literal reads correctly")
+(assert (<vector>? []) "[] is a vector")
+(assert (= [[1 2] [3 4]] [[1 2] [3 4]]) "nested vectors work")
+
+;;; ============================================================================
+;;; Dict Literals
+;;; ============================================================================
+
+(assert (= {:a 1} {:a 1}) "dict literal works")
+(assert (<dict>? {}) "{} is a dict")
+(assert (= {:a 1 :b 2} {:a 1 :b 2}) "dict with multiple entries")
+
+;;; ============================================================================
+;;; Set Literals
+;;; ============================================================================
+
+(assert (<set>? #{1 2 3}) "#{...} produces a set")
+(assert (= #{} #{}) "empty set works")
+(assert (contains? #{1 2 3} 1) "set contains element")
+
+;;; ============================================================================
+;;; Character Literals
+;;; ============================================================================
+
+(assert (= \a \a) "character literal \\a works")
+(assert (<char>? \z) "\\z is a character")
+(assert (= \space \space) "space character works")
+(assert (= \newline \newline) "named character \\newline works")
+
+;;; ============================================================================
+;;; Integer Literals
+;;; ============================================================================
+
+(assert (= 42 42) "decimal integer works")
+(assert (= 0xFF 255) "hexadecimal literal 0xFF works")
+(assert (= 0o10 8) "octal literal 0o10 works")
+
+;;; ============================================================================
+;;; Radix Literals
+;;; ============================================================================
+
+(assert (= 16rFF 255) "radix notation 16rFF works")
+(assert (= 2r1010 10) "radix notation 2r1010 works")
+
+;;; ============================================================================
+;;; Rational and Float Literals
+;;; ============================================================================
+
+(assert (= 3/2 3/2) "rational literal 3/2 works")
+(assert (= 3.14 3.14) "float literal 3.14 works")
+
+;;; ============================================================================
+;;; Keyword and String Literals
+;;; ============================================================================
+
+(assert (= :foo :foo) "keyword literal :foo works")
+(assert (<keyword>? :key) ":key is a keyword")
+(assert (= "hello" "hello") "string literal works")
+
+;;; ============================================================================
+;;; Symbol Literals
+;;; ============================================================================
+
+(assert (<symbol>? 'foo) "'foo is a symbol")
+(assert (= 'hello 'hello) "symbol works")
+
+;;; ============================================================================
+;;; Deref Syntax
+;;; ============================================================================
+
+(bind [a (atom 42)]
+  (assert (= @a 42) "@a dereferences atom"))
+
+;;; ============================================================================
+;;; Nested Literals
+;;; ============================================================================
+
+(assert (= [{:a 1}] [{:a 1}]) "vector of dicts works")
+(assert (= {:items [1 2]} {:items [1 2]}) "dict with vector works")
+(assert (= [:x :y] [:x :y]) "vector of keywords works")
+

@@ -117,6 +117,10 @@ Returns T on success; prints error details and returns NIL on failure."
       "FOL-level tests for primitives.lisp."
       (is (load-and-run-fol-test "primitives_test.fol")))
 
+(test reader
+      "FOL-level tests for reader.lisp."
+      (is (load-and-run-fol-test "reader_test.fol")))
+
 ;;; -------------------------------------------------------------------------
 ;;; Entry point
 ;;; -------------------------------------------------------------------------
