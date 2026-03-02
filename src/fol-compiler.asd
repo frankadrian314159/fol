@@ -22,6 +22,7 @@
                         (:file "primitives" :depends-on ("package"))
                         (:file "collection-primitives" :depends-on ("package"))
                         (:file "collections" :depends-on ("package" "collection-primitives"))
+                        (:file "transients" :depends-on ("package" "collections"))
                         (:file "primitive-functions" :depends-on ("package" "collections"))
                         (:file "ast" :depends-on ("package"))
                         (:file "destructure" :depends-on ("package"))
