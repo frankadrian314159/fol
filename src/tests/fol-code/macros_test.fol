@@ -239,3 +239,101 @@
 
 ;;; Combining cond-> with multiple operations
 (assert (= (cond-> 10 true (+ 5) true (* 2) true (- 5)) 25) "cond-> multiple threading")
+
+;;; ============================================================================
+;;; Conditional Macros - condp
+;;; ============================================================================
+
+(do
+  (assert (= (condp = 1 1 "one" 2 "two" 3 "three") "one") "condp matches first clause")
+  (assert (= (condp = 2 1 "one" 2 "two" 3 "three") "two") "condp matches middle clause")
+  (assert (= (condp = 3 1 "one" 2 "two" 3 "three") "three") "condp matches last clause")
+  (assert (= (condp = 5 1 "one" 2 "two" "default") "default") "condp falls through to default")
+  (assert (= (condp < 5 3 "lt-5" 10 "lt-10" "large") "lt-5") "condp with < predicate"))
+
+;;; ============================================================================
+;;; Loop Macros - while
+;;; ============================================================================
+
+(do
+  (def while-counter (atom 0))
+  (while (< @while-counter 3)
+    (swap! while-counter inc))
+  (assert (= @while-counter 3) "while loops until condition false")
+  (def while-zero (atom 0))
+  (while false
+    (swap! while-zero inc))
+  (assert (= @while-zero 0) "while with false condition does not execute body")
+  (def while-sum (atom 0))
+  (def while-i (atom 1))
+  (while (<= @while-i 4)
+    (swap! while-sum (fn [s] (+ s @while-i)))
+    (swap! while-i inc))
+  (assert (= @while-sum 10) "while accumulates 1+2+3+4=10"))
+
+;;; ============================================================================
+;;; Threading Macros - some-> and some->>
+;;; ============================================================================
+
+(do
+  (defn nil-fn [x] nil)
+  (assert (= (some-> 5 inc (* 2)) 12) "some-> chains non-nil values")
+  (assert (= (some-> nil inc (* 2)) nil) "some-> short-circuits on nil input")
+  (assert (= (some-> 5 nil-fn (* 2)) nil) "some-> short-circuits when step returns nil")
+  (assert (= (some-> 10 inc) 11) "some-> with single form")
+  (assert (= (some-> 42) 42) "some-> with no forms returns value")
+  (assert (= (some->> 5 (* 2) (+ 1)) 11) "some->> threads as last arg")
+  (assert (= (some->> nil (* 2) (+ 1)) nil) "some->> short-circuits on nil input")
+  (assert (= (some->> 5 nil-fn (* 2)) nil) "some->> short-circuits when step returns nil")
+  (assert (= (some->> 3 (* 4)) 12) "some->> with single form"))
+
+;;; ============================================================================
+;;; Resource Management - with-precision, with-local-vars
+;;; ============================================================================
+
+(do
+  (assert (= (with-precision 10 (+ 1 2)) 3) "with-precision evaluates body")
+  (assert (= (with-precision 5 (* 6 7)) 42) "with-precision returns body value")
+  (def local-vars-result
+    (with-local-vars [x 10 y 20]
+      (reset! x (+ @x @y))
+      @x))
+  (assert (= local-vars-result 30) "with-local-vars creates mutable atom bindings")
+  (def local-vars-result2
+    (with-local-vars [a 5 b 3]
+      (swap! a (fn [v] (* v @b)))
+      @a))
+  (assert (= local-vars-result2 15) "with-local-vars independent bindings multiply correctly"))
+
+;;; ============================================================================
+;;; Resource Management - with-out-str, with-in-str
+;;; ============================================================================
+
+(do
+  (def captured (with-out-str (print "hello")))
+  (assert (not (nil? captured)) "with-out-str returns a non-nil string")
+  (assert (includes? captured "hello") "with-out-str captures print output")
+  (def captured2 (with-out-str (println "world")))
+  (assert (includes? captured2 "world") "with-out-str captures println output")
+  (def captured-empty (with-out-str nil))
+  (assert (= captured-empty "") "with-out-str returns empty string for no output")
+  (def line-from-str (with-in-str "hello world" (read-line)))
+  (assert (= line-from-str "hello world") "with-in-str binds *in* to string input"))
+
+;;; ============================================================================
+;;; Utility Macros - time, lazy-cat, doc
+;;; ============================================================================
+
+(do
+  (assert (= (time (+ 1 2)) 3) "time returns body result")
+  (assert (= (time (* 6 7)) 42) "time returns correct arithmetic result")
+  (assert (= (count (lazy-cat [1 2] [3 4])) 4) "lazy-cat concatenates two vectors")
+  (assert (= (first (lazy-cat [1 2] [3 4])) 1) "lazy-cat first element")
+  (assert (= (nth (lazy-cat [1 2] [3 4]) 2) 3) "lazy-cat crosses boundary correctly")
+  (assert (= (count (lazy-cat [] [1 2 3])) 3) "lazy-cat with empty first collection")
+  (assert (= (count (lazy-cat [1 2] [])) 2) "lazy-cat with empty second collection")
+  (assert (= (count (lazy-cat [1] [2] [3])) 3) "lazy-cat with three collections")
+  (def undoc-sym 42)
+  (assert (= (doc undoc-sym) nil) "doc returns nil for symbol without metadata")
+  (alter-meta! 'doc-test-sym (fn [m] {:doc "a test symbol"}))
+  (assert (= (doc doc-test-sym) "a test symbol") "doc retrieves :doc from metadata"))

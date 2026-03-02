@@ -1016,7 +1016,9 @@
   (let ((name (fol.compiler.ast:symbol-ref-node-name node)))
     (cond
      ;; Lexical variables: always in value namespace
-     ((cl:member name *lexical-vars*) name)
+     ((cl:member name *lexical-vars*)
+       ;; (cl:format cl:t ";; DEBUG: Found lexical var ~S (~S) in ~S~%" name (cl:symbol-package name) *lexical-vars*)
+       name)
      ;; Constants (T, NIL, keywords, etc.): self-evaluating
      ((cl:constantp name) name)
      ;; CL package symbols: use as-is
@@ -1027,6 +1029,7 @@
        `(cl:function ,name))
      ;; Default: emit bare symbol, track for SPECIAL declaration
      (t
+       ;; (cl:format cl:t ";; DEBUG: NOT FOUND lexical var ~S (~S) in ~S~%" name (cl:symbol-package name) *lexical-vars*)
        (pushnew name *extra-special-vars*)
        name))))
 
@@ -1563,11 +1566,11 @@
          (emitted-body (mapcar #'emit-node body)))
     (let ((defmacro-form `(cl:defmacro ,name ,cl-lambda-list ,@emitted-body))
           (metadata-form (when docstring
-                           `(fol.compiler.metadata:alter-meta! (quote ,name)
-                              (fn [m] (fol.compiler.collection-functions:merge m
-                                        (fol.compiler.collection-functions:dict
-                                         :doc ,docstring
-                                         :name (quote ,name))))))))
+                               `(fol.compiler.metadata:alter-meta! (quote ,name)
+                                                                   (fn [m] (fol.compiler.collection-functions:merge m
+                                                                                                                    (fol.compiler.collection-functions:dict
+                                                                                                                     :doc ,docstring
+                                                                                                                     :name (quote ,name))))))))
       (if metadata-form
           `(cl:progn ,defmacro-form ,metadata-form)
           defmacro-form))))
@@ -1727,12 +1730,12 @@
                ;; Multi-pattern: create internal generics + dispatcher
                (emit-defgeneric-multi-pattern name lambda-lists options)))
           (metadata-form (when docstring
-                           `(fol.compiler.metadata:alter-meta! (quote ,name)
-                              (fn [m] (fol.compiler.collection-functions:merge m
-                                        (fol.compiler.collection-functions:dict
-                                         :doc ,docstring
-                                         :arglists ,(list 'quote lambda-lists)
-                                         :name (quote ,name))))))))
+                               `(fol.compiler.metadata:alter-meta! (quote ,name)
+                                                                   (fn [m] (fol.compiler.collection-functions:merge m
+                                                                                                                    (fol.compiler.collection-functions:dict
+                                                                                                                     :doc ,docstring
+                                                                                                                     :arglists ,(list 'quote lambda-lists)
+                                                                                                                     :name (quote ,name))))))))
       (if metadata-form
           `(cl:progn ,defgeneric-form ,metadata-form)
           defgeneric-form))))
@@ -1948,29 +1951,29 @@
                                          (and (listp p)
                                               (= (length p) 2)
                                               (symbolp (second p)))))
-                                   param-list))
+                                param-list))
                        ;; All type specializers: emit proper CLOS defmethod with class specializers.
                        ;; Add &rest kvps for lambda-list congruence with generics like assoc.
                        (let* ((kvps-sym 'kvps)
                               (clos-lambda-list
                                (append
-                                (mapcar (lambda (p)
-                                          (if (listp p)
-                                              (list (first p) (second p))
-                                              p))
-                                        param-list)
-                                (list '&rest kvps-sym)))
+                                 (mapcar (lambda (p)
+                                           (if (listp p)
+                                               (list (first p) (second p))
+                                               p))
+                                     param-list)
+                                 (list '&rest kvps-sym)))
                               (param-names
                                (mapcar (lambda (p)
                                          (if (listp p) (first p) p))
-                                       param-list))
+                                   param-list))
                               (emitted-body (mapcar #'emit-node body-nodes))
                               ;; Declare only the actual method params special.
                               ;; *extra-special-vars* may contain function-name symbols
                               ;; added by collection-as-function dispatch (e.g. NUMBER?)
                               ;; which must NOT appear in DECLARE SPECIAL.
                               (all-special (remove-duplicates
-                                            (append param-names (list kvps-sym)))))
+                                               (append param-names (list kvps-sym)))))
                          (if qualifier
                              `(defmethod ,name ,qualifier ,clos-lambda-list
                                 (declare (special ,@all-special) (ignore ,kvps-sym))
@@ -2003,10 +2006,10 @@
         (if docstring
             (let ((metadata-form
                    `(fol.compiler.metadata:alter-meta! (quote ,name)
-                      (fn [m] (fol.compiler.collection-functions:merge m
-                                (fol.compiler.collection-functions:dict
-                                 :doc ,docstring
-                                 :name (quote ,name)))))))
+                                                       (fn [m] (fol.compiler.collection-functions:merge m
+                                                                                                        (fol.compiler.collection-functions:dict
+                                                                                                         :doc ,docstring
+                                                                                                         :name (quote ,name)))))))
               `(progn ,method-form ,metadata-form))
             method-form)))))
 
@@ -2016,7 +2019,7 @@
         (value (fol.compiler.ast:def-node-value node)))
     (pushnew name *extra-special-vars*)
     (if value
-        `(cl:defvar ,name ,(emit-node value))
+        `(cl:defparameter ,name ,(emit-node value))
         `(cl:defvar ,name))))
 
 (defun emit-defdynamic (node)
@@ -2063,15 +2066,15 @@
   (let ((metadata-entries nil))
     ;; Add docstring if present
     (when docstring
-      (push `:doc metadata-entries)
-      (push docstring metadata-entries))
+          (push `:doc metadata-entries)
+          (push docstring metadata-entries))
     ;; Add arglists from clauses (convert param vectors to lists)
     (let ((arglists (mapcar (lambda (clause)
                               (let ((params (car clause)))
                                 (if (fol-vector-p params)
                                     (fol-vector-to-list params)
                                     params)))
-                            clauses)))
+                        clauses)))
       (push `:arglists metadata-entries)
       (push arglists metadata-entries))
     ;; Add function name
@@ -2084,12 +2087,12 @@
   "Emit code to set metadata on a function symbol.
    Returns the metadata assignment form, or nil if no metadata."
   (when docstring
-    (let ((metadata-dict (build-function-metadata name docstring clauses)))
-      `(fol.compiler.metadata:alter-meta! (quote ,name)
-         (lambda (m)
-           (if m
-               (fol.compiler.collection-functions:merge m ,metadata-dict)
-               ,metadata-dict))))))
+        (let ((metadata-dict (build-function-metadata name docstring clauses)))
+          `(fol.compiler.metadata:alter-meta! (quote ,name)
+                                              (lambda (m)
+                                                (if m
+                                                    (fol.compiler.collection-functions:merge m ,metadata-dict)
+                                                    ,metadata-dict))))))
 
 (defun emit-defn (node)
   "Emit a defn node as (defun name ...).

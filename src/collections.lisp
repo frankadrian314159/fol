@@ -2104,6 +2104,9 @@
   (+ (collection-size (deque-front d))
      (collection-size (deque-rear d))))
 
+(defmethod size ((d <deque>))
+  (collection-size d))
+
 (defmethod ref ((d <deque>) index &optional not-found)
   (collection-ref d index not-found))
 

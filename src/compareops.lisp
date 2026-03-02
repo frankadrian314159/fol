@@ -37,14 +37,14 @@
   (eq a b))
 
 (defmethod %= ((a cons) (b cons))
-  (and (%= (car a) (car b))
-       (%= (cdr a) (cdr b))))
+  (or (eq a b)
+      (and (%= (car a) (car b))
+           (%= (cdr a) (cdr b)))))
 
-;;; --- Default: not equal ---
+;;; --- Default: identity ---
 
 (defmethod %= (a b)
-  (declare (ignore a b))
-  nil)
+  (eq a b))
 
 ;;; ============================================================================
 ;;; Generic Inequality (%/=)
@@ -236,7 +236,7 @@
             for a = (car rest)
             for b = (cadr rest)
             while (cdr rest)
-            always (%= a b))))
+              always (%= a b))))
 
 (defun /= (&rest args)
   "Returns T if no two arguments are equal."
@@ -254,7 +254,7 @@
             for a = (car rest)
             for b = (cadr rest)
             while (cdr rest)
-            always (%< a b))))
+              always (%< a b))))
 
 (defun > (&rest args)
   "Returns T if arguments are strictly decreasing."
@@ -264,7 +264,7 @@
             for a = (car rest)
             for b = (cadr rest)
             while (cdr rest)
-            always (%> a b))))
+              always (%> a b))))
 
 (defun <= (&rest args)
   "Returns T if arguments are non-decreasing."
@@ -274,7 +274,7 @@
             for a = (car rest)
             for b = (cadr rest)
             while (cdr rest)
-            always (%<= a b))))
+              always (%<= a b))))
 
 (defun >= (&rest args)
   "Returns T if arguments are non-increasing."
@@ -284,7 +284,7 @@
             for a = (car rest)
             for b = (cadr rest)
             while (cdr rest)
-            always (%>= a b))))
+              always (%>= a b))))
 
 ;;; ============================================================================
 ;;; Min and Max

@@ -1,7 +1,0 @@
-(let ((quicklisp-init (merge-pathnames "quicklisp/setup.lisp" (user-homedir-pathname))))
-  (if (probe-file quicklisp-init)
-      (load quicklisp-init)
-      (format t "Quicklisp not found at ~S~%" quicklisp-init)))
-(require 'asdf)
-(push #p"c:/Users/frank/Projects/FOL/fol/src/" asdf:*central-registry*)
-(asdf:test-system :fol-compiler)

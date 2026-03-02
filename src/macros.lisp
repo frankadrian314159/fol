@@ -322,18 +322,18 @@
 (defmacro with-in-str (s &body body)
   "Evaluates body with *in* bound to a fresh string input stream initialized with string s."
   (let ((stream (gensym "STREAM-")))
-    `(let ((,stream (fol.compiler.streams:string-input-stream ,s)))
-       (let ((fol.compiler.streams:*in* ,stream))
-         ,@body))))
+    `(bind ,(cl:list stream `(fol.compiler.streams:string-input-stream ,s))
+           (binding ,(cl:list 'fol.compiler.streams:*in* stream)
+                    ,@body))))
 
 (defmacro with-out-str (&body body)
   "Evaluates body with *out* bound to a fresh string output stream.
    Returns the string created by any output during body."
   (let ((stream (gensym "STREAM-")))
-    `(let ((,stream (fol.compiler.streams:string-output-stream)))
-       (let ((fol.compiler.streams:*out* ,stream))
-         ,@body
-         (fol.compiler.streams:get-output-string ,stream)))))
+    `(bind ,(cl:list stream '(fol.compiler.streams:string-output-stream))
+           (binding ,(cl:list 'fol.compiler.streams:*out* stream)
+                    ,@body
+                    (fol.compiler.streams:get-output-string ,stream)))))
 
 (defmacro with-precision (precision &body body)
   "Sets the precision for floating point operations within body.
@@ -344,9 +344,9 @@
 (defmacro with-local-vars (bindings &body body)
   "Creates local mutable variables for use within body.
    bindings is a list of [name initial-value ...] pairs."
-  (cl:let ((pairs (cl:loop for (var val) on (cl:coerce bindings 'cl:list) by #'cl:cddr
+  (cl:let ((pairs (cl:loop for (var val) on (ensure-list bindings) by #'cl:cddr
                   collect (cl:list var val))))
-    `(bind ,(cl:apply #'cl:list (cl:mapcan (cl:lambda (pair) (cl:list (cl:first pair) `(atom ,(cl:second pair)))) pairs))
+    `(bind ,(cl:apply #'cl:list (cl:mapcan (cl:lambda (pair) (cl:list (cl:first pair) `(fol.compiler.mutable:atom ,(cl:second pair)))) pairs))
            ,@body)))
 
 ;;; ===========================================================================
@@ -383,13 +383,12 @@
 (defmacro doc (name)
   "Returns the documentation string for name (looks up metadata).
    Expands to a call to the doc function."
-  `(fol.compiler.metadata:doc ',name))
+  `(cl:funcall 'fol.compiler.metadata:doc ',name))
 
 (defmacro lazy-cat (&rest colls)
   "Returns a lazy sequence representing the concatenation of colls.
-   Note: This is an eager implementation using apply/concat.
-   Requires concat to be implemented."
-  `(concat ,@colls))
+   Note: This is an eager implementation using concat."
+  `(fol.compiler.seq-functions:concat ,@colls))
 
 (defmacro delay (&body body)
   "Creates a delay object that will evaluate body on first deref.

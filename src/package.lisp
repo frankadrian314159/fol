@@ -295,29 +295,27 @@
 
 (defpackage fol.compiler.collections
   (:use cl)
-  (:shadow vector set list array-dimension first rest get dissoc merge count conj size empty?)
+  (:shadow vector set list array-dimension first rest get merge count)
   (:import-from fol.compiler.primitives make)
   (:import-from fol.compiler.persistent persistent-class)
   (:shadowing-import-from fol.compiler.collection-primitives
-                          assoc ref seq storage
+                          assoc dissoc conj size ref empty? seq storage
                           %t-count %t-root %t-shift %t-tail
                           %f64-count %f64-root %f64-shift %f64-tail
                           %f32-count %f32-root %f32-shift %f32-tail
                           %fix64-count %fix64-root %fix64-shift %fix64-tail
-                          btree-bulk-load %int-compare)
-  (:shadowing-import-from fol.compiler.collection-primitives
-                          dict-storage sorted-dict-storage storage-items)
-  (:import-from fol.compiler.collection-primitives
-                <vec-t-storage-mixin> <vec-f64-storage-mixin> <vec-f32-storage-mixin>
-                <vec-fix64-storage-mixin> <collection-storage>
-                <dict-mixin> <sorted-dict-mixin> kv-conj
-                %vec-t %vec-f64 %vec-f32 %vec-fix64
-                %make-filled-vec-f64 %make-filled-vec-f32 %make-filled-vec-t %make-filled-vec-fix64
-                %make-hamt hamt-bulk-load hamt-assoc %column-major-idx
-                %storage-items
-                %build-vec-t-from-list %vec-t-push %vec-t-iterator
-                hamt-dissoc btree-dict-root
-                +branch-factor+ +bit-mask+ +bit-shift+)
+                          btree-bulk-load %int-compare
+                          dict-storage sorted-dict-storage storage-items
+                          <vec-t-storage-mixin> <vec-f64-storage-mixin> <vec-f32-storage-mixin>
+                          <vec-fix64-storage-mixin> <collection-storage>
+                          <dict-mixin> <sorted-dict-mixin> kv-conj
+                          %vec-t %vec-f64 %vec-f32 %vec-fix64
+                          %make-filled-vec-f64 %make-filled-vec-f32 %make-filled-vec-t %make-filled-vec-fix64
+                          %make-hamt hamt-bulk-load hamt-assoc %column-major-idx
+                          %storage-items
+                          %build-vec-t-from-list %vec-t-push %vec-t-iterator
+                          hamt-dissoc btree-dict-root
+                          +branch-factor+ +bit-mask+ +bit-shift+)
   (:shadowing-import-from fol.compiler.compareops < > %= %/=)
   (:export
    ;; Base class
@@ -476,11 +474,12 @@
 
 (defpackage fol.compiler.collection-functions
   (:use cl)
-  (:shadow vector set list list* nth push pop union intersection difference subseq find assoc)
+  (:shadow vector set list list* nth push pop union intersection difference subseq find assoc
+           conj size empty? count update merge)
   (:shadowing-import-from fol.compiler.compareops %= %/=)
   (:shadowing-import-from fol.compiler.collections
                           ;; Import high-level accessors that are defined in collections
-                          first rest get dissoc conj size empty? count update merge)
+                          first rest get)
   (:import-from fol.compiler.collections
                 ;; Constructor generic
                 make
@@ -1049,7 +1048,8 @@
                           vector set list list* nth push pop
                           dict bag deque ordered-dict ordered-set sorted-set sorted-dict
                           int-set int-dict priority-dict dense-int-set
-                          first rest get assoc count merge
+                          first rest get assoc dissoc conj update count merge
+                          empty?
                           find subseq
                           union intersection
                           size)

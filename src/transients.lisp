@@ -79,83 +79,85 @@
 ;;; ===========================================================================
 
 (defmethod transient ((v <vector>))
-  (%make-transient-vector (nreverse (coerce v 'list))))
-
-(defmethod conj! ((tv cons) val)
-  (when (eq (car tv) :transient-vector)
-    (push val (cdr tv)))
-  tv)
-
-(defmethod pop! ((tv cons))
-  (when (and (eq (car tv) :transient-vector) (cdr tv))
-    (pop (cdr tv)))
-  tv)
-
-(defmethod persistent! ((tv cons))
-  (when (eq (car tv) :transient-vector)
-    ;; Use make with the elements to create a persistent vector
-    (return-from persistent! (apply #'fol.compiler.collection-functions:vector (nreverse (cdr tv)))))
-  tv)
-
-;;; ===========================================================================
-;;; Dict Transients
-;;; ===========================================================================
+  ;; Store elements in reverse order so conj! (push) adds to the "end" logically
+  ;; and persistent! (nreverse) restores original order + additions.
+  (%make-transient-vector (nreverse (collection-seq v))))
 
 (defmethod transient ((d <dict>))
   (let ((tv (%make-transient-dict (make-hash-table :test 'equal))))
     ;; Copy existing entries from dict to hash-table
     (fol.compiler.collection-primitives:do-hamt (k v (dict-storage d))
-      (setf (gethash k (cdr tv)) v))
+                                                (setf (gethash k (cdr tv)) v))
     tv))
-
-(defmethod assoc! ((td cons) key val)
-  (when (eq (car td) :transient-dict)
-    (setf (gethash key (cdr td)) val))
-  td)
-
-(defmethod dissoc! ((td cons) key)
-  (when (eq (car td) :transient-dict)
-    (remhash key (cdr td)))
-  td)
-
-(defmethod persistent! ((td cons))
-  (when (eq (car td) :transient-dict)
-    (let ((flat-list nil))
-      (maphash (lambda (k v)
-                 (push v flat-list)
-                 (push k flat-list))
-               (cdr td))
-      (return-from persistent! (make-instance '<dict> :dict-storage (fol.compiler.collection-primitives:hamt-bulk-load flat-list)))))
-  td)
-
-;;; ===========================================================================
-;;; Set Transients
-;;; ===========================================================================
 
 (defmethod transient ((s <set>))
   (let ((ts (%make-transient-set (make-hash-table :test 'equal))))
     ;; Copy existing elements from set to hash-table
     (fol.compiler.collection-primitives:do-hamt (k v (dict-storage s))
-      (declare (ignore v))
-      (setf (gethash k (cdr ts)) t))
+                                                (declare (ignore v))
+                                                (setf (gethash k (cdr ts)) t))
     ts))
 
-(defmethod conj! ((ts cons) val)
-  (when (eq (car ts) :transient-set)
-    (setf (gethash val (cdr ts)) t))
-  ts)
+(defmethod persistent! ((tv cons))
+  (case (car tv)
+    (:transient-vector
+     (let ((elements (nreverse (cdr tv))))
+       (make-instance '<vector>
+         :storage (fol.compiler.collection-primitives:%build-vec-t-from-list elements))))
+    (:transient-dict
+     (let ((flat-list nil))
+       (maphash (lambda (k v)
+                  (push k flat-list)
+                  (push v flat-list))
+                (cdr tv))
+       (make-instance '<dict>
+         :dict-storage (fol.compiler.collection-primitives:hamt-bulk-load (nreverse flat-list)))))
+    (:transient-set
+     (let ((flat-list nil))
+       (maphash (lambda (k v)
+                  (declare (ignore v))
+                  (push k flat-list)
+                  (push k flat-list))
+                (cdr tv))
+       (make-instance '<set>
+         :dict-storage (fol.compiler.collection-primitives:hamt-bulk-load (nreverse flat-list)))))
+    (t tv)))
+
+(defmethod conj! ((tv cons) val)
+  (case (car tv)
+    (:transient-vector
+     (push val (cdr tv)))
+    (:transient-set
+     (setf (gethash val (cdr tv)) t))
+    (t (error "conj! not supported for transient ~A" (car tv))))
+  tv)
+
+(defmethod pop! ((tv cons))
+  (case (car tv)
+    (:transient-vector
+     (if (cdr tv)
+         (pop (cdr tv))
+         (error "pop! from empty transient vector")))
+    (t (error "pop! not supported for transient ~A" (car tv))))
+  tv)
+
+(defmethod assoc! ((td cons) key val)
+  (case (car td)
+    (:transient-dict
+     (setf (gethash key (cdr td)) val))
+    (t (error "assoc! not supported for transient ~A" (car td))))
+  td)
+
+(defmethod dissoc! ((td cons) key)
+  (case (car td)
+    (:transient-dict
+     (remhash key (cdr td)))
+    (t (error "dissoc! not supported for transient ~A" (car td))))
+  td)
 
 (defmethod disj! ((ts cons) val)
-  (when (eq (car ts) :transient-set)
-    (remhash val (cdr ts)))
-  ts)
-
-(defmethod persistent! ((ts cons))
-  (when (eq (car ts) :transient-set)
-    (let ((flat-list nil))
-      (maphash (lambda (k _)
-                 (push k flat-list)
-                 (push k flat-list))
-               (cdr ts))
-      (return-from persistent! (make-instance '<set> :dict-storage (fol.compiler.collection-primitives:hamt-bulk-load flat-list)))))
+  (case (car ts)
+    (:transient-set
+     (remhash val (cdr ts)))
+    (t (error "disj! not supported for transient ~A" (car ts))))
   ts)
