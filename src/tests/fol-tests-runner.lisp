@@ -121,6 +121,10 @@ Returns T on success; prints error details and returns NIL on failure."
       "FOL-level tests for reader.lisp."
       (is (load-and-run-fol-test "reader_test.fol")))
 
+(test relational
+      "FOL-level tests for relational.lisp."
+      (is (load-and-run-fol-test "relational_test.fol")))
+
 ;;; -------------------------------------------------------------------------
 ;;; Entry point
 ;;; -------------------------------------------------------------------------

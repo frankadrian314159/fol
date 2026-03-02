@@ -1,0 +1,83 @@
+;;; Relational Tests
+;;;
+;;; Tests for fol.compiler.relational module.
+;;; Covers relational algebra operations like project, rename, index, and diff.
+
+;;; ============================================================================
+;;; Project - Select specific keys from maps in a set
+;;; ============================================================================
+
+;;; Project single key from set of maps
+(bind [data #{{:a 1 :b 2 :c 3} {:a 4 :b 5 :c 6}}]
+  (bind [projected (fol.compiler.relational:project data [:a])]
+    (assert (<set>? projected) "project returns a set")
+    (assert (= (count projected) 2) "projected set has 2 elements")))
+
+;;; Project multiple keys from set of maps
+(bind [data #{{:id 1 :name "Alice" :age 30} {:id 2 :name "Bob" :age 25}}]
+  (bind [projected (fol.compiler.relational:project data [:id :name])]
+    (assert (<set>? projected) "project multiple keys returns set")
+    (assert (= (count projected) 2) "projected set maintains element count")))
+
+;;; ============================================================================
+;;; Rename - Rename keys in maps in a set
+;;; ============================================================================
+
+;;; Rename single key in maps
+(bind [data #{{:a 1 :b 2} {:a 3 :b 4}}]
+  (bind [renamed (fol.compiler.relational:rename data {:a :x})]
+    (assert (<set>? renamed) "rename returns a set")
+    (assert (= (count renamed) 2) "renamed set preserves element count")))
+
+;;; Rename multiple keys
+(bind [data #{{:old-a 1 :old-b 2} {:old-a 3 :old-b 4}}]
+  (bind [renamed (fol.compiler.relational:rename data {:old-a :new-a :old-b :new-b})]
+    (assert (<set>? renamed) "multi-key rename returns set")
+    (assert (= (count renamed) 2) "multi-key rename preserves count")))
+
+;;; ============================================================================
+;;; Diff - Recursive diff of data structures
+;;; ============================================================================
+
+;;; Diff equal scalars
+(bind [result (fol.compiler.relational:diff 42 42)]
+  (assert (<vector>? result) "diff returns vector")
+  (assert (= (count result) 3) "diff result has 3 elements [a-only b-only both]"))
+
+;;; Diff unequal scalars
+(bind [result (fol.compiler.relational:diff 1 2)]
+  (assert (<vector>? result) "diff of scalars returns vector"))
+
+;;; Diff equal dicts
+(bind [result (fol.compiler.relational:diff {:a 1} {:a 1})]
+  (assert (<vector>? result) "diff of equal dicts returns vector"))
+
+;;; Diff dicts with different values
+(bind [result (fol.compiler.relational:diff {:a 1 :b 2} {:a 1 :b 3})]
+  (assert (<vector>? result) "diff of dicts with different values returns vector"))
+
+;;; Diff equal sets
+(bind [result (fol.compiler.relational:diff #{1 2 3} #{1 2 3})]
+  (assert (<vector>? result) "diff of equal sets returns vector"))
+
+;;; Diff sets with different elements
+(bind [result (fol.compiler.relational:diff #{1 2 3} #{2 3 4})]
+  (assert (<vector>? result) "diff of different sets returns vector"))
+
+;;; Diff empty collections
+(bind [result (fol.compiler.relational:diff #{} #{})]
+  (assert (<vector>? result) "diff of empty equal sets returns vector"))
+
+(bind [result (fol.compiler.relational:diff {} {})]
+  (assert (<vector>? result) "diff of empty equal dicts returns vector"))
+
+;;; ============================================================================
+;;; Combined Operations
+;;; ============================================================================
+
+;;; Project then rename
+(bind [data #{{:a 1 :b 2 :c 3} {:a 4 :b 5 :c 6}}]
+  (bind [projected (fol.compiler.relational:project data [:a :b])]
+    (bind [renamed (fol.compiler.relational:rename projected {:a :x :b :y})]
+      (assert (<set>? renamed) "project then rename returns set"))))
+
