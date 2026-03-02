@@ -103,7 +103,10 @@
      (<dict>? (ordered-dict :a 1))  => T
      (<dict>? (vector 1 2 3))       => NIL
      (<dict>? 42)                   => NIL"
-  (typep obj 'fol.compiler.collections:<dict>))
+  ;; Check if it's a dict type or a dict subclass by checking against dict-mixin
+  ;; but excluding set types
+  (and (typep obj 'fol.compiler.collection-primitives:<dict-mixin>)
+       (not (typep obj 'fol.compiler.collections:<set>))))
 
 (defun <vector>? (obj)
   "Returns true if OBJ is a FOL vector.

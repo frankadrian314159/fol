@@ -36,6 +36,25 @@
     (assert (= (count renamed) 2) "multi-key rename preserves count")))
 
 ;;; ============================================================================
+;;; Index - Group and index maps by key combinations
+;;; ============================================================================
+
+;;; Index by single key
+(bind [data #{{:category "A" :value 1} {:category "B" :value 2} {:category "A" :value 3}}]
+  (bind [indexed (fol.compiler.relational:index data [:category])]
+    (assert (<dict>? indexed) "index returns a dict")))
+
+;;; Index with all same values
+(bind [data #{{:tag "X" :val 1} {:tag "X" :val 2}}]
+  (bind [indexed (fol.compiler.relational:index data [:tag])]
+    (assert (<dict>? indexed) "index with repeated key returns dict")))
+
+;;; Index on different values
+(bind [data #{{:x 1 :y 2} {:x 1 :y 3} {:x 2 :y 2}}]
+  (bind [indexed (fol.compiler.relational:index data [:x])]
+    (assert (<dict>? indexed) "index on different values returns dict")))
+
+;;; ============================================================================
 ;;; Diff - Recursive diff of data structures
 ;;; ============================================================================
 
@@ -80,4 +99,9 @@
   (bind [projected (fol.compiler.relational:project data [:a :b])]
     (bind [renamed (fol.compiler.relational:rename projected {:a :x :b :y})]
       (assert (<set>? renamed) "project then rename returns set"))))
+
+;;; Index and check structure
+(bind [data #{{:x 1 :y 2} {:x 1 :y 3} {:x 2 :y 2}}]
+  (bind [indexed (fol.compiler.relational:index data [:x])]
+    (assert (<dict>? indexed) "index on different values returns dict")))
 
