@@ -1,0 +1,67 @@
+;;; Primitives Tests
+;;;
+;;; Tests for fol.compiler.primitives module.
+;;; Covers primitive constants and basic functionality.
+
+;;; ============================================================================
+;;; Boolean Primitive Constants
+;;; ============================================================================
+
+;;; Test that true and false constants are defined and work correctly
+(assert (= 1 (if fol.compiler.primitives:true 1 2)) "true is truthy")
+(assert (= 2 (if fol.compiler.primitives:false 1 2)) "false is falsey")
+(assert (nil? fol.compiler.primitives:false) "false is nil")
+
+;;; ============================================================================
+;;; Constants in Binding Context
+;;; ============================================================================
+
+;;; Test operations with true/false constants
+(bind [tval fol.compiler.primitives:true
+       fval fol.compiler.primitives:false]
+  (assert tval "true constant is truthy")
+  (assert (not fval) "false constant is falsey")
+  (assert (nil? fval) "false is nil")
+  (assert (not (nil? tval)) "true is not nil"))
+
+;;; ============================================================================
+;;; Constants are Distinct
+;;; ============================================================================
+
+;;; Verify that true and false are different values
+(assert (not (= fol.compiler.primitives:true fol.compiler.primitives:false))
+        "true and false are different")
+
+;;; ============================================================================
+;;; Boolean Operations with Constants
+;;; ============================================================================
+
+;;; Test boolean logic with the constants
+(bind [tval fol.compiler.primitives:true
+       fval fol.compiler.primitives:false]
+  (assert (= 1 (if tval 1 0)) "if with true")
+  (assert (= 0 (if fval 1 0)) "if with false")
+  (assert (and tval (not fval)) "and with true/false")
+  (assert (or fval tval) "or with false/true"))
+
+;;; ============================================================================
+;;; Type Predicates on Primitive Values
+;;; ============================================================================
+
+;;; Test type predicates from primitive-functions work with primitives
+(assert (fol.compiler.primitive-functions:<number>? 42) "42 is a number")
+(assert (fol.compiler.primitive-functions:<integer>? 42) "42 is an integer")
+(assert (fol.compiler.primitive-functions:<string>? "hello") "string is a string")
+(assert (fol.compiler.primitive-functions:<char>? \a) "character is a char")
+(assert (fol.compiler.primitive-functions:<keyword>? :key) "keyword is a keyword")
+
+;;; ============================================================================
+;;; Nil Handling
+;;; ============================================================================
+
+;;; Test that nil/false behavior is consistent
+(assert (nil? nil) "nil? returns true for nil")
+(assert (nil? fol.compiler.primitives:false) "false (nil) satisfies nil?")
+(assert (some? 0) "0 is not nil (truthy)")
+(assert (not (some? fol.compiler.primitives:false)) "false is not truthy")
+

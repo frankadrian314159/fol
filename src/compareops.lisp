@@ -232,9 +232,11 @@
   "Returns T if all arguments are equal."
   (or (null args)
       (null (cdr args))
-      (loop for (a b) on args
-            while b
-              always (%= a b))))
+      (loop for rest on args
+            for a = (car rest)
+            for b = (cadr rest)
+            while (cdr rest)
+            always (%= a b))))
 
 (defun /= (&rest args)
   "Returns T if no two arguments are equal."
@@ -248,33 +250,41 @@
   "Returns T if arguments are strictly increasing."
   (or (null args)
       (null (cdr args))
-      (loop for (a b) on args
-            while b
-              always (%< a b))))
+      (loop for rest on args
+            for a = (car rest)
+            for b = (cadr rest)
+            while (cdr rest)
+            always (%< a b))))
 
 (defun > (&rest args)
   "Returns T if arguments are strictly decreasing."
   (or (null args)
       (null (cdr args))
-      (loop for (a b) on args
-            while b
-              always (%> a b))))
+      (loop for rest on args
+            for a = (car rest)
+            for b = (cadr rest)
+            while (cdr rest)
+            always (%> a b))))
 
 (defun <= (&rest args)
   "Returns T if arguments are non-decreasing."
   (or (null args)
       (null (cdr args))
-      (loop for (a b) on args
-            while b
-              always (%<= a b))))
+      (loop for rest on args
+            for a = (car rest)
+            for b = (cadr rest)
+            while (cdr rest)
+            always (%<= a b))))
 
 (defun >= (&rest args)
   "Returns T if arguments are non-increasing."
   (or (null args)
       (null (cdr args))
-      (loop for (a b) on args
-            while b
-              always (%>= a b))))
+      (loop for rest on args
+            for a = (car rest)
+            for b = (cadr rest)
+            while (cdr rest)
+            always (%>= a b))))
 
 ;;; ============================================================================
 ;;; Min and Max

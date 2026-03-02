@@ -20,7 +20,7 @@
 ;;; if-not - if test is false then then; else else
 (assert (= (if-not true 42 99) 99) "if-not true goes to else")
 (assert (= (if-not false 42 99) 42) "if-not false goes to then")
-(assert (= (if-not false 42) nil) "if-not false without else returns result")
+(assert (= (if-not false 42) 42) "if-not false without else returns then-clause")
 
 ;;; ============================================================================
 ;;; Binding Macros - when-let
