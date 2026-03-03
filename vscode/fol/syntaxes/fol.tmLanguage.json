@@ -1,0 +1,105 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "FOL",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#constants"
+    },
+    {
+      "include": "#keywords"
+    },
+    {
+      "include": "#types"
+    },
+    {
+      "include": "#declarations"
+    },
+    {
+      "include": "#functions"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "match": ";.*$",
+          "name": "comment.line.semicolon.fol"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "begin": "\"",
+          "end": "\"",
+          "name": "string.quoted.double.fol",
+          "patterns": [
+            {
+              "match": "\\\\.",
+              "name": "constant.character.escape.fol"
+            }
+          ]
+        }
+      ]
+    },
+    "constants": {
+      "patterns": [
+        {
+          "match": "\\b(true|false|nil)\\b",
+          "name": "constant.language.fol"
+        },
+        {
+          "match": "(?<![\\w\\-])[-+]?\\d+(\\.\\d+)?([eE][-+]?\\d+)?\\b",
+          "name": "constant.numeric.fol"
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "match": "(?<=(\\s|\\(|\\[|\\{)):[\\w\\.\\-\\_\\+\\=\\>\\<\\!\\?\\*]+(?=(\\s|\\)|\\]|\\}|\\,))",
+          "name": "constant.keyword.fol"
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "match": "\\<[\\w\\.\\-\\_]+\\>",
+          "name": "entity.name.type.fol"
+        }
+      ]
+    },
+    "declarations": {
+      "patterns": [
+        {
+          "match": "(?<=\\()(defclass|defgeneric|defmethod|defn|defmacro|def)\\b",
+          "name": "keyword.control.declaration.fol"
+        },
+        {
+          "match": "(?<=\\()(bind|loop|recur|if|cond|fn)\\b",
+          "name": "keyword.control.fol"
+        }
+      ]
+    },
+    "functions": {
+      "patterns": [
+        {
+          "match": "(?<=\\()(assoc!|assoc|transient|persistent!|transfer-ownership!|conj)\\b",
+          "name": "support.function.fol"
+        },
+        {
+          "match": "(?<=\\()[\\w\\.\\-\\_\\+\\=\\>\\<\\!\\?\\*]+\\b",
+          "name": "entity.name.function.fol"
+        }
+      ]
+    }
+  },
+  "scopeName": "source.fol"
+}
