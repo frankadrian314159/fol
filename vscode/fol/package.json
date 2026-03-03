@@ -1,0 +1,102 @@
+{
+  "name": "fol",
+  "publisher": "frankadrian314159",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/frankadrian314159/fol.git"
+  },
+  "displayName": "FOL",
+  "description": "",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.109.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+  ],
+  "main": "./out/extension.js",
+"contributes": {
+    "languages": [
+      {
+        "id": "fol",
+        "aliases": ["FOL", "fol"],
+        "extensions": [".fol"],
+        "configuration": "./fol-language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "fol",
+        "scopeName": "source.fol",
+        "path": "./syntaxes/fol.tmLanguage.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "fol.eval",
+        "title": "FOL: Evaluate Form"
+      },
+      {
+        "command": "fol.evalFile",
+        "title": "FOL: Evaluate File"
+      },
+      {
+        "command": "fol.restartServer",
+        "title": "FOL: Restart REPL Server"
+      }
+    ],
+"keybindings": [
+      {
+        "command": "fol.eval",
+        "key": "ctrl+enter",
+        "mac": "cmd+enter",
+        "when": "editorTextFocus && editorLangId == fol"
+      },
+      {
+        "command": "fol.evalFile",
+        "key": "ctrl+shift+enter",
+        "mac": "cmd+shift+enter",
+        "when": "editorTextFocus && editorLangId == fol"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "fol.eval",
+          "when": "editorLangId == fol",
+          "group": "1_modification@1"
+        },
+        {
+          "command": "fol.evalFile",
+          "when": "editorLangId == fol",
+          "group": "1_modification@2"
+        },
+        {
+          "command": "fol.restartServer",
+          "when": "editorLangId == fol",
+          "group": "1_modification@3"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.109.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.x",
+    "typescript-eslint": "^8.56.1",
+    "eslint": "^9.39.3",
+    "typescript": "^5.9.3",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2"
+  }
+}
