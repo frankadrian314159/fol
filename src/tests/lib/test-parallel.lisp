@@ -295,28 +295,28 @@
     (is (or (eq r t) (eq r nil)))))
 
 ;;; ---------------------------------------------------------------------------
-;;; pcount
+;;; psize
 ;;; ---------------------------------------------------------------------------
 
-(test pcount-basic
-  "pcount returns the number of elements satisfying the predicate."
-  (is (= 3 (fol.lib.parallel:pcount #'even-p (mk-vec 1 2 3 4 5 6)))))
+(test psize-basic
+  "psize returns the number of elements satisfying the predicate."
+  (is (= 3 (fol.lib.parallel:psize #'even-p (mk-vec 1 2 3 4 5 6)))))
 
-(test pcount-none-match
-  "pcount returns 0 when no element satisfies the predicate."
-  (is (= 0 (fol.lib.parallel:pcount #'even-p (mk-vec 1 3 5)))))
+(test psize-none-match
+  "psize returns 0 when no element satisfies the predicate."
+  (is (= 0 (fol.lib.parallel:psize #'even-p (mk-vec 1 3 5)))))
 
-(test pcount-all-match
-  "pcount returns the collection size when all elements satisfy the predicate."
+(test psize-all-match
+  "psize returns the collection size when all elements satisfy the predicate."
   (let ((v (mk-vec 2 4 6 8)))
-    (is (= 4 (fol.lib.parallel:pcount #'even-p v)))))
+    (is (= 4 (fol.lib.parallel:psize #'even-p v)))))
 
-(test pcount-empty-collection
-  "pcount returns 0 for an empty collection."
-  (is (= 0 (fol.lib.parallel:pcount #'even-p (mk-vec)))))
+(test psize-empty-collection
+  "psize returns 0 for an empty collection."
+  (is (= 0 (fol.lib.parallel:psize #'even-p (mk-vec)))))
 
-(test pcount-large
-  "pcount is correct on a large collection."
+(test psize-large
+  "psize is correct on a large collection."
   (let* ((data (loop for i from 1 to 500 collect i))
          (v    (apply #'mk-vec data)))
-    (is (= 250 (fol.lib.parallel:pcount #'even-p v)))))
+    (is (= 250 (fol.lib.parallel:psize #'even-p v)))))

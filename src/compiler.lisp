@@ -975,6 +975,26 @@
      :newval (car (last args))
      :form form)))
 
+(defun parse-rplaca (form)
+  "Parse (rplaca cons new-car) — destructively replaces the car of a cons cell.
+   FOL does not permit mutation via rplaca; the form is captured for a compiler error."
+  (destructuring-bind (op cons-form new-car) form
+    (declare (ignore op))
+    (fol.compiler.ast:make-rplaca-node
+     :cons-form cons-form
+     :new-car   new-car
+     :form      form)))
+
+(defun parse-rplacd (form)
+  "Parse (rplacd cons new-cdr) — destructively replaces the cdr of a cons cell.
+   FOL does not permit mutation via rplacd; the form is captured for a compiler error."
+  (destructuring-bind (op cons-form new-cdr) form
+    (declare (ignore op))
+    (fol.compiler.ast:make-rplacd-node
+     :cons-form cons-form
+     :new-cdr   new-cdr
+     :form      form)))
+
 (defun parse-in-package (form)
   "Parse (in-package name options... body...)."
   (destructuring-bind (op name &rest args) form
@@ -1054,7 +1074,9 @@
   (setf (gethash "ENV" special-forms) #'parse-env)
   (setf (gethash "SETF" special-forms) #'parse-setf)
   (setf (gethash "SETQ" special-forms) #'parse-setq)
-  (setf (gethash "SET" special-forms) #'parse-cl-set)
+  ;; NOTE: "SET" is intentionally NOT re-registered here — (set ...) is the FOL
+  ;; collection constructor, registered at line 1025 as parse-set.
+  ;; Use (setq ...) or (setf ...) for CL-style mutation when needed.
   (setf (gethash "PSETQ" special-forms) #'parse-psetq)
   (setf (gethash "PSETF" special-forms) #'parse-psetf)
   (setf (gethash "INCF" special-forms) #'parse-incf)
@@ -1062,6 +1084,8 @@
   (setf (gethash "PUSHNEW" special-forms) #'parse-pushnew)
   (setf (gethash "ROTATEF" special-forms) #'parse-rotatef)
   (setf (gethash "SHIFTF" special-forms) #'parse-shiftf)
+  (setf (gethash "RPLACA" special-forms) #'parse-rplaca)
+  (setf (gethash "RPLACD" special-forms) #'parse-rplacd)
   (setf (gethash "IN-PACKAGE" special-forms) #'parse-in-package)
   ;; Functional special forms
   (setf (gethash "DEFN-" special-forms) #'parse-defn-private)
@@ -2207,7 +2231,7 @@
         (value (fol.compiler.ast:def-node-value node)))
     (pushnew name *extra-special-vars*)
     (if value
-        `(cl:defparameter ,name ,(emit-node value))
+        `(cl:defvar ,name ,(emit-node value))
         `(cl:defvar ,name))))
 
 (defun emit-defdynamic (node)
@@ -2215,6 +2239,7 @@
    Identical output to emit-def — defdynamic is an explicit-intent alias."
   (let ((name (fol.compiler.ast:defdynamic-node-name node))
         (value (fol.compiler.ast:defdynamic-node-value node)))
+    (pushnew name *extra-special-vars*)
     (if value
         `(cl:defvar ,name ,(emit-node value))
         `(cl:defvar ,name))))
@@ -2647,6 +2672,18 @@
                        "use destructuring bind with explicit value threading instead."
                        node))
 
+(defun emit-rplaca (node)
+  "Signal a compiler error: rplaca is not permitted in FOL."
+  (emit-mutation-error "rplaca"
+                       "use cons or list* to construct a new pair with the desired car instead."
+                       node))
+
+(defun emit-rplacd (node)
+  "Signal a compiler error: rplacd is not permitted in FOL."
+  (emit-mutation-error "rplacd"
+                       "use cons or list* to construct a new pair with the desired cdr instead."
+                       node))
+
 (defun emit-node (node)
   "Emit a Common Lisp form from an AST node."
   (etypecase node
@@ -2700,6 +2737,8 @@
     (fol.compiler.ast:pushnew-node (emit-pushnew node))
     (fol.compiler.ast:rotatef-node (emit-rotatef node))
     (fol.compiler.ast:shiftf-node (emit-shiftf node))
+    (fol.compiler.ast:rplaca-node (emit-rplaca node))
+    (fol.compiler.ast:rplacd-node (emit-rplacd node))
     (fol.compiler.ast:in-package-node (emit-in-package node))
     (fol.compiler.ast:defpackage-node (emit-defpackage node))
     ;; Functional special forms

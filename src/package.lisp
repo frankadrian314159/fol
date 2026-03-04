@@ -145,6 +145,8 @@
    pushnew-node pushnew-node-p pushnew-node-item pushnew-node-place pushnew-node-keys make-pushnew-node
    rotatef-node rotatef-node-p rotatef-node-places make-rotatef-node
    shiftf-node shiftf-node-p shiftf-node-places shiftf-node-newval make-shiftf-node
+   rplaca-node rplaca-node-p rplaca-node-cons-form rplaca-node-new-car make-rplaca-node
+   rplacd-node rplacd-node-p rplacd-node-cons-form rplacd-node-new-cdr make-rplacd-node
    ;; Functional special forms
    defn-private-node defn-private-node-p defn-private-node-name defn-private-node-clauses defn-private-node-docstring make-defn-private-node
    definline-node definline-node-p definline-node-name definline-node-clauses definline-node-docstring make-definline-node
@@ -976,7 +978,7 @@
   (:import-from fol.compiler.primitives
                 truthy?)
   (:export pfilter pgroup-by ppartition pzip pzip-with-index
-           pforeach pfind pexists pforall pcount))
+           pforeach pfind pexists pforall psize))
 
 (defpackage fol.lib.core-async
   (:use cl)

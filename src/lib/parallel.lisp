@@ -273,19 +273,19 @@
         nil)))
 
 ;;; ---------------------------------------------------------------------------
-;;; pcount — parallel count of elements satisfying a predicate
+;;; psize — parallel count of elements satisfying a predicate
 ;;; ---------------------------------------------------------------------------
 
-(defun pcount (pred coll)
+(defun psize (pred coll)
   "Count the elements of COLL for which PRED returns a truthy value.
    All predicate tests run on the thread pool in parallel.
 
    Analogous to Scala's .par.count(pred).
 
    Examples:
-     (pcount even? [1 2 3 4 5])   => 2
-     (pcount odd?  [1 2 3 4 5])   => 3
-     (pcount pos?  [-1 -2 3])     => 1"
+     (psize even? [1 2 3 4 5])   => 2
+     (psize odd?  [1 2 3 4 5])   => 3
+     (psize pos?  [-1 -2 3])     => 1"
   (let* ((seq (fol.compiler.collections:collection-seq coll))
          (futures (cl:mapcar (lambda (elem)
                                (fol.compiler.mutable:submit-work pred (list elem)))

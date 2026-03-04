@@ -177,10 +177,10 @@ Analogous to Scala's `.par.forall(pred)`.
 
 ---
 
-## pcount                                                           *[function]*
+## psize                                                            *[function]*
 
 ```
-(pcount pred coll) → integer
+(psize pred coll) → integer
 ```
 
 Count the elements of `coll` for which `pred` returns a truthy value. All predicate tests run on the thread pool in parallel. Returns a non-negative integer.
@@ -188,10 +188,10 @@ Count the elements of `coll` for which `pred` returns a truthy value. All predic
 Analogous to Scala's `.par.count(pred)`.
 
 ```fol
-(pcount even? [1 2 3 4 5])   ; => 2
-(pcount odd?  [1 2 3 4 5])   ; => 3
-(pcount pos?  [-1 -2 3])     ; => 1
-(pcount even? [])             ; => 0
+(psize even? [1 2 3 4 5])   ; => 2
+(psize odd?  [1 2 3 4 5])   ; => 3
+(psize pos?  [-1 -2 3])     ; => 1
+(psize even? [])             ; => 0
 ```
 
 ---
@@ -209,7 +209,7 @@ Analogous to Scala's `.par.count(pred)`.
 | `pfind pred coll` | `some` | First matching element or `nil` |
 | `pexists pred coll` | `(boolean (some pred coll))` | `t` or `nil` |
 | `pforall pred coll` | `every?` | `t` or `nil` |
-| `pcount pred coll` | `(count (filter pred coll))` | Non-negative integer |
+| `psize pred coll` | `(size (filter pred coll))` | Non-negative integer |
 
 ---
 

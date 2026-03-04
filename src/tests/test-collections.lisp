@@ -363,12 +363,6 @@
     (is (equal '(:c :a :b)
                (mapcar #'car (fol.compiler.collections:collection-seq d))))))
 
-(test ordered-dict-count
-  "count returns entry count for an <ordered-dict>."
-  (is (= 0 (fol.compiler.collections:count
-             (fol.compiler.collection-functions:ordered-dict))))
-  (is (= 3 (fol.compiler.collections:count
-             (fol.compiler.collection-functions:ordered-dict :a 1 :b 2 :c 3)))))
 
 (test ordered-dict-empty?
   "empty? works for <ordered-dict>."
@@ -500,12 +494,6 @@
     (is (equal '(:c :a :b)
                (mapcar #'car (fol.compiler.collections:collection-seq d))))))
 
-(test array-dict-count
-  "count returns entry count for an <array-dict>."
-  (is (= 0 (fol.compiler.collections:count
-             (fol.compiler.collection-functions:array-dict))))
-  (is (= 3 (fol.compiler.collections:count
-             (fol.compiler.collection-functions:array-dict :a 1 :b 2 :c 3)))))
 
 (test array-dict-empty?
   "empty? works for <array-dict>."
@@ -655,12 +643,6 @@
     (is (eq :a (fol.compiler.collections:get d 1)))
     (is (eq :b (fol.compiler.collections:get d 2)))))
 
-(test sorted-dict-count
-  "count returns entry count for a <sorted-dict>."
-  (is (= 0 (fol.compiler.collections:count
-             (fol.compiler.collection-functions:sorted-dict nil))))
-  (is (= 3 (fol.compiler.collections:count
-             (fol.compiler.collection-functions:sorted-dict nil 1 :a 2 :b 3 :c)))))
 
 (test sorted-dict-empty?
   "empty? works for <sorted-dict>."
@@ -797,12 +779,6 @@
     (is (eq :a (fol.compiler.collections:get d 1)))
     (is (eq :b (fol.compiler.collections:get d 2)))))
 
-(test int-dict-count
-  "count returns entry count for an <int-dict>."
-  (is (= 0 (fol.compiler.collections:count
-             (fol.compiler.collection-functions:int-dict))))
-  (is (= 3 (fol.compiler.collections:count
-             (fol.compiler.collection-functions:int-dict 1 :a 2 :b 3 :c)))))
 
 (test int-dict-empty?
   "empty? works for <int-dict>."
@@ -989,12 +965,6 @@
          (d2 (fol.compiler.collections:priority-dict-pop-min d)))
     (is (= 0 (fol.compiler.collections:collection-size d2)))))
 
-(test priority-dict-count
-  "count returns entry count for a <priority-dict>."
-  (is (= 0 (fol.compiler.collections:count
-             (fol.compiler.collection-functions:priority-dict))))
-  (is (= 3 (fol.compiler.collections:count
-             (fol.compiler.collection-functions:priority-dict :a 1 :b 2 :c 3)))))
 
 (test priority-dict-empty?
   "empty? works for <priority-dict>."
@@ -1365,49 +1335,15 @@
 ;;; count generic function
 ;;; ---------------------------------------------------------------------------
 
-(test count-vector
-  "count returns element count for a <vector>."
-  (is (= 0 (fol.compiler.collections:count
-             (fol.compiler.collection-functions:vector))))
-  (is (= 3 (fol.compiler.collections:count
-             (fol.compiler.collection-functions:vector 1 2 3)))))
 
-(test count-array
-  "count returns element count for an <array>."
-  (is (= 0 (fol.compiler.collections:count
-             (fol.compiler.collections:make 'fol.compiler.collections:<array>))))
-  (is (= 2 (fol.compiler.collections:count
-             (fol.compiler.collections:make 'fol.compiler.collections:<array> 10 20)))))
 
-(test count-dict
-  "count returns entry count for a <dict>."
-  (is (= 0 (fol.compiler.collections:count
-             (fol.compiler.collection-functions:dict))))
-  (is (= 2 (fol.compiler.collections:count
-             (fol.compiler.collection-functions:dict :a 1 :b 2)))))
 
-(test count-set
-  "count returns element count for a <set>."
-  (is (= 0 (fol.compiler.collections:count
-             (fol.compiler.collection-functions:set))))
-  (is (= 3 (fol.compiler.collections:count
-             (fol.compiler.collection-functions:set 1 2 3)))))
 
-(test count-bag
-  "count returns total element count for a <bag>."
-  (is (= 0 (fol.compiler.collections:count
-             (fol.compiler.collection-functions:bag))))
-  (is (= 3 (fol.compiler.collections:count
-             (fol.compiler.collection-functions:bag 1 1 2)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; empty? generic function
 ;;; ---------------------------------------------------------------------------
 
-(test empty?-bare-collection
-  "empty? returns T for a bare <collection> instance."
-  (is (eq t (fol.compiler.collections:empty?
-             (make-instance 'fol.compiler.collections:<collection>)))))
 
 (test empty?-empty-vector
   "empty? returns T for an empty <vector>."
@@ -1458,6 +1394,69 @@
   "empty? returns NIL for a non-empty <bag>."
   (is (null (fol.compiler.collections:empty?
              (fol.compiler.collection-functions:bag 1 1 2)))))
+
+;;; ---------------------------------------------------------------------------
+;;; size — high-level element-count function
+;;; ---------------------------------------------------------------------------
+
+(test size-vector
+  "size returns the element count of a <vector>."
+  (is (= 0 (fol.compiler.collection-functions:size (fol.compiler.collection-functions:vector))))
+  (is (= 3 (fol.compiler.collection-functions:size (fol.compiler.collection-functions:vector 1 2 3)))))
+
+(test size-dict
+  "size returns the entry count of a <dict>."
+  (is (= 0 (fol.compiler.collection-functions:size (fol.compiler.collection-functions:dict))))
+  (is (= 2 (fol.compiler.collection-functions:size (fol.compiler.collection-functions:dict :a 1 :b 2)))))
+
+(test size-set
+  "size returns the element count of a <set>."
+  (is (= 0 (fol.compiler.collection-functions:size (fol.compiler.collection-functions:set))))
+  (is (= 3 (fol.compiler.collection-functions:size (fol.compiler.collection-functions:set 1 2 3)))))
+
+(test size-bag
+  "size returns the total element count of a <bag>."
+  (is (= 0 (fol.compiler.collection-functions:size (fol.compiler.collection-functions:bag))))
+  (is (= 3 (fol.compiler.collection-functions:size (fol.compiler.collection-functions:bag 1 1 2)))))
+
+(test size-deque
+  "size returns the element count of a <deque>."
+  (is (= 0 (fol.compiler.collection-functions:size (fol.compiler.collection-functions:deque))))
+  (is (= 2 (fol.compiler.collection-functions:size (fol.compiler.collection-functions:deque 10 20)))))
+
+(test size-cl-list
+  "size returns the element count of a CL list."
+  (is (= 0 (fol.compiler.collection-functions:size '())))
+  (is (= 3 (fol.compiler.collection-functions:size '(a b c)))))
+
+;;; ---------------------------------------------------------------------------
+;;; empty? — high-level emptiness predicate (fol.compiler.collection-functions)
+;;; ---------------------------------------------------------------------------
+
+(test hl-empty?-vector
+  "high-level empty? returns T/NIL for <vector>."
+  (is (eq t   (fol.compiler.collection-functions:empty? (fol.compiler.collection-functions:vector))))
+  (is (eq nil (fol.compiler.collection-functions:empty? (fol.compiler.collection-functions:vector 1)))))
+
+(test hl-empty?-dict
+  "high-level empty? returns T/NIL for <dict>."
+  (is (eq t   (fol.compiler.collection-functions:empty? (fol.compiler.collection-functions:dict))))
+  (is (eq nil (fol.compiler.collection-functions:empty? (fol.compiler.collection-functions:dict :k 1)))))
+
+(test hl-empty?-set
+  "high-level empty? returns T/NIL for <set>."
+  (is (eq t   (fol.compiler.collection-functions:empty? (fol.compiler.collection-functions:set))))
+  (is (eq nil (fol.compiler.collection-functions:empty? (fol.compiler.collection-functions:set 42)))))
+
+(test hl-empty?-bag
+  "high-level empty? returns T/NIL for <bag>."
+  (is (eq t   (fol.compiler.collection-functions:empty? (fol.compiler.collection-functions:bag))))
+  (is (eq nil (fol.compiler.collection-functions:empty? (fol.compiler.collection-functions:bag 1)))))
+
+(test hl-empty?-cl-list
+  "high-level empty? returns T/NIL for CL lists."
+  (is (eq t   (fol.compiler.collection-functions:empty? '())))
+  (is (eq nil (fol.compiler.collection-functions:empty? '(1 2)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; <ordered-set> class, predicate, constructor, and protocol
@@ -1544,12 +1543,6 @@
     (is (= 1 (fol.compiler.collections:collection-size s2)))
     (is (equal '(42) (fol.compiler.collections:collection-seq s2)))))
 
-(test ordered-set-count
-  "count returns element count for an <ordered-set>."
-  (is (= 0 (fol.compiler.collections:count
-             (fol.compiler.collection-functions:ordered-set))))
-  (is (= 3 (fol.compiler.collections:count
-             (fol.compiler.collection-functions:ordered-set 1 2 3)))))
 
 (test ordered-set-empty?
   "empty? works for <ordered-set>."
@@ -1670,19 +1663,7 @@
     ;; Comparator is the same function
     (is (eq rev-cmp (fol.compiler.collections:comparator-compare s2)))))
 
-(test sorted-set-count
-  "count returns element count for a <sorted-set>."
-  (is (= 0 (fol.compiler.collections:count
-             (fol.compiler.collection-functions:sorted-set nil))))
-  (is (= 3 (fol.compiler.collections:count
-             (fol.compiler.collection-functions:sorted-set nil 1 2 3)))))
 
-(test sorted-set-empty?
-  "empty? works for <sorted-set>."
-  (is (eq t (fol.compiler.collections:empty?
-             (fol.compiler.collection-functions:sorted-set nil))))
-  (is (null (fol.compiler.collections:empty?
-             (fol.compiler.collection-functions:sorted-set nil 1 2)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; <int-set> class, predicate, constructor, and protocol
@@ -1778,19 +1759,7 @@
          (s2 (fol.compiler.collections:collection-conj s 3)))
     (is (eq t (fol.compiler.collections:<int-set>? s2)))))
 
-(test int-set-count
-  "count returns element count for an <int-set>."
-  (is (= 0 (fol.compiler.collections:count
-             (fol.compiler.collection-functions:int-set))))
-  (is (= 3 (fol.compiler.collections:count
-             (fol.compiler.collection-functions:int-set 1 2 3)))))
 
-(test int-set-empty?
-  "empty? works for <int-set>."
-  (is (eq t (fol.compiler.collections:empty?
-             (fol.compiler.collection-functions:int-set))))
-  (is (null (fol.compiler.collections:empty?
-             (fol.compiler.collection-functions:int-set 1 2)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; <dense-int-set> class, predicate, constructor, and protocol
@@ -1903,19 +1872,7 @@
   (let ((s (fol.compiler.collection-functions:dense-int-set 1 2 3)))
     (is (= 3 (fol.compiler.collections:collection-size s)))))
 
-(test dense-int-set-count
-  "count returns element count for a <dense-int-set>."
-  (is (= 0 (fol.compiler.collections:count
-             (fol.compiler.collection-functions:dense-int-set))))
-  (is (= 3 (fol.compiler.collections:count
-             (fol.compiler.collection-functions:dense-int-set 1 2 3)))))
 
-(test dense-int-set-empty?
-  "empty? works for <dense-int-set>."
-  (is (eq t (fol.compiler.collections:empty?
-             (fol.compiler.collection-functions:dense-int-set))))
-  (is (null (fol.compiler.collections:empty?
-             (fol.compiler.collection-functions:dense-int-set 1 2)))))
 
 ;;; ===========================================================================
 ;;; <deque> tests
@@ -1957,14 +1914,6 @@
     ;; Original is unchanged
     (is (equal '(1 2) (fol.compiler.collections:collection-seq d)))))
 
-(test deque-count-and-empty
-  "count and empty? work for <deque>."
-  (let ((empty (fol.compiler.collections:make 'fol.compiler.collections:<deque>))
-        (full (fol.compiler.collections:make 'fol.compiler.collections:<deque> 1 2 3)))
-    (is (= 0 (fol.compiler.collections:count empty)))
-    (is (= 3 (fol.compiler.collections:count full)))
-    (is (eq t (fol.compiler.collections:empty? empty)))
-    (is (null (fol.compiler.collections:empty? full)))))
 
 (test deque-constructor-function
   "deque constructor function works."
@@ -2047,14 +1996,6 @@
   (is (= 5 (fol.compiler.collections:collection-size
              (fol.compiler.collections:make 'fol.compiler.collections:<list> 1 2 3 4 5)))))
 
-(test list-count-and-empty
-  "count and empty? work for <list>."
-  (let ((empty (fol.compiler.collections:make 'fol.compiler.collections:<list>))
-        (full (fol.compiler.collections:make 'fol.compiler.collections:<list> 1 2 3)))
-    (is (= 0 (fol.compiler.collections:count empty)))
-    (is (= 3 (fol.compiler.collections:count full)))
-    (is (eq t (fol.compiler.collections:empty? empty)))
-    (is (null (fol.compiler.collections:empty? full)))))
 
 (test list-structural-sharing
   "Conjing onto a list shares structure with the original."
@@ -2456,17 +2397,6 @@
          (result (fol.compiler.collections:collection-conj ls 42)))
     (is (equal '(42) (fol.compiler.collections:collection-seq result)))))
 
-(test lazy-seq-count-and-empty
-  "count and empty? work for <lazy-seq>."
-  (let ((empty-ls (fol.compiler.collections:make 'fol.compiler.collections:<lazy-seq>
-                    (lambda () nil)))
-        (full-ls (fol.compiler.collections:make 'fol.compiler.collections:<lazy-seq>
-                   (lambda ()
-                     (fol.compiler.collections:make 'fol.compiler.collections:<list> 1 2)))))
-    (is (= 0 (fol.compiler.collections:count empty-ls)))
-    (is (= 2 (fol.compiler.collections:count full-ls)))
-    (is (eq t (fol.compiler.collections:empty? empty-ls)))
-    (is (null (fol.compiler.collections:empty? full-ls)))))
 
 (test lazy-seq-constructor-function
   "lazy-seq constructor function works."

@@ -8,6 +8,12 @@
 ;;; defonce - define a var only if not already bound
 ;;; ===========================================================================
 
+(defun %defonce-set! (sym val)
+  "Internal helper: set the value cell of SYM to VAL using cl:set.
+   Used by defonce so the expansion does not contain setf (which the FOL
+   compiler rejects as a mutation form)."
+  (cl:set sym val))
+
 (defmacro defonce (name value)
   "Define NAME as a special variable with VALUE only if NAME is not already bound.
    If NAME is already bound, this is a no-op.
@@ -21,8 +27,9 @@
      (defonce *counter* 99) ; no-op if *counter* is already bound"
   `(progn
      (defvar ,name)
-     (unless (boundp ',name)
-       (setf ,name ,value))
+     (if (boundp ',name)
+         ',name
+         (fol.compiler.misc-functions::%defonce-set! ',name ,value))
      ',name))
 
 ;;; ===========================================================================

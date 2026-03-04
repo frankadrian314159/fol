@@ -370,3 +370,15 @@
    FOL does not permit mutation via shiftf; captured for a compiler error."
   (places nil :read-only t) ; raw place forms (all but the last argument)
   (newval nil :read-only t)) ; raw new-value form (last argument)
+
+(defstruct (rplaca-node (:include ast-node))
+  "Rplaca form: (rplaca cons new-car) — destructively replaces the car of a cons cell.
+   FOL does not permit mutation via rplaca; captured for a compiler error."
+  (cons-form nil :read-only t)    ; raw cons argument
+  (new-car   nil :read-only t))   ; raw new-car argument
+
+(defstruct (rplacd-node (:include ast-node))
+  "Rplacd form: (rplacd cons new-cdr) — destructively replaces the cdr of a cons cell.
+   FOL does not permit mutation via rplacd; captured for a compiler error."
+  (cons-form nil :read-only t)    ; raw cons argument
+  (new-cdr   nil :read-only t))   ; raw new-cdr argument

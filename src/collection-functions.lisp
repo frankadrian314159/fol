@@ -218,8 +218,12 @@
   "Returns 0 for nil (empty)."
   0)
 
+(defmethod count ((collection cons))
+  "Returns the number of elements in a CL list."
+  (cl:length collection))
+
 (defmethod count ((collection t))
-  "Returns the number of elements."
+  "Returns 1 for any non-collection scalar value."
   1)
 
 (defun size (collection)

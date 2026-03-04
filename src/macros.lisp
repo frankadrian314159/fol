@@ -289,7 +289,30 @@
 ;;; Dynamic Binding Macros
 ;;; ===========================================================================
 
-;;; binding is a special form in the compiler, so no macro needed here.
+;;; bind and binding are special forms in the FOL compiler.
+;;; The CL-level macro definitions below allow macros that use (bind ...) and
+;;; (binding ...) to expand correctly when used outside the FOL compiler
+;;; (e.g., in io.lisp or test files compiled directly by SBCL/CL).
+
+(cl:defmacro bind (binding-pair &rest body)
+  "CL-level implementation of FOL bind. Creates a let* binding from a
+   two-element sequence (var val). The FOL compiler handles this as a
+   special form; this macro is used when the expansion occurs in CL context."
+  (cl:let* ((pair (ensure-list binding-pair))
+             (var  (cl:first pair))
+             (val  (cl:second pair)))
+    `(cl:let* ((,var ,val))
+       ,@body)))
+
+(cl:defmacro binding (binding-pair &rest body)
+  "CL-level implementation of FOL binding. Creates a dynamic (special) let
+   binding from a two-element sequence (var val). The FOL compiler handles
+   this as a special form; this macro is used in CL context."
+  (cl:let* ((pair (ensure-list binding-pair))
+             (var  (cl:first pair))
+             (val  (cl:second pair)))
+    `(cl:let ((,var ,val))
+       ,@body)))
 
 (defmacro with-redefs (bindings &body body)
   "Temporarily redeclares Vars during the scope of body.
