@@ -53,10 +53,13 @@
 ;;; Execution Functions
 
 (defun run-fol-string (string)
-  "Compiles and runs a FOL string. Returns the result of evaluation."
+  "Compiles and runs a FOL string. Returns the result of evaluation.
+   Signals an error if compilation failed."
   (let* ((compiled (compile-fol-string string))
-         (code (fol.compiler:compilation-result-code compiled)))
-    (eval code)))
+         (errors (fol.compiler:compilation-result-errors compiled)))
+    (when errors
+      (error "~{~A~^~%~}" errors))
+    (eval (fol.compiler:compilation-result-code compiled))))
 
 (defun run-fol-file (path)
   "Compiles and runs a FOL file."

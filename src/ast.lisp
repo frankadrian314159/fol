@@ -309,3 +309,60 @@
   (atom-expr nil :read-only t) ; expression that evaluates to atom
   (fn-expr nil :read-only t) ; function (bare symbol gets #')
   (args nil :read-only t)) ; additional arguments to fn
+
+(defstruct (setf-node (:include ast-node))
+  "Setf form: (setf place value place2 value2 ...).
+   FOL does not permit mutation via setf; parsing captures the form for
+   a descriptive compiler error at emit time."
+  (pairs nil :read-only t)) ; list of (place-form . value-node) pairs
+
+(defstruct (setq-node (:include ast-node))
+  "Setq form: (setq var value var2 value2 ...).
+   FOL does not permit mutation via setq; captured for a compiler error."
+  (pairs nil :read-only t)) ; list of (var-symbol . value-form) pairs
+
+(defstruct (cl-set-node (:include ast-node))
+  "Set form: (set symbol value).
+   FOL does not permit mutation via set; captured for a compiler error."
+  (symbol-form nil :read-only t) ; the symbol argument (raw form)
+  (value-form nil :read-only t)) ; the value argument (raw form)
+
+(defstruct (psetq-node (:include ast-node))
+  "Psetq form: (psetq var value ...) — parallel assignment.
+   FOL does not permit mutation via psetq; captured for a compiler error."
+  (pairs nil :read-only t)) ; list of (var-symbol . value-form) pairs
+
+(defstruct (psetf-node (:include ast-node))
+  "Psetf form: (psetf place value ...) — parallel generalized assignment.
+   FOL does not permit mutation via psetf; captured for a compiler error."
+  (pairs nil :read-only t)) ; list of (place-form . value-form) pairs
+
+(defstruct (incf-node (:include ast-node))
+  "Incf form: (incf place &optional delta).
+   FOL does not permit mutation via incf; captured for a compiler error."
+  (place nil :read-only t) ; raw place form
+  (delta nil :read-only t)) ; raw delta form, or nil for the default of 1
+
+(defstruct (decf-node (:include ast-node))
+  "Decf form: (decf place &optional delta).
+   FOL does not permit mutation via decf; captured for a compiler error."
+  (place nil :read-only t) ; raw place form
+  (delta nil :read-only t)) ; raw delta form, or nil for the default of 1
+
+(defstruct (pushnew-node (:include ast-node))
+  "Pushnew form: (pushnew item place &key test test-not key).
+   FOL does not permit mutation via pushnew; captured for a compiler error."
+  (item nil :read-only t)  ; raw item form
+  (place nil :read-only t) ; raw place form
+  (keys nil :read-only t)) ; raw keyword argument forms
+
+(defstruct (rotatef-node (:include ast-node))
+  "Rotatef form: (rotatef place ...) — rotates values among places.
+   FOL does not permit mutation via rotatef; captured for a compiler error."
+  (places nil :read-only t)) ; list of raw place forms
+
+(defstruct (shiftf-node (:include ast-node))
+  "Shiftf form: (shiftf place ... newval) — shifts values left among places.
+   FOL does not permit mutation via shiftf; captured for a compiler error."
+  (places nil :read-only t) ; raw place forms (all but the last argument)
+  (newval nil :read-only t)) ; raw new-value form (last argument)

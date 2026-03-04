@@ -133,6 +133,17 @@
    in-package-node in-package-node-p in-package-node-name in-package-node-options in-package-node-body make-in-package-node
    defpackage-node defpackage-node-p defpackage-node-name defpackage-node-options make-defpackage-node
    swap-node swap-node-p swap-node-atom-expr swap-node-fn-expr swap-node-args make-swap-node
+   ;; Mutation-capture nodes (all signal compiler errors at emit time)
+   setf-node setf-node-p setf-node-pairs make-setf-node
+   setq-node setq-node-p setq-node-pairs make-setq-node
+   cl-set-node cl-set-node-p cl-set-node-symbol-form cl-set-node-value-form make-cl-set-node
+   psetq-node psetq-node-p psetq-node-pairs make-psetq-node
+   psetf-node psetf-node-p psetf-node-pairs make-psetf-node
+   incf-node incf-node-p incf-node-place incf-node-delta make-incf-node
+   decf-node decf-node-p decf-node-place decf-node-delta make-decf-node
+   pushnew-node pushnew-node-p pushnew-node-item pushnew-node-place pushnew-node-keys make-pushnew-node
+   rotatef-node rotatef-node-p rotatef-node-places make-rotatef-node
+   shiftf-node shiftf-node-p shiftf-node-places shiftf-node-newval make-shiftf-node
    ;; Functional special forms
    defn-private-node defn-private-node-p defn-private-node-name defn-private-node-clauses defn-private-node-docstring make-defn-private-node
    definline-node definline-node-p definline-node-name definline-node-clauses definline-node-docstring make-definline-node

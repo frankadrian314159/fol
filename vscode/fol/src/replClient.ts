@@ -50,10 +50,19 @@ export class FolReplClient {
         return new Promise((resolve, reject) => {
             if (!this.isConnected()) return reject("Not connected");
 
-            // Set the resolver before sending the command
             this.responseResolver = (data: string) => {
-                console.log("DEBUG: Resolver triggered with:", data);
-                resolve(data);
+                const trimmed = data.trim();
+                // Tagged protocol: (:ok "result") or (:error "message")
+                const okMatch = trimmed.match(/^\(:ok\s+"(.*)"\s*\)$/s);
+                const errMatch = trimmed.match(/^\(:error\s+"(.*)"\s*\)$/s);
+                if (okMatch) {
+                    resolve(okMatch[1]);
+                } else if (errMatch) {
+                    reject(new Error(errMatch[1]));
+                } else {
+                    // Fallback for any untagged response (shouldn't happen)
+                    resolve(trimmed);
+                }
             };
 
             this.client?.write(code + "\n");

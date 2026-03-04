@@ -26,16 +26,22 @@
             (format t "~&--- [DEBUG] Received Form: ~S ---~%" form)
             (force-output)
 
-            ;; Evaluate using the fol.repl logic defined in your system
-            ;; We use the explicit prefix since fol-core isn't loaded
-            (let ((result (uiop:symbol-call :fol.repl :run-fol-string 
-                                           (format nil "~S" form))))
-              (format t "~&--- [DEBUG] Evaluation Result: ~S ---~%" result)
-              (force-output)
-              
-              ;; Send the result back to VS Code
-              (format stream "~S~%" result)
-              (finish-output stream))))
+            ;; Evaluate using the fol.repl logic defined in your system.
+            ;; Errors are caught per-form and sent back as tagged responses
+            ;; so the connection stays alive and the client sees the message.
+            (handler-case
+                (let ((result (uiop:symbol-call :fol.repl :run-fol-string
+                                               (format nil "~S" form))))
+                  (format t "~&--- [DEBUG] Evaluation Result: ~S ---~%" result)
+                  (force-output)
+                  (format stream "(:ok ~S)~%" (format nil "~S" result))
+                  (finish-output stream))
+              (error (c)
+                (let ((msg (format nil "~A" c)))
+                  (format t "~&--- [DEBUG] Eval Error: ~A ---~%" msg)
+                  (force-output)
+                  (format stream "(:error ~S)~%" msg)
+                  (finish-output stream))))))
       (error (c)
         (format t "~&--- [DEBUG] Server Error during processing: ~A ---~%" c)
         (force-output)))

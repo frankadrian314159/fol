@@ -73,15 +73,15 @@
     "keybindings": [
       {
         "command": "fol.eval",
-        "key": "ctrl+enter",
-        "mac": "cmd+enter",
-        "when": "editorTextFocus && editorLangId == fol"
+        "key": "shift+enter",
+        "mac": "shift+enter",
+        "when": "editorLangId == fol"
       },
       {
         "command": "fol.evalFile",
         "key": "ctrl+shift+enter",
         "mac": "cmd+shift+enter",
-        "when": "editorTextFocus && editorLangId == fol"
+        "when": "editorLangId == fol"
       }
     ],
     "menus": {

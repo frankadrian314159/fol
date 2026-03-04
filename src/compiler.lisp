@@ -841,6 +841,126 @@
   "Parse (env). No arguments."
   (fol.compiler.ast:make-env-node :form form))
 
+(defun parse-setf (form)
+  "Parse (setf place value ...) — Common Lisp setf syntax.
+   FOL does not permit mutation via setf; the form is captured so that
+   emit-setf can produce a descriptive compiler error."
+  (destructuring-bind (op &rest place-value-pairs) form
+    (declare (ignore op))
+    (when (oddp (length place-value-pairs))
+      (error "setf requires an even number of place/value arguments, got ~D"
+             (length place-value-pairs)))
+    (let ((pairs (loop for (place value) on place-value-pairs by #'cddr
+                       collect (cons place (parse-form value)))))
+      (fol.compiler.ast:make-setf-node
+       :pairs pairs
+       :form form))))
+
+(defun parse-setq (form)
+  "Parse (setq var value ...) — pairs of variable/value.
+   FOL does not permit mutation via setq; the form is captured for a compiler error."
+  (destructuring-bind (op &rest var-value-pairs) form
+    (declare (ignore op))
+    (when (oddp (length var-value-pairs))
+      (error "setq requires an even number of var/value arguments, got ~D"
+             (length var-value-pairs)))
+    (let ((pairs (loop for (var value) on var-value-pairs by #'cddr
+                       collect (cons var value))))
+      (fol.compiler.ast:make-setq-node
+       :pairs pairs
+       :form form))))
+
+(defun parse-cl-set (form)
+  "Parse (set symbol value) — sets the value cell of a symbol.
+   FOL does not permit mutation via set; the form is captured for a compiler error."
+  (destructuring-bind (op symbol-arg value-arg) form
+    (declare (ignore op))
+    (fol.compiler.ast:make-cl-set-node
+     :symbol-form symbol-arg
+     :value-form value-arg
+     :form form)))
+
+(defun parse-psetq (form)
+  "Parse (psetq var value ...) — parallel variable assignment.
+   FOL does not permit mutation via psetq; the form is captured for a compiler error."
+  (destructuring-bind (op &rest var-value-pairs) form
+    (declare (ignore op))
+    (when (oddp (length var-value-pairs))
+      (error "psetq requires an even number of var/value arguments, got ~D"
+             (length var-value-pairs)))
+    (let ((pairs (loop for (var value) on var-value-pairs by #'cddr
+                       collect (cons var value))))
+      (fol.compiler.ast:make-psetq-node
+       :pairs pairs
+       :form form))))
+
+(defun parse-psetf (form)
+  "Parse (psetf place value ...) — parallel generalized assignment.
+   FOL does not permit mutation via psetf; the form is captured for a compiler error."
+  (destructuring-bind (op &rest place-value-pairs) form
+    (declare (ignore op))
+    (when (oddp (length place-value-pairs))
+      (error "psetf requires an even number of place/value arguments, got ~D"
+             (length place-value-pairs)))
+    (let ((pairs (loop for (place value) on place-value-pairs by #'cddr
+                       collect (cons place value))))
+      (fol.compiler.ast:make-psetf-node
+       :pairs pairs
+       :form form))))
+
+(defun parse-incf (form)
+  "Parse (incf place &optional delta) — increment a place.
+   FOL does not permit mutation via incf; the form is captured for a compiler error."
+  (destructuring-bind (op place &optional delta) form
+    (declare (ignore op))
+    (fol.compiler.ast:make-incf-node
+     :place place
+     :delta delta
+     :form form)))
+
+(defun parse-decf (form)
+  "Parse (decf place &optional delta) — decrement a place.
+   FOL does not permit mutation via decf; the form is captured for a compiler error."
+  (destructuring-bind (op place &optional delta) form
+    (declare (ignore op))
+    (fol.compiler.ast:make-decf-node
+     :place place
+     :delta delta
+     :form form)))
+
+(defun parse-pushnew (form)
+  "Parse (pushnew item place &key test test-not key) — conditionally push onto a list.
+   FOL does not permit mutation via pushnew; the form is captured for a compiler error."
+  (destructuring-bind (op item place &rest keys) form
+    (declare (ignore op))
+    (fol.compiler.ast:make-pushnew-node
+     :item item
+     :place place
+     :keys keys
+     :form form)))
+
+(defun parse-rotatef (form)
+  "Parse (rotatef place ...) — rotate values among places.
+   FOL does not permit mutation via rotatef; the form is captured for a compiler error."
+  (destructuring-bind (op &rest places) form
+    (declare (ignore op))
+    (fol.compiler.ast:make-rotatef-node
+     :places places
+     :form form)))
+
+(defun parse-shiftf (form)
+  "Parse (shiftf place ... newval) — shift values left among places.
+   FOL does not permit mutation via shiftf; the form is captured for a compiler error."
+  (destructuring-bind (op &rest args) form
+    (declare (ignore op))
+    (when (< (length args) 2)
+      (error "shiftf requires at least one place and a new value, got ~D argument(s)"
+             (length args)))
+    (fol.compiler.ast:make-shiftf-node
+     :places (butlast args)
+     :newval (car (last args))
+     :form form)))
+
 (defun parse-in-package (form)
   "Parse (in-package name options... body...)."
   (destructuring-bind (op name &rest args) form
@@ -918,6 +1038,16 @@
   (setf (gethash "UNQUOTE-SPLICING" special-forms) #'parse-unquote-splicing)
   (setf (gethash "CASE" special-forms) #'parse-case)
   (setf (gethash "ENV" special-forms) #'parse-env)
+  (setf (gethash "SETF" special-forms) #'parse-setf)
+  (setf (gethash "SETQ" special-forms) #'parse-setq)
+  (setf (gethash "SET" special-forms) #'parse-cl-set)
+  (setf (gethash "PSETQ" special-forms) #'parse-psetq)
+  (setf (gethash "PSETF" special-forms) #'parse-psetf)
+  (setf (gethash "INCF" special-forms) #'parse-incf)
+  (setf (gethash "DECF" special-forms) #'parse-decf)
+  (setf (gethash "PUSHNEW" special-forms) #'parse-pushnew)
+  (setf (gethash "ROTATEF" special-forms) #'parse-rotatef)
+  (setf (gethash "SHIFTF" special-forms) #'parse-shiftf)
   (setf (gethash "IN-PACKAGE" special-forms) #'parse-in-package)
   ;; Functional special forms
   (setf (gethash "DEFN-" special-forms) #'parse-defn-private)
@@ -2410,6 +2540,74 @@
            (pkg-def `(cl:defpackage ,name ,@final-options)))
       pkg-def)))
 
+(defun emit-mutation-error (op-name suggestion node)
+  "Signal a compiler error for a forbidden mutation form OP-NAME.
+   SUGGESTION is appended to guide the user toward functional alternatives."
+  (cl:error "Compiler error: '~A' is not allowed in FOL. ~
+             FOL is a functional language; ~A ~
+             Offending form: ~S"
+            op-name suggestion (fol.compiler.ast:ast-node-form node)))
+
+(defun emit-setf (node)
+  "Signal a compiler error: setf is not permitted in FOL."
+  (emit-mutation-error "setf"
+                       "use persistent collection operations (assoc, update, etc.) instead."
+                       node))
+
+(defun emit-setq (node)
+  "Signal a compiler error: setq is not permitted in FOL."
+  (emit-mutation-error "setq"
+                       "use bind for local bindings or def for top-level definitions instead."
+                       node))
+
+(defun emit-cl-set (node)
+  "Signal a compiler error: set is not permitted in FOL."
+  (emit-mutation-error "set"
+                       "use bind for local bindings or def for top-level definitions instead."
+                       node))
+
+(defun emit-psetq (node)
+  "Signal a compiler error: psetq is not permitted in FOL."
+  (emit-mutation-error "psetq"
+                       "use bind for local bindings or loop/recur for iteration instead."
+                       node))
+
+(defun emit-psetf (node)
+  "Signal a compiler error: psetf is not permitted in FOL."
+  (emit-mutation-error "psetf"
+                       "use persistent collection operations (assoc, update, etc.) instead."
+                       node))
+
+(defun emit-incf (node)
+  "Signal a compiler error: incf is not permitted in FOL."
+  (emit-mutation-error "incf"
+                       "use (+ x 1) or inc with bind/loop instead."
+                       node))
+
+(defun emit-decf (node)
+  "Signal a compiler error: decf is not permitted in FOL."
+  (emit-mutation-error "decf"
+                       "use (- x 1) or dec with bind/loop instead."
+                       node))
+
+(defun emit-pushnew (node)
+  "Signal a compiler error: pushnew is not permitted in FOL."
+  (emit-mutation-error "pushnew"
+                       "use conj with contains? to conditionally add to a persistent collection instead."
+                       node))
+
+(defun emit-rotatef (node)
+  "Signal a compiler error: rotatef is not permitted in FOL."
+  (emit-mutation-error "rotatef"
+                       "use destructuring bind with explicit value swapping instead."
+                       node))
+
+(defun emit-shiftf (node)
+  "Signal a compiler error: shiftf is not permitted in FOL."
+  (emit-mutation-error "shiftf"
+                       "use destructuring bind with explicit value threading instead."
+                       node))
+
 (defun emit-node (node)
   "Emit a Common Lisp form from an AST node."
   (etypecase node
@@ -2453,6 +2651,16 @@
     (fol.compiler.ast:unquote-splicing-node (error "unquote-splicing outside syntax-quote"))
     (fol.compiler.ast:case-node (emit-case node))
     (fol.compiler.ast:env-node (emit-env node))
+    (fol.compiler.ast:setf-node (emit-setf node))
+    (fol.compiler.ast:setq-node (emit-setq node))
+    (fol.compiler.ast:cl-set-node (emit-cl-set node))
+    (fol.compiler.ast:psetq-node (emit-psetq node))
+    (fol.compiler.ast:psetf-node (emit-psetf node))
+    (fol.compiler.ast:incf-node (emit-incf node))
+    (fol.compiler.ast:decf-node (emit-decf node))
+    (fol.compiler.ast:pushnew-node (emit-pushnew node))
+    (fol.compiler.ast:rotatef-node (emit-rotatef node))
+    (fol.compiler.ast:shiftf-node (emit-shiftf node))
     (fol.compiler.ast:in-package-node (emit-in-package node))
     (fol.compiler.ast:defpackage-node (emit-defpackage node))
     ;; Functional special forms
