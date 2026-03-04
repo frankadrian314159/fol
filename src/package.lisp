@@ -131,6 +131,7 @@
    case-node case-node-p case-node-expr case-node-clauses make-case-node
    env-node env-node-p make-env-node
    in-package-node in-package-node-p in-package-node-name in-package-node-options in-package-node-body make-in-package-node
+   defpackage-node defpackage-node-p defpackage-node-name defpackage-node-options make-defpackage-node
    swap-node swap-node-p swap-node-atom-expr swap-node-fn-expr swap-node-args make-swap-node
    ;; Functional special forms
    defn-private-node defn-private-node-p defn-private-node-name defn-private-node-clauses defn-private-node-docstring make-defn-private-node

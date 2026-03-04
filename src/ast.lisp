@@ -299,6 +299,11 @@
   (options nil :read-only t)
   (body nil :read-only t)) ; list of body forms
 
+(defstruct (defpackage-node (:include ast-node))
+  "Package definition: (defpackage name [options...] body...)."
+  (name nil :read-only t)
+  (options nil :read-only t)) ; list of package options (e.g., :use, :export)
+
 (defstruct (swap-node (:include ast-node))
   "Atomic swap: (swap! atom fn & args). Special form to handle function references."
   (atom-expr nil :read-only t) ; expression that evaluates to atom

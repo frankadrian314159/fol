@@ -125,6 +125,11 @@ Returns T on success; prints error details and returns NIL on failure."
       "FOL-level tests for relational.lisp."
       (is (load-and-run-fol-test "relational_test.fol")))
 
+(test defpackage
+      "FOL-level tests for defpackage.
+       Ensures defpackage forms transpile to CL:DEFPACKAGE correctly."
+      (is (load-and-run-fol-test "defpackage_test.fol")))
+
 ;;; -------------------------------------------------------------------------
 ;;; Entry point
 ;;; -------------------------------------------------------------------------

@@ -1,6 +1,7 @@
 {
   "name": "fol",
   "publisher": "frankadrian314159",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/frankadrian314159/fol.git"
@@ -14,15 +15,27 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [
-  ],
+  "activationEvents": [],
   "main": "./out/extension.js",
-"contributes": {
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "contributes": {
     "languages": [
       {
         "id": "fol",
-        "aliases": ["FOL", "fol"],
-        "extensions": [".fol"],
+        "aliases": [
+          "FOL",
+          "fol"
+        ],
+        "extensions": [
+          ".fol"
+        ],
         "configuration": "./fol-language-configuration.json"
       }
     ],
@@ -33,6 +46,12 @@
         "path": "./syntaxes/fol.tmLanguage.json"
       }
     ],
+    "configurationDefaults": {
+      "[fol]": {
+        "editor.bracketPairColorization.enabled": true,
+        "editor.guides.bracketPairs": "active"
+      }
+    },
     "commands": [
       {
         "command": "fol.eval",
@@ -45,9 +64,13 @@
       {
         "command": "fol.restartServer",
         "title": "FOL: Restart REPL Server"
+      },
+      {
+        "command": "fol.clearRepl",
+        "title": "FOL: Clear REPL Output"
       }
     ],
-"keybindings": [
+    "keybindings": [
       {
         "command": "fol.eval",
         "key": "ctrl+enter",
@@ -66,28 +89,25 @@
         {
           "command": "fol.eval",
           "when": "editorLangId == fol",
-          "group": "1_modification@1"
+          "group": "1_modification"
         },
         {
           "command": "fol.evalFile",
           "when": "editorLangId == fol",
-          "group": "1_modification@2"
+          "group": "1_modification"
+        },
+        {
+          "command": "fol.clearRepl",
+          "when": "editorLangId == 'fol'",
+          "group": "navigation"
         },
         {
           "command": "fol.restartServer",
           "when": "editorLangId == fol",
-          "group": "1_modification@3"
+          "group": "1_modification"
         }
       ]
     }
-  },
-  "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
-    "pretest": "npm run compile && npm run lint",
-    "lint": "eslint src",
-    "test": "vscode-test"
   },
   "devDependencies": {
     "@types/vscode": "^1.109.0",

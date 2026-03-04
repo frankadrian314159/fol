@@ -858,6 +858,22 @@
        :body (nreverse body)
        :form form))))
 
+(defun parse-defpackage (form)
+  "Parse (defpackage name option*).
+   Options are collected as list elements beginning with keywords
+   (e.g. (:use ...), (:export ...))."
+  (destructuring-bind (op name &rest args) form
+    (declare (ignore op))
+    (let (options)
+      (dolist (arg args)
+        (when (and (consp arg)
+                   (keywordp (car arg)))
+          (push arg options)))
+      (fol.compiler.ast:make-defpackage-node
+       :name name
+       :options (nreverse options)
+       :form form))))
+
 ;;; --- Special form dispatch table ---
 
 (let ((special-forms (make-hash-table :test 'equal)))
@@ -874,6 +890,7 @@
   (setf (gethash "DICT" special-forms) #'parse-dict)
   (setf (gethash "SET" special-forms) #'parse-set)
   (setf (gethash "DEFMACRO" special-forms) #'parse-defmacro)
+  (setf (gethash "DEFPACKAGE" special-forms) #'parse-defpackage)
   (setf (gethash "DEFCLASS" special-forms) #'parse-defclass)
   (setf (gethash "DEFSTRUCT" special-forms) #'parse-defstruct)
   (setf (gethash "DEFGENERIC" special-forms) #'parse-defgeneric)
@@ -1027,9 +1044,11 @@
      ;; Known function def in current file: emit #'name for Lisp-1 compatibility
      ((cl:member name *file-function-defs* :test #'cl:string=)
        `(cl:function ,name))
-     ;; Default: emit bare symbol, track for SPECIAL declaration
+     ;; Globally defined function (from another module): emit #'name for Lisp-1 compatibility
+     ((cl:fboundp name)
+       `(cl:function ,name))
+     ;; Default: emit bare symbol (dynamic variable), track for SPECIAL declaration
      (t
-       ;; (cl:format cl:t ";; DEBUG: NOT FOUND lexical var ~S (~S) in ~S~%" name (cl:symbol-package name) *lexical-vars*)
        (pushnew name *extra-special-vars*)
        name))))
 
@@ -2367,6 +2386,30 @@
              ,pkg-def
              ,pkg-switch)))))
 
+(defun emit-defpackage (node)
+  "Emit a defpackage form for a defpackage-node.
+   Normalizes :use to include FOL.CORE and CL and auto-generates
+   shadowing-imports for conflicts with CL symbols." 
+  (let ((name (cl:string-upcase (cl:string (fol.compiler.ast:defpackage-node-name node))))
+        (options (fol.compiler.ast:defpackage-node-options node)))
+    (let* ((use-opt (find :use options :key #'first))
+           (other-opts (remove :use options :key #'first))
+           (use-list (if use-opt
+                         (mapcar (lambda (x) (cl:string-upcase (cl:string x)))
+                                 (rest use-opt))
+                         nil))
+           (new-use-list (cons :use
+                               (remove-duplicates
+                                (append use-list '("FOL.CORE" "CL"))
+                                :test #'string-equal)))
+           (conflicts (loop for s being the external-symbols of (find-package :fol.core)
+                              when (find-symbol (symbol-name s) :common-lisp)
+                            collect (symbol-name s)))
+           (auto-shadow `(:shadowing-import-from :fol.core ,@conflicts))
+           (final-options (append (list new-use-list auto-shadow) other-opts))
+           (pkg-def `(cl:defpackage ,name ,@final-options)))
+      pkg-def)))
+
 (defun emit-node (node)
   "Emit a Common Lisp form from an AST node."
   (etypecase node
@@ -2411,6 +2454,7 @@
     (fol.compiler.ast:case-node (emit-case node))
     (fol.compiler.ast:env-node (emit-env node))
     (fol.compiler.ast:in-package-node (emit-in-package node))
+    (fol.compiler.ast:defpackage-node (emit-defpackage node))
     ;; Functional special forms
     (fol.compiler.ast:defn-private-node (emit-defn-private node))
     (fol.compiler.ast:definline-node (emit-definline node))

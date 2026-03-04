@@ -11,52 +11,57 @@
 ;;; To run tests:
 ;;;   (asdf:test-system :fol-compiler)
 
+;;; --- Updated fol-compiler.asd ---
+
 (defsystem "fol-compiler"
-           :description "FOL Compiler - Compiles FOL to Common Lisp."
-           :version "0.1.0"
-           :author "Frank Adrian"
-           :license "MIT"
-           :depends-on ("closer-mop" "uuid" "bordeaux-threads" "usocket" "cl-ppcre")
-           :components ((:file "package")
-                        (:file "compareops" :depends-on ("package"))
-                        (:file "primitives" :depends-on ("package"))
-                        (:file "collection-primitives" :depends-on ("package"))
-                        (:file "collections" :depends-on ("package" "collection-primitives"))
-                        (:file "transients" :depends-on ("package" "collections"))
-                        (:file "primitive-functions" :depends-on ("package" "collections"))
-                        (:file "ast" :depends-on ("package"))
-                        (:file "destructure" :depends-on ("package"))
-                        (:file "persistence" :depends-on ("package"))
-                        (:file "collection-functions" :depends-on ("package" "collections" "string-functions" "persistence" "destructure"))
-                        (:file "arithmetic-functions" :depends-on ("package" "primitives"))
-                        (:file "bitwise-operation-functions" :depends-on ("package" "primitives"))
-                        (:file "logical-operation-functions" :depends-on ("package" "primitives"))
-                        (:file "string-functions" :depends-on ("package"))
-                        (:file "cl-utils" :depends-on ("package"))
-                        (:file "seq-functions" :depends-on ("package" "primitives" "collections" "merged-functions"))
-                        (:file "reader" :depends-on ("package" "collections" "collection-functions"))
-                        (:file "mutable" :depends-on ("package"))
-                        (:file "mutable-functions" :depends-on ("package" "mutable"))
-                        (:file "streams" :depends-on ("package"))
-                        (:file "functional" :depends-on ("package"))
-                        (:file "relational" :depends-on ("package" "collections" "collection-functions" "seq-functions"))
-                        (:file "transducers" :depends-on ("package" "primitives" "collections" "collection-functions" "seq-functions"))
-                        (:file "metadata" :depends-on ("package" "persistence" "collections"))
-                        (:file "misc-functions" :depends-on ("package"))
-                        (:file "merged-functions" :depends-on ("package" "string-functions" "collections" "primitives" "collection-functions"))
-                        (:file "compiler" :depends-on ("package" "primitives" "ast" "destructure" "persistence" "collections" "collection-functions" "seq-functions" "reader"))
-                        (:file "macros" :depends-on ("compiler" "package" "primitives" "collections" "collection-functions" "seq-functions" "streams" "metadata" "mutable"))
-                        (:file "io" :depends-on ("package" "streams" "string-functions" "macros"))
-                        (:file "repl" :depends-on ("compiler" "reader" "package"))
-                        (:file "fol-core" :depends-on ("package" "compareops" "primitives" "collections"
-                                                                 "primitive-functions" "ast" "destructure" "persistence"
-                                                                 "collection-functions" "arithmetic-functions"
-                                                                 "bitwise-operation-functions" "logical-operation-functions"
-                                                                 "string-functions" "cl-utils" "seq-functions" "reader"
-                                                                 "mutable" "mutable-functions" "streams" "functional"
-                                                                 "relational" "io" "transducers" "metadata"
-                                                                 "misc-functions" "merged-functions" "compiler" "macros" "repl")))
-           :in-order-to ((test-op (test-op "fol-compiler/all-tests"))))
+  :description "FOL Compiler - Compiles FOL to Common Lisp."
+  :version "0.1.0"
+  :author "Frank Adrian"
+  :license "MIT"
+  :depends-on ("closer-mop" "uuid" "bordeaux-threads" "usocket" "cl-ppcre")
+  :components ((:file "package")
+               (:file "compareops" :depends-on ("package"))
+               (:file "primitives" :depends-on ("package"))
+               (:file "collection-primitives" :depends-on ("package"))
+               (:file "collections" :depends-on ("package" "collection-primitives"))
+               (:file "transients" :depends-on ("package" "collections"))
+               (:file "primitive-functions" :depends-on ("package" "collections"))
+               (:file "ast" :depends-on ("package"))
+               (:file "destructure" :depends-on ("package"))
+               (:file "persistence" :depends-on ("package"))
+               (:file "collection-functions" :depends-on ("package" "collections" "string-functions" "persistence" "destructure"))
+               (:file "arithmetic-functions" :depends-on ("package" "primitives"))
+               (:file "bitwise-operation-functions" :depends-on ("package" "primitives"))
+               (:file "logical-operation-functions" :depends-on ("package" "primitives"))
+               (:file "string-functions" :depends-on ("package"))
+               (:file "cl-utils" :depends-on ("package"))
+               (:file "seq-functions" :depends-on ("package" "primitives" "collections" "merged-functions"))
+               (:file "reader" :depends-on ("package" "collections" "collection-functions"))
+               (:file "mutable" :depends-on ("package"))
+               (:file "mutable-functions" :depends-on ("package" "mutable"))
+               (:file "streams" :depends-on ("package"))
+               (:file "functional" :depends-on ("package"))
+               (:file "relational" :depends-on ("package" "collections" "collection-functions" "seq-functions"))
+               (:file "transducers" :depends-on ("package" "primitives" "collections" "collection-functions" "seq-functions"))
+               (:file "metadata" :depends-on ("package" "persistence" "collections"))
+               (:file "misc-functions" :depends-on ("package"))
+               (:file "merged-functions" :depends-on ("package" "string-functions" "collections" "primitives" "collection-functions"))
+               (:file "compiler" :depends-on ("package" "primitives" "ast" "destructure" "persistence" "collections" "collection-functions" "seq-functions" "reader"))
+               (:file "macros" :depends-on ("compiler" "package" "primitives" "collections" "collection-functions" "seq-functions" "streams" "metadata" "mutable"))
+               (:file "io" :depends-on ("package" "streams" "string-functions" "macros"))
+               (:file "repl" :depends-on ("compiler" "reader" "package")))
+  :in-order-to ((test-op (test-op "fol-compiler/all-tests"))))
+
+;; --- The User-Facing Core System ---
+(defsystem "fol-compiler/core"
+  :depends-on ("fol-compiler")
+  :components ((:file "fol-core")))
+
+;; --- The Extension REPL Server System ---
+(defsystem "fol-extension-server"
+  :depends-on ("fol-compiler" "bordeaux-threads")
+  :serial t
+  :components ((:file "repl-server")))
 
 (defsystem "fol-compiler/tests"
            :depends-on ("fol-compiler" "fiveam")

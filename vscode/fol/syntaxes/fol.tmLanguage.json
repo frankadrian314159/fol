@@ -22,6 +22,17 @@
     },
     {
       "include": "#functions"
+    },
+    {
+      "match": "(\\()\\s*([a-zA-Z0-9\\.\\-\\:]+)",
+      "captures": {
+        "1": {
+          "name": "punctuation.definition.expression.begin.fol"
+        },
+        "2": {
+          "name": "entity.name.function.fol"
+        }
+      }
     }
   ],
   "repository": {

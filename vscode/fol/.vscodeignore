@@ -1,3 +1,4 @@
+# Standard development ignores
 .vscode/**
 .vscode-test/**
 src/**
@@ -9,3 +10,11 @@ vsc-extension-quickstart.md
 **/*.map
 **/*.ts
 **/.vscode-test.*
+
+# Ignore only the problematic sub-contents of the junction
+# This keeps the linter from recursing into heavy folders
+lisp-src/.git/**
+lisp-src/**/*.fasl
+lisp-src/**/*.64xfasl
+lisp-src/fasl-cache/**
+lisp-src

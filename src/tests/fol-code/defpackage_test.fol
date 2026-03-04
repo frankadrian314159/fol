@@ -1,0 +1,3 @@
+(defpackage :my.test.pkg (:use :cl) (:export my-fn))
+
+(defn my-fn [] 42)
