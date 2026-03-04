@@ -95,14 +95,16 @@
            :depends-on ("fol-compiler" "fiveam")
            :components ((:module "lib"
                                  :pathname "lib"
-                                 :components ((:file "walk") (:file "zip") (:file "reducers")))
+                                 :components ((:file "walk") (:file "zip") (:file "reducers") (:file "core-async") (:file "parallel")))
                         (:module "lib-tests"
                                  :pathname "tests/lib"
                                  :depends-on ("lib")
                                  :components ((:file "lib-tests-package")
                                               (:file "test-walk" :depends-on ("lib-tests-package"))
                                               (:file "test-zip" :depends-on ("lib-tests-package"))
-                                              (:file "test-reducers" :depends-on ("lib-tests-package")))))
+                                              (:file "test-reducers" :depends-on ("lib-tests-package"))
+                                              (:file "test-core-async" :depends-on ("lib-tests-package"))
+                                              (:file "test-parallel" :depends-on ("lib-tests-package")))))
            :perform (test-op (o s) (symbol-call :fol.compiler.tests.lib :run-lib-tests)))
 
 (defsystem "fol-compiler/fol-tests"

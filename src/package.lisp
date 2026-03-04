@@ -104,6 +104,7 @@
    invoke-restart-node invoke-restart-node-p invoke-restart-node-name invoke-restart-node-args
    ;; Class system
    defclass-node defclass-node-p defclass-node-name defclass-node-superclasses defclass-node-slots
+   defclass-node-abstractp defclass-node-sealedp
    defstruct-node defstruct-node-p defstruct-node-name defstruct-node-slots
    defgeneric-node defgeneric-node-p defgeneric-node-name
    defgeneric-node-lambda-lists defgeneric-node-options defgeneric-node-docstring
@@ -964,7 +965,43 @@
                 submit-work wait-for-work)
   (:import-from fol.compiler.collections
                 collection-seq)
-  (:export preduce fold))
+  (:export preduce fold aggregate))
+
+(defpackage fol.lib.parallel
+  (:use cl)
+  (:import-from fol.compiler.mutable
+                submit-work wait-for-work)
+  (:import-from fol.compiler.collections
+                collection-seq make)
+  (:import-from fol.compiler.primitives
+                truthy?)
+  (:export pfilter pgroup-by ppartition pzip pzip-with-index
+           pforeach pfind pexists pforall pcount))
+
+(defpackage fol.lib.core-async
+  (:use cl)
+  (:shadow merge go)
+  (:export
+   ;; Buffer constructors
+   buffer dropping-buffer sliding-buffer
+   ;; Channel constructor
+   chan
+   ;; Blocking operations (safe from any thread)
+   >!! <!! offer! poll! close! closed?
+   ;; Go-block operations (same as blocking in this implementation)
+   >! <!
+   ;; Concurrency
+   go go-loop thread thread-call
+   ;; Multi-channel select
+   alts!! alts!
+   ;; Utilities
+   timeout
+   onto-chan!! onto-chan
+   to-chan!! to-chan
+   pipe pipeline pipeline-async
+   merge
+   ;; Pub/Sub
+   pub sub unsub unsub-all))
 
 (defpackage fol.repl
   (:use cl)

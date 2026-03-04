@@ -13,7 +13,7 @@
 (in-package :fol.compiler.tests.lib)
 
 (def-suite lib-tests
-           :description "Tests for external libraries (walk, zip).")
+           :description "Tests for external libraries (walk, zip, core-async).")
 
 (def-suite walk-tests
            :description "Tests for walk library."
@@ -21,6 +21,14 @@
 
 (def-suite zip-tests
            :description "Tests for zip library."
+           :in lib-tests)
+
+(def-suite core-async-tests
+           :description "Tests for core.async channel library."
+           :in lib-tests)
+
+(def-suite parallel-tests
+           :description "Tests for the parallel collections library."
            :in lib-tests)
 
 (defun run-lib-tests ()

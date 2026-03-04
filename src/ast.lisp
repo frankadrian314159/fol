@@ -215,10 +215,14 @@
 ;;; ---------------------------------------------------------------------------
 
 (defstruct (defclass-node (:include ast-node))
-  "Class definition: (defclass <name> [supers] [slots])."
+  "Class definition: (defclass <name> [supers] [slots] option*).
+   Supported options: :abstract truthy  — class cannot be directly instantiated.
+                      :sealed   truthy  — class cannot appear in an inheritance chain."
   (name nil :read-only t)
   (superclasses nil :read-only t)
-  (slots nil :read-only t))
+  (slots nil :read-only t)
+  (abstractp nil :read-only t) ; non-nil if :abstract option was truthy
+  (sealedp nil :read-only t))  ; non-nil if :sealed option was truthy
 
 (defstruct (defstruct-node (:include ast-node))
   "Struct definition: (defstruct <name> slot*).

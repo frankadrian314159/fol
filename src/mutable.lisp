@@ -766,95 +766,240 @@
           (format stream "AGENT ~S" (agent-value obj))))))
 
 ;;; =========================================================================
-;;; Thread Pool
+;;; Work-Stealing Thread Pool
+;;;
+;;; Architecture:
+;;;   Each worker thread owns a double-ended queue (deque) backed by a
+;;;   circular buffer.  The owner pushes and pops from the TAIL (LIFO,
+;;;   preserves cache locality for recursive sub-tasks).  Idle workers
+;;;   steal from the HEAD (FIFO) of a randomly-chosen victim's deque.
+;;;
+;;;   submit-work dispatches round-robin across the per-worker deques so
+;;;   that the initial load is spread evenly, then work migrates naturally
+;;;   via stealing.
+;;;
+;;;   Idle workers block on a single global condition variable (*idle-cv*)
+;;;   rather than spinning, so CPU is not wasted when the pool is quiescent.
+;;;   submit-work notifies *idle-cv* after every enqueue.
 ;;; =========================================================================
 
 (defvar *thread-pool-size* 16
         "Number of worker threads in the global thread pool.")
 
-(defvar *work-queue* nil
-        "Queue of work items to be processed by worker threads.")
+;;; ---------------------------------------------------------------------------
+;;; Per-worker deque (circular buffer, O(1) push/pop/steal)
+;;; ---------------------------------------------------------------------------
 
-(defvar *work-queue-lock* (bordeaux-threads:make-lock "work-queue-lock")
-        "Lock protecting the work queue.")
+(defstruct (worker-deque (:constructor %make-worker-deque))
+  "Circular-buffer double-ended queue for one worker thread.
+   HEAD is the steal (front) index; TAIL is the push (back) index.
+   The buffer is doubled whenever it fills."
+  (data (make-array 64 :initial-element nil) :type simple-vector)
+  (head 0 :type fixnum)
+  (tail 0 :type fixnum)
+  (lock (bordeaux-threads:make-lock "worker-deque-lock")))
 
-(defvar *work-queue-condvar* (bordeaux-threads:make-condition-variable :name "work-queue-condvar")
-        "Condition variable for signaling work availability.")
+(defun %deque-count (dq)
+  "Number of items currently in DQ. Must hold DQ's lock."
+  (let ((d (- (worker-deque-tail dq) (worker-deque-head dq))))
+    (if (< d 0) (+ d (length (worker-deque-data dq))) d)))
 
-(defvar *worker-threads* nil
-        "Vector of worker threads (each is a <thread> instance).")
+(defun %deque-empty-p (dq)
+  (= (worker-deque-head dq) (worker-deque-tail dq)))
 
-(defvar *thread-pool-shutdown* nil
-        "Flag indicating thread pool should shut down.")
+(defun %deque-grow (dq)
+  "Double the capacity of DQ, linearising existing elements from index 0.
+   Must hold DQ's lock."
+  (let* ((old-data (worker-deque-data dq))
+         (old-cap  (length old-data))
+         (sz       (%deque-count dq))
+         (new-cap  (* old-cap 2))
+         (new-data (make-array new-cap :initial-element nil)))
+    (dotimes (i sz)
+      (setf (aref new-data i)
+            (aref old-data (mod (+ (worker-deque-head dq) i) old-cap))))
+    (setf (worker-deque-data dq) new-data
+          (worker-deque-head dq) 0
+          (worker-deque-tail dq) sz)))
+
+(defun %deque-push-tail! (dq item)
+  "Push ITEM to the tail (owner side). Must hold DQ's lock."
+  (when (>= (%deque-count dq) (1- (length (worker-deque-data dq))))
+    (%deque-grow dq))
+  (let ((data (worker-deque-data dq))
+        (tail (worker-deque-tail dq)))
+    (setf (aref data tail) item
+          (worker-deque-tail dq) (mod (1+ tail) (length data)))))
+
+(defun %deque-pop-tail! (dq)
+  "Pop from the tail (owner side). Must hold DQ's lock.
+   Returns (values item t) or (values nil nil) when empty."
+  (if (%deque-empty-p dq)
+      (values nil nil)
+      (let* ((data     (worker-deque-data dq))
+             (new-tail (mod (1- (worker-deque-tail dq)) (length data)))
+             (item     (aref data new-tail)))
+        (setf (aref data new-tail) nil   ; release for GC
+              (worker-deque-tail dq) new-tail)
+        (values item t))))
+
+(defun %deque-steal-head! (dq)
+  "Steal from the head (thief side). Must hold DQ's lock.
+   Returns (values item t) or (values nil nil) when empty."
+  (if (%deque-empty-p dq)
+      (values nil nil)
+      (let* ((data (worker-deque-data dq))
+             (head (worker-deque-head dq))
+             (item (aref data head)))
+        (setf (aref data head) nil        ; release for GC
+              (worker-deque-head dq) (mod (1+ head) (length data)))
+        (values item t))))
+
+;;; ---------------------------------------------------------------------------
+;;; Pool-wide globals
+;;; ---------------------------------------------------------------------------
+
+(defvar *worker-deques*        nil "Vector of per-worker deques.")
+(defvar *worker-threads*       nil "Vector of worker <thread> instances.")
+(defvar *thread-pool-shutdown* nil "Set to t to stop all workers.")
+(defvar *submit-counter*       0   "Round-robin counter for work dispatch.")
+(defvar *submit-lock*
+        (bordeaux-threads:make-lock "submit-lock")
+        "Protects *submit-counter*.")
+(defvar *idle-lock*
+        (bordeaux-threads:make-lock "pool-idle-lock")
+        "Lock paired with *idle-cv*.")
+(defvar *idle-cv*
+        (bordeaux-threads:make-condition-variable :name "pool-idle")
+        "Workers wait here when all deques are empty.")
+
+;;; ---------------------------------------------------------------------------
+;;; Work item
+;;; ---------------------------------------------------------------------------
 
 (defstruct work-item
-  "A unit of work for the thread pool."
-  (fn nil :type function)
+  "A unit of work submitted to the thread pool."
+  (fn   nil :type function)
   (args nil :type list)
-  (result-box nil :type cons) ; cons cell to store result
-  (done-lock nil)
-  (done-condvar nil))
+  ;; result-box is (result . done-p). Using CDR as the done flag lets the
+  ;; result itself be nil without ambiguity (fixes the nil-result bug in the
+  ;; previous single-queue implementation).
+  (result-box (cons nil nil) :type cons)
+  (done-lock  (bordeaux-threads:make-lock))
+  (done-condvar (bordeaux-threads:make-condition-variable)))
 
-(defun %worker-thread-loop ()
-  "Main loop for worker threads. Pulls work from queue and executes it."
-  (loop
-   (let ((work nil))
-     ;; Get work from queue
-     (bordeaux-threads:with-lock-held (*work-queue-lock*)
-       (loop while (and (null *work-queue*) (not *thread-pool-shutdown*))
-             do (bordeaux-threads:condition-wait *work-queue-condvar* *work-queue-lock*))
-       (when *thread-pool-shutdown*
-             (return-from %worker-thread-loop))
-       (when *work-queue*
-             (setf work (pop *work-queue*))))
+;;; ---------------------------------------------------------------------------
+;;; Work execution helper
+;;; ---------------------------------------------------------------------------
 
-     ;; Execute work
-     (when work
-           (let ((result (handler-case
-                             (apply (work-item-fn work) (work-item-args work))
-                           (error (e)
-                             (format *error-output* "~&Worker thread error: ~A~%" e)
-                             :error))))
-             ;; Store result and signal completion
-             (setf (car (work-item-result-box work)) result)
-             (bordeaux-threads:with-lock-held ((work-item-done-lock work))
-               (bordeaux-threads:condition-notify (work-item-done-condvar work))))))))
+(defun %execute-work (work)
+  "Execute WORK and signal its completion."
+  (let ((result (handler-case
+                    (apply (work-item-fn work) (work-item-args work))
+                  (error (e)
+                    (format *error-output* "~&Worker thread error: ~A~%" e)
+                    nil))))
+    (bordeaux-threads:with-lock-held ((work-item-done-lock work))
+      (setf (car (work-item-result-box work)) result
+            (cdr (work-item-result-box work)) t)
+      (bordeaux-threads:condition-notify (work-item-done-condvar work)))))
+
+;;; ---------------------------------------------------------------------------
+;;; Worker loop
+;;; ---------------------------------------------------------------------------
+
+(defun %worker-thread-loop (worker-idx)
+  "Work-stealing loop for the worker at WORKER-IDX.
+
+   Each iteration:
+     1. Pop from own deque tail  (LIFO — best cache locality for sub-tasks).
+     2. If own deque is empty, walk all other workers in random order and
+        attempt to steal from their heads  (FIFO — maintains submission order
+        for stolen work, distributes oldest tasks first).
+     3. If nothing found anywhere, block on *idle-cv* until notified."
+  (let ((my-deque (aref *worker-deques* worker-idx))
+        (n        *thread-pool-size*))
+    (loop
+      (let ((work nil))
+        ;; 1. Own deque — pop from tail.
+        (bordeaux-threads:with-lock-held ((worker-deque-lock my-deque))
+          (multiple-value-bind (item found) (%deque-pop-tail! my-deque)
+            (when found (setf work item))))
+
+        ;; 2. Steal — try workers in random rotation.
+        (unless work
+          (let ((start (random n)))
+            (loop for i from 0 below n
+                  for victim-idx = (mod (+ start i) n)
+                  when (/= victim-idx worker-idx)
+                  do (let ((victim (aref *worker-deques* victim-idx)))
+                       (bordeaux-threads:with-lock-held ((worker-deque-lock victim))
+                         (multiple-value-bind (item found) (%deque-steal-head! victim)
+                           (when found
+                             (setf work item)
+                             (return))))))))
+
+        ;; 3. Execute, or sleep if there was truly nothing.
+        (if work
+            (%execute-work work)
+            (bordeaux-threads:with-lock-held (*idle-lock*)
+              (bordeaux-threads:condition-wait *idle-cv* *idle-lock*)
+              (when *thread-pool-shutdown*
+                (return-from %worker-thread-loop))))))))
+
+;;; ---------------------------------------------------------------------------
+;;; Public API: initialize, submit, wait
+;;; ---------------------------------------------------------------------------
 
 (defun initialize-thread-pool ()
-  "Initialize the global thread pool with worker threads."
+  "Lazily initialise the global work-stealing thread pool."
   (unless *worker-threads*
-    (setf *work-queue* nil)
-    (setf *work-queue-lock* (bordeaux-threads:make-lock "work-queue-lock"))
-    (setf *work-queue-condvar* (bordeaux-threads:make-condition-variable :name "work-queue-condvar"))
+    (setf *worker-deques*
+          (make-array *thread-pool-size*
+            :initial-contents (loop repeat *thread-pool-size*
+                                    collect (%make-worker-deque))))
+    (setf *idle-lock*    (bordeaux-threads:make-lock "pool-idle-lock"))
+    (setf *idle-cv*      (bordeaux-threads:make-condition-variable :name "pool-idle"))
+    (setf *submit-lock*  (bordeaux-threads:make-lock "submit-lock"))
+    (setf *submit-counter* 0)
     (setf *thread-pool-shutdown* nil)
     (setf *worker-threads*
-      (make-array *thread-pool-size*
-        :initial-contents
-        (loop for i from 0 below *thread-pool-size*
-              collect (let ((thread (make-instance '<thread>
-                                      :fn #'%worker-thread-loop
-                                      :name (format nil "worker-~D" i))))
-                        (start thread)
-                        thread))))))
+          (make-array *thread-pool-size*
+            :initial-contents
+            (loop for i from 0 below *thread-pool-size*
+                  collect (let ((idx i))
+                            (let ((thread (make-instance '<thread>
+                                            :fn   (lambda () (%worker-thread-loop idx))
+                                            :name (format nil "worker-~D" idx))))
+                              (start thread)
+                              thread)))))))
 
 (defun submit-work (fn args)
-  "Submit work to the thread pool. Returns a work-item that can be waited on."
-  (initialize-thread-pool) ; Ensure pool is initialized
+  "Submit work to the thread pool using round-robin initial dispatch.
+   Returns a work-item handle; pass it to wait-for-work to get the result."
+  (initialize-thread-pool)
   (let ((work (make-work-item
                 :fn fn
                 :args args
-                :result-box (cons nil nil)
-                :done-lock (bordeaux-threads:make-lock)
+                :result-box   (cons nil nil)
+                :done-lock    (bordeaux-threads:make-lock)
                 :done-condvar (bordeaux-threads:make-condition-variable))))
-    (bordeaux-threads:with-lock-held (*work-queue-lock*)
-      (setf *work-queue* (nconc *work-queue* (list work)))
-      (bordeaux-threads:condition-notify *work-queue-condvar*))
+    ;; Pick a deque round-robin and push to its tail.
+    (let ((idx (bordeaux-threads:with-lock-held (*submit-lock*)
+                 (prog1 (mod *submit-counter* *thread-pool-size*)
+                   (incf *submit-counter*)))))
+      (bordeaux-threads:with-lock-held ((worker-deque-lock (aref *worker-deques* idx)))
+        (%deque-push-tail! (aref *worker-deques* idx) work)))
+    ;; Wake one idle worker.
+    (bordeaux-threads:with-lock-held (*idle-lock*)
+      (bordeaux-threads:condition-notify *idle-cv*))
     work))
 
 (defun wait-for-work (work-item)
-  "Wait for a work item to complete and return its result."
+  "Block until WORK-ITEM is complete and return its result.
+   Returns nil if the work signalled an error."
   (bordeaux-threads:with-lock-held ((work-item-done-lock work-item))
-    (loop while (null (car (work-item-result-box work-item)))
+    (loop while (not (cdr (work-item-result-box work-item)))
           do (bordeaux-threads:condition-wait (work-item-done-condvar work-item)
                                               (work-item-done-lock work-item))))
   (car (work-item-result-box work-item)))

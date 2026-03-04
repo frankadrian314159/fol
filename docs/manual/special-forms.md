@@ -515,17 +515,59 @@ Defines a generic function with the given name and lambda list.
 ## defclass                                                                *[macro]*
 
 ```
-(defclass name [superclasses] [slots] class-option*)
+(defclass name [superclasses] [slots] option*)
 ```
 
-Defines a class with the given name, superclasses, and slots.
+Defines a persistent class with the given name, superclasses, and slots.
+All FOL classes implicitly inherit from `<persistent-object>` and use the
+`persistent-class` metaclass.  A `make-<name>` keyword constructor is
+automatically generated.
+
+### Slot Specification
+
+Each slot can be a bare symbol or a vector with keyword options:
+
+```
+[slot-name :initarg :keyword :accessor accessor-fn]
+```
+
+### Options
+
+| Option | Values | Description |
+|--------|--------|-------------|
+| `:abstract` | truthy / falsy | Prevents direct instantiation. Subclasses may still be instantiated. Enforced at **runtime**. |
+| `:sealed` | truthy / falsy | Prevents use as a superclass. Enforced at **compile time**. |
+
+Both options treat `false` and `nil` as falsy; any other value (including `true`) is truthy.
 
 ### Examples
 
 ```fol
-(defclass <point> [<persistent-object>]
-  [(x :initarg :x :accessor point-x)
-   (y :initarg :y :accessor point-y)])
+;;; Basic class
+(defclass <point> []
+  [[x :initarg :x :accessor point-x]
+   [y :initarg :y :accessor point-y]])
+
+(bind [p (make-<point> :x 3 :y 4)]
+  (point-x p))                          ; => 3
+
+;;; Abstract base class — cannot be instantiated directly
+(defclass <shape> [] [] :abstract true)
+
+(defclass <circle> [<shape>]
+  [[radius :initarg :radius :accessor circle-radius]])
+
+(make-<shape>)                          ; ERROR: Cannot instantiate abstract class <SHAPE>
+(make-<circle> :radius 5)              ; => ok
+
+;;; Sealed class — cannot be used as a superclass
+(defclass <value-type> []
+  [[val :initarg :val]] :sealed true)
+
+(defclass <sub> [<value-type>] [])      ; COMPILER ERROR: <sub> inherits from sealed class
+
+;;; Combined: abstract and sealed
+(defclass <abstract-sealed> [] [] :abstract true :sealed true)
 ```
 
 ---

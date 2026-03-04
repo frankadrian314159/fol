@@ -74,6 +74,114 @@
       (is (= 2 (length (fourth defclass-form)))))))
 
 ;;; ---------------------------------------------------------------------------
+;;; defclass - :abstract option
+;;; ---------------------------------------------------------------------------
+
+(test compile-defclass-abstract
+  "defclass with :abstract true emits an initialize-instance :before guard."
+  (let* ((result (fol.compiler:compile-form
+                  (fol-form '(defclass <abstract-test-widget> #()
+                               #() :abstract true))))
+         (code (fol.compiler:compilation-result-code result)))
+    (is (null (fol.compiler:compilation-result-errors result)))
+    ;; Should emit a (defmethod initialize-instance :before ...) form
+    (let ((guard (find-if (lambda (form)
+                            (and (listp form)
+                                 (eq 'defmethod (first form))
+                                 (eq 'initialize-instance (second form))
+                                 (eq :before (third form))))
+                          (rest code))))
+      (is (not (null guard)) "abstract guard method should be emitted")
+      ;; Guard should reference class-of and find-class to detect direct instantiation
+      (is (find 'class-of (flatten-form guard))
+          "guard should call class-of to detect direct instantiation")
+      (is (find 'find-class (flatten-form guard))
+          "guard should call find-class to compare class identity"))))
+
+(test compile-defclass-abstract-false
+  "defclass with :abstract false does not emit an initialize-instance guard."
+  (let* ((result (fol.compiler:compile-form
+                  (fol-form '(defclass <concrete-test-widget> #() #() :abstract false))))
+         (code (fol.compiler:compilation-result-code result)))
+    (is (null (fol.compiler:compilation-result-errors result)))
+    ;; Should NOT contain any initialize-instance :before method
+    (let ((guard (find-if (lambda (form)
+                            (and (listp form)
+                                 (eq 'defmethod (first form))
+                                 (eq 'initialize-instance (second form))))
+                          (rest code))))
+      (is (null guard) "no abstract guard should be emitted when :abstract is false"))))
+
+(test compile-defclass-abstract-subclass-allowed
+  "Subclass of an abstract class does not itself emit an abstract guard."
+  (let* ((result (fol.compiler:compile-form
+                  (fol-form '(defclass <concrete-sub-widget> #(<abstract-test-widget>)
+                               #()))))
+         (code (fol.compiler:compilation-result-code result)))
+    (is (null (fol.compiler:compilation-result-errors result)))
+    (let ((guard (find-if (lambda (form)
+                            (and (listp form)
+                                 (eq 'defmethod (first form))
+                                 (eq 'initialize-instance (second form))
+                                 (eq :before (third form))))
+                          (rest code))))
+      (is (null guard) "concrete subclass should not have an abstract guard"))))
+
+;;; ---------------------------------------------------------------------------
+;;; defclass - :sealed option
+;;; ---------------------------------------------------------------------------
+
+(test compile-defclass-sealed-registers
+  "defclass with :sealed true registers the class name in *sealed-classes*."
+  ;; Remove any stale entry before testing
+  (remhash "<TEST-SEALED-BASE>" fol.compiler::*sealed-classes*)
+  (unwind-protect
+      (progn
+        (fol.compiler:compile-form
+         (fol-form '(defclass <test-sealed-base> #() #() :sealed true)))
+        (is (gethash "<TEST-SEALED-BASE>" fol.compiler::*sealed-classes*)
+            "sealed class name should be registered in *sealed-classes*"))
+    (remhash "<TEST-SEALED-BASE>" fol.compiler::*sealed-classes*)))
+
+(test compile-defclass-unsealed-not-registered
+  "defclass without :sealed does not register in *sealed-classes*."
+  (remhash "<TEST-UNSEALED-BASE>" fol.compiler::*sealed-classes*)
+  (fol.compiler:compile-form
+   (fol-form '(defclass <test-unsealed-base> #() #())))
+  (is (null (gethash "<TEST-UNSEALED-BASE>" fol.compiler::*sealed-classes*))
+      "non-sealed class should not be in *sealed-classes*"))
+
+(test compile-defclass-sealed-inheritance-error
+  "Inheriting from a sealed class signals a compiler error at compile time."
+  ;; Inject a sealed class name directly to avoid test-ordering dependencies
+  (setf (gethash "<TEST-SEALED-INJECTED>" fol.compiler::*sealed-classes*) t)
+  (unwind-protect
+      (let ((errored-p nil))
+        (handler-case
+            (fol.compiler:compile-form
+             (fol-form '(defclass <test-sealed-child> #(<test-sealed-injected>) #())))
+          (error () (setf errored-p t)))
+        (is (eq t errored-p) "inheriting from a sealed class should signal a compile-time error"))
+    (remhash "<TEST-SEALED-INJECTED>" fol.compiler::*sealed-classes*)))
+
+(test compile-defclass-sealed-no-own-guard
+  "defclass with :sealed does not itself emit an abstract guard (sealed != abstract)."
+  (remhash "<TEST-SEALED-ONLY>" fol.compiler::*sealed-classes*)
+  (unwind-protect
+      (let* ((result (fol.compiler:compile-form
+                      (fol-form '(defclass <test-sealed-only> #() #() :sealed true))))
+             (code (fol.compiler:compilation-result-code result)))
+        (is (null (fol.compiler:compilation-result-errors result)))
+        (let ((guard (find-if (lambda (form)
+                                (and (listp form)
+                                     (eq 'defmethod (first form))
+                                     (eq 'initialize-instance (second form))
+                                     (eq :before (third form))))
+                              (rest code))))
+          (is (null guard) "a sealed (but not abstract) class should not emit an instantiation guard")))
+    (remhash "<TEST-SEALED-ONLY>" fol.compiler::*sealed-classes*)))
+
+;;; ---------------------------------------------------------------------------
 ;;; defgeneric - single pattern
 ;;; ---------------------------------------------------------------------------
 

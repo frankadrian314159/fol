@@ -1,0 +1,82 @@
+;;; defclass Options Tests
+;;;
+;;; Tests for the :abstract and :sealed defclass options.
+;;;
+;;; NOTE: Sealed inheritance violations are compile-time errors and cannot be
+;;; tested within a FOL file (the file would fail to load).  Those cases are
+;;; covered by the Lisp-level tests in test-oop.lisp (compile-defclass-sealed-*).
+
+;;; ============================================================================
+;;; :abstract option - runtime behaviour
+;;; ============================================================================
+
+;;; Define an abstract base class
+(defclass <abstract-shape> [] [] :abstract true)
+
+;;; Define a concrete subclass — instantiation of this must succeed
+(defclass <concrete-circle> [<abstract-shape>] [[radius :initarg :radius]])
+
+;;; Direct instantiation of an abstract class must raise a runtime error
+(assert
+ (handler-case
+  (do (make-<abstract-shape>) false)
+  (cl:error (e) true))
+ "direct instantiation of an abstract class signals a runtime error")
+
+;;; Instantiation of a concrete subclass must succeed
+(bind [c (make-<concrete-circle> :radius 5)]
+  (assert (some? c) "concrete subclass of abstract class can be instantiated"))
+
+;;; Abstract class with slots — subclass inherits them normally
+(defclass <abstract-named> [] [[name :initarg :name]] :abstract true)
+(defclass <concrete-named-box> [<abstract-named>] [[width :initarg :width]])
+
+(bind [b (make-<concrete-named-box> :name "box" :width 10)]
+  (assert (some? b) "concrete subclass inheriting abstract class slots can be instantiated"))
+
+;;; Deeply nested: concrete grandchild of abstract
+(defclass <abstract-vehicle> [] [] :abstract true)
+(defclass <abstract-motorized> [<abstract-vehicle>] [] :abstract true)
+(defclass <concrete-car> [<abstract-motorized>] [[speed :initarg :speed]])
+
+(assert
+ (handler-case
+  (do (make-<abstract-vehicle>) false)
+  (cl:error (e) true))
+ "direct instantiation of abstract grandparent signals a runtime error")
+
+(assert
+ (handler-case
+  (do (make-<abstract-motorized>) false)
+  (cl:error (e) true))
+ "direct instantiation of abstract intermediate class signals a runtime error")
+
+(bind [car (make-<concrete-car> :speed 100)]
+  (assert (some? car)
+          "concrete leaf class with two abstract ancestors can be instantiated"))
+
+;;; :abstract false is the same as not specifying :abstract
+(defclass <explicitly-concrete> [] [] :abstract false)
+
+(bind [obj (make-<explicitly-concrete>)]
+  (assert (some? obj)
+          "class with :abstract false can be instantiated normally"))
+
+;;; ============================================================================
+;;; :sealed option — compile-time enforcement is tested in test-oop.lisp.
+;;; Here we verify that a sealed class itself is still instantiable.
+;;; ============================================================================
+
+(defclass <sealed-value-type> [] [[val :initarg :val]] :sealed true)
+
+(bind [v (make-<sealed-value-type> :val 42)]
+  (assert (some? v) "sealed class can still be instantiated directly"))
+
+;;; A class can be both abstract and sealed (unusual but legal)
+(defclass <abstract-and-sealed> [] [] :abstract true :sealed true)
+
+(assert
+ (handler-case
+  (do (make-<abstract-and-sealed>) false)
+  (cl:error (e) true))
+ "class that is both abstract and sealed cannot be directly instantiated")

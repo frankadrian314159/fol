@@ -312,20 +312,34 @@
        :docstring docstring
        :form form))))
 
+(defun fol-option-truthy-p (val)
+  "Return true if VAL is a truthy option value in FOL defclass option context.
+   The value is a raw (unparsed) form: NIL, the symbol FALSE, and the symbol NIL
+   are all falsy; everything else is truthy."
+  (and (not (null val))
+       (not (and (symbolp val) (string= (symbol-name val) "FALSE")))
+       (not (and (symbolp val) (string= (symbol-name val) "NIL")))))
+
 (defun parse-defclass (form)
   "Parse a defclass form: (defclass <name> [supers] [slots] option*).
    Superclasses and slots are specified as vectors.
-   Slots can be simple symbols or vectors of [name :initarg ... :accessor ...]."
+   Slots can be simple symbols or vectors of [name :initarg ... :accessor ...].
+   Options: :abstract truthy  — class cannot be directly instantiated.
+            :sealed   truthy  — class cannot appear in an inheritance chain."
   (destructuring-bind (op name supers-vec slots-vec &rest options) form
-    (declare (ignore op options))
+    (declare (ignore op))
     (let ((supers (fol-vector-to-list supers-vec))
           (slots (mapcar (lambda (s)
                            (if (fol-vector-p s) (fol-vector-to-list s) s))
-                     (fol-vector-to-list slots-vec))))
+                     (fol-vector-to-list slots-vec)))
+          (abstractp (fol-option-truthy-p (getf options :abstract)))
+          (sealedp   (fol-option-truthy-p (getf options :sealed))))
       (fol.compiler.ast:make-defclass-node
        :name name
        :superclasses supers
        :slots slots
+       :abstractp abstractp
+       :sealedp sealedp
        :form form))))
 
 (defun parse-defstruct (form)
@@ -1151,6 +1165,11 @@
    Used by emit-symbol-ref to emit function-namespace references for Lisp-1 compatibility.
    Bound by compile-file; nil during individual compile-form calls.")
 
+(defvar *sealed-classes* (make-hash-table :test 'equal)
+        "Registry of sealed class names (upcased string → t).
+   Populated by emit-defclass when a :sealed class is processed.
+   Queried by emit-defclass to catch compile-time inheritance from sealed classes.")
+
 (defun emit-literal (node)
   "Emit a literal value. Self-evaluating forms compile to themselves."
   (fol.compiler.ast:literal-node-value node))
@@ -1759,10 +1778,17 @@
 (defun emit-defclass (node)
   "Emit a defclass node as CL defclass with persistent object support.
    All FOL classes inherit from <persistent-object> and use the persistent-class metaclass.
-   Also emits a make-<name> convenience constructor."
+   Also emits a make-<name> convenience constructor.
+
+   :abstract — emits an initialize-instance :before method that signals a runtime error
+               when the class is instantiated directly (not via a subclass).
+   :sealed   — registers the class in *sealed-classes* and signals a compile-time error
+               if it appears as a superclass anywhere."
   (let* ((name (fol.compiler.ast:defclass-node-name node))
          (supers (fol.compiler.ast:defclass-node-superclasses node))
          (slots (fol.compiler.ast:defclass-node-slots node))
+         (abstractp (fol.compiler.ast:defclass-node-abstractp node))
+         (sealedp   (fol.compiler.ast:defclass-node-sealedp node))
          ;; Ensure <persistent-object> is in superclass list
          (has-persistent (some (lambda (s)
                                  (string= (symbol-name s) "<PERSISTENT-OBJECT>"))
@@ -1777,47 +1803,60 @@
                                 'fol.compiler.persistent:<persistent-object>
                                 s))
                       supers)
-                  (append supers '(fol.compiler.persistent:<persistent-object>)))))
-         ;; Build constructor name: make-<classname>
-         (constructor-name (intern (format nil "MAKE-~A" name)
-                                   (symbol-package name)))
-         ;; Extract slot info for the constructor and accessors
-         (slot-infos
-          (loop for slot in slots
-                for slot-spec = (if (listp slot) slot (list slot))
-                for slot-name = (first slot-spec)
-                for initarg = (or (getf (rest slot-spec) :initarg)
-                                  (intern (string slot-name) :keyword))
-                for accessor = (getf (rest slot-spec) :accessor)
+                  (append supers '(fol.compiler.persistent:<persistent-object>))))))
+    ;; Compile-time sealed check: error if any superclass is sealed.
+    (dolist (super supers)
+      (when (and super (gethash (symbol-name super) *sealed-classes*))
+        (cl:error "Compiler error: ~A inherits from sealed class ~A. ~
+                   Sealed classes cannot appear in an inheritance chain."
+                  name super)))
+    ;; Register this class as sealed so future subclasses are caught.
+    (when sealedp
+      (setf (gethash (symbol-name name) *sealed-classes*) t))
+    (let* (;; Build constructor name: make-<classname>
+           (constructor-name (intern (format nil "MAKE-~A" name)
+                                     (symbol-package name)))
+           ;; Extract slot info for the constructor and accessors
+           (slot-infos
+            (loop for slot in slots
+                  for slot-spec = (if (listp slot) slot (list slot))
+                  for slot-name = (first slot-spec)
+                  for initarg = (or (getf (rest slot-spec) :initarg)
+                                    (intern (string slot-name) :keyword))
+                  for accessor = (getf (rest slot-spec) :accessor)
                   ;; Storage key is always the keyword version of the slot name
-                for storage-key = (intern (string slot-name) :keyword)
-                collect (list slot-name initarg accessor storage-key)))
-         ;; Strip :accessor from slot specs for defclass (we generate our own)
-         (clean-slots
-          (loop for slot in slots
-                for slot-spec = (if (listp slot) slot (list slot))
-                for accessor = (getf (rest slot-spec) :accessor)
-                for processed = (emit-slot-spec
-                                 (if accessor
-                                     (let ((result (copy-list slot-spec)))
-                                       (remf (cdr result) :accessor)
-                                       result)
-                                     slot-spec))
-                collect processed)))
-    `(cl:progn
-       (cl:defclass ,name ,effective-supers
-         ,clean-slots
-         (:metaclass fol.compiler.persistent:persistent-class))
-       ,@(loop for (sname initarg accessor storage-key) in slot-infos
-                 when accessor
-               collect `(cl:defun ,accessor (object)
-                          (fol.compiler.collection-functions:get object ,storage-key)))
-       ;; Constructor
-       (cl:defun ,constructor-name (&key ,@(mapcar #'first slot-infos))
-         (cl:make-instance ',name
-           ,@(loop for (sname kw) in slot-infos
-                     append (list kw sname))))
-       ',name)))
+                  for storage-key = (intern (string slot-name) :keyword)
+                  collect (list slot-name initarg accessor storage-key)))
+           ;; Strip :accessor from slot specs for defclass (we generate our own)
+           (clean-slots
+            (loop for slot in slots
+                  for slot-spec = (if (listp slot) slot (list slot))
+                  for accessor = (getf (rest slot-spec) :accessor)
+                  for processed = (emit-slot-spec
+                                   (if accessor
+                                       (let ((result (copy-list slot-spec)))
+                                         (remf (cdr result) :accessor)
+                                         result)
+                                       slot-spec))
+                  collect processed)))
+      `(cl:progn
+         (cl:defclass ,name ,effective-supers
+           ,clean-slots
+           (:metaclass fol.compiler.persistent:persistent-class))
+         ,@(loop for (sname initarg accessor storage-key) in slot-infos
+                   when accessor
+                 collect `(cl:defun ,accessor (object)
+                            (fol.compiler.collection-functions:get object ,storage-key)))
+         ;; Abstract guard: prevent direct instantiation, allow subclasses.
+         ,@(when abstractp
+             `((cl:defmethod cl:initialize-instance :before ((obj ,name) &rest args)
+                 (cl:declare (cl:ignore args))
+                 (cl:when (cl:eq (cl:class-of obj) (cl:find-class ',name))
+                   (cl:error "Cannot instantiate abstract class ~A" ',name)))))
+         ;; Constructor — accept &rest so inherited initargs work too
+         (cl:defun ,constructor-name (&rest %ctor-args)
+           (cl:apply #'cl:make-instance ',name %ctor-args))
+         ',name))))
 
 (defun emit-defstruct (node)
   "Emit a defstruct node as a persistent defclass with slot accessor methods and a make method.
