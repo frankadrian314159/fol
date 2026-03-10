@@ -1,0 +1,47 @@
+To load "bordeaux-threads":
+  Load 1 ASDF system:
+    bordeaux-threads
+; Loading "bordeaux-threads"
+
+To load "usocket":
+  Load 1 ASDF system:
+    usocket
+; Loading "usocket"
+
+To load "cl-json":
+  Load 1 ASDF system:
+    cl-json
+; Loading "cl-json"
+
+To load "flexi-streams":
+  Load 1 ASDF system:
+    flexi-streams
+; Loading "flexi-streams"
+
+To load "fiveam":
+  Load 1 ASDF system:
+    fiveam
+; Loading "fiveam"
+
+To load "closer-mop":
+  Load 1 ASDF system:
+    closer-mop
+; Loading "closer-mop"
+
+To load "cl-ppcre":
+  Load 1 ASDF system:
+    cl-ppcre
+; Loading "cl-ppcre"
+..
+WARNING: System definition file #P"C:/Users/frank/Projects/FOL/fol/src/fol-compiler.asd" contains definition for system "fol-extension-server". Please only define "fol-compiler" and secondary systems with a name starting with "fol-compiler/" (e.g. "fol-compiler/test") in that file.
+
+Running 32x32x32-30000 (CL)...
+
+Results:
+  Time (s):        47852.500
+  Alloc (MB):      1081983.40
+  GC Time (s):     30.375
+  GC %%:            0.1
+  Gate Evals:      1,183,510,528
+
+| 32x32x32-30000 | CL | 47852.500 | 1081983.40 | 30.375 | 0.1% | 1,183,510,528 |

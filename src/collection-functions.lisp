@@ -8,6 +8,17 @@
 
 (in-package :fol.compiler.collection-functions)
 
+;;; Helpers: construct <vector> from a CL list without apply (avoids stack overflow
+;;; for very large lists, e.g. 131,072+ elements in the lsim benchmark).
+(defun %make-vec (lst)
+  (make-instance 'fol.compiler.collections:<vector>
+    :storage (fol.compiler.collection-primitives::%build-vec-t-from-list lst)))
+
+(defun %make-coll (class-sym lst)
+  (if (eq class-sym 'fol.compiler.collections:<vector>)
+      (%make-vec lst)
+      (apply #'fol.compiler.collections:make class-sym lst)))
+
 (defun vector (&rest args)
   "Create a new <vector> from ARGS.
    (vector)       => empty vector
@@ -354,16 +365,13 @@
 (defmethod rest ((coll fol.compiler.collections:<collection>))
   (let ((seq (fol.compiler.collections:collection-seq coll)))
     (if (cl:rest seq)
-        (apply #'fol.compiler.collections:make
-          (class-of coll) (cl:rest seq))
+        (%make-coll (class-name (class-of coll)) (cl:rest seq))
         (make-instance (class-of coll)))))
 
 (defmethod rest ((coll fol.compiler.collections:<vector>))
   (let ((sz (fol.compiler.collections:collection-size coll)))
     (if (cl:> sz 0)
-        (apply #'fol.compiler.collections:make
-          'fol.compiler.collections:<vector>
-          (cl:rest (fol.compiler.collections:collection-seq coll)))
+        (%make-vec (cl:rest (fol.compiler.collections:collection-seq coll)))
         (make-instance 'fol.compiler.collections:<vector>))))
 
 (defmethod rest ((coll fol.compiler.collections:<list>))
@@ -1094,9 +1102,7 @@
       (cl:error "subvec: end ~D out of bounds for vector of size ~D" actual-end sz))
     (if (cl:= start actual-end)
         (vector)
-        (apply #'fol.compiler.collections:make
-          'fol.compiler.collections:<vector>
-          (cl:loop for i from start below actual-end
+        (%make-vec (cl:loop for i from start below actual-end
           collect (ref v i))))))
 
 ;;; ===========================================================================
@@ -1591,9 +1597,7 @@
    Examples:
      (vals {:a 1 :b 2})  => [1 2]  ; order may vary for unordered dicts"
   (let ((seq (fol.compiler.collections:collection-seq dict)))
-    (apply #'fol.compiler.collections:make
-      'fol.compiler.collections:<vector>
-      (cl:mapcar #'cl:cdr seq))))
+    (%make-vec (cl:mapcar #'cl:cdr seq))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; key - Extract key from a map entry

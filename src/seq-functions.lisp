@@ -74,10 +74,12 @@
       (let* ((seqs (cons (fol.compiler.collections:collection-seq coll)
                          (cl:mapcar #'fol.compiler.collections:collection-seq colls)))
              (results (apply #'cl:mapcar fn seqs)))
-        (apply #'fol.compiler.collections:make 'fol.compiler.collections:<vector> results))
+        (make-instance 'fol.compiler.collections:<vector>
+          :storage (fol.compiler.collection-primitives::%build-vec-t-from-list results)))
       (let* ((seq (fol.compiler.collections:collection-seq coll))
              (results (cl:mapcar fn seq)))
-        (apply #'fol.compiler.collections:make 'fol.compiler.collections:<vector> results))))
+        (make-instance 'fol.compiler.collections:<vector>
+          :storage (fol.compiler.collection-primitives::%build-vec-t-from-list results)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; pmap - parallel map using thread pool
@@ -120,7 +122,8 @@
          (filtered (cl:remove-if-not (lambda (x)
                                        (fol.compiler.primitives:truthy? (funcall pred x)))
                      seq)))
-    (apply #'fol.compiler.collections:make 'fol.compiler.collections:<vector> filtered)))
+    (make-instance 'fol.compiler.collections:<vector>
+      :storage (fol.compiler.collection-primitives::%build-vec-t-from-list filtered))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; reduce - Reduce collection to single value
@@ -220,7 +223,10 @@
      (concat #{1 2} [3 4])       => [1 2 3 4]  ; order may vary for set"
   (let* ((seqs (cl:mapcar #'fol.compiler.collections:collection-seq colls))
          (combined (apply #'cl:append seqs)))
-    (apply #'fol.compiler.collections:make 'fol.compiler.collections:<vector> combined)))
+    ;; Directly construct with %build-vec-t-from-list to avoid stack overflow
+    ;; from apply with huge argument lists (e.g. 131,072 elements)
+    (make-instance 'fol.compiler.collections:<vector>
+      :storage (fol.compiler.collection-primitives::%build-vec-t-from-list combined))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; keys - Get all keys from a dict
@@ -262,9 +268,8 @@
                               (string (string k))
                               (symbol (symbol-name k))
                               (t k)))))))
-    (apply #'fol.compiler.collections:make
-      'fol.compiler.collections:<vector>
-      sorted)))
+    (make-instance 'fol.compiler.collections:<vector>
+      :storage (fol.compiler.collection-primitives::%build-vec-t-from-list sorted))))
 
 ;;; ===========================================================================
 ;;; Sequence Constructors and Coercions
@@ -600,6 +605,9 @@
          (loop for (k . v) in sorted collect k collect v)))
      ((listp coll)
        sorted)
+     ((typep coll 'fol.compiler.collections:<vector>)
+       (make-instance 'fol.compiler.collections:<vector>
+         :storage (fol.compiler.collection-primitives::%build-vec-t-from-list sorted)))
      (t
        (apply #'fol.compiler.collections:make
          (class-name (class-of coll))

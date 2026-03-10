@@ -41,9 +41,9 @@
                      (fol.compiler.primitives:truthy?
                       (fol.compiler.mutable:wait-for-work (cdr pair))))
                    futures)))
-    (cl:apply #'fol.compiler.collections:make
-              (cl:class-name (cl:class-of coll))
-              (cl:mapcar #'car passing))))
+    (fol.compiler.collection-functions::%make-coll
+      (cl:class-name (cl:class-of coll))
+      (cl:mapcar #'car passing))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; pgroup-by — parallel group-by
@@ -78,9 +78,7 @@
       (maphash (lambda (k vs)
                  (setf d (fol.compiler.collection-functions:assoc
                           d k
-                          (cl:apply #'fol.compiler.collections:make
-                                    'fol.compiler.collections:<vector>
-                                    (nreverse vs)))))
+                          (fol.compiler.collection-functions::%make-vec (nreverse vs)))))
                buckets)
       d)))
 
@@ -119,8 +117,8 @@
          (cls (cl:class-name (cl:class-of coll))))
     (fol.compiler.collections:make
      'fol.compiler.collections:<vector>
-     (cl:apply #'fol.compiler.collections:make cls passing)
-     (cl:apply #'fol.compiler.collections:make cls failing))))
+     (fol.compiler.collection-functions::%make-coll cls passing)
+     (fol.compiler.collection-functions::%make-coll cls failing))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; pzip — parallel zip of two collections
@@ -150,8 +148,7 @@
                       pair))
                    pairs))
          (results (cl:mapcar #'fol.compiler.mutable:wait-for-work futures)))
-    (cl:apply #'fol.compiler.collections:make
-              'fol.compiler.collections:<vector> results)))
+    (fol.compiler.collection-functions::%make-vec results)))
 
 ;;; ---------------------------------------------------------------------------
 ;;; pzip-with-index — parallel zip with positional index
@@ -175,8 +172,7 @@
                       pair))
                    indexed))
          (results (cl:mapcar #'fol.compiler.mutable:wait-for-work futures)))
-    (cl:apply #'fol.compiler.collections:make
-              'fol.compiler.collections:<vector> results)))
+    (fol.compiler.collection-functions::%make-vec results)))
 
 ;;; ---------------------------------------------------------------------------
 ;;; pforeach — parallel for-each (side effects)

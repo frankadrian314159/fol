@@ -6,6 +6,19 @@
 
 (in-package :fol.compiler.merged-functions)
 
+;;; Helper: construct <vector> from a CL list without apply (avoids stack overflow
+;;; for very large lists, e.g. 131,072+ elements in the lsim benchmark).
+(defun %make-vec (lst)
+  (make-instance 'fol.compiler.collections:<vector>
+    :storage (fol.compiler.collection-primitives::%build-vec-t-from-list lst)))
+
+;;; Polymorphic helper: construct any collection from a list, using direct
+;;; construction for <vector> to avoid stack overflow.
+(defun %make-coll (class-sym lst)
+  (if (eq class-sym 'fol.compiler.collections:<vector>)
+      (%make-vec lst)
+      (apply #'fol.compiler.collections:make class-sym lst)))
+
 (defun %relational-join (xrel yrel &optional km)
   "Natural join of two relations (sets of dicts).
    Returns the set of all dicts formed by merging an element of XREL and
@@ -101,9 +114,7 @@
                                      (fol.compiler.collections:get smap elem)
                                    (if found replacement elem)))
                            seq)))
-         (apply #'fol.compiler.collections:make
-           (class-name (class-of coll))
-           new-seq)))
+         (%make-coll (class-name (class-of coll)) new-seq)))
 
      ;; Case 2: String replacement (s match replacement &key use-regex)
      ((and (>= nargs 3)
@@ -202,11 +213,11 @@
             (let* ((seqs (cl:cons (fol.compiler.collections:collection-seq coll)
                                   (cl:mapcar #'fol.compiler.collections:collection-seq colls)))
                    (results (cl:apply #'cl:mapcar fn seqs)))
-              (cl:apply #'fol.compiler.collections:make (class-name (class-of coll)) results))
+              (%make-coll (class-name (class-of coll)) results))
             ;; Single collection
             (let* ((seq (fol.compiler.collections:collection-seq coll))
                    (results (cl:mapcar fn seq)))
-              (cl:apply #'fol.compiler.collections:make (class-name (class-of coll)) results))))))
+              (%make-coll (class-name (class-of coll)) results))))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; mapcat - map followed by concatenation
@@ -240,7 +251,7 @@
                (mapped (cl:mapcar fn seq))
                (seqs (cl:mapcar #'fol.compiler.collections:collection-seq mapped))
                (flattened (cl:apply #'cl:append seqs)))
-          (cl:apply #'fol.compiler.collections:make (class-name (class-of coll)) flattened)))))
+          (%make-coll (class-name (class-of coll)) flattened)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; filter - Keep elements that satisfy predicate
@@ -268,7 +279,7 @@
                (filtered (cl:remove-if-not (lambda (x)
                                              (fol.compiler.primitives:truthy? (funcall pred x)))
                            seq)))
-          (cl:apply #'fol.compiler.collections:make (class-name (class-of coll)) filtered)))))
+          (%make-coll (class-name (class-of coll)) filtered)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; remove - Inverse of filter
@@ -289,7 +300,7 @@
                (kept (cl:remove-if (lambda (x)
                                      (fol.compiler.primitives:truthy? (funcall pred x)))
                        seq)))
-          (cl:apply #'fol.compiler.collections:make (class-name (class-of coll)) kept)))))
+          (%make-coll (class-name (class-of coll)) kept)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; keep - map but remove nil results
@@ -317,7 +328,7 @@
         (let* ((seq (fol.compiler.collections:collection-seq coll))
                (results (cl:mapcar fn seq))
                (kept (cl:remove-if #'null results)))
-          (cl:apply #'fol.compiler.collections:make (class-name (class-of coll)) kept)))))
+          (%make-coll (class-name (class-of coll)) kept)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; take - Take first n elements
@@ -361,15 +372,11 @@
                    (push head result)
                    (incf count)
                    (setf current tail)))
-              (cl:apply #'fol.compiler.collections:make
-                'fol.compiler.collections:<vector>
-                (nreverse result)))
+              (%make-vec (nreverse result)))
             ;; Eager collections: use collection-seq
             (let* ((seq (fol.compiler.collections:collection-seq coll))
                    (taken (cl:subseq seq 0 (cl:min n (length seq)))))
-              (cl:apply #'fol.compiler.collections:make
-                'fol.compiler.collections:<vector>
-                taken))))))
+              (%make-vec taken))))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; drop - Drop first n elements
@@ -396,7 +403,7 @@
       (let ((coll (cl:first args)))
         (let* ((seq (fol.compiler.collections:collection-seq coll))
                (dropped (cl:nthcdr n seq)))
-          (cl:apply #'fol.compiler.collections:make (class-name (class-of coll)) dropped)))))
+          (%make-coll (class-name (class-of coll)) dropped)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; take-while - Take elements while predicate is true
@@ -425,7 +432,7 @@
           (cl:loop for elem in seq
           while (fol.compiler.primitives:truthy? (funcall pred elem))
           do (push elem result))
-          (cl:apply #'fol.compiler.collections:make (class-name (class-of coll)) (nreverse result))))))
+          (%make-coll (class-name (class-of coll)) (nreverse result))))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; drop-while - Drop elements while predicate is true
@@ -457,7 +464,7 @@
         (let ((seq (fol.compiler.collections:collection-seq coll)))
           (cl:loop for tail on seq
             when (cl:not (fol.compiler.primitives:truthy? (funcall pred (car tail))))
-            return (cl:apply #'fol.compiler.collections:make (class-name (class-of coll)) tail)
+            return (%make-coll (class-name (class-of coll)) tail)
           finally (return (fol.compiler.collections:make (class-name (class-of coll)))))))))
 
 ;;; ---------------------------------------------------------------------------
@@ -490,9 +497,7 @@
                        for i from 0
                        for v = (funcall fn i elem)
                          when v collect v)))
-          (cl:apply #'fol.compiler.collections:make
-            'fol.compiler.collections:<vector>
-            result)))))
+          (%make-vec result)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; map-indexed - map with index passed as first arg
@@ -520,8 +525,7 @@
                (result (cl:loop for elem in seq
                        for i from 0
                        collect (funcall fn i elem))))
-          (cl:apply #'fol.compiler.collections:make
-            'fol.compiler.collections:<vector> result)))))
+          (%make-vec result)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; distinct - remove duplicates preserving first occurrence
@@ -554,8 +558,7 @@
             (unless (gethash elem seen)
               (setf (gethash elem seen) t)
               (push elem result)))
-          (cl:apply #'fol.compiler.collections:make
-            'fol.compiler.collections:<vector> (nreverse result))))))
+          (%make-vec (nreverse result))))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; dedupe - remove consecutive duplicates
@@ -590,8 +593,7 @@
               (unless (equal elem prev)
                 (push elem result)
                 (setf prev elem))))
-          (cl:apply #'fol.compiler.collections:make
-            'fol.compiler.collections:<vector> (nreverse result))))))
+          (%make-vec (nreverse result))))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; partition-all - like partition but keeps partial final group
@@ -627,12 +629,10 @@
               (result '()))
           (cl:loop while seq
           do (let ((group (cl:subseq seq 0 (cl:min n (length seq)))))
-               (push (cl:apply #'fol.compiler.collections:make
-                       'fol.compiler.collections:<vector> group)
+               (push (%make-vec group)
                      result)
                (setf seq (cl:nthcdr n seq))))
-          (cl:apply #'fol.compiler.collections:make
-            'fol.compiler.collections:<vector> (nreverse result))))))
+          (%make-vec (nreverse result))))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; partition-by - partition by consecutive equal values of fn
@@ -684,19 +684,14 @@
                 (if (cl:or (eq current-key sentinel) (equal key current-key))
                     (push elem current-group)
                     (progn
-                     (push (cl:apply #'fol.compiler.collections:make
-                             'fol.compiler.collections:<vector>
-                             (nreverse current-group))
+                     (push (%make-vec (nreverse current-group))
                            result)
                      (setf current-group (cl:list elem))))
                 (setf current-key key)))
             (when current-group
-                  (push (cl:apply #'fol.compiler.collections:make
-                          'fol.compiler.collections:<vector>
-                          (nreverse current-group))
+                  (push (%make-vec (nreverse current-group))
                         result)))
-          (cl:apply #'fol.compiler.collections:make
-            'fol.compiler.collections:<vector> (nreverse result))))))
+          (%make-vec (nreverse result))))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; interpose - insert separator between elements
@@ -733,9 +728,7 @@
                 (dolist (elem (cl:rest seq))
                   (push sep result)
                   (push elem result))
-                (cl:apply #'fol.compiler.collections:make
-                  'fol.compiler.collections:<vector>
-                  (nreverse result))))))))
+                (%make-vec (nreverse result))))))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; take-nth - take every nth element
@@ -767,5 +760,4 @@
                (result (cl:loop for elem in seq
                        for i from 0
                          when (zerop (mod i n)) collect elem)))
-          (cl:apply #'fol.compiler.collections:make
-            'fol.compiler.collections:<vector> result)))))
+          (%make-vec result)))))

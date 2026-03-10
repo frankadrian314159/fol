@@ -333,7 +333,7 @@
                            (if (fol-vector-p s) (fol-vector-to-list s) s))
                      (fol-vector-to-list slots-vec)))
           (abstractp (fol-option-truthy-p (getf options :abstract)))
-          (sealedp   (fol-option-truthy-p (getf options :sealed))))
+          (sealedp (fol-option-truthy-p (getf options :sealed))))
       (fol.compiler.ast:make-defclass-node
        :name name
        :superclasses supers
@@ -862,8 +862,8 @@
   (destructuring-bind (op &rest place-value-pairs) form
     (declare (ignore op))
     (when (oddp (length place-value-pairs))
-      (error "setf requires an even number of place/value arguments, got ~D"
-             (length place-value-pairs)))
+          (error "setf requires an even number of place/value arguments, got ~D"
+            (length place-value-pairs)))
     (let ((pairs (loop for (place value) on place-value-pairs by #'cddr
                        collect (cons place (parse-form value)))))
       (fol.compiler.ast:make-setf-node
@@ -876,8 +876,8 @@
   (destructuring-bind (op &rest var-value-pairs) form
     (declare (ignore op))
     (when (oddp (length var-value-pairs))
-      (error "setq requires an even number of var/value arguments, got ~D"
-             (length var-value-pairs)))
+          (error "setq requires an even number of var/value arguments, got ~D"
+            (length var-value-pairs)))
     (let ((pairs (loop for (var value) on var-value-pairs by #'cddr
                        collect (cons var value))))
       (fol.compiler.ast:make-setq-node
@@ -900,8 +900,8 @@
   (destructuring-bind (op &rest var-value-pairs) form
     (declare (ignore op))
     (when (oddp (length var-value-pairs))
-      (error "psetq requires an even number of var/value arguments, got ~D"
-             (length var-value-pairs)))
+          (error "psetq requires an even number of var/value arguments, got ~D"
+            (length var-value-pairs)))
     (let ((pairs (loop for (var value) on var-value-pairs by #'cddr
                        collect (cons var value))))
       (fol.compiler.ast:make-psetq-node
@@ -914,8 +914,8 @@
   (destructuring-bind (op &rest place-value-pairs) form
     (declare (ignore op))
     (when (oddp (length place-value-pairs))
-      (error "psetf requires an even number of place/value arguments, got ~D"
-             (length place-value-pairs)))
+          (error "psetf requires an even number of place/value arguments, got ~D"
+            (length place-value-pairs)))
     (let ((pairs (loop for (place value) on place-value-pairs by #'cddr
                        collect (cons place value))))
       (fol.compiler.ast:make-psetf-node
@@ -968,8 +968,8 @@
   (destructuring-bind (op &rest args) form
     (declare (ignore op))
     (when (< (length args) 2)
-      (error "shiftf requires at least one place and a new value, got ~D argument(s)"
-             (length args)))
+          (error "shiftf requires at least one place and a new value, got ~D argument(s)"
+            (length args)))
     (fol.compiler.ast:make-shiftf-node
      :places (butlast args)
      :newval (car (last args))
@@ -982,8 +982,8 @@
     (declare (ignore op))
     (fol.compiler.ast:make-rplaca-node
      :cons-form cons-form
-     :new-car   new-car
-     :form      form)))
+     :new-car new-car
+     :form form)))
 
 (defun parse-rplacd (form)
   "Parse (rplacd cons new-cdr) — destructively replaces the cdr of a cons cell.
@@ -992,8 +992,8 @@
     (declare (ignore op))
     (fol.compiler.ast:make-rplacd-node
      :cons-form cons-form
-     :new-cdr   new-cdr
-     :form      form)))
+     :new-cdr new-cdr
+     :form form)))
 
 (defun parse-in-package (form)
   "Parse (in-package name options... body...)."
@@ -1022,7 +1022,7 @@
       (dolist (arg args)
         (when (and (consp arg)
                    (keywordp (car arg)))
-          (push arg options)))
+              (push arg options)))
       (fol.compiler.ast:make-defpackage-node
        :name name
        :options (nreverse options)
@@ -1812,7 +1812,7 @@
          (supers (fol.compiler.ast:defclass-node-superclasses node))
          (slots (fol.compiler.ast:defclass-node-slots node))
          (abstractp (fol.compiler.ast:defclass-node-abstractp node))
-         (sealedp   (fol.compiler.ast:defclass-node-sealedp node))
+         (sealedp (fol.compiler.ast:defclass-node-sealedp node))
          ;; Ensure <persistent-object> is in superclass list
          (has-persistent (some (lambda (s)
                                  (string= (symbol-name s) "<PERSISTENT-OBJECT>"))
@@ -1831,12 +1831,12 @@
     ;; Compile-time sealed check: error if any superclass is sealed.
     (dolist (super supers)
       (when (and super (gethash (symbol-name super) *sealed-classes*))
-        (cl:error "Compiler error: ~A inherits from sealed class ~A. ~
+            (cl:error "Compiler error: ~A inherits from sealed class ~A. ~
                    Sealed classes cannot appear in an inheritance chain."
-                  name super)))
+              name super)))
     ;; Register this class as sealed so future subclasses are caught.
     (when sealedp
-      (setf (gethash (symbol-name name) *sealed-classes*) t))
+          (setf (gethash (symbol-name name) *sealed-classes*) t))
     (let* (;; Build constructor name: make-<classname>
            (constructor-name (intern (format nil "MAKE-~A" name)
                                      (symbol-package name)))
@@ -1848,20 +1848,21 @@
                   for initarg = (or (getf (rest slot-spec) :initarg)
                                     (intern (string slot-name) :keyword))
                   for accessor = (getf (rest slot-spec) :accessor)
-                  ;; Storage key is always the keyword version of the slot name
+                    ;; Storage key is always the keyword version of the slot name
                   for storage-key = (intern (string slot-name) :keyword)
                   collect (list slot-name initarg accessor storage-key)))
-           ;; Strip :accessor from slot specs for defclass (we generate our own)
+           ;; Ensure each slot has an :initarg (defaulting to keyword name)
            (clean-slots
             (loop for slot in slots
-                  for slot-spec = (if (listp slot) slot (list slot))
-                  for accessor = (getf (rest slot-spec) :accessor)
+                  for slot-spec = (if (listp slot) (copy-list slot) (list slot))
+                  for sname = (car slot-spec)
+                  for final-spec = (if (getf (cdr slot-spec) :initarg)
+                                       slot-spec
+                                       (append slot-spec (list :initarg (intern (string sname) :keyword))))
                   for processed = (emit-slot-spec
-                                   (if accessor
-                                       (let ((result (copy-list slot-spec)))
-                                         (remf (cdr result) :accessor)
-                                         result)
-                                       slot-spec))
+                                   (let ((result (copy-list final-spec)))
+                                     (remf (cdr result) :accessor)
+                                     result))
                   collect processed)))
       `(cl:progn
          (cl:defclass ,name ,effective-supers
@@ -1873,10 +1874,10 @@
                             (fol.compiler.collection-functions:get object ,storage-key)))
          ;; Abstract guard: prevent direct instantiation, allow subclasses.
          ,@(when abstractp
-             `((cl:defmethod cl:initialize-instance :before ((obj ,name) &rest args)
-                 (cl:declare (cl:ignore args))
-                 (cl:when (cl:eq (cl:class-of obj) (cl:find-class ',name))
-                   (cl:error "Cannot instantiate abstract class ~A" ',name)))))
+                 `((cl:defmethod cl:initialize-instance :before ((obj ,name) &rest args)
+                     (cl:declare (cl:ignore args))
+                     (cl:when (cl:eq (cl:class-of obj) (cl:find-class ',name))
+                       (cl:error "Cannot instantiate abstract class ~A" ',name)))))
          ;; Constructor — accept &rest so inherited initargs work too
          (cl:defun ,constructor-name (&rest %ctor-args)
            (cl:apply #'cl:make-instance ',name %ctor-args))
@@ -2583,19 +2584,19 @@
 (defun emit-defpackage (node)
   "Emit a defpackage form for a defpackage-node.
    Normalizes :use to include FOL.CORE and CL and auto-generates
-   shadowing-imports for conflicts with CL symbols." 
+   shadowing-imports for conflicts with CL symbols."
   (let ((name (cl:string-upcase (cl:string (fol.compiler.ast:defpackage-node-name node))))
         (options (fol.compiler.ast:defpackage-node-options node)))
     (let* ((use-opt (find :use options :key #'first))
            (other-opts (remove :use options :key #'first))
            (use-list (if use-opt
                          (mapcar (lambda (x) (cl:string-upcase (cl:string x)))
-                                 (rest use-opt))
+                             (rest use-opt))
                          nil))
            (new-use-list (cons :use
                                (remove-duplicates
-                                (append use-list '("FOL.CORE" "CL"))
-                                :test #'string-equal)))
+                                   (append use-list '("FOL.CORE" "CL"))
+                                 :test #'string-equal)))
            (conflicts (loop for s being the external-symbols of (find-package :fol.core)
                               when (find-symbol (symbol-name s) :common-lisp)
                             collect (symbol-name s)))
@@ -2610,7 +2611,7 @@
   (cl:error "Compiler error: '~A' is not allowed in FOL. ~
              FOL is a functional language; ~A ~
              Offending form: ~S"
-            op-name suggestion (fol.compiler.ast:ast-node-form node)))
+    op-name suggestion (fol.compiler.ast:ast-node-form node)))
 
 (defun emit-setf (node)
   "Signal a compiler error: setf is not permitted in FOL."

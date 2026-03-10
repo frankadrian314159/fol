@@ -1,4 +1,5 @@
-\documentclass[sigconf,nonacm,review]{acmart}
+\documentclass[sigconf,nonacm]{acmart}
+\settopmatter{printfolios=false}
 
 \usepackage{listings}
 \usepackage{booktabs}
@@ -66,7 +67,7 @@ FOL (Functional Object Lisp) synthesizes CLOS object orientation with persistent
 \ccsdesc[500]{Software and its engineering~Object oriented languages}
 \ccsdesc[300]{Software and its engineering~Extensible languages}
 
-\keywords{Functional programming, object-oriented programming, Lisp, persistent data structures, CLOS, MOP, transducers}
+\keywords{Functional programming, object-oriented programming, Lisp, persistent data structures, CLOS, MOP}
 
 \maketitle
 
@@ -438,7 +439,7 @@ The feature benchmarks show overhead ratios from 6.69$\times$ to 113.7$\times$, 
 
 \subsection{Logic Simulation (LSim)}
 
-LSim is a digital logic simulator that exercises persistent state management at scale. We evaluated four configurations of increasing complexity: 8bit-100 (32-gate single 8-bit register, 100 time-steps), 32bit-300 (128-gate single 32-bit register, 300 time-steps), 8x32-900 (1024-gate pipeline of eight 32-bit registers, 900 time-steps), and 32x32-3000 (a 4096-gate pipeline of thirty-two cascaded 32-bit registers with 3000 time steps). Table~\ref{tab:lsim-perf} presents the results.
+LSim is a digital logic simulator that exercises persistent state management at scale. We evaluated five configurations of increasing complexity: 8bit-100 (32-gate single 8-bit register, 100 time-steps), 32bit-300 (128-gate single 32-bit register, 300 time-steps), 8x32-900 (1024-gate pipeline of eight 32-bit registers, 900 time-steps), and 32x32-3000 , 8x32x32-9000 (32768-gate simulation havind eight pipelines of thirty-two cascaded 32-bit registers with 9000 time steps). Table~\ref{tab:lsim-perf} presents the results.
 
 \begin{table}[htbp]
 \small

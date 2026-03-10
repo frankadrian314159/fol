@@ -2,11 +2,13 @@
   (:use "fol.lib.reducers")
   (:export register-module get-module <component> <module-def> <logic-component>
            compute-next-state register-primitive get-primitive defpart 
-           expand-netlist expand-spec run-simulation Monitor Events AddEvents RunLSim DisplayLSim))
+           expand-netlist expand-spec run-simulation Monitor Events AddEvents 
+           RunLSim DisplayLSim *gate-evals*))
 
 ;; Electrical Netlist DSL for FOL
 
 (def *circuit-modules* (atom {}))
+(def *gate-evals* (atom 0))
 
 (defn register-module [name def]
   (swap! *circuit-modules* (fn [m] (assoc m name def))))
@@ -180,7 +182,9 @@
           map (collection-seq (component-inputs comp))))
 
 (defn merge-events [queue new-events]
-  (sort-by :time (concat queue new-events)))
+  (if (empty? new-events)
+      queue
+      (sort-by :time (concat queue new-events))))
 
 (defn get-input-states [comp node-values]
   (reduce (fn [acc port]
@@ -205,38 +209,51 @@
           (bind [event-time (get (first queue) :time)
                  batch (take-while (fn [x] (= (get x :time) event-time)) queue)
                  remaining (drop-while (fn [x] (= (get x :time) event-time)) queue)
-                 updates (reduce (fn [acc evt] (assoc acc (get evt :node) (get evt :value))) {} batch)
+                 updates (aggregate (fn [] {})
+                                    (fn [acc evt] (assoc acc (get evt :node) (get evt :value)))
+                                    (fn [a b] (merge a b))
+                                    batch)
                  new-node-values (merge node-values updates)
-                 new-event-history (reduce (fn [acc evt]
-                                             (bind [node (get evt :node)]
-                                               (if (contains? monitored-nodes node)
-                                                   (update acc node (fn [evts] (conj (if evts evts []) evt)))
-                                                   acc)))
-                                           event-history batch)
-                 changed-nodes (reduce (fn [s k] (conj s k)) #{} (keys updates))
-                 affected-comps (reduce (fn [acc node]
-                                          (bind [comps (get connectivity node)]
-                                            (reduce (fn [a c] (conj a c)) acc comps)))
-                                        #{} changed-nodes)
-                  new-events (preduce (fn 
-                                       ([] [])
-                                       ([acc comp]
-                                        (bind [input-states (get-input-states comp new-node-values)
-                                               changed-ports (get-changed-ports comp changed-nodes)
-                                               results (compute-next-state comp input-states changed-ports)]
-                                          (reduce (fn [a res]
-                                                    (bind [out-node (get (component-connections comp) (get res :port))
-                                                           current-val (get new-node-values out-node -1)]
-                                                      (if (/= (get res :value) current-val)
-                                                          (conj a {:time (+ event-time (get res :delay))
-                                                                   :node out-node
-                                                                   :value (get res :value)})
-                                                          a)))
-                                                  acc results))))
-                                     [] affected-comps)]
+                 new-event-history (aggregate (fn [] {})
+                                              (fn [acc evt]
+                                                (bind [node (get evt :node)]
+                                                  (if (contains? monitored-nodes node)
+                                                      (update acc node (fn [evts] (conj (if evts evts []) evt)))
+                                                      acc)))
+                                              (fn [a b] (merge-with (fn [xs ys] (concat xs ys)) a b))
+                                              batch)
+                 changed-nodes (aggregate (fn [] #{})
+                                          (fn [s k] (conj s k))
+                                          (fn [a b] (union a b))
+                                          (keys updates))
+                 affected-comps (aggregate (fn [] #{})
+                                           (fn [acc node]
+                                            (bind [comps (get connectivity node)]
+                                              (if comps
+                                                  (reduce (fn [a c] (conj a c)) acc comps)
+                                                  acc)))
+                                           (fn [a b] (union a b))
+                                           changed-nodes)
+                 new-events (aggregate (fn [] [])
+                                       (fn [acc comp]
+                                         (do (swap! *gate-evals* (fn [n] (cl:+ n 1)))
+                                             (bind [input-states (get-input-states comp new-node-values)
+                                                    changed-ports (get-changed-ports comp changed-nodes)
+                                                    results (compute-next-state comp input-states changed-ports)]
+                                               (reduce (fn [a res]
+                                                         (bind [out-node (get (component-connections comp) (get res :port))
+                                                                current-val (get new-node-values out-node -1)]
+                                                           (if (/= (get res :value) current-val)
+                                                               (conj a {:time (+ event-time (get res :delay))
+                                                                        :node out-node
+                                                                        :value (get res :value)})
+                                                               a)))
+                                                       acc results))))
+                                       (fn [a b] (concat a b))
+                                       affected-comps)]
             (recur (merge-events remaining new-events)
                    new-node-values
-                   new-event-history
+                   (merge-with (fn [xs ys] (concat xs ys)) event-history new-event-history)
                    event-time))))))
 
 (def *sim-monitored* (atom #{}))
@@ -247,9 +264,10 @@
   (swap! *sim-monitored* (fn [s] (reduce (fn [acc n] (conj acc n)) s nodes))))
 
 (defn AddEvents [& events]
-  (swap! *sim-events* (fn [e] (merge-events e events))))
+  (swap! *sim-events* (fn [e] (concat e events))))
 
 (defn RunLSim [module-name time]
+  (reset! *gate-evals* 0)
   (bind [netlist (expand-netlist module-name)]
     (reset! *sim-history* (run-simulation netlist @*sim-events* time @*sim-monitored*))
     :simulation-complete))

@@ -1,11 +1,13 @@
 (in-package "lsim"
   (:export register-module get-module <component> <module-def> <logic-component>
            compute-next-state register-primitive get-primitive defpart 
-           expand-netlist expand-spec run-simulation Monitor Events AddEvents RunLSim DisplayLSim))
+           expand-netlist expand-spec run-simulation Monitor Events AddEvents 
+           RunLSim DisplayLSim *gate-evals*))
 
 ;; Electrical Netlist DSL for FOL
 
 (def *circuit-modules* (atom {}))
+(def *gate-evals* (atom 0))
 
 (defn register-module [name def]
   (swap! *circuit-modules* (fn [m] (assoc m name def))))
@@ -179,7 +181,9 @@
           map (collection-seq (component-inputs comp))))
 
 (defn merge-events [queue new-events]
-  (sort-by :time (concat queue new-events)))
+  (if (empty? new-events)
+      queue
+      (sort-by :time (concat queue new-events))))
 
 (defn get-input-states [comp node-values]
   (reduce (fn [acc port]
@@ -218,19 +222,20 @@
                                             (reduce (fn [a c] (conj a c)) acc comps)))
                                         #{} changed-nodes)
                  new-events (reduce (fn [acc comp]
-                                      (bind [input-states (get-input-states comp new-node-values)
-                                             changed-ports (get-changed-ports comp changed-nodes)
-                                             results (compute-next-state comp input-states changed-ports)]
-                                        (reduce (fn [a res]
-                                                  (bind [out-node (get (component-connections comp) (get res :port))
-                                                         current-val (get new-node-values out-node -1)]
-                                                    (if (/= (get res :value) current-val)
-                                                        (conj a {:time (+ event-time (get res :delay))
-                                                                 :node out-node
-                                                                 :value (get res :value)})
-                                                        a)))
-                                                acc results)))
-                                    #{} affected-comps)]
+                                      (do (swap! *gate-evals* (fn [n] (cl:+ n 1)))
+                                          (bind [input-states (get-input-states comp new-node-values)
+                                                 changed-ports (get-changed-ports comp changed-nodes)
+                                                 results (compute-next-state comp input-states changed-ports)]
+                                            (reduce (fn [a res]
+                                                      (bind [out-node (get (component-connections comp) (get res :port))
+                                                             current-val (get new-node-values out-node -1)]
+                                                        (if (/= (get res :value) current-val)
+                                                            (conj a {:time (+ event-time (get res :delay))
+                                                                     :node out-node
+                                                                     :value (get res :value)})
+                                                            a)))
+                                                    acc results))))
+                                     #{} affected-comps)]
             (recur (merge-events remaining new-events)
                    new-node-values
                    new-event-history
@@ -244,9 +249,10 @@
   (swap! *sim-monitored* (fn [s] (reduce (fn [acc n] (conj acc n)) s nodes))))
 
 (defn AddEvents [& events]
-  (swap! *sim-events* (fn [e] (merge-events e events))))
+  (swap! *sim-events* (fn [e] (concat e events))))
 
 (defn RunLSim [module-name time]
+  (reset! *gate-evals* 0)
   (bind [netlist (expand-netlist module-name)]
     (reset! *sim-history* (run-simulation netlist @*sim-events* time @*sim-monitored*))
     :simulation-complete))

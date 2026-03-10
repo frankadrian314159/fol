@@ -1,0 +1,176 @@
+To load "bordeaux-threads":
+  Load 1 ASDF system:
+    bordeaux-threads
+; Loading "bordeaux-threads"
+
+To load "usocket":
+  Load 1 ASDF system:
+    usocket
+; Loading "usocket"
+
+To load "cl-json":
+  Load 1 ASDF system:
+    cl-json
+; Loading "cl-json"
+
+To load "flexi-streams":
+  Load 1 ASDF system:
+    flexi-streams
+; Loading "flexi-streams"
+
+To load "fiveam":
+  Load 1 ASDF system:
+    fiveam
+; Loading "fiveam"
+
+To load "closer-mop":
+  Load 1 ASDF system:
+    closer-mop
+; Loading "closer-mop"
+
+To load "cl-ppcre":
+  Load 1 ASDF system:
+    cl-ppcre
+; Loading "cl-ppcre"
+..
+WARNING: System definition file #P"C:/Users/frank/Projects/FOL/fol/src/fol-compiler.asd" contains definition for system "fol-extension-server". Please only define "fol-compiler" and secondary systems with a name starting with "fol-compiler/" (e.g. "fol-compiler/test") in that file.
+; compiling file "C:/Users/frank/Projects/FOL/fol/src/fol-core.lisp" (written 21 FEB 2026 12:56:23 PM):
+
+; wrote C:/Users/frank/AppData/Local/cache/common-lisp/sbcl-2.6.0-win-x64/C/Users/frank/Projects/FOL/fol/src/fol-core-tmpGHU3ALSV.fasl
+; compilation finished in 0:00:00.009
+
+Running 32x32x32-30000 (FOL-SERIAL)...
+; in: REGISTER-PRIMITIVE 'NOT
+;     (LAMBDA (LSIM::NAME LSIM::PARAM LSIM::CONNS)
+;       (FOL.COMPILER.PRIMITIVES:MAKE 'LSIM:<LOGIC-COMPONENT> :NAME LSIM::NAME
+;                                     :TYPE
+;                                     'FOL.COMPILER.LOGICAL-OPERATION-FUNCTIONS:NOT
+;                                     :CONNECTIONS LSIM::CONNS :INPUTS
+;                                     (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :IN)
+;                                     :OUTPUTS
+;                                     (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :OUT)
+;                                     ...))
+; 
+; caught STYLE-WARNING:
+;   The variable PARAM is defined but never used.
+; 
+; compilation unit finished
+;   caught 1 STYLE-WARNING condition
+; in: REGISTER-PRIMITIVE 'NAND
+;     (LAMBDA (LSIM::NAME LSIM::PARAM LSIM::CONNS)
+;       (FOL.COMPILER.PRIMITIVES:MAKE 'LSIM:<LOGIC-COMPONENT> :NAME LSIM::NAME
+;                                     :TYPE
+;                                     'FOL.COMPILER.LOGICAL-OPERATION-FUNCTIONS:NAND
+;                                     :CONNECTIONS LSIM::CONNS :INPUTS
+;                                     (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :IN1
+;                                                                            :IN2)
+;                                     :OUTPUTS
+;                                     (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :OUT)
+;                                     ...))
+; 
+; caught STYLE-WARNING:
+;   The variable PARAM is defined but never used.
+; 
+; compilation unit finished
+;   caught 1 STYLE-WARNING condition
+; in: REGISTER-PRIMITIVE 'NOR
+;     (LAMBDA (LSIM::NAME LSIM::PARAM LSIM::CONNS)
+;       (FOL.COMPILER.PRIMITIVES:MAKE 'LSIM:<LOGIC-COMPONENT> :NAME LSIM::NAME
+;                                     :TYPE
+;                                     'FOL.COMPILER.LOGICAL-OPERATION-FUNCTIONS:NOR
+;                                     :CONNECTIONS LSIM::CONNS :INPUTS
+;                                     (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :IN1
+;                                                                            :IN2)
+;                                     :OUTPUTS
+;                                     (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :OUT)
+;                                     ...))
+; 
+; caught STYLE-WARNING:
+;   The variable PARAM is defined but never used.
+; 
+; compilation unit finished
+;   caught 1 STYLE-WARNING condition
+; in: REGISTER-PRIMITIVE 'AND
+;     (LAMBDA (LSIM::NAME LSIM::PARAM LSIM::CONNS)
+;       (FOL.COMPILER.PRIMITIVES:MAKE 'LSIM:<LOGIC-COMPONENT> :NAME LSIM::NAME
+;                                     :TYPE
+;                                     'FOL.COMPILER.LOGICAL-OPERATION-FUNCTIONS:AND
+;                                     :CONNECTIONS LSIM::CONNS :INPUTS
+;                                     (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :IN1
+;                                                                            :IN2)
+;                                     :OUTPUTS
+;                                     (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :OUT)
+;                                     ...))
+; 
+; caught STYLE-WARNING:
+;   The variable PARAM is defined but never used.
+; 
+; compilation unit finished
+;   caught 1 STYLE-WARNING condition
+; in: REGISTER-PRIMITIVE 'OR
+;     (LAMBDA (LSIM::NAME LSIM::PARAM LSIM::CONNS)
+;       (FOL.COMPILER.PRIMITIVES:MAKE 'LSIM:<LOGIC-COMPONENT> :NAME LSIM::NAME
+;                                     :TYPE
+;                                     'FOL.COMPILER.LOGICAL-OPERATION-FUNCTIONS:OR
+;                                     :CONNECTIONS LSIM::CONNS :INPUTS
+;                                     (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :IN1
+;                                                                            :IN2)
+;                                     :OUTPUTS
+;                                     (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :OUT)
+;                                     ...))
+; 
+; caught STYLE-WARNING:
+;   The variable PARAM is defined but never used.
+; 
+; compilation unit finished
+;   caught 1 STYLE-WARNING condition
+; in: REGISTER-PRIMITIVE 'XOR
+;     (LAMBDA (LSIM::NAME LSIM::PARAM LSIM::CONNS)
+;       (FOL.COMPILER.PRIMITIVES:MAKE 'LSIM:<LOGIC-COMPONENT> :NAME LSIM::NAME
+;                                     :TYPE
+;                                     'FOL.COMPILER.LOGICAL-OPERATION-FUNCTIONS:XOR
+;                                     :CONNECTIONS LSIM::CONNS :INPUTS
+;                                     (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :IN1
+;                                                                            :IN2)
+;                                     :OUTPUTS
+;                                     (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :OUT)
+;                                     ...))
+; 
+; caught STYLE-WARNING:
+;   The variable PARAM is defined but never used.
+; 
+; compilation unit finished
+;   caught 1 STYLE-WARNING condition
+; in: REGISTER-PRIMITIVE 'XNOR
+;     (LAMBDA (LSIM::NAME LSIM::PARAM LSIM::CONNS)
+;       (FOL.COMPILER.PRIMITIVES:MAKE 'LSIM:<LOGIC-COMPONENT> :NAME LSIM::NAME
+;                                     :TYPE 'LSIM::XNOR :CONNECTIONS LSIM::CONNS
+;                                     :INPUTS
+;                                     (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :IN1
+;                                                                            :IN2)
+;                                     :OUTPUTS
+;                                     (FOL.COMPILER.COLLECTION-FUNCTIONS:SET :OUT)
+;                                     ...))
+; 
+; caught STYLE-WARNING:
+;   The variable PARAM is defined but never used.
+; 
+; compilation unit finished
+;   caught 1 STYLE-WARNING condition
+WARNING: LSIM also exports the following symbols:
+  (RUN-SIMULATION GET-PRIMITIVE EVENTS RUNLSIM REGISTER-MODULE <MODULE-DEF>
+                  EXPAND-NETLIST GET-MODULE <COMPONENT> COMPUTE-NEXT-STATE
+                  EXPAND-SPEC <LOGIC-COMPONENT> DEFPART REGISTER-PRIMITIVE
+                  MONITOR ADDEVENTS DISPLAYLSIM *GATE-EVALS*)
+See also:
+  The ANSI Standard, Macro DEFPACKAGE
+  The SBCL Manual, Variable SB-EXT:*ON-PACKAGE-VARIANCE*
+
+Results:
+  Time (s):        12863.922
+  Alloc (MB):      7637118.00
+  GC Time (s):     198.625
+  GC %%:            1.5
+  Gate Evals:      1,183,510,528
+
+| 32x32x32-30000 | FOL-SERIAL | 12863.922 | 7637118.00 | 198.625 | 1.5% | 1,183,510,528 |

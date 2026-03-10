@@ -40,7 +40,7 @@
    ;; FOL <vector>
    ((typep form '<vector>)
      (funcall outer
-       (apply #'make '<vector>
+       (fol.compiler.collection-functions::%make-vec
          (mapcar inner (collection-seq form)))))
 
    ;; FOL <dict> - entries are (key . value) pairs; wrap as 2-element vectors
