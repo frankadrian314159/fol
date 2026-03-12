@@ -1,0 +1,2214 @@
+This is SBCL 2.6.0, an implementation of ANSI Common Lisp.
+More information about SBCL is available at <http://www.sbcl.org/>.
+
+SBCL is free software, provided as is, with absolutely no warranty.
+It is mostly in the public domain; some portions are provided under
+BSD-style licenses.  See the CREDITS and COPYING files in the
+distribution for more information.
+To load "bordeaux-threads":
+  Load 1 ASDF system:
+    bordeaux-threads
+; Loading "bordeaux-threads"
+
+To load "usocket":
+  Load 1 ASDF system:
+    usocket
+; Loading "usocket"
+
+To load "cl-json":
+  Load 1 ASDF system:
+    cl-json
+; Loading "cl-json"
+
+To load "flexi-streams":
+  Load 1 ASDF system:
+    flexi-streams
+; Loading "flexi-streams"
+
+To load "fiveam":
+  Load 1 ASDF system:
+    fiveam
+; Loading "fiveam"
+
+To load "closer-mop":
+  Load 1 ASDF system:
+    closer-mop
+; Loading "closer-mop"
+
+To load "cl-ppcre":
+  Load 1 ASDF system:
+    cl-ppcre
+; Loading "cl-ppcre"
+..
+WARNING: System definition file #P"C:/Users/frank/Projects/FOL/fol/src/fol-compiler.asd" contains definition for system "fol-extension-server". Please only define "fol-compiler" and secondary systems with a name starting with "fol-compiler/" (e.g. "fol-compiler/test") in that file.
+; in: ALEXANDRIA:NAMED-LAMBDA %TEST-COMPILE-RUNTIME-FALLBACK-NO-ARGS
+;     (FOL.COMPILER.TESTS::CODE
+;      (FOL.COMPILER:COMPILATION-RESULT-CODE FOL.COMPILER.TESTS::RESULT))
+; 
+; caught STYLE-WARNING:
+;   The variable CODE is defined but never used.
+; in: ALEXANDRIA:NAMED-LAMBDA %TEST-RESOURCE-MANAGEMENT
+;     (FOL.COMPILER.TESTS::CLOSED NIL)
+; 
+; caught STYLE-WARNING:
+;   The variable CLOSED is defined but never used.
+; in: ALEXANDRIA:NAMED-LAMBDA %TEST-PUB-UNSUB-ALL-CLEARS-TOPIC
+;     (MULTIPLE-VALUE-BIND (FOL.COMPILER.TESTS.LIB::_ FOL.COMPILER.TESTS.LIB::OK)
+;         (FOL.LIB.CORE-ASYNC:POLL! FOL.COMPILER.TESTS.LIB::S1)
+;       (IT.BESE.FIVEAM:IS (EQ NIL FOL.COMPILER.TESTS.LIB::OK)))
+; ==>
+;   #'(LAMBDA
+;         (
+;          &OPTIONAL FOL.COMPILER.TESTS.LIB::_ FOL.COMPILER.TESTS.LIB::OK
+;          &REST #:IGNORE)
+;       (DECLARE (IGNORE #:IGNORE))
+;       (IT.BESE.FIVEAM:IS (EQ NIL FOL.COMPILER.TESTS.LIB::OK)))
+; 
+; caught STYLE-WARNING:
+;   The variable _ is defined but never used.
+
+;     (MULTIPLE-VALUE-BIND (FOL.COMPILER.TESTS.LIB::_ FOL.COMPILER.TESTS.LIB::OK)
+;         (FOL.LIB.CORE-ASYNC:POLL! FOL.COMPILER.TESTS.LIB::S2)
+;       (IT.BESE.FIVEAM:IS (EQ NIL FOL.COMPILER.TESTS.LIB::OK)))
+; ==>
+;   #'(LAMBDA
+;         (
+;          &OPTIONAL FOL.COMPILER.TESTS.LIB::_ FOL.COMPILER.TESTS.LIB::OK
+;          &REST #:IGNORE)
+;       (DECLARE (IGNORE #:IGNORE))
+;       (IT.BESE.FIVEAM:IS (EQ NIL FOL.COMPILER.TESTS.LIB::OK)))
+; 
+; caught STYLE-WARNING:
+;   The variable _ is defined but never used.
+; in: ALEXANDRIA:NAMED-LAMBDA %TEST-CHAN-WITH-FILTER-TRANSDUCER
+;     (MULTIPLE-VALUE-BIND (FOL.COMPILER.TESTS.LIB::_ FOL.COMPILER.TESTS.LIB::OK)
+;         (FOL.LIB.CORE-ASYNC:POLL! FOL.COMPILER.TESTS.LIB::CH)
+;       (IT.BESE.FIVEAM:IS (EQ NIL FOL.COMPILER.TESTS.LIB::OK)))
+; ==>
+;   #'(LAMBDA
+;         (
+;          &OPTIONAL FOL.COMPILER.TESTS.LIB::_ FOL.COMPILER.TESTS.LIB::OK
+;          &REST #:IGNORE)
+;       (DECLARE (IGNORE #:IGNORE))
+;       (IT.BESE.FIVEAM:IS (EQ NIL FOL.COMPILER.TESTS.LIB::OK)))
+; 
+; caught STYLE-WARNING:
+;   The variable _ is defined but never used.
+WARNING: redefining FOL.COMPILER.TESTS.LIB::VEC-REF in DEFUN
+WARNING: redefining FOL.COMPILER.TESTS.LIB::VEC-SIZE in DEFUN
+
+Running test suite COMPILER-TESTS
+ Running test suite AST-TESTS
+  Running test MAKE-LITERAL-NODE ..
+  Running test MAKE-SYMBOL-REF-NODE ..
+  Running test MAKE-CALL-NODE ...
+  Running test MAKE-IF-NODE ....
+  Running test MAKE-DEFDYNAMIC-NODE ...
+  Running test MAKE-DEFDYNAMIC-NODE-NO-VALUE ...
+  Running test MAKE-BINDING-NODE ...
+  Running test MAKE-BINDING-NODE-MULTIPLE ..
+  Running test AST-NODE-INHERITANCE .......
+ Running test suite CODEGEN-TESTS
+  Running test COMPILE-FORM-RETURNS-RESULT .
+  Running test COMPILE-NIL ..
+  Running test COMPILE-BOOLEAN ..
+  Running test COMPILE-NUMBER ..
+  Running test COMPILE-STRING ..
+  Running test COMPILE-KEYWORD ..
+  Running test COMPILE-CHARACTER ..
+  Running test COMPILE-SYMBOL-REF ..
+  Running test COMPILE-FUNCTION-CALL ..
+  Running test COMPILE-THREAD-FIRST-IDENTITY ..
+  Running test COMPILE-THREAD-FIRST-BARE-SYMBOL ...
+  Running test COMPILE-THREAD-FIRST-CALL-FORM ..
+  Running test COMPILE-THREAD-FIRST-CHAINED ..
+  Running test COMPILE-THREAD-FIRST-NESTED ..
+  Running test COMPILE-THREAD-FIRST-WITH-VARIABLE ..
+  Running test COMPILE-DEF-SIMPLE ....
+  Running test COMPILE-DEF-EXPRESSION ...
+  Running test COMPILE-DEF-NO-VALUE ....
+  Running test COMPILE-DEFN-SINGLE-CLAUSE .....
+  Running test COMPILE-DEFN-MULTI-CLAUSE ......
+  Running test COMPILE-DEFN-WITH-TYPE-SPECIALIZER ....
+  Running test COMPILE-LOOP-SIMPLE ..
+  Running test COMPILE-LOOP-HAS-TAGBODY ..
+  Running test COMPILE-LOOP-HAS-BLOCK ...
+  Running test COMPILE-RECUR-EMITS-PSETQ-GO ...
+  Running test COMPILE-LOOP-FUNCTIONAL ..
+  Running test COMPILE-VECTOR-EMPTY ..
+  Running test COMPILE-VECTOR-LITERALS ...
+  Running test COMPILE-VECTOR-WITH-EXPRESSIONS ....
+  Running test COMPILE-VECTOR-FUNCTIONAL ....
+  Running test COMPILE-DICT-SPECIAL-FORM ..
+  Running test COMPILE-DICT-FUNCTIONAL .....
+  Running test COMPILE-SET-SPECIAL-FORM ..
+  Running test COMPILE-SET-FUNCTIONAL ......
+  Running test COMPILE-THREAD-LAST-IDENTITY ..
+  Running test COMPILE-THREAD-LAST-BARE-SYMBOL ...
+  Running test COMPILE-THREAD-LAST-CALL-FORM ..
+  Running test COMPILE-THREAD-LAST-CHAINED ..
+  Running test COMPILE-THREAD-LAST-NESTED ..
+  Running test COMPILE-THREAD-LAST-WITH-VARIABLE ..
+  Running test COMPILE-THREAD-LAST-DIFFERS-FROM-FIRST ..
+  Running test COMPILE-VECTOR-NODE-PRODUCES-VECTOR-NODE ...
+  Running test COMPILE-DICT-FROM-READER ..
+  Running test COMPILE-DICT-FROM-READER-FUNCTIONAL ...
+  Running test COMPILE-SET-FROM-READER ..
+  Running test COMPILE-SET-FROM-READER-FUNCTIONAL ...
+  Running test COMPILE-DEFMACRO-SIMPLE ......
+  Running test COMPILE-DEFMACRO-WITH-DESTRUCTURING .....
+  Running test COMPILE-DEFMACRO-REJECTS-PREDICATES .
+  Running test COMPILE-FN-WITH-WILDCARD ......
+  Running test COMPILE-FN-WITH-MULTIPLE-WILDCARDS ....
+  Running test COMPILE-FN-WILDCARD-FUNCTIONAL ..
+  Running test COMPILE-HANDLER-CASE-BASIC .....
+  Running test COMPILE-HANDLER-CASE-MULTIPLE-CLAUSES .....
+  Running test COMPILE-HANDLER-CASE-NO-VAR ...
+  Running test COMPILE-HANDLER-CASE-FUNCTIONAL ...
+  Running test COMPILE-HANDLER-BIND-BASIC .....
+  Running test COMPILE-HANDLER-BIND-MULTIPLE ...
+  Running test COMPILE-HANDLER-BIND-FUNCTIONAL ..
+  Running test COMPILE-RESTART-CASE-BASIC ....
+  Running test COMPILE-RESTART-CASE-MULTIPLE .....
+  Running test COMPILE-RESTART-CASE-FUNCTIONAL ..
+  Running test COMPILE-SIGNAL-BASIC ...
+  Running test COMPILE-ERROR-BASIC ....
+  Running test COMPILE-WARN-BASIC ....
+  Running test COMPILE-SIGNAL-FUNCTIONAL ..
+  Running test COMPILE-INVOKE-RESTART-BASIC ..
+  Running test COMPILE-INVOKE-RESTART-WITH-ARGS ...
+  Running test COMPILE-DEFDYNAMIC-SIMPLE ....
+  Running test COMPILE-DEFDYNAMIC-EXPRESSION ...
+  Running test COMPILE-DEFDYNAMIC-NO-VALUE ....
+  Running test COMPILE-DEFDYNAMIC-SAME-AS-DEF .
+  Running test COMPILE-BINDING-SINGLE-VAR ......
+  Running test COMPILE-BINDING-MULTIPLE-VARS .....
+  Running test COMPILE-BINDING-USES-LET-NOT-LET* ...
+  Running test COMPILE-BINDING-FUNCTIONAL ..
+  Running test COMPILE-BINDING-RESTORES-AFTER ..
+  Running test COMPILE-BINDING-WITH-BODY-EXPR ...
+  Running test COMPILE-COLLECTION-AS-FUNCTION-DICT ..
+  Running test COMPILE-COLLECTION-AS-FUNCTION-VECTOR ..
+  Running test COMPILE-COLLECTION-AS-FUNCTION-LEXICAL ..
+  Running test COMPILE-COLLECTION-AS-FUNCTION-LEXICAL-VECTOR ..
+  Running test COMPILE-COLLECTION-AS-FUNCTION-SET ..
+  Running test COMPILE-COLLECTION-AS-FUNCTION-SET-MISSING ..
+  Running test COMPILE-COLLECTION-AS-FUNCTION-LEXICAL-SET ..
+  Running test LETFN-COMPILES-TO-LABELS ..
+  Running test LETFN-SINGLE-FN-EVALUATES ..
+  Running test LETFN-MULTIPLE-FNS ..
+  Running test LETFN-MUTUAL-RECURSION ..
+  Running test LETFN-BODY-SEES-OUTER-SCOPE ..
+  Running test LETFN-NO-BINDINGS ..
+  Running test LETFN-FN-CALLS-SIBLING ..
+  Running test LETFN-WITH-REST-PARAMS ..
+  Running test LETFN-MULTIPLE-PARAMS ..
+  Running test LETFN-MULTI-ARITY ..
+  Running test LETFN-MULTI-ARITY-CROSS-CALL ..
+  Running test COMPILE-DEFUN-HANDLES-LIST-PARAMS ....
+  Running test COMPILE-DEFUN-EVALUATES .
+  Running test COMPILE-FILE-UNWRAPS-PROGN 
+; compiling file "C:/Users/frank/Projects/FOL/fol/temp_progn.lisp" (written 10 MAR 2026 05:36:20 PM):
+
+; wrote C:/Users/frank/Projects/FOL/fol/temp_progn.fasl
+; compilation finished in 0:00:00.004
+...
+  Running test COMPILE-ADDS-SPECIAL-DECLARATIONS ....
+  Running test COMPILE-RUNTIME-FALLBACK-NO-ARGS ...
+ Running test suite DESTRUCTURE-TESTS
+  Running test PARSE-PARAMS-SIMPLE ..
+  Running test PARSE-PARAMS-WITH-REST ..
+  Running test PARSE-PARAMS-EMPTY ..
+  Running test STRIP-SPECIALIZERS-SIMPLE .
+  Running test STRIP-SPECIALIZERS-TYPE .
+  Running test STRIP-SPECIALIZERS-PRED .
+  Running test STRIP-SPECIALIZERS-MIXED .
+  Running test SIGNATURE-SIMPLE-PARAMS .
+  Running test SIGNATURE-TYPE-SPECIALIZER .
+  Running test SIGNATURE-PRED-SPECIALIZER ...
+  Running test SIGNATURE-VECTOR-DESTRUCTURING ..
+  Running test SPECIFICITY-LEVELS ....
+  Running test MORE-SPECIFIC-PRED-OVER-TYPE .
+  Running test MORE-SPECIFIC-TYPE-OVER-ANY .
+  Running test MORE-SPECIFIC-SEQ-OVER-ANY .
+  Running test NOT-MORE-SPECIFIC-WHEN-EQUAL .
+  Running test MORE-SPECIFIC-LONGER-SEQ .
+  Running test COMPILE-FN-SINGLE-SIMPLE ...
+  Running test COMPILE-FN-SINGLE-WITH-REST ...
+  Running test COMPILE-FN-MULTI-CLAUSE-PRODUCES-DISPATCHER ...
+  Running test COMPILE-FN-MULTI-CLAUSE-ARITY-ORDERING ....
+  Running test COMPILE-FN-MULTI-CLAUSE-SPECIFICITY-ORDERING ......
+  Running test COMPILE-FN-NAMED ..
+  Running test COMPILE-FN-MULTI-CLAUSE-NAMED ..
+  Running test EMIT-TYPE-CHECK-NUMBER .
+  Running test EMIT-TYPE-CHECK-STRING .
+  Running test EMIT-PRED-CHECK .
+  Running test EMIT-ANY-CHECK .
+  Running test EMIT-FIXED-ARITY-PATTERN-CHECK-ALL-ANY .
+  Running test EMIT-FIXED-ARITY-PATTERN-CHECK-WITH-TYPE .
+  Running test EMIT-FIXED-ARITY-PARAM-BINDINGS-SIMPLE .....
+  Running test COMPILE-FN-UNIFORM-ARITY-FIXED-PARAMS .....
+  Running test COMPILE-FN-MIXED-ARITY-USES-REST ...
+  Running test WILDCARD-PARAM-P-RECOGNIZES-UNDERSCORE .
+  Running test WILDCARD-PARAM-P-REJECTS-OTHERS ..
+  Running test REPLACE-WILDCARDS-BASIC .....
+  Running test REPLACE-WILDCARDS-MULTIPLE ...
+  Running test REPLACE-WILDCARDS-NO-WILDCARDS ..
+  Running test EMIT-SINGLE-PARAM-BINDING-SKIPS-WILDCARD .
+  Running test EMIT-SINGLE-PARAM-BINDING-VECTOR-WITH-WILDCARD ..
+  Running test EMIT-MACRO-LAMBDA-LIST-SIMPLE .
+  Running test EMIT-MACRO-LAMBDA-LIST-WITH-REST ...
+  Running test EMIT-MACRO-LAMBDA-LIST-WITH-DESTRUCTURING ..
+  Running test EMIT-MACRO-LAMBDA-LIST-WITH-WILDCARD ..
+  Running test EMIT-MACRO-LAMBDA-LIST-REJECTS-SPECIALIZER .
+ Running test suite OOP-TESTS
+  Running test COMPILE-DEFCLASS-SIMPLE .............
+  Running test COMPILE-DEFCLASS-EMPTY-SUPERS ......
+  Running test COMPILE-DEFCLASS-ABSTRACT ....
+  Running test COMPILE-DEFCLASS-ABSTRACT-FALSE ..
+  Running test COMPILE-DEFCLASS-ABSTRACT-SUBCLASS-ALLOWED ..
+  Running test COMPILE-DEFCLASS-SEALED-REGISTERS .
+  Running test COMPILE-DEFCLASS-UNSEALED-NOT-REGISTERED .
+  Running test COMPILE-DEFCLASS-SEALED-INHERITANCE-ERROR .
+  Running test COMPILE-DEFCLASS-SEALED-NO-OWN-GUARD ..
+  Running test COMPILE-DEFGENERIC-SIMPLE ....
+  Running test COMPILE-DEFGENERIC-MULTI-PARAM ...
+  Running test COMPILE-DEFGENERIC-MULTI-PATTERN .....
+  Running test COMPILE-DEFMETHOD-SINGLE-SIMPLE ....
+  Running test COMPILE-DEFMETHOD-SINGLE-SPECIALIZED ..
+  Running test COMPILE-DEFMETHOD-MULTI-CLAUSE ......
+  Running test COMPILE-DEFMETHOD-MULTI-CLAUSE-ARITY-ORDERING ....
+  Running test COMPILE-DEFMETHOD-MULTI-CLAUSE-SPECIFICITY ....
+  Running test COMPILE-DEFMETHOD-UNIFORM-ARITY-FIXED-PARAMS ....
+  Running test COMPILE-DEFMETHOD-MIXED-ARITY-USES-REST ...
+  Running test PARSE-PARAMS-WITH-KEY .....
+  Running test PARSE-PARAMS-WITH-OR .....
+  Running test PARSE-PARAMS-WITH-AS .....
+  Running test PARSE-PARAMS-COMBINED .....
+  Running test COMPILE-FN-WITH-KEY ....
+  Running test COMPILE-FN-WITH-KEY-AND-OR ...
+  Running test COMPILE-BIND-SIMPLE ..
+  Running test COMPILE-BIND-VECTOR-PATTERN ..
+ Running test suite COLLECTIONS-TESTS
+  Running test COLLECTION-CLASS-EXISTS .
+  Running test COLLECTION-SUPERCLASS-IS-STANDARD-OBJECT .
+  Running test COLLECTION-PREDICATE-NIL ...
+  Running test COLLECTION-PREDICATE-TRUE .
+  Running test COLLECTION-SIZE-GENERIC-EXISTS .
+  Running test COLLECTION-EMPTY-P-GENERIC-EXISTS .
+  Running test COLLECTION-CONJ-GENERIC-EXISTS .
+  Running test COLLECTION-SEQ-GENERIC-EXISTS .
+  Running test UNORDERED-COLLECTION-CLASS-EXISTS .
+  Running test UNORDERED-COLLECTION-INHERITS-COLLECTION .
+  Running test UNORDERED-COLLECTION-PREDICATE-NIL ..
+  Running test UNORDERED-COLLECTION-PREDICATE-TRUE .
+  Running test UNORDERED-COLLECTION-IS-COLLECTION .
+  Running test ORDERED-COLLECTION-CLASS-EXISTS .
+  Running test ORDERED-COLLECTION-INHERITS-COLLECTION .
+  Running test ORDERED-COLLECTION-PREDICATE-NIL ..
+  Running test ORDERED-COLLECTION-PREDICATE-TRUE .
+  Running test ORDERED-COLLECTION-IS-COLLECTION .
+  Running test ORDERED-NOT-UNORDERED .
+  Running test UNORDERED-NOT-ORDERED .
+  Running test VECTOR-CLASS-EXISTS .
+  Running test VECTOR-INHERITS-ORDERED-COLLECTION .
+  Running test VECTOR-PREDICATE-NIL ..
+  Running test VECTOR-PREDICATE-TRUE .
+  Running test VECTOR-IS-COLLECTION ...
+  Running test VECTOR-MAKE-EMPTY ...
+  Running test VECTOR-MAKE-WITH-ELEMENTS ...
+  Running test VECTOR-CONJ-APPENDS ...
+  Running test VECTOR-CONJ-ON-EMPTY ..
+  Running test DICT-CLASS-EXISTS .
+  Running test DICT-INHERITS-UNORDERED-COLLECTION .
+  Running test DICT-PREDICATE-NIL ..
+  Running test DICT-PREDICATE-TRUE .
+  Running test DICT-IS-COLLECTION ...
+  Running test DICT-MAKE-EMPTY ...
+  Running test DICT-MAKE-WITH-ENTRIES ..
+  Running test DICT-CONJ-ADDS-PAIR ..
+  Running test DICT-SEQ-RETURNS-ALIST ...
+  Running test DICT-STORAGE-IS-HASH-MAP .
+  Running test ORDERED-DICT-CLASS-EXISTS .
+  Running test ORDERED-DICT-INHERITS-DICT .
+  Running test ORDERED-DICT-INHERITS-UNORDERED-COLLECTION .
+  Running test ORDERED-DICT-INHERITS-COLLECTION .
+  Running test ORDERED-DICT-IS-COLLECTION ...
+  Running test ORDERED-DICT-PREDICATE-NIL ...
+  Running test ORDERED-DICT-PREDICATE-TRUE .
+  Running test ORDERED-DICT-IS-ALSO-DICT .
+  Running test ORDERED-DICT-MAKE-EMPTY ...
+  Running test ORDERED-DICT-MAKE-WITH-ENTRIES .
+  Running test ORDERED-DICT-PRESERVES-INSERTION-ORDER .
+  Running test ORDERED-DICT-DUPLICATE-KEYS ..
+  Running test ORDERED-DICT-CONJ-ADDS-PAIR ...
+  Running test ORDERED-DICT-CONJ-OVERWRITES-KEY ..
+  Running test ORDERED-DICT-CONJ-ON-EMPTY ..
+  Running test ORDERED-DICT-STORAGE-IS-HASH-MAP ..
+  Running test ORDERED-DICT-KEY-ORDER-SLOT .
+  Running test ORDERED-DICT-EMPTY? ..
+  Running test ORDERED-DICT-PRINT-OBJECT .
+  Running test ORDERED-DICT-PRINT-OBJECT-EMPTY .
+  Running test ARRAY-DICT-CLASS-EXISTS .
+  Running test ARRAY-DICT-INHERITS-DICT .
+  Running test ARRAY-DICT-INHERITS-ORDERED-COLLECTION .
+  Running test ARRAY-DICT-INHERITS-COLLECTION .
+  Running test ARRAY-DICT-IS-COLLECTION ....
+  Running test ARRAY-DICT-PREDICATE-NIL ...
+  Running test ARRAY-DICT-PREDICATE-TRUE .
+  Running test ARRAY-DICT-IS-ALSO-DICT .
+  Running test ARRAY-DICT-MAKE-EMPTY ...
+  Running test ARRAY-DICT-MAKE-WITH-ENTRIES .
+  Running test ARRAY-DICT-PRESERVES-INSERTION-ORDER .
+  Running test ARRAY-DICT-DUPLICATE-KEYS ..
+  Running test ARRAY-DICT-CONJ-ADDS-PAIR ...
+  Running test ARRAY-DICT-CONJ-OVERWRITES-KEY ..
+  Running test ARRAY-DICT-CONJ-ON-EMPTY ..
+  Running test ARRAY-DICT-STORAGE-IS-HASH-MAP ..
+  Running test ARRAY-DICT-KEY-ORDER-SLOT .
+  Running test ARRAY-DICT-EMPTY? ..
+  Running test ARRAY-DICT-PRINT-OBJECT .
+  Running test ARRAY-DICT-PRINT-OBJECT-EMPTY .
+  Running test SORTED-DICT-CLASS-EXISTS .
+  Running test SORTED-DICT-INHERITS-ORDERED-COLLECTION .
+  Running test SORTED-DICT-INHERITS-COMPARATOR .
+  Running test SORTED-DICT-INHERITS-COLLECTION .
+  Running test SORTED-DICT-IS-COLLECTION ....
+  Running test SORTED-DICT-PREDICATE-NIL ...
+  Running test SORTED-DICT-PREDICATE-TRUE .
+  Running test SORTED-DICT-IS-ALSO-DICT .
+  Running test SORTED-DICT-MAKE-EMPTY ...
+  Running test SORTED-DICT-MAKE-WITH-ENTRIES .
+  Running test SORTED-DICT-SORTED-SEQ .
+  Running test SORTED-DICT-DUPLICATE-KEYS ..
+  Running test SORTED-DICT-CONJ-ADDS-PAIR ...
+  Running test SORTED-DICT-CONJ-OVERWRITES-KEY ..
+  Running test SORTED-DICT-CONJ-ON-EMPTY ..
+  Running test SORTED-DICT-CUSTOM-COMPARATOR .
+  Running test SORTED-DICT-COMPARATOR-PRESERVED-ON-CONJ ..
+  Running test SORTED-DICT-STORAGE-IS-TREE-MAP ..
+  Running test SORTED-DICT-EMPTY? ..
+  Running test SORTED-DICT-PRINT-OBJECT .
+  Running test SORTED-DICT-PRINT-OBJECT-EMPTY .
+  Running test INT-DICT-CLASS-EXISTS .
+  Running test INT-DICT-INHERITS-ORDERED-COLLECTION .
+  Running test INT-DICT-INHERITS-COMPARATOR .
+  Running test INT-DICT-INHERITS-COLLECTION .
+  Running test INT-DICT-IS-COLLECTION .....
+  Running test INT-DICT-PREDICATE-NIL ...
+  Running test INT-DICT-PREDICATE-TRUE .
+  Running test INT-DICT-IS-ALSO-DICT .
+  Running test INT-DICT-MAKE-EMPTY ...
+  Running test INT-DICT-MAKE-WITH-ENTRIES .
+  Running test INT-DICT-SORTED-SEQ .
+  Running test INT-DICT-DUPLICATE-KEYS ..
+  Running test INT-DICT-CONJ-ADDS-PAIR ...
+  Running test INT-DICT-CONJ-OVERWRITES-KEY ..
+  Running test INT-DICT-CONJ-ON-EMPTY ..
+  Running test INT-DICT-CONJ-PRESERVES-TYPE .
+  Running test INT-DICT-STORAGE-IS-TREE-MAP ..
+  Running test INT-DICT-EMPTY? ..
+  Running test INT-DICT-PRINT-OBJECT .
+  Running test INT-DICT-PRINT-OBJECT-EMPTY .
+  Running test INT-DICT-BY-CUSTOM-COMPARATOR ..
+  Running test INT-DICT-BY-NIL-USES-DEFAULT ..
+  Running test INT-DICT-BY-COMPARATOR-PRESERVED-ON-CONJ ..
+  Running test PRIORITY-DICT-CLASS-EXISTS .
+  Running test PRIORITY-DICT-INHERITS-ORDERED-COLLECTION .
+  Running test PRIORITY-DICT-INHERITS-COLLECTION .
+  Running test PRIORITY-DICT-IS-COLLECTION ....
+  Running test PRIORITY-DICT-PREDICATE-NIL ...
+  Running test PRIORITY-DICT-PREDICATE-TRUE .
+  Running test PRIORITY-DICT-IS-ALSO-DICT .
+  Running test PRIORITY-DICT-MAKE-EMPTY ...
+  Running test PRIORITY-DICT-MAKE-WITH-ENTRIES .
+  Running test PRIORITY-DICT-ORDERS-BY-PRIORITY .
+  Running test PRIORITY-DICT-DUPLICATE-KEYS ..
+  Running test PRIORITY-DICT-CONJ-ADDS-PAIR ...
+  Running test PRIORITY-DICT-CONJ-UPDATES-PRIORITY ..
+  Running test PRIORITY-DICT-CONJ-ON-EMPTY ..
+  Running test PRIORITY-DICT-STORAGE-IS-HASH-MAP ..
+  Running test PRIORITY-DICT-TREE-SLOT .
+  Running test PRIORITY-DICT-PEEK-MIN .
+  Running test PRIORITY-DICT-PEEK-MIN-EMPTY .
+  Running test PRIORITY-DICT-POP-MIN ...
+  Running test PRIORITY-DICT-POP-MIN-EMPTY .
+  Running test PRIORITY-DICT-EMPTY? ..
+  Running test PRIORITY-DICT-PRINT-OBJECT .
+  Running test PRIORITY-DICT-PRINT-OBJECT-EMPTY .
+  Running test SET-CLASS-EXISTS .
+  Running test SET-INHERITS-UNORDERED-COLLECTION .
+  Running test SET-PREDICATE-NIL ..
+  Running test SET-PREDICATE-TRUE .
+  Running test SET-IS-COLLECTION ...
+  Running test SET-MAKE-EMPTY ...
+  Running test SET-MAKE-WITH-ELEMENTS .
+  Running test SET-CONJ-ADDS-ELEMENT ..
+  Running test SET-CONJ-ON-EMPTY ..
+  Running test SET-CONJ-DEDUPLICATES .
+  Running test SET-STORAGE-IS-HASH-SET .
+  Running test VECTOR-FUNCTION-EMPTY ..
+  Running test VECTOR-FUNCTION-WITH-ELEMENTS ...
+  Running test DICT-FUNCTION-EMPTY ..
+  Running test DICT-FUNCTION-WITH-ENTRIES ..
+  Running test SET-FUNCTION-EMPTY ..
+  Running test SET-FUNCTION-WITH-ELEMENTS ..
+  Running test MAKE-BOOL ..
+  Running test MAKE-CHAR ..
+  Running test MAKE-STRING ..
+  Running test MAKE-SYMBOL .
+  Running test MAKE-KEYWORD .
+  Running test MAKE-INTEGER ...
+  Running test MAKE-FIXNUM .
+  Running test MAKE-BIGNUM .
+  Running test MAKE-FLOAT .
+  Running test MAKE-SINGLE-FLOAT .
+  Running test MAKE-DOUBLE-FLOAT .
+  Running test MAKE-RATIONAL .
+  Running test MAKE-RATIO .
+  Running test MAKE-REAL .
+  Running test MAKE-NUMBER .
+  Running test MAKE-COMPLEX .
+  Running test BAG-CLASS-EXISTS .
+  Running test BAG-INHERITS-UNORDERED-COLLECTION .
+  Running test BAG-PREDICATE-NIL ..
+  Running test BAG-PREDICATE-TRUE .
+  Running test BAG-MAKE-EMPTY ...
+  Running test BAG-MAKE-WITH-ELEMENTS .
+  Running test BAG-CONJ-ADDS-ELEMENT ..
+  Running test BAG-SEQ-EXPANDS-COUNTS .
+  Running test VECTOR-PRINT-OBJECT .
+  Running test VECTOR-PRINT-OBJECT-EMPTY .
+  Running test VECTOR-PRINT-OBJECT-NESTED .
+  Running test DICT-PRINT-OBJECT-EMPTY .
+  Running test DICT-PRINT-OBJECT-SINGLE .
+  Running test SET-PRINT-OBJECT-EMPTY .
+  Running test BAG-PRINT-OBJECT-EMPTY .
+  Running test ARRAY-CLASS-EXISTS .
+  Running test ARRAY-INHERITS-VECTOR .
+  Running test ARRAY-IS-ORDERED-COLLECTION .
+  Running test ARRAY-PREDICATE-NIL ...
+  Running test ARRAY-PREDICATE-TRUE .
+  Running test ARRAY-IS-ALSO-VECTOR ...
+  Running test ARRAY-MAKE-EMPTY ..
+  Running test ARRAY-MAKE-WITH-ELEMENTS ..
+  Running test ARRAY-DIMENSION-SLOT ..
+  Running test ARRAY-CONJ-APPENDS ....
+  Running test ARRAY-STORAGE-IS-VEC-T .
+  Running test EMPTY?-EMPTY-VECTOR .
+  Running test EMPTY?-NONEMPTY-VECTOR .
+  Running test EMPTY?-EMPTY-ARRAY .
+  Running test EMPTY?-NONEMPTY-ARRAY .
+  Running test EMPTY?-EMPTY-DICT .
+  Running test EMPTY?-NONEMPTY-DICT .
+  Running test EMPTY?-EMPTY-SET .
+  Running test EMPTY?-NONEMPTY-SET .
+  Running test EMPTY?-EMPTY-BAG .
+  Running test EMPTY?-NONEMPTY-BAG .
+  Running test SIZE-VECTOR ..
+  Running test SIZE-DICT ..
+  Running test SIZE-SET ..
+  Running test SIZE-BAG ..
+  Running test SIZE-DEQUE ..
+  Running test SIZE-CL-LIST ..
+  Running test HL-EMPTY?-VECTOR ..
+  Running test HL-EMPTY?-DICT ..
+  Running test HL-EMPTY?-SET ..
+  Running test HL-EMPTY?-BAG ..
+  Running test HL-EMPTY?-CL-LIST ..
+  Running test ORDERED-SET-CLASS-EXISTS .
+  Running test ORDERED-SET-INHERITS-ORDERED-COLLECTION .
+  Running test ORDERED-SET-IS-COLLECTION ....
+  Running test ORDERED-SET-PREDICATE-NIL ...
+  Running test ORDERED-SET-PREDICATE-TRUE .
+  Running test ORDERED-SET-MAKE-EMPTY ...
+  Running test ORDERED-SET-MAKE-WITH-ELEMENTS .
+  Running test ORDERED-SET-PRESERVES-INSERTION-ORDER .
+  Running test ORDERED-SET-DEDUPLICATES ..
+  Running test ORDERED-SET-CONJ-APPENDS ...
+  Running test ORDERED-SET-CONJ-DEDUPLICATES ...
+  Running test ORDERED-SET-CONJ-ON-EMPTY ..
+  Running test ORDERED-SET-EMPTY? ..
+  Running test SORTED-SET-CLASS-EXISTS .
+  Running test SORTED-SET-INHERITS-SET .
+  Running test SORTED-SET-INHERITS-ORDERED-COLLECTION .
+  Running test SORTED-SET-INHERITS-COMPARATOR .
+  Running test SORTED-SET-IS-COLLECTION ....
+  Running test SORTED-SET-PREDICATE-NIL ...
+  Running test SORTED-SET-PREDICATE-TRUE .
+  Running test SORTED-SET-MAKE-EMPTY ...
+  Running test SORTED-SET-MAKE-WITH-ELEMENTS .
+  Running test SORTED-SET-SORTS-ELEMENTS .
+  Running test SORTED-SET-DEDUPLICATES ..
+  Running test SORTED-SET-CONJ-INSERTS-IN-ORDER ...
+  Running test SORTED-SET-CONJ-DEDUPLICATES ..
+  Running test SORTED-SET-CONJ-ON-EMPTY ..
+  Running test SORTED-SET-CUSTOM-COMPARATOR .
+  Running test SORTED-SET-COMPARATOR-PRESERVED-ON-CONJ ..
+  Running test INT-SET-CLASS-EXISTS .
+  Running test INT-SET-INHERITS-SET .
+  Running test INT-SET-INHERITS-ORDERED-COLLECTION .
+  Running test INT-SET-IS-COLLECTION ....
+  Running test INT-SET-PREDICATE-NIL ...
+  Running test INT-SET-PREDICATE-TRUE .
+  Running test INT-SET-MAKE-EMPTY ...
+  Running test INT-SET-MAKE-WITH-ELEMENTS .
+  Running test INT-SET-SORTS-ELEMENTS .
+  Running test INT-SET-DEDUPLICATES ..
+  Running test INT-SET-CONJ-INSERTS-IN-ORDER ...
+  Running test INT-SET-CONJ-DEDUPLICATES ..
+  Running test INT-SET-CONJ-ON-EMPTY ..
+  Running test INT-SET-CONJ-PRESERVES-TYPE .
+  Running test DENSE-INT-SET-CLASS-EXISTS .
+  Running test DENSE-INT-SET-INHERITS-ORDERED-COLLECTION .
+  Running test DENSE-INT-SET-INHERITS-COLLECTION .
+  Running test DENSE-INT-SET-IS-COLLECTION ...
+  Running test DENSE-INT-SET-PREDICATE-NIL ...
+  Running test DENSE-INT-SET-PREDICATE-TRUE .
+  Running test DENSE-INT-SET-MAKE-EMPTY ...
+  Running test DENSE-INT-SET-MAKE-WITH-ELEMENTS .
+  Running test DENSE-INT-SET-SORTED-SEQ .
+  Running test DENSE-INT-SET-DEDUPLICATES ..
+  Running test DENSE-INT-SET-CONJ-WITHIN-RANGE ...
+  Running test DENSE-INT-SET-CONJ-EXTENDS-RIGHT ..
+  Running test DENSE-INT-SET-CONJ-EXTENDS-LEFT ..
+  Running test DENSE-INT-SET-CONJ-DEDUPLICATES ..
+  Running test DENSE-INT-SET-CONJ-ON-EMPTY ..
+  Running test DENSE-INT-SET-OFFSET-TRACKING .
+  Running test DENSE-INT-SET-INTERNAL-REPRESENTATION .
+  Running test DEQUE-CLASS-EXISTS .
+  Running test DEQUE-PREDICATE ..
+  Running test DEQUE-IS-ORDERED-COLLECTION ..
+  Running test DEQUE-MAKE-EMPTY ..
+  Running test DEQUE-MAKE-WITH-ELEMENTS ..
+  Running test DEQUE-CONJ-APPENDS ..
+  Running test DEQUE-CONSTRUCTOR-FUNCTION ...
+  Running test DEQUE-PRINT-OBJECT .
+  Running test LIST-CLASS-EXISTS .
+  Running test LIST-PREDICATE ...
+  Running test LIST-IS-ORDERED-COLLECTION ..
+  Running test LIST-NOT-PERSISTENT-CLASS .
+  Running test LIST-MAKE-EMPTY ....
+  Running test LIST-MAKE-WITH-ELEMENTS ...
+  Running test LIST-FIRST-REST-CHAIN ......
+  Running test LIST-CONJ-PREPENDS ...
+  Running test LIST-COLLECTION-SIZE ..
+  Running test LIST-STRUCTURAL-SHARING .
+  Running test LIST-CONSTRUCTOR-FUNCTION ...
+  Running test LIST-PRINT-OBJECT ..
+  Running test LIST-SINGLE-ELEMENT ....
+  Running test LIST-MIXED-TYPES ...
+  Running test LIST*-SINGLE-ARG .
+  Running test LIST*-PREPEND-TO-LIST ..
+  Running test LIST*-NIL-TAIL ..
+  Running test LIST*-SINGLE-HEAD-AND-TAIL ..
+  Running test LIST*-NON-COLLECTION-TAIL ..
+  Running test LIST*-EMPTY-LIST-TAIL ..
+  Running test LIST*-NO-ARGS-ERROR .
+  Running test NTH-FIRST-ELEMENT .
+  Running test NTH-MIDDLE-ELEMENT .
+  Running test NTH-LAST-ELEMENT .
+  Running test NTH-OUT-OF-BOUNDS-ERROR .
+  Running test NTH-NOT-FOUND-DEFAULT .
+  Running test NTH-EMPTY-LIST-ERROR .
+  Running test NTH-EMPTY-LIST-NOT-FOUND .
+  Running test NTH-VECTOR-FIRST .
+  Running test NTH-VECTOR-MIDDLE .
+  Running test NTH-VECTOR-LAST .
+  Running test NTH-VECTOR-OUT-OF-BOUNDS .
+  Running test NTH-VECTOR-NOT-FOUND .
+  Running test NTH-VECTOR-EMPTY-ERROR .
+  Running test NTH-VECTOR-EMPTY-NOT-FOUND .
+  Running test PEEK-NON-EMPTY .
+  Running test PEEK-SINGLE-ELEMENT .
+  Running test PEEK-EMPTY-LIST .
+  Running test PUSH-PREPENDS-TO-LIST ..
+  Running test PUSH-TO-EMPTY-LIST ..
+  Running test PUSH-PRESERVES-ORIGINAL ..
+  Running test POP-REMOVES-FIRST ..
+  Running test POP-SINGLE-ELEMENT .
+  Running test POP-EMPTY-LIST-ERROR .
+  Running test POP-PRESERVES-ORIGINAL ..
+  Running test INDEX-OF-FOUND .
+  Running test INDEX-OF-NOT-FOUND .
+  Running test INDEX-OF-FIRST-ELEMENT .
+  Running test INDEX-OF-FROM-INDEX .
+  Running test INDEX-OF-EMPTY-LIST .
+  Running test LAST-INDEX-OF-FOUND .
+  Running test LAST-INDEX-OF-NOT-FOUND .
+  Running test LAST-INDEX-OF-SINGLE-OCCURRENCE .
+  Running test LAST-INDEX-OF-EMPTY-LIST .
+  Running test LAZY-SEQ-CLASS-EXISTS .
+  Running test LAZY-SEQ-PREDICATE ..
+  Running test LAZY-SEQ-IS-ORDERED-COLLECTION ..
+  Running test LAZY-SEQ-NOT-PERSISTENT-CLASS .
+  Running test LAZY-SEQ-UNREALIZED-INITIALLY .
+  Running test LAZY-SEQ-REALIZE-NIL ..
+  Running test LAZY-SEQ-REALIZE-LIST ..
+  Running test LAZY-SEQ-THUNK-CALLED-ONCE .
+  Running test LAZY-SEQ-THUNK-CLEARED-AFTER-REALIZATION .
+  Running test LAZY-SEQ-CHAINED-REALIZATION ..
+  Running test LAZY-SEQ-COLLECTION-SEQ .
+  Running test LAZY-SEQ-COLLECTION-SIZE .
+  Running test LAZY-SEQ-COLLECTION-SIZE-NIL .
+  Running test LAZY-SEQ-CONJ .
+  Running test LAZY-SEQ-CONJ-NIL .
+  Running test LAZY-SEQ-CONSTRUCTOR-FUNCTION ..
+  Running test LAZY-SEQ-PRINT-UNREALIZED .
+  Running test LAZY-SEQ-PRINT-REALIZED-NIL .
+  Running test LAZY-SEQ-PRINT-REALIZED-LIST .
+  Running test COLLECTION-PREDICATE-ON-VECTOR .
+  Running test COLLECTION-PREDICATE-ON-DICT .
+  Running test COLLECTION-PREDICATE-ON-SET .
+  Running test COLLECTION-PREDICATE-ON-NON-COLLECTION ...
+  Running test UNORDERED-COLLECTION-PREDICATE-ON-SET .
+  Running test UNORDERED-COLLECTION-PREDICATE-ON-DICT .
+  Running test UNORDERED-COLLECTION-PREDICATE-ON-VECTOR .
+  Running test ORDERED-COLLECTION-PREDICATE-ON-VECTOR .
+  Running test ORDERED-COLLECTION-PREDICATE-ON-DICT .
+  Running test DICT-PREDICATE-ON-DICT .
+  Running test DICT-PREDICATE-ON-ORDERED-DICT .
+  Running test DICT-PREDICATE-ON-VECTOR .
+  Running test ORDERED-DICT-PREDICATE-ON-ORDERED-DICT .
+  Running test ORDERED-DICT-PREDICATE-ON-DICT .
+  Running test ARRAY-DICT-PREDICATE-ON-ARRAY-DICT .
+  Running test ARRAY-DICT-PREDICATE-ON-DICT .
+  Running test SORTED-DICT-PREDICATE-ON-SORTED-DICT .
+  Running test SORTED-DICT-PREDICATE-ON-DICT .
+  Running test INT-DICT-PREDICATE-ON-INT-DICT .
+  Running test INT-DICT-PREDICATE-ON-DICT .
+  Running test PRIORITY-DICT-PREDICATE-ON-PRIORITY-DICT .
+  Running test PRIORITY-DICT-PREDICATE-ON-DICT .
+  Running test SET-PREDICATE-ON-SET .
+  Running test SET-PREDICATE-ON-ORDERED-SET .
+  Running test SET-PREDICATE-ON-VECTOR .
+  Running test ORDERED-SET-PREDICATE-ON-ORDERED-SET .
+  Running test ORDERED-SET-PREDICATE-ON-SET .
+  Running test SORTED-SET-PREDICATE-ON-SORTED-SET .
+  Running test SORTED-SET-PREDICATE-ON-SET .
+  Running test INT-SET-PREDICATE-ON-INT-SET .
+  Running test INT-SET-PREDICATE-ON-SET .
+  Running test DENSE-INT-SET-PREDICATE-ON-DENSE-INT-SET .
+  Running test DENSE-INT-SET-PREDICATE-ON-SET .
+  Running test VECTOR-PREDICATE-ON-VECTOR .
+  Running test VECTOR-PREDICATE-ON-DICT .
+  Running test LIST-PREDICATE-ON-LIST .
+  Running test LIST-PREDICATE-ON-VECTOR .
+  Running test LAZY-SEQ-PREDICATE-ON-LAZY-SEQ .
+  Running test LAZY-SEQ-PREDICATE-ON-VECTOR .
+  Running test DEQUE-PREDICATE-ON-DEQUE .
+  Running test DEQUE-PREDICATE-ON-VECTOR .
+  Running test BAG-PREDICATE-ON-BAG .
+  Running test BAG-PREDICATE-ON-SET .
+  Running test EMPTY-VECTOR ...
+  Running test EMPTY-DICT ...
+  Running test EMPTY-SET ...
+  Running test EMPTY-ORDERED-DICT ..
+  Running test EMPTY-SORTED-DICT-PRESERVES-COMPARATOR ...
+  Running test EMPTY-INT-DICT-PRESERVES-COMPARATOR ...
+  Running test EMPTY-SORTED-SET-PRESERVES-COMPARATOR ...
+  Running test EMPTY-INT-SET-PRESERVES-COMPARATOR ...
+  Running test EMPTY-BAG ..
+  Running test EMPTY-LIST ..
+  Running test EMPTY-DEQUE ..
+  Running test NOT-EMPTY-ON-POPULATED-VECTOR .
+  Running test NOT-EMPTY-ON-EMPTY-VECTOR .
+  Running test NOT-EMPTY-ON-NIL .
+  Running test NOT-EMPTY-ON-POPULATED-DICT .
+  Running test NOT-EMPTY-ON-EMPTY-DICT .
+  Running test NOT-EMPTY-ON-POPULATED-SET .
+  Running test NOT-EMPTY-ON-EMPTY-SET .
+  Running test INTO-GENERIC-EXISTS .
+  Running test INTO-VECTOR-FROM-VECTOR ...
+  Running test INTO-EMPTY-VECTOR-FROM-VECTOR ..
+  Running test INTO-VECTOR-FROM-EMPTY-VECTOR ..
+  Running test INTO-VECTOR-FROM-SET ..
+  Running test INTO-VECTOR-FROM-LIST ...
+  Running test INTO-DICT-FROM-DICT .....
+  Running test INTO-EMPTY-DICT-FROM-DICT ....
+  Running test INTO-ORDERED-DICT-FROM-DICT ....
+  Running test INTO-ARRAY-DICT-FROM-DICT ....
+  Running test INTO-SORTED-DICT-FROM-DICT ..
+  Running test INTO-INT-DICT-FROM-DICT .....
+  Running test INTO-PRIORITY-DICT-FROM-DICT ..
+  Running test INTO-SET-FROM-VECTOR ..
+  Running test INTO-SET-FROM-SET ..
+  Running test INTO-SET-WITH-EXISTING-ELEMENTS .
+  Running test INTO-ORDERED-SET-FROM-VECTOR ...
+  Running test INTO-ORDERED-SET-DEDUPLICATES ..
+  Running test INTO-SORTED-SET-FROM-VECTOR ...
+  Running test INTO-INT-SET-FROM-VECTOR ...
+  Running test INTO-BAG-FROM-VECTOR ..
+  Running test INTO-BAG-FROM-BAG ..
+  Running test INTO-LIST-FROM-VECTOR ...
+  Running test INTO-LIST-FROM-LIST ...
+  Running test INTO-DEQUE-FROM-VECTOR ...
+  Running test INTO-PRESERVES-VECTOR-TYPE .
+  Running test INTO-PRESERVES-DICT-TYPE .
+  Running test INTO-PRESERVES-SET-TYPE .
+  Running test INTO-FROM-EMPTY-RETURNS-EQUIVALENT ..
+  Running test INTO-BOTH-EMPTY .
+  Running test BOUNDED-SIZE-NIL .
+  Running test BOUNDED-SIZE-VECTOR-UNDER-LIMIT .
+  Running test BOUNDED-SIZE-VECTOR-AT-LIMIT .
+  Running test BOUNDED-SIZE-VECTOR-OVER-LIMIT .
+  Running test BOUNDED-SIZE-EMPTY-VECTOR .
+  Running test BOUNDED-SIZE-DICT .
+  Running test BOUNDED-SIZE-SET .
+  Running test BOUNDED-SIZE-FOL-LIST .
+  Running test BOUNDED-SIZE-CL-LIST-UNDER-LIMIT .
+  Running test BOUNDED-SIZE-CL-LIST-AT-LIMIT .
+  Running test BOUNDED-SIZE-CL-LIST-OVER-LIMIT .
+  Running test BOUNDED-SIZE-CL-LIST-EMPTY .
+  Running test BOUNDED-SIZE-LAZY-SEQ-UNDER-LIMIT .
+  Running test BOUNDED-SIZE-LAZY-SEQ-OVER-LIMIT .
+  Running test BOUNDED-SIZE-LAZY-SEQ-EMPTY .
+  Running test DISTINCT?-NO-ARGS .
+  Running test DISTINCT?-SINGLE-ARG .
+  Running test DISTINCT?-TWO-DIFFERENT .
+  Running test DISTINCT?-TWO-SAME .
+  Running test DISTINCT?-MANY-DIFFERENT .
+  Running test DISTINCT?-MANY-WITH-DUPLICATE .
+  Running test DISTINCT?-STRINGS ..
+  Running test DISTINCT?-KEYWORDS ..
+  Running test DISTINCT?-MIXED-TYPES .
+  Running test EVERY?-ALL-MATCH .
+  Running test EVERY?-SOME-FAIL .
+  Running test EVERY?-EMPTY .
+  Running test EVERY?-SINGLE-MATCH .
+  Running test EVERY?-SINGLE-FAIL .
+  Running test EVERY?-ON-DICT .
+  Running test EVERY?-ON-SET .
+  Running test NOT-EVERY?-ALL-MATCH .
+  Running test NOT-EVERY?-SOME-FAIL .
+  Running test NOT-EVERY?-EMPTY .
+  Running test NOT-EVERY?-NONE-MATCH .
+  Running test NOT-ANY?-NONE-MATCH .
+  Running test NOT-ANY?-SOME-MATCH .
+  Running test NOT-ANY?-ALL-MATCH .
+  Running test NOT-ANY?-EMPTY .
+  Running test NOT-ANY?-ON-SET .
+  Running test NOT-ANY?-ON-DICT .
+  Running test %INDEX-1D-BASIC ...
+  Running test %INDEX-2D-COLUMN-MAJOR ......
+  Running test %INDEX-3D-COLUMN-MAJOR .....
+  Running test %INDEX-WRONG-NUMBER-OF-INDICES ..
+  Running test %INDEX-INDEX-OUT-OF-BOUNDS ...
+  Running test %INDEX-NEGATIVE-INDEX .
+  Running test ARRAY-NEGATIVE-DIMENSION-ERROR .
+  Running test ARRAY-NON-INTEGER-DIMENSION-ERROR .
+  Running test ARRAY-VALID-DIMENSIONS-OK .
+  Running test ARRAY-ZERO-DIMENSION-OK .
+  Running test ARRAY-MAKE-VALIDATES-DIMENSIONS ..
+  Running test ARRAY-GET-2D-BASIC ......
+  Running test ARRAY-GET-3D ....
+  Running test ARRAY-GET-INDICES-WRONG-COUNT ..
+  Running test ARRAY-GET-INDICES-OUT-OF-BOUNDS ..
+  Running test ARRAY-GET-INTEGER-STILL-WORKS ...
+  Running test ARRAY-GET-INDICES-WITH-DEFAULT ..
+  Running test VEC-FROM-VECTOR-IDENTITY .
+  Running test VEC-FROM-LIST .....
+  Running test VEC-FROM-SET ..
+  Running test VEC-FROM-DICT ..
+  Running test VEC-FROM-NIL ..
+  Running test VEC-FROM-CL-LIST .....
+  Running test VEC-FROM-EMPTY-VECTOR .
+  Running test VEC-FROM-DEQUE ..
+  Running test VEC-ERROR-ON-NON-COLLECTION .
+  Running test VECTOR-OF-NUMBERS .....
+  Running test VECTOR-OF-STRINGS ...
+  Running test VECTOR-OF-INTEGERS ..
+  Running test VECTOR-OF-TYPE-MISMATCH-ERROR .
+  Running test VECTOR-OF-UNKNOWN-TYPE-ERROR .
+  Running test VECTOR-OF-EMPTY ..
+  Running test VECTOR-OF-FLOAT ..
+  Running test VECTOR-OF-FLOAT-REJECTS-INTEGERS .
+  Running test PEEK-VECTOR-NON-EMPTY .
+  Running test PEEK-VECTOR-SINGLE .
+  Running test PEEK-VECTOR-EMPTY .
+  Running test INDEX-OF-VECTOR-FOUND .
+  Running test INDEX-OF-VECTOR-NOT-FOUND .
+  Running test INDEX-OF-VECTOR-FIRST-ELEMENT .
+  Running test INDEX-OF-VECTOR-FROM-INDEX .
+  Running test INDEX-OF-VECTOR-EMPTY .
+  Running test LAST-INDEX-OF-VECTOR-FOUND .
+  Running test LAST-INDEX-OF-VECTOR-NOT-FOUND .
+  Running test LAST-INDEX-OF-VECTOR-SINGLE-OCCURRENCE .
+  Running test LAST-INDEX-OF-VECTOR-EMPTY .
+  Running test POP-VECTOR-BASIC ...
+  Running test POP-VECTOR-SINGLE .
+  Running test POP-VECTOR-EMPTY-ERROR .
+  Running test POP-VECTOR-PRESERVES-ORIGINAL ..
+  Running test UPDATE-VECTOR-BASIC ...
+  Running test UPDATE-VECTOR-FIRST .
+  Running test UPDATE-VECTOR-OUT-OF-BOUNDS .
+  Running test UPDATE-VECTOR-PRESERVES-ORIGINAL ..
+  Running test ASSOC-IN-VECTOR-FLAT .
+  Running test ASSOC-IN-VECTOR-NESTED-DICT .
+  Running test ASSOC-IN-DICT-NESTED .
+  Running test UPDATE-IN-VECTOR-FLAT .
+  Running test UPDATE-IN-VECTOR-NESTED-DICT .
+  Running test UPDATE-IN-DICT-NESTED .
+  Running test RSEQ-VECTOR-BASIC .
+  Running test RSEQ-VECTOR-SINGLE .
+  Running test RSEQ-VECTOR-EMPTY .
+  Running test REDUCE-KV-VECTOR-SUM-INDICES .
+  Running test REDUCE-KV-VECTOR-COLLECT-PAIRS ..
+  Running test REDUCE-KV-VECTOR-EMPTY .
+  Running test REDUCE-KV-DICT-BASIC .
+  Running test SUBVEC-BASIC ....
+  Running test SUBVEC-TO-END ...
+  Running test SUBVEC-EMPTY-RANGE .
+  Running test SUBVEC-FULL-RANGE ...
+  Running test SUBVEC-OUT-OF-BOUNDS-START .
+  Running test SUBVEC-OUT-OF-BOUNDS-END .
+  Running test REPLACE-VECTOR-BASIC .......
+  Running test REPLACE-VECTOR-NO-MATCHES ..
+  Running test REPLACE-VECTOR-EMPTY .
+  Running test CONTAINS?-SET-PRESENT .
+  Running test CONTAINS?-SET-ABSENT .
+  Running test CONTAINS?-SET-EMPTY .
+  Running test CONTAINS?-SORTED-SET ..
+  Running test CONTAINS?-ORDERED-SET ..
+  Running test CONTAINS?-INT-SET ..
+  Running test DISJ-SET-REMOVE-PRESENT ...
+  Running test DISJ-SET-REMOVE-ABSENT .
+  Running test DISJ-SET-REMOVE-MULTIPLE ...
+  Running test DISJ-SORTED-SET ..
+  Running test DISJ-ORDERED-SET ..
+  Running test DISJ-INT-SET ..
+  Running test UNION-SET-BASIC ....
+  Running test UNION-SET-DISJOINT .
+  Running test UNION-SET-EMPTY .
+  Running test UNION-SORTED-SET ..
+  Running test UNION-INT-SET ..
+  Running test UNION-ORDERED-SET ..
+  Running test DIFFERENCE-SET-BASIC ..
+  Running test DIFFERENCE-SET-NO-OVERLAP .
+  Running test DIFFERENCE-SET-COMPLETE-OVERLAP .
+  Running test DIFFERENCE-SORTED-SET ..
+  Running test DIFFERENCE-ORDERED-SET ..
+  Running test INTERSECTION-SET-BASIC ...
+  Running test INTERSECTION-SET-NO-OVERLAP .
+  Running test INTERSECTION-SET-COMPLETE-OVERLAP .
+  Running test INTERSECTION-SORTED-SET ..
+  Running test INTERSECTION-ORDERED-SET ..
+  Running test SELECT-SET-BASIC ....
+  Running test SELECT-SET-NO-MATCH .
+  Running test SELECT-SET-ALL-MATCH .
+  Running test SELECT-SORTED-SET ..
+  Running test SELECT-INT-SET ...
+  Running test SELECT-ORDERED-SET ..
+  Running test SUBSET?-SET-TRUE .
+  Running test SUBSET?-SET-FALSE .
+  Running test SUBSET?-SET-EMPTY .
+  Running test SUBSET?-SET-EQUAL .
+  Running test SUBSET?-SORTED-SET .
+  Running test SUBSET?-ORDERED-SET .
+  Running test SUPERSET?-SET-TRUE .
+  Running test SUPERSET?-SET-FALSE .
+  Running test SUPERSET?-SET-EMPTY .
+  Running test SUPERSET?-SORTED-SET .
+  Running test RSEQ-SORTED-SET-BASIC .
+  Running test RSEQ-SORTED-SET-EMPTY .
+  Running test RSEQ-INT-SET .
+  Running test SUBSEQ-SORTED-SET-GTE .
+  Running test SUBSEQ-SORTED-SET-GT .
+  Running test SUBSEQ-SORTED-SET-LTE .
+  Running test SUBSEQ-SORTED-SET-LT .
+  Running test SUBSEQ-SORTED-SET-RANGE .
+  Running test SUBSEQ-SORTED-SET-EMPTY-RESULT .
+  Running test SUBSEQ-INT-SET .
+  Running test RSUBSEQ-SORTED-SET-LTE .
+  Running test RSUBSEQ-SORTED-SET-RANGE .
+  Running test RSUBSEQ-SORTED-SET-EMPTY-RESULT .
+  Running test CONTAINS?-DICT-PRESENT ...
+  Running test CONTAINS?-DICT-ABSENT ..
+  Running test CONTAINS?-DICT-EMPTY .
+  Running test CONTAINS?-SORTED-DICT-PRESENT ..
+  Running test CONTAINS?-SORTED-DICT-ABSENT .
+  Running test FIND-DICT-PRESENT ..
+  Running test FIND-DICT-ABSENT .
+  Running test FIND-DICT-EMPTY .
+  Running test FIND-SORTED-DICT-PRESENT ..
+  Running test FIND-SORTED-DICT-ABSENT .
+  Running test GET-IN-DICT-SHALLOW ..
+  Running test GET-IN-DICT-NESTED .
+  Running test GET-IN-DICT-MISSING-RETURNS-NIL .
+  Running test GET-IN-DICT-MISSING-RETURNS-NOT-FOUND .
+  Running test GET-IN-DICT-DEEP-MISSING .
+  Running test GET-IN-VECTOR-SHALLOW .
+  Running test GET-IN-VECTOR-NESTED-DICT .
+  Running test GET-IN-VECTOR-OUT-OF-BOUNDS .
+  Running test VALS-DICT-BASIC ....
+  Running test VALS-DICT-EMPTY .
+  Running test VALS-ORDERED-DICT .
+  Running test VALS-SORTED-DICT .
+  Running test KEY-EXTRACTS-CAR ..
+  Running test VAL-EXTRACTS-CDR ..
+  Running test KEY-VAL-ON-DICT-ENTRIES ....
+  Running test MERGE-WITH-DICT-ADD ...
+  Running test MERGE-WITH-DICT-NO-CONFLICT ..
+  Running test MERGE-WITH-MULTIPLE-DICTS .
+  Running test MERGE-WITH-ORDERED-DICT ..
+  Running test MERGE-WITH-SORTED-DICT ...
+  Running test SELECT-KEYS-DICT-BASIC ...
+  Running test SELECT-KEYS-MISSING-KEYS ..
+  Running test SELECT-KEYS-EMPTY-RESULT .
+  Running test SELECT-KEYS-ORDERED-DICT .
+  Running test SELECT-KEYS-SORTED-DICT ...
+  Running test RENAME-KEYS-BASIC ...
+  Running test RENAME-KEYS-NO-MATCH ..
+  Running test RENAME-KEYS-ORDERED-DICT ..
+  Running test MAP-INVERT-BASIC ..
+  Running test MAP-INVERT-EMPTY .
+  Running test MAP-INVERT-DUPLICATE-VALUES ..
+  Running test UPDATE-KEYS-BASIC ..
+  Running test UPDATE-KEYS-ORDERED-DICT ..
+  Running test UPDATE-KEYS-EMPTY .
+  Running test UPDATE-VALS-DICT ...
+  Running test UPDATE-VALS-ORDERED-DICT ..
+  Running test UPDATE-VALS-SORTED-DICT ..
+  Running test UPDATE-VALS-EMPTY .
+  Running test RSEQ-SORTED-DICT .
+  Running test RSEQ-SORTED-DICT-EMPTY .
+  Running test RSEQ-INT-DICT ..
+  Running test SUBSEQ-SORTED-DICT-GTE .
+  Running test SUBSEQ-SORTED-DICT-RANGE .
+  Running test SUBSEQ-SORTED-DICT-EMPTY-RESULT .
+  Running test RSUBSEQ-SORTED-DICT-LTE .
+  Running test RSUBSEQ-SORTED-DICT-RANGE .
+  Running test DEQUE-PEEK-FRONT .
+  Running test DEQUE-PEEK-EMPTY .
+  Running test DEQUE-POP-FRONT ..
+  Running test DEQUE-POP-EMPTY-SIGNALS-ERROR .
+  Running test DEQUE-PUSH-BACK .
+  Running test DEQUE-CONJ-BACK .
+  Running test DEQUE-RPEEK-BACK .
+  Running test DEQUE-RPEEK-EMPTY .
+  Running test DEQUE-RPOP-BACK ..
+  Running test DEQUE-RPOP-EMPTY-SIGNALS-ERROR .
+  Running test DEQUE-RPUSH-FRONT .
+  Running test DEQUE-RCONJ-FRONT .
+  Running test DEQUE-ROUNDTRIP-FRONT-BACK ...
+  Running test DEQUE-ROUNDTRIP-BACK-FRONT ...
+  Running test LAZY-SEQ-VECTOR ..
+  Running test LAZY-SEQ-DICT ...
+  Running test LAZY-SEQ-SET ...
+  Running test LAZY-SEQ-LIST ..
+  Running test LAZY-SEQ-LAZY-SEQ .
+  Running test LAZY-SEQ-DEQUE ..
+  Running test COLLECTION-SEQ-RETURNS-CL-LIST ...
+ Running test suite READER-TESTS
+  Running test FOL-READTABLE-EXISTS .
+  Running test FOL-READTABLE-IS-NOT-STANDARD .
+  Running test READ-VECTOR-EMPTY ..
+  Running test READ-VECTOR-LITERALS ...
+  Running test READ-VECTOR-WITH-KEYWORDS ..
+  Running test READ-VECTOR-NESTED ....
+  Running test READ-DICT-EMPTY ..
+  Running test READ-DICT-SIMPLE ..
+  Running test READ-DICT-ODD-ERROR .
+  Running test READ-SET-EMPTY ..
+  Running test READ-SET-SIMPLE ..
+  Running test READ-BAG-EMPTY ..
+  Running test READ-BAG-WITH-DUPLICATES ..
+  Running test READ-DEQUE-EMPTY ..
+  Running test READ-DEQUE-SIMPLE ...
+  Running test READ-DEQUE-WITH-KEYWORDS ..
+  Running test READ-REGEX-SIMPLE ..
+  Running test READ-REGEX-WITH-ESCAPE ..
+  Running test READ-IGNORE-FORM .
+  Running test READ-DICT-WITH-VECTOR-VALUE ...
+  Running test FOL-READ-FROM-STREAM ..
+  Running test READ-HEX-LOWERCASE ..
+  Running test READ-HEX-UPPERCASE ..
+  Running test READ-HEX-MIXED-CASE ..
+  Running test READ-HEX-ZERO ..
+  Running test READ-HEX-LARGE ..
+  Running test READ-OCTAL-LOWERCASE ..
+  Running test READ-OCTAL-UPPERCASE ..
+  Running test READ-OCTAL-ZERO ..
+  Running test READ-RADIX-BINARY ..
+  Running test READ-RADIX-HEX ..
+  Running test READ-RADIX-BASE36 ..
+  Running test READ-RADIX-UPPERCASE-R ..
+  Running test READ-RADIX-BASE8 ..
+  Running test READ-RATIO-SIMPLE ..
+  Running test READ-RATIO-COMPLEX ..
+  Running test READ-SINGLE-FLOAT ..
+  Running test READ-DOUBLE-FLOAT ..
+  Running test READ-STANDARD-INTEGER ..
+  Running test READ-HEX-IN-VECTOR ...
+  Running test READ-MIXED-RADIX-IN-DICT ....
+  Running test READ-CHAR-SINGLE ..
+  Running test READ-CHAR-UPPERCASE ..
+  Running test READ-CHAR-DIGIT ..
+  Running test READ-CHAR-NEWLINE-SHORTCUT ..
+  Running test READ-CHAR-TAB-SHORTCUT ..
+  Running test READ-CHAR-RETURN-SHORTCUT ..
+  Running test READ-CHAR-BACKSPACE-SHORTCUT ..
+  Running test READ-CHAR-FORMFEED-SHORTCUT ..
+  Running test READ-CHAR-NEWLINE-NAMED ..
+  Running test READ-CHAR-SPACE-NAMED ..
+  Running test READ-CHAR-TAB-NAMED ..
+  Running test READ-CHAR-RETURN-NAMED ..
+  Running test READ-CHAR-BACKSPACE-NAMED ..
+  Running test READ-CHAR-FORMFEED-NAMED ..
+  Running test READ-CHAR-UNICODE ..
+  Running test READ-CHAR-UNICODE-LOWERCASE ..
+  Running test READ-CHAR-IN-VECTOR ....
+  Running test READ-FN-SHORTHAND-SIMPLE ........
+  Running test READ-FN-SHORTHAND-PERCENT ....
+  Running test READ-FN-SHORTHAND-MULTI-PARAM ....
+  Running test READ-FN-SHORTHAND-REST ...
+  Running test READ-FN-SHORTHAND-MIXED ....
+  Running test READ-FN-SHORTHAND-NESTED-COLL ....
+ Running test suite MUTABLE-TESTS
+  Running test ATOM-CLASS-EXISTS .
+  Running test ATOM-PREDICATE-TRUE .
+  Running test ATOM-PREDICATE-NON-ATOM ...
+  Running test ATOM-DEFAULT-VALUE-NIL .
+  Running test ATOM-WITH-INITIAL-VALUE .
+  Running test DEREF-RETURNS-VALUE .
+  Running test DEREF-DEFAULT-RETURNS-OBJ ...
+  Running test RESET!-CHANGES-VALUE .
+  Running test RESET!-RETURNS-NEW-VALUE .
+  Running test SWAP!-APPLIES-FN .
+  Running test SWAP!-WITH-EXTRA-ARGS .
+  Running test SWAP!-RETURNS-NEW-VALUE .
+  Running test SWAP!-MULTIPLE-UPDATES .
+  Running test COMPARE-AND-SET!-SUCCESS ..
+  Running test COMPARE-AND-SET!-FAILURE ..
+  Running test ATOM-PRINT-OBJECT ..
+  Running test REF-CLASS-EXISTS .
+  Running test REF-PREDICATE-TRUE .
+  Running test REF-PREDICATE-NON-REF ...
+  Running test REF-INITIAL-VALUE .
+  Running test REF-DEREF-OUTSIDE-DOSYNC .
+  Running test REF-SET-WITHIN-DOSYNC .
+  Running test REF-SET-OUTSIDE-DOSYNC-ERRORS .
+  Running test ALTER-WITHIN-DOSYNC .
+  Running test ALTER-WITH-ARGS .
+  Running test ALTER-OUTSIDE-DOSYNC-ERRORS .
+  Running test COMMUTE-WITHIN-DOSYNC .
+  Running test COMMUTE-OUTSIDE-DOSYNC-ERRORS .
+  Running test ENSURE-WITHIN-DOSYNC .
+  Running test ENSURE-OUTSIDE-DOSYNC-ERRORS .
+  Running test DOSYNC-RETURNS-LAST-VALUE .
+  Running test DOSYNC-NESTED-FLATTENS .
+  Running test DOSYNC-MULTIPLE-REFS ..
+  Running test DOSYNC-READS-OWN-WRITES .
+  Running test DOSYNC-ALTER-CHAINS .
+  Running test REF-VALIDATOR-ON-CREATION .
+  Running test REF-VALIDATOR-ACCEPTS .
+  Running test REF-VALIDATOR-REJECTS .
+  Running test REF-PRINT-OBJECT ..
+  Running test REF-CONCURRENT-INCREMENTS .
+  Running test REF-CONCURRENT-TRANSFER .
+  Running test REF-COMMUTE-CONCURRENT .
+  Running test AGENT-CLASS-EXISTS .
+  Running test AGENT-PREDICATE-TRUE .
+  Running test AGENT-PREDICATE-NON-AGENT ...
+  Running test AGENT-INITIAL-VALUE .
+  Running test AGENT-SEND-UPDATES .
+  Running test AGENT-SEND-WITH-ARGS .
+  Running test AGENT-SEND-MULTIPLE .
+  Running test AGENT-SEND-OFF-WORKS .
+  Running test AGENT-SEND-SERIALIZED .
+  Running test AGENT-AWAIT-RETURNS-T .
+  Running test AGENT-ERROR-FAIL-MODE ..
+  Running test AGENT-ERROR-CONTINUE-MODE .
+  Running test AGENT-RESTART-CLEARS-ERROR ....
+  Running test AGENT-ERROR-HANDLER-CALLED .
+  Running test AGENT-SET-ERROR-HANDLER! .
+  Running test AGENT-SET-ERROR-MODE! ..
+  Running test AGENT-PRINT-OBJECT ..
+ Running test suite STREAMS-TESTS
+  Running test INPUT-STREAM-CLASS-EXISTS .
+  Running test OUTPUT-STREAM-CLASS-EXISTS .
+  Running test STRING-BASE-CLASS-EXISTS .
+  Running test FILE-BASE-CLASS-EXISTS .
+  Running test SOCKET-BASE-CLASS-EXISTS .
+  Running test STRING-INPUT-STREAM-CLASS-EXISTS .
+  Running test STRING-OUTPUT-STREAM-CLASS-EXISTS .
+  Running test FILE-INPUT-STREAM-CLASS-EXISTS .
+  Running test FILE-OUTPUT-STREAM-CLASS-EXISTS .
+  Running test SOCKET-INPUT-STREAM-CLASS-EXISTS .
+  Running test SOCKET-OUTPUT-STREAM-CLASS-EXISTS .
+  Running test STRING-INPUT-STREAM-CONSTRUCTION ..
+  Running test STRING-INPUT-STREAM-READ-CHAR ....
+  Running test STRING-INPUT-STREAM-READ-LINE ..
+  Running test STRING-INPUT-STREAM-CLOSE .
+  Running test STRING-OUTPUT-STREAM-CONSTRUCTION ..
+  Running test STRING-OUTPUT-STREAM-WRITE-STRING .
+  Running test STRING-OUTPUT-STREAM-WRITE-CHAR .
+  Running test STRING-OUTPUT-STREAM-WRITE-LINE ..
+  Running test STRING-OUTPUT-STREAM-GET-OUTPUT-STRING .
+  Running test FILE-OUTPUT-STREAM-WRITE-AND-READ-BACK .
+  Running test FILE-INPUT-STREAM-PREDICATE ..
+  Running test FILE-OUTPUT-STREAM-PREDICATE ..
+  Running test GLOBAL-IN-EXISTS .
+  Running test GLOBAL-OUT-EXISTS .
+  Running test GLOBAL-IN-IS-INPUT-STREAM .
+  Running test GLOBAL-OUT-IS-OUTPUT-STREAM .
+  Running test STRING-INPUT-STREAM-PRINT .
+  Running test STRING-OUTPUT-STREAM-PRINT .
+  Running test STRING-OUTPUT-STREAM-FLUSH .
+  Running test INPUT-STREAM-PREDICATE-NEGATIVE ...
+  Running test OUTPUT-STREAM-PREDICATE-NEGATIVE ...
+ Running test suite PERSISTENCE-TESTS
+  Running test PERSISTENT-CLASS-METACLASS-EXISTS .
+  Running test PERSISTENT-OBJECT-BASE-CLASS-EXISTS .
+  Running test PERSISTENT-OBJECT-USES-PERSISTENT-METACLASS .
+  Running test PERSISTENT-OBJECT-CONSTRUCTION ..
+  Running test PERSISTENT-OBJECT-SLOT-ACCESS ..
+  Running test PERSISTENT-OBJECT-THREE-SLOTS ...
+  Running test PERSISTENT-OBJECT-INITFORM-DEFAULTS ..
+  Running test PERSISTENT-OBJECT-INITFORM-OVERRIDE ..
+  Running test PERSISTENT-OBJECT-PARTIAL-OVERRIDE ..
+  Running test PERSISTENT-OBJECT-IMMUTABLE .
+  Running test PERSISTENT-OBJECT-SLOT-MAKUNBOUND-ERROR .
+  Running test PERSISTENT-OBJECT-SLOT-BOUNDP ..
+  Running test PERSISTENT-OBJECT-SLOT-BOUNDP-DEFAULT ..
+  Running test PERSISTENT-UPDATE-SLOT ..
+  Running test PERSISTENT-UPDATE-SLOT-ORIGINAL-UNCHANGED ..
+  Running test PERSISTENT-UPDATE-SLOT-SAME-TYPE .
+  Running test PERSISTENT-UPDATE-SLOT-CHAINED ....
+  Running test PERSISTENT-UPDATE-SLOTS ..
+  Running test PERSISTENT-UPDATE-SLOTS-ORIGINAL-UNCHANGED ..
+  Running test PERSISTENT-UPDATE-SLOTS-PARTIAL ...
+  Running test MASSIVE-OBJECT-STRATEGY ...
+  Running test MASSIVE-OBJECT-UPDATE ...
+  Running test PERSISTENT-STORAGE-STRATEGY-SELECTION ..
+  Running test PERSISTENT-VALIDATE-SUPERCLASS-STANDARD .
+  Running test PERSISTENT-VALIDATE-SUPERCLASS-PERSISTENT .
+  Running test STANDARD-CAN-INHERIT-PERSISTENT .
+ Running test suite TRANSIENTS-TESTS
+ Running test suite STRING-TESTS
+  Running test FORMAT-NIL-DESTINATION .
+  Running test FORMAT-WITH-ARGS .
+  Running test FORMAT-MULTIPLE-ARGS .
+  Running test FORMAT-INTEGER-DIRECTIVE .
+  Running test FORMAT-NEWLINE .
+  Running test SIZE-EMPTY-STRING .
+  Running test SIZE-SINGLE-CHAR .
+  Running test SIZE-NORMAL-STRING .
+  Running test SIZE-WITH-SPACES .
+  Running test SIZE-UNICODE .
+  Running test COMPARE-EQUAL-STRINGS .
+  Running test COMPARE-LESS-THAN .
+  Running test COMPARE-GREATER-THAN .
+  Running test COMPARE-EMPTY-STRINGS .
+  Running test COMPARE-EMPTY-VS-NONEMPTY .
+  Running test COMPARE-PREFIX .
+  Running test COMPARE-CASE-SENSITIVE .
+  Running test ESCAPE-HTML-CHARS .
+  Running test ESCAPE-QUOTES .
+  Running test ESCAPE-MULTIPLE-CHARS .
+  Running test ESCAPE-NO-MATCHING-CHARS .
+  Running test ESCAPE-EMPTY-STRING .
+  Running test ESCAPE-EMPTY-MAP .
+  Running test SPLIT-LINES-NEWLINE .....
+  Running test SPLIT-LINES-CRLF .....
+  Running test SPLIT-LINES-MIXED .....
+  Running test SPLIT-LINES-SINGLE-LINE ...
+  Running test SPLIT-LINES-EMPTY-STRING ...
+  Running test SPLIT-LINES-EMPTY-LINES .....
+  Running test SPLIT-LINES-TRAILING-NEWLINE .....
+  Running test REPLACE-FIRST-CHARACTER .
+  Running test REPLACE-FIRST-STRING-LITERAL .
+  Running test REPLACE-FIRST-STRING-REGEX .
+  Running test REVERSE-STRING .
+  Running test REVERSE-EMPTY-STRING .
+  Running test INDEX-OF-CHARACTER .
+  Running test INDEX-OF-CHARACTER-NOT-FOUND .
+  Running test INDEX-OF-STRING-LITERAL .
+  Running test INDEX-OF-WITH-START .
+  Running test INDEX-OF-STRING-REGEX .
+  Running test LAST-INDEX-OF-CHARACTER .
+  Running test LAST-INDEX-OF-CHARACTER-NOT-FOUND .
+  Running test LAST-INDEX-OF-STRING-LITERAL .
+  Running test LAST-INDEX-OF-STRING-REGEX .
+  Running test PARSE-BOOLEAN-TRUE-LOWERCASE .
+  Running test PARSE-BOOLEAN-TRUE-UPPERCASE .
+  Running test PARSE-BOOLEAN-TRUE-MIXED-CASE .
+  Running test PARSE-BOOLEAN-T .
+  Running test PARSE-BOOLEAN-T-LOWERCASE .
+  Running test PARSE-BOOLEAN-FALSE-LOWERCASE .
+  Running test PARSE-BOOLEAN-FALSE-UPPERCASE .
+  Running test PARSE-BOOLEAN-NIL-LOWERCASE .
+  Running test PARSE-BOOLEAN-NIL-UPPERCASE .
+  Running test PARSE-BOOLEAN-F .
+  Running test PARSE-BOOLEAN-F-LOWERCASE .
+  Running test PARSE-BOOLEAN-WITH-WHITESPACE .
+  Running test PARSE-BOOLEAN-INVALID-STRING .
+  Running test PARSE-UUID-VALID-LOWERCASE .
+  Running test PARSE-UUID-VALID-UPPERCASE .
+  Running test PARSE-UUID-VALID-MIXED-CASE .
+  Running test PARSE-UUID-INVALID-FORMAT .
+  Running test PARSE-UUID-WRONG-LENGTH .
+  Running test PARSE-INT-POSITIVE .
+  Running test PARSE-INT-NEGATIVE .
+  Running test PARSE-INT-ZERO .
+  Running test PARSE-INT-LARGE .
+  Running test PARSE-INT-INVALID-FLOAT .
+  Running test PARSE-INT-INVALID-STRING .
+  Running test PARSE-LONG-POSITIVE .
+  Running test PARSE-LONG-LARGE .
+  Running test PARSE-DOUBLE-FLOAT ..
+  Running test PARSE-DOUBLE-INTEGER ..
+  Running test PARSE-DOUBLE-NEGATIVE .
+  Running test PARSE-DOUBLE-SCIENTIFIC .
+  Running test PARSE-DOUBLE-INVALID-STRING .
+  Running test RE-PATTERN-CREATES-SCANNER ..
+  Running test RE-FIND-SIMPLE-MATCH .
+  Running test RE-FIND-NO-MATCH .
+  Running test RE-FIND-WITH-GROUPS ....
+  Running test RE-FIND-MULTIPLE-GROUPS .....
+  Running test RE-FIND-WITH-START-POSITION .
+  Running test RE-SEQ-SIMPLE-MATCHES .....
+  Running test RE-SEQ-NO-MATCHES ..
+  Running test RE-SEQ-WITH-GROUPS ......
+  Running test RE-MATCHES-ENTIRE-STRING ...
+  Running test RE-MATCHES-WITH-GROUPS ....
+  Running test RE-MATCHES-PARTIAL-NO-MATCH .
+  Running test RE-MATCHER-COMPILES-PATTERN ..
+  Running test RE-MATCHER-CAN-BE-REUSED ..
+  Running test RE-QUOTE-REPLACEMENT-ESCAPES-DOLLAR .
+  Running test RE-QUOTE-REPLACEMENT-ESCAPES-BACKSLASH .
+  Running test RE-QUOTE-REPLACEMENT-ESCAPES-BOTH .
+  Running test RE-QUOTE-REPLACEMENT-NORMAL-STRING .
+  Running test RE-QUOTE-REPLACEMENT-EMPTY-STRING .
+  Running test TRIM-BOTH-SIDES .
+  Running test TRIM-NEWLINES-AND-TABS .
+  Running test TRIM-NO-WHITESPACE .
+  Running test TRIM-EMPTY-STRING .
+  Running test TRIML-LEFT-WHITESPACE .
+  Running test TRIML-NO-LEFT-WHITESPACE .
+  Running test TRIMR-RIGHT-WHITESPACE .
+  Running test TRIMR-NO-RIGHT-WHITESPACE .
+  Running test TRIM-NEWLINE-SINGLE .
+  Running test TRIM-NEWLINE-CRLF .
+  Running test TRIM-NEWLINE-MULTIPLE .
+  Running test TRIM-NEWLINE-PRESERVES-LEADING .
+  Running test TRIM-NEWLINE-NO-NEWLINES .
+  Running test UPPER-CASE-LOWERCASE-STRING .
+  Running test UPPER-CASE-MIXED-CASE .
+  Running test UPPER-CASE-ALREADY-UPPER .
+  Running test UPPER-CASE-EMPTY .
+  Running test LOWER-CASE-UPPERCASE-STRING .
+  Running test LOWER-CASE-MIXED-CASE .
+  Running test LOWER-CASE-ALREADY-LOWER .
+  Running test LOWER-CASE-EMPTY .
+  Running test CAPITALIZE-LOWERCASE-STRING .
+  Running test CAPITALIZE-UPPERCASE-STRING .
+  Running test CAPITALIZE-ALREADY-CAPITALIZED .
+  Running test CAPITALIZE-EMPTY .
+  Running test CAPITALIZE-SINGLE-CHAR .
+  Running test BLANK-EMPTY-STRING .
+  Running test BLANK-NIL .
+  Running test BLANK-WHITESPACE-ONLY ..
+  Running test BLANK-NON-BLANK-STRING ..
+  Running test STARTS-WITH-MATCHING-PREFIX .
+  Running test STARTS-WITH-EXACT-MATCH .
+  Running test STARTS-WITH-NON-MATCHING .
+  Running test STARTS-WITH-PREFIX-TOO-LONG .
+  Running test STARTS-WITH-EMPTY-PREFIX .
+  Running test ENDS-WITH-MATCHING-SUFFIX .
+  Running test ENDS-WITH-EXACT-MATCH .
+  Running test ENDS-WITH-NON-MATCHING .
+  Running test ENDS-WITH-SUFFIX-TOO-LONG .
+  Running test ENDS-WITH-EMPTY-SUFFIX .
+  Running test INCLUDES-MATCHING-SUBSTRING .
+  Running test INCLUDES-AT-START .
+  Running test INCLUDES-AT-END .
+  Running test INCLUDES-NON-MATCHING .
+  Running test INCLUDES-EMPTY-SUBSTRING .
+  Running test CHAR-FIRST-INDEX .
+  Running test CHAR-MIDDLE-INDEX .
+  Running test CHAR-LAST-INDEX .
+  Running test CHAR-OUT-OF-BOUNDS .
+  Running test CHAR-NEGATIVE-INDEX .
+  Running test CHAR-NAME-STRING-NEWLINE .
+  Running test CHAR-NAME-STRING-SPACE .
+  Running test CHAR-NAME-STRING-TAB .
+  Running test CHAR-NAME-STRING-RETURN .
+  Running test CHAR-NAME-STRING-BACKSPACE .
+  Running test CHAR-NAME-STRING-FORMFEED .
+  Running test CHAR-NAME-STRING-REGULAR-CHAR .
+  Running test CHAR-ESCAPE-STRING-NEWLINE .
+  Running test CHAR-ESCAPE-STRING-TAB .
+  Running test CHAR-ESCAPE-STRING-RETURN .
+  Running test CHAR-ESCAPE-STRING-BACKSPACE .
+  Running test CHAR-ESCAPE-STRING-FORMFEED .
+  Running test CHAR-ESCAPE-STRING-SPACE .
+  Running test CHAR-ESCAPE-STRING-REGULAR-CHAR .
+ Running test suite PRIMITIVE-FUNCTIONS-TESTS
+  Running test TEST-SYMBOL ...
+  Running test TEST-KEYWORD ...
+  Running test TEST-FIND-KEYWORD-FROM-STRING ...
+  Running test TEST-FIND-KEYWORD-FROM-SYMBOL ...
+  Running test TEST-FIND-KEYWORD-FROM-KEYWORD ...
+  Running test TEST-GENSYM-DEFAULT .....
+  Running test TEST-GENSYM-WITH-STRING-PREFIX .......
+  Running test TEST-GENSYM-WITH-SYMBOL-PREFIX ...
+  Running test TEST-GENSYM-UNIQUENESS .
+  Running test MAP-ENTRY?-CONS-PAIR ...
+  Running test MAP-ENTRY?-DICT-SEQ-ENTRIES ..
+  Running test MAP-ENTRY?-VECTOR-FALSE .
+  Running test MAP-ENTRY?-NUMBER-FALSE ..
+  Running test MAP-ENTRY?-STRING-FALSE .
+  Running test MAP-ENTRY?-NIL-FALSE .
+  Running test MAP-ENTRY?-KEYWORD-FALSE .
+  Running test MAP-ENTRY?-CL-LIST-ELEMENTS .
+  Running test SEQUENTIAL?-VECTOR .
+  Running test SEQUENTIAL?-LIST .
+  Running test SEQUENTIAL?-DEQUE .
+  Running test SEQUENTIAL?-LAZY-SEQ .
+  Running test SEQUENTIAL?-DICT-FALSE .
+  Running test SEQUENTIAL?-SET-FALSE .
+  Running test SEQUENTIAL?-NON-COLLECTION-FALSE ...
+  Running test ASSOCIATIVE?-VECTOR .
+  Running test ASSOCIATIVE?-DICT .
+  Running test ASSOCIATIVE?-ORDERED-DICT .
+  Running test ASSOCIATIVE?-SORTED-DICT .
+  Running test ASSOCIATIVE?-SET-FALSE .
+  Running test ASSOCIATIVE?-LIST-FALSE .
+  Running test ASSOCIATIVE?-NON-COLLECTION-FALSE ..
+  Running test SORTED?-SORTED-DICT .
+  Running test SORTED?-INT-DICT .
+  Running test SORTED?-SORTED-SET .
+  Running test SORTED?-INT-SET .
+  Running test SORTED?-DICT-FALSE .
+  Running test SORTED?-SET-FALSE .
+  Running test SORTED?-VECTOR-FALSE .
+  Running test SORTED?-NON-COLLECTION-FALSE ..
+  Running test COUNTED?-VECTOR .
+  Running test COUNTED?-DICT .
+  Running test COUNTED?-SET .
+  Running test COUNTED?-LIST .
+  Running test COUNTED?-BAG .
+  Running test COUNTED?-NON-COLLECTION-FALSE ...
+  Running test REVERSIBLE?-VECTOR .
+  Running test REVERSIBLE?-SORTED-DICT .
+  Running test REVERSIBLE?-INT-DICT .
+  Running test REVERSIBLE?-SORTED-SET .
+  Running test REVERSIBLE?-INT-SET .
+  Running test REVERSIBLE?-DICT-FALSE .
+  Running test REVERSIBLE?-SET-FALSE .
+  Running test REVERSIBLE?-LIST-TRUE .
+  Running test REVERSIBLE?-NON-COLLECTION-FALSE ..
+  Running test NIL?-NIL .
+  Running test NIL?-NUMBER .
+  Running test NIL?-STRING .
+  Running test NIL?-ZERO .
+  Running test NIL?-EMPTY-STRING .
+  Running test NIL?-KEYWORD .
+  Running test INSTANCE?-NUMBER-MATCH ...
+  Running test INSTANCE?-STRING-MATCH .
+  Running test INSTANCE?-TYPE-MISMATCH ..
+  Running test INSTANCE?-WITH-CLASS-OBJECT ..
+  Running test INSTANCE?-FOL-VECTOR .
+  Running test INSTANCE?-FOL-DICT .
+  Running test INSTANCE?-FOL-SET .
+ Running test suite FUNCTIONAL-TESTS
+  Running test IDENTITY-NUMBER .
+  Running test IDENTITY-STRING .
+  Running test IDENTITY-NIL .
+  Running test IDENTITY-LIST .
+  Running test CONSTANTLY-RETURNS-VALUE ...
+  Running test CONSTANTLY-NIL ..
+  Running test COMP-NO-ARGS .
+  Running test COMP-SINGLE-FN .
+  Running test COMP-TWO-FNS .
+  Running test COMP-THREE-FNS .
+  Running test COMP-RIGHTMOST-VARIADIC .
+  Running test COMPLEMENT-INVERTS ..
+  Running test COMPLEMENT-NIL-RESULT .
+  Running test PARTIAL-ONE-BOUND-ARG .
+  Running test PARTIAL-TWO-BOUND-ARGS .
+  Running test PARTIAL-NO-REMAINING-ARGS .
+  Running test JUXT-TWO-FNS .
+  Running test JUXT-THREE-FNS .
+  Running test JUXT-SINGLE-FN .
+  Running test MEMOIZE-CACHES-RESULT ......
+  Running test MEMOIZE-DIFFERENT-ARGS ..
+  Running test FNIL-REPLACES-NIL-ARGS ...
+  Running test FNIL-PRESERVES-NON-NIL .
+  Running test EVERY-PRED-ALL-TRUE .
+  Running test EVERY-PRED-SOME-FALSE .
+  Running test EVERY-PRED-MULTIPLE-ARGS ..
+  Running test SOME-FN-FIRST-TRUTHY ..
+  Running test SOME-FN-NONE-TRUTHY .
+  Running test APPLY-BASIC .
+  Running test APPLY-MIXED-ARGS .
+  Running test TRAMPOLINE-NON-FUNCTION .
+  Running test TRAMPOLINE-BOUNCING .
+  Running test DEFN-PRIVATE-COMPILES ...
+  Running test DEFN-PRIVATE-EXECUTES .
+  Running test DEFINLINE-COMPILES ....
+  Running test DEFINLINE-EXECUTES WARNING:
+   Proclaiming FOL.COMPILER.TESTS::MY-INLINE-FN to be INLINE, but 1 call to it
+   was previously compiled. A declaration of NOTINLINE at the call site will
+   eliminate this warning, as will proclaiming and defining the function before
+   its first potential use.
+.
+  Running test SOME-THREAD-FIRST-COMPILES ..
+  Running test SOME-THREAD-FIRST-NON-NIL .
+  Running test SOME-THREAD-FIRST-NIL-SHORT-CIRCUIT ; in:
+;      LET ((#:EXPR-488
+;        (LET ((#:EXPR-488 5))
+;          (IF (FOL.COMPILER.PRIMITIVES:TRUTHY? #)
+;              (PROGN #)
+;              NIL))))
+;     (1+ #:EXPR-488)
+; 
+; caught WARNING:
+;   Derived type of #:EXPR-488 is
+;     (VALUES NULL &OPTIONAL),
+;   conflicting with its asserted type
+;     NUMBER.
+;   See also:
+;     The SBCL Manual, Node "Handling of Types"
+.
+  Running test SOME-THREAD-FIRST-INITIAL-NIL ; in: LET ((#:EXPR-489 NIL))
+;     (1+ #:EXPR-489)
+; 
+; caught WARNING:
+;   Derived type of #:EXPR-489 is
+;     (VALUES NULL &OPTIONAL),
+;   conflicting with its asserted type
+;     NUMBER.
+;   See also:
+;     The SBCL Manual, Node "Handling of Types"
+.
+  Running test SOME-THREAD-FIRST-SINGLE-FORM .
+  Running test SOME-THREAD-LAST-COMPILES ..
+  Running test SOME-THREAD-LAST-NON-NIL .
+  Running test SOME-THREAD-LAST-NIL-SHORT-CIRCUIT .
+  Running test SOME-THREAD-LAST-INITIAL-NIL ; in: LET ((#:EXPR-493 NIL))
+;     (1+ #:EXPR-493)
+; 
+; caught WARNING:
+;   Derived type of #:EXPR-493 is
+;     (VALUES NULL &OPTIONAL),
+;   conflicting with its asserted type
+;     NUMBER.
+;   See also:
+;     The SBCL Manual, Node "Handling of Types"
+.
+  Running test AS-THREAD-COMPILES ..
+  Running test AS-THREAD-BASIC .
+  Running test AS-THREAD-FLEXIBLE-POSITION .
+  Running test AS-THREAD-SINGLE-VALUE .
+  Running test AS-THREAD-MULTIPLE-FORMS .
+ Running test suite METADATA-TESTS
+  Running test META-SYMBOL-NO-METADATA .
+  Running test META-NIL-VALUE ...
+  Running test META-COLLECTION-NO-METADATA .
+  Running test WITH-META-SYMBOL .
+  Running test WITH-META-SYMBOL-OVERWRITES .
+  Running test WITH-META-VECTOR ...
+  Running test WITH-META-DICT ...
+  Running test WITH-META-SET ..
+  Running test WITH-META-PERSISTENT-OBJECT ....
+  Running test VARY-META-SYMBOL .
+  Running test VARY-META-COLLECTION ..
+  Running test ALTER-META!-SYMBOL .
+  Running test RESET-META!-SYMBOL .
+  Running test DOC-FROM-PLIST .
+  Running test DOC-NIL-WHEN-MISSING .
+  Running test DOC-NIL-WHEN-NO-METADATA .
+  Running test TEST-FROM-PLIST .
+  Running test DOC-FROM-DICT .
+  Running test TEST-FROM-DICT .
+  Running test READER-META-DICT ..
+  Running test READER-META-KEYWORD .....
+  Running test READER-META-TYPE ....
+  Running test FIND-DOC-RETURNS-MATCHES .
+  Running test FIND-DOC-CASE-INSENSITIVE .
+ Running test suite RELATIONAL-TESTS
+  Running test UNION-TEST ...
+  Running test DIFFERENCE-TEST ....
+  Running test INTERSECTION-TEST ...
+  Running test SELECT-TEST ...
+  Running test PROJECT-TEST ...
+  Running test RENAME-TEST ...
+  Running test INDEX-TEST .
+  Running test JOIN-TEST ....
+  Running test DIFF-EQUAL-SCALARS ...
+  Running test DIFF-UNEQUAL-SCALARS ...
+  Running test DIFF-EQUAL-STRINGS ...
+  Running test DIFF-DICTS-IDENTICAL ...
+  Running test DIFF-DICTS-ONE-DIFFERENT-VALUE ......
+  Running test DIFF-DICTS-DISJOINT-KEYS .....
+  Running test DIFF-SETS .......
+  Running test DIFF-SETS-IDENTICAL ...
+  Running test DIFF-RESULT-IS-FOL-VECTOR ..
+ Running test suite TRANSDUCERS-TESTS
+  Running test TRANSDUCER-MAP .
+  Running test TRANSDUCER-FILTER .
+  Running test TRANSDUCER-TAKE .
+  Running test TRANSDUCER-MAPCAT .
+  Running test TRANSDUCER-COMPOSE .
+  Running test TRANSDUCER-HALT-WHEN .
+  Running test TRANSDUCER-HALT-WHEN-BEHAVIOR .
+  Running test TRANSDUCER-TAKE-WHILE .
+  Running test TRANSDUCER-DROP .
+  Running test TRANSDUCER-DROP-WHILE .
+  Running test TRANSDUCER-REPLACE .
+  Running test TRANSDUCER-KEEP .
+  Running test TRANSDUCER-DISTINCT .
+  Running test TRANSDUCER-INTERPOSE .
+  Running test TRANSDUCER-DEDUPE .
+  Running test TRANSDUCER-PARTITION-ALL .
+  Running test TRANSDUCER-PARTITION-BY .
+  Running test TRANSDUCER-REMOVE .
+  Running test TRANSDUCER-TAKE-NTH .
+  Running test TRANSDUCER-CAT .
+  Running test TRANSDUCER-MAP-INDEXED .
+  Running test TRANSDUCER-KEEP-INDEXED .
+  Running test TRANSDUCER-INTO .
+  Running test TRANSDUCER-SEQUENCE ..
+  Running test TRANSDUCER-EDUCTION ..
+ Running test suite SEQ-FUNCTIONS-TESTS
+  Running test SEQ-NIL .
+  Running test SEQ-EMPTY-VECTOR .
+  Running test SEQ-NON-EMPTY-VECTOR ...
+  Running test SEQ-NON-EMPTY-SET ..
+  Running test SEQUENCE-NIL ..
+  Running test SEQUENCE-VECTOR ..
+  Running test SEQUENCE-SET ..
+  Running test KEEP-INDEXED-BASIC ....
+  Running test KEEP-INDEXED-ALL-NIL .
+  Running test KEEP-INDEXED-PASSES-INDEX .
+  Running test REPEAT-N-TIMES ....
+  Running test REPEAT-ZERO-TIMES .
+  Running test REPEAT-INFINITE-IS-LAZY-SEQ .
+  Running test REPEAT-INFINITE-TAKE ...
+  Running test RANGE-END-ONLY ...
+  Running test RANGE-START-END ...
+  Running test RANGE-START-END-STEP ...
+  Running test RANGE-EMPTY .
+  Running test RANGE-DESCENDING ...
+  Running test REPEATEDLY-N-CALLS ....
+  Running test REPEATEDLY-ZERO-CALLS .
+  Running test REPEATEDLY-INFINITE-IS-LAZY .
+  Running test REPEATEDLY-INFINITE-TAKE .
+  Running test ITERATE-RETURNS-LAZY-SEQ .
+  Running test ITERATE-TAKE ...
+  Running test ITERATE-DOUBLING .....
+  Running test ITERATION-BASIC ...
+  Running test ITERATION-EMPTY .
+  Running test TREE-SEQ-FLAT-LIST .
+  Running test TREE-SEQ-NESTED .
+  Running test TREE-SEQ-LEAF ..
+  Running test ITERATOR-SEQ-BASIC ...
+  Running test ITERATOR-SEQ-EMPTY .
+  Running test ENUMERATION-SEQ-BASIC ...
+  Running test ENUMERATION-SEQ-EMPTY .
+  Running test LINE-SEQ-FROM-STRING-STREAM ...
+  Running test LINE-SEQ-EMPTY-STREAM .
+  Running test SORT-ASCENDING ...
+  Running test SORT-WITH-COMPARATOR ...
+  Running test SORT-EMPTY .
+  Running test REVERSE-BASIC ...
+  Running test REVERSE-EMPTY .
+  Running test REVERSE-SINGLE ..
+  Running test MAP-INDEXED-BASIC ....
+  Running test MAP-INDEXED-EMPTY .
+  Running test DISTINCT-REMOVES-DUPLICATES .....
+  Running test DISTINCT-NO-DUPLICATES .
+  Running test DISTINCT-EMPTY .
+  Running test DEDUPE-REMOVES-CONSECUTIVE .....
+  Running test DEDUPE-NO-CONSECUTIVE .
+  Running test FLATTEN-NESTED ...
+  Running test FLATTEN-ALREADY-FLAT .
+  Running test FLATTEN-EMPTY .
+  Running test GROUP-BY-EVEN-ODD ..
+  Running test GROUP-BY-IDENTITY ..
+  Running test PARTITION-ALL-EXACT ..
+  Running test PARTITION-ALL-PARTIAL-LAST ...
+  Running test PARTITION-ALL-EMPTY .
+  Running test PARTITION-BY-EVENP ....
+  Running test PARTITION-BY-NO-CONSECUTIVE .
+  Running test SPLIT-AT-BASIC .....
+  Running test SPLIT-AT-ZERO ..
+  Running test SPLIT-WITH-BASIC ....
+  Running test SHUFFLE-PRESERVES-SIZE .
+  Running test SHUFFLE-PRESERVES-ELEMENTS ..
+  Running test BUTLAST-BASIC ...
+  Running test BUTLAST-SINGLE .
+  Running test DROP-LAST-DEFAULT ..
+  Running test DROP-LAST-N ...
+  Running test TAKE-LAST-BASIC ...
+  Running test TAKE-LAST-MORE-THAN-SIZE .
+  Running test NTHREST-BASIC ..
+  Running test NTHREST-ZERO .
+  Running test THIRD-BASIC .
+  Running test THIRD-EXACTLY-THREE .
+  Running test THIRD-TOO-SHORT .
+  Running test THIRD-EMPTY .
+  Running test NEXT-BASIC .
+  Running test NEXT-SINGLE .
+  Running test NEXT-EMPTY .
+  Running test FNEXT-BASIC .
+  Running test FNEXT-SINGLE .
+  Running test NNEXT-BASIC .
+  Running test CONS-PREPEND ...
+  Running test CONS-NIL .
+  Running test CYCLE-BASIC ......
+  Running test CYCLE-IS-LAZY-SEQ .
+  Running test INTERLEAVE-EQUAL-LENGTH .....
+  Running test INTERLEAVE-STOPS-AT-SHORTEST .
+  Running test INTERPOSE-BASIC ......
+  Running test INTERPOSE-SINGLE ..
+  Running test INTERPOSE-EMPTY .
+  Running test TAKE-NTH-EVERY-OTHER ....
+  Running test TAKE-NTH-EVERY-ONE .
+  Running test RANDOM-SAMPLE-ALL .
+  Running test RANDOM-SAMPLE-NONE .
+  Running test RANDOM-SAMPLE-RETURNS-VECTOR .
+  Running test SEQUE-BASIC ...
+  Running test SEQUE-WITH-BUFFER-SIZE ..
+  Running test SECOND-BASIC .
+  Running test SECOND-TOO-SHORT .
+  Running test SECOND-EMPTY .
+  Running test LAST-BASIC .
+  Running test LAST-SINGLE .
+  Running test LAST-EMPTY .
+  Running test FFIRST-BASIC .
+  Running test FFIRST-NIL-WHEN-EMPTY-OUTER .
+  Running test NFIRST-BASIC .
+  Running test NFIRST-NIL-WHEN-EMPTY-INNER .
+  Running test NTHNEXT-ZERO .
+  Running test NTHNEXT-TWO .
+  Running test NTHNEXT-PAST-END .
+  Running test REALIZED-EAGER-IS-TRUE .
+  Running test REALIZED-UNREALIZED-LAZY-SEQ .
+  Running test REALIZED-AFTER-TAKE .
+  Running test DORUN-RETURNS-NIL .
+  Running test DORUN-FORCES-LAZY-SEQ .
+  Running test DOALL-EAGER-RETURNS-SAME .
+  Running test DOALL-LAZY-RETURNS-VECTOR ...
+  Running test RUN!-APPLIES-PROC .
+  Running test RUN!-RETURNS-NIL .
+  Running test RAND-NTH-RETURNS-ELEMENT .
+  Running test RAND-NTH-NIL-ON-EMPTY .
+  Running test MAX-KEY-SINGLE .
+  Running test MAX-KEY-TWO-ARGS .
+  Running test MAX-KEY-MULTIPLE .
+  Running test MIN-KEY-SINGLE .
+  Running test MIN-KEY-TWO-ARGS .
+  Running test MIN-KEY-MULTIPLE .
+  Running test ZIPMAP-BASIC ...
+  Running test ZIPMAP-STOPS-AT-SHORTER-KEYS .
+  Running test ZIPMAP-EMPTY .
+  Running test REDUCTIONS-WITH-INIT .....
+  Running test REDUCTIONS-WITHOUT-INIT .....
+  Running test REDUCTIONS-EMPTY-COLL .
+  Running test REDUCTIONS-SINGLE-WITH-INIT ...
+ Running test suite IO-TESTS
+  Running test SPIT-AND-SLURP .
+  Running test PR-STR-TEST ...
+  Running test PRINT-STR-TEST ...
+  Running test PRINT-TABLE-TEST ....
+  Running test FORMAT-TEST ..
+  Running test PRINTF-TEST .
+  Running test PRINTLN-STR-TEST .
+  Running test READ-LINE-TEST ..
+  Running test RESOURCE-MANAGEMENT ..
+ Running test suite MISC-FUNCTIONS-TESTS
+  Running test DEFONCE-DEFINES-WHEN-UNBOUND ..
+  Running test DEFONCE-NO-OVERWRITE-WHEN-BOUND .
+  Running test DEFONCE-RETURNS-SYMBOL-NAME .
+  Running test DEFONCE-DECLARES-SPECIAL ..
+  Running test DEFONCE-WITH-NIL-VALUE ..
+  Running test DEFONCE-IDEMPOTENT-MULTIPLE-CALLS .
+  Running test INTERN-STRING-RETURNS-SYMBOL ..
+  Running test INTERN-STRING-UPCASES .
+  Running test INTERN-SYMBOL-ARGUMENT ..
+  Running test INTERN-WITH-KEYWORD-PACKAGE ..
+  Running test INTERN-WITH-CL-USER-PACKAGE ..
+  Running test INTERN-WITH-PACKAGE-OBJECT ..
+  Running test INTERN-DEFAULT-PACKAGE-IS-CURRENT .
+  Running test INTERN-IDEMPOTENT .
+ Running test suite MUTABLE-FUNCTIONS-TESTS
+  Running test ATOM-VALIDATOR-TEST ....
+  Running test REF-VALIDATOR-DYNAMIC-TEST .
+  Running test ATOM-WATCH-TEST ...
+  Running test IO!-TEST ..
+  Running test SYNC-MACRO-TEST .
+  Running test AWAIT-FOR-TEST ..
+  Running test EXECUTOR-STUBS ..
+ Running test suite FOL-LEVEL-TESTS
+  Running test RUN-FOL-TESTS Running FOL test: reader_syntax_test.fol... PASSED
+.Running FOL test: special_forms_test.fol... PASSED
+; in: LET ((#:MAX-574 3))
+;     (FOL.CORE::I #:I-575)
+; 
+; caught STYLE-WARNING:
+;   The variable I is defined but never used.
+; in: PROGN (DEFVAR WHILE-COUNTER (ATOM 0))
+;     (#:WHILE-630 NIL)
+; 
+; caught STYLE-WARNING:
+;   The variable #:WHILE-630 is assigned but never read.
+; in: PROGN (DEFVAR WHILE-COUNTER (ATOM 0))
+;     (#:WHILE-631 NIL)
+; 
+; caught STYLE-WARNING:
+;   The variable #:WHILE-631 is assigned but never read.
+; in: PROGN (DEFVAR WHILE-COUNTER (ATOM 0))
+;     (#:WHILE-632 NIL)
+; 
+; caught STYLE-WARNING:
+;   The variable #:WHILE-632 is assigned but never read.
+.Running FOL test: macros_test.fol... Elapsed time: 0.003 msecs
+Elapsed time: 0.002 msecs
+; in:
+;      PROGN (IF (TRUTHY? (COMMON-LISP:NOT (TRUTHY? (= # 3))))
+;            (PROGN (ERROR "time returns body result"))
+;            NIL)
+;     (LAMBDA (FOL.CORE::M)
+;       (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT :DOC "a test symbol"))
+; 
+; caught STYLE-WARNING:
+;   The variable M is defined but never used.
+PASSED
+.Running FOL test: functions_test.fol... PASSED
+; in:
+;      IF (TRUTHY?
+;      (COMMON-LISP:NOT
+;       (TRUTHY? (HANDLER-CASE (/ 1 0) (DIVISION-BY-ZERO # TRUE)))))
+;     (DIVISION-BY-ZERO (FOL.CORE::E) FOL.COMPILER.PRIMITIVES:TRUE)
+; 
+; caught STYLE-WARNING:
+;   The variable E is defined but never used.
+; in:
+;      IF (TRUTHY?
+;      (COMMON-LISP:NOT
+;       (TRUTHY? (HANDLER-CASE (NTH # 5) (ERROR # TRUE) (T NIL NIL)))))
+;     (ERROR (FOL.CORE::E) FOL.COMPILER.PRIMITIVES:TRUE)
+; 
+; caught STYLE-WARNING:
+;   The variable E is defined but never used.
+.Running FOL test: negative_test.fol... PASSED
+.Running FOL test: arithmetic_test.fol... PASSED
+.Running FOL test: bitwise_test.fol... PASSED
+; in: DEFVAR ADD-VALS
+;     (LAMBDA (FOL.CORE::ACC FOL.CORE::K FOL.CORE::V)
+;       (FOL.COMPILER.ARITHMETIC-FUNCTIONS:+ FOL.CORE::ACC FOL.CORE::V))
+; 
+; caught STYLE-WARNING:
+;   The variable K is defined but never used.
+.Running FOL test: collection_functions_test.fol... PASSED
+.Running FOL test: collections_test.fol... PASSED
+.Running FOL test: compareops_test.fol... PASSED
+WARNING: redefining FOL.COMPILER.ARITHMETIC-FUNCTIONS:POSITIVE? in DEFUN
+; in:
+;      IF (TRUTHY?
+;      (COMMON-LISP:NOT
+;       (TRUTHY?
+;        (=
+;         (LET #
+;           #)
+;         3))))
+;     (FOL.CORE::A 1)
+; 
+; caught STYLE-WARNING:
+;   The variable A is defined but never used.
+.Running FOL test: compiler_test.fol... PASSED
+; in:
+;      IF (TRUTHY?
+;      (COMMON-LISP:NOT (TRUTHY? (HANDLER-CASE (PROGN # FALSE) (ERROR # TRUE)))))
+;     (ERROR (FOL.CORE::E) FOL.COMPILER.PRIMITIVES:TRUE)
+; 
+; caught STYLE-WARNING:
+;   The variable E is defined but never used.
+; in:
+;      IF (TRUTHY?
+;      (COMMON-LISP:NOT (TRUTHY? (HANDLER-CASE (PROGN # FALSE) (ERROR # TRUE)))))
+;     (ERROR (FOL.CORE::E) FOL.COMPILER.PRIMITIVES:TRUE)
+; 
+; caught STYLE-WARNING:
+;   The variable E is defined but never used.
+; in:
+;      IF (TRUTHY?
+;      (COMMON-LISP:NOT (TRUTHY? (HANDLER-CASE (PROGN # FALSE) (ERROR # TRUE)))))
+;     (ERROR (FOL.CORE::E) FOL.COMPILER.PRIMITIVES:TRUE)
+; 
+; caught STYLE-WARNING:
+;   The variable E is defined but never used.
+; in:
+;      IF (TRUTHY?
+;      (COMMON-LISP:NOT (TRUTHY? (HANDLER-CASE (PROGN # FALSE) (ERROR # TRUE)))))
+;     (ERROR (FOL.CORE::E) FOL.COMPILER.PRIMITIVES:TRUE)
+; 
+; caught STYLE-WARNING:
+;   The variable E is defined but never used.
+.Running FOL test: defclass_options_test.fol... PASSED
+.Running FOL test: destructure_test.fol... PASSED
+.Running FOL test: functional_test.fol... PASSED
+.Running FOL test: logical_operations_test.fol... PASSED
+.Running FOL test: merged_functions_test.fol... PASSED
+.Running FOL test: metadata_test.fol... PASSED
+.Running FOL test: misc_test.fol... PASSED
+; in: LET ((A (ATOM 10 :VALIDATOR (LAMBDA (X) (> X 0)))))
+;     (ERROR (FOL.CORE::E)
+;            (IF (FOL.COMPILER.PRIMITIVES:TRUTHY?
+;                 (NOT
+;                  (FOL.COMPILER.PRIMITIVES:TRUTHY? FOL.COMPILER.PRIMITIVES:TRUE)))
+;                (PROGN (ERROR "validator rejected negative"))
+;                NIL))
+; 
+; caught STYLE-WARNING:
+;   The variable E is defined but never used.
+; in: LET ((A (ATOM 0)))
+;     (LAMBDA (FOL.CORE::K FOL.CORE::R FOL.CORE::O FOL.CORE::N)
+;       (FOL.COMPILER.MUTABLE:RESET! FOL.CORE::WITNESS FOL.CORE::N))
+; 
+; caught STYLE-WARNING:
+;   The variable K is defined but never used.
+; 
+; caught STYLE-WARNING:
+;   The variable R is defined but never used.
+; 
+; caught STYLE-WARNING:
+;   The variable O is defined but never used.
+.Running FOL test: mutable_test.fol... PASSED
+.Running FOL test: primitive_functions_test.fol... PASSED
+.Running FOL test: primitives_test.fol... PASSED
+.Running FOL test: reader_test.fol... PASSED
+.Running FOL test: relational_test.fol... PASSED
+.Running FOL test: repl_test.fol... PASSED
+.Running FOL test: seq_functions_test.fol... PASSED
+.Running FOL test: string_functions_test.fol... PASSED
+.Running FOL test: streams_test.fol... PASSED
+.Running FOL test: transducers_test.fol... PASSED
+.Running FOL test: transients_test.fol... PASSED
+.
+ Running test suite REPLACE-TESTS
+  Running test REPLACE-CHARACTER .
+  Running test REPLACE-STRING-LITERAL .
+  Running test REPLACE-STRING-REGEX .
+  Running test REPLACE-ALL-OCCURRENCES .
+  Running test REPLACE-CHARACTER-REGEX .
+  Running test REPLACE-VECTOR-ELEMENTS ......
+  Running test REPLACE-LIST-ELEMENTS ...
+  Running test REPLACE-DEQUE-ELEMENTS ..
+  Running test REPLACE-PRESERVES-TYPE ..
+  Running test REPLACE-INVALID-ARGS ..
+ Did 2882 checks.
+    Pass: 2882 (100%)
+    Skip: 0 ( 0%)
+    Fail: 0 ( 0%)
+
+
+Running test suite LIB-TESTS
+ Running test suite WALK-TESTS
+  Running test WALK-VECTOR-BASIC ....
+  Running test WALK-VECTOR-OUTER ...
+  Running test WALK-DICT-BASIC ...
+  Running test WALK-SET-BASIC ..
+  Running test WALK-NON-COLLECTION ...
+  Running test PREWALK-INCREMENT-NUMBERS ....
+  Running test PREWALK-ORDER ..
+  Running test PREWALK-REPLACE-BASIC ....
+  Running test PREWALK-REPLACE-NESTED .
+  Running test POSTWALK-INCREMENT-NUMBERS ....
+  Running test POSTWALK-ORDER ..
+  Running test POSTWALK-REPLACE-BASIC ....
+  Running test POSTWALK-REPLACE-NESTED ...
+  Running test PREWALK-VS-POSTWALK-REPLACEMENT ....
+  Running test WALK-NESTED-DICT ....
+  Running test WALK-MIXED-COLLECTIONS .....
+  Running test WALK-DEEPLY-NESTED ..
+  Running test WALK-EMPTY-VECTOR ..
+  Running test WALK-EMPTY-DICT ..
+  Running test WALK-EMPTY-SET ..
+  Running test WALK-SINGLE-ELEMENT .
+  Running test WALK-NIL-VALUES ...
+  Running test WALK-MULTIPLE-TRANSFORMATIONS ...
+  Running test WALK-PRESERVES-STRUCTURE-TYPE ...
+  Running test PREWALK-DEMO-RETURNS-UNCHANGED ..
+  Running test POSTWALK-DEMO-RETURNS-UNCHANGED ..
+ Running test suite ZIP-TESTS
+  Running test VECTOR-ZIP-BASIC-NAV ...............
+  Running test SEQ-ZIP-BASIC-NAV ........
+  Running test REPLACE-NODE .
+  Running test EDIT-NODE .
+  Running test INSERT-SIBLINGS-AND-CHILDREN ..
+  Running test REMOVE-NODE ....
+  Running test REMOVE-NESTED ..
+  Running test NEXT-TRAVERSAL .........
+  Running test PREV-TRAVERSAL .....
+ Running test suite CORE-ASYNC-TESTS
+  Running test BUFFER-FIXED-CREATION ..
+  Running test BUFFER-DROPPING-CREATION ..
+  Running test BUFFER-SLIDING-CREATION ..
+  Running test CHAN-UNBUFFERED ..
+  Running test CHAN-BUFFERED-INTEGER ...
+  Running test CHAN-BUFFERED-FIXED-BUF .
+  Running test CHAN-BUFFERED-DROPPING .
+  Running test CHAN-BUFFERED-SLIDING .
+  Running test CLOSE-OPEN-CHANNEL .
+  Running test CLOSE-CLOSES-CHANNEL .
+  Running test CLOSE-IDEMPOTENT .
+  Running test CLOSE-RETURNS-NIL .
+  Running test OFFER-SUCCEEDS-WITH-BUFFER-SPACE .
+  Running test OFFER-FAILS-WHEN-BUFFER-FULL .
+  Running test OFFER-FAILS-ON-CLOSED-CHANNEL .
+  Running test POLL-RETURNS-VALUE-AND-TRUE ..
+  Running test POLL-RETURNS-NIL-NIL-WHEN-EMPTY ..
+  Running test OFFER-POLL-ROUNDTRIP ...
+  Running test DROPPING-BUFFER-DROPS-EXCESS ....
+  Running test SLIDING-BUFFER-EVICTS-OLDEST ..
+  Running test BLOCKING-PUT-TAKE-BUFFERED .
+  Running test BLOCKING-PUT-TAKE-MULTIPLE ...
+  Running test BLOCKING-TAKE-ON-CLOSED-EMPTY-CHANNEL .
+  Running test BLOCKING-PUT-RETURNS-NIL-ON-CLOSED .
+  Running test BLOCKING-PUT-TAKE-ACROSS-THREADS .
+  Running test GO-RETURNS-RESULT-CHANNEL .
+  Running test GO-RESULT-CHANNEL-CLOSED-AFTER-DELIVERY .
+  Running test GO-COMMUNICATES-VIA-CHANNEL .
+  Running test TIMEOUT-CHANNEL-CLOSES .
+  Running test TIMEOUT-CHANNEL-IS-NOT-INITIALLY-CLOSED .
+  Running test TO-CHAN-DELIVERS-ALL-ELEMENTS ....
+  Running test ONTO-CHAN-FILLS-CHANNEL ...
+  Running test ONTO-CHAN-CLOSES-BY-DEFAULT .
+  Running test ONTO-CHAN-NO-CLOSE .
+  Running test PIPE-TRANSFERS-VALUES ...
+  Running test PIPE-CLOSES-DESTINATION .
+  Running test MERGE-COMBINES-CHANNELS ..
+  Running test MERGE-CLOSES-OUTPUT-WHEN-ALL-CLOSED ..
+  Running test PUB-SUB-BASIC-ROUTING ...
+  Running test PUB-UNSUB-STOPS-DELIVERY ..
+  Running test PUB-UNSUB-ALL-CLEARS-TOPIC ..
+  Running test ALTS-TAKES-FROM-READY-CHANNEL ..
+  Running test ALTS-DEFAULT-WHEN-NONE-READY ..
+  Running test CHAN-WITH-MAP-TRANSDUCER ...
+  Running test CHAN-WITH-FILTER-TRANSDUCER ...
+ Running test suite PARALLEL-TESTS
+  Running test PFILTER-BASIC .
+  Running test PFILTER-NONE-MATCH .
+  Running test PFILTER-ALL-MATCH .
+  Running test PFILTER-PRESERVES-TYPE .
+  Running test PFILTER-LARGE ..
+  Running test PGROUP-BY-BASIC ...
+  Running test PGROUP-BY-SINGLE-GROUP .
+  Running test PGROUP-BY-EACH-UNIQUE ...
+  Running test PPARTITION-BASIC ..
+  Running test PPARTITION-RETURNS-TWO-ELEMENT-VECTOR .
+  Running test PPARTITION-ALL-PASS .
+  Running test PPARTITION-NONE-PASS .
+  Running test PPARTITION-PRESERVES-GROUP-TYPE ..
+  Running test PZIP-BASIC .....
+  Running test PZIP-STOPS-AT-SHORTER .
+  Running test PZIP-EMPTY .
+  Running test PZIP-PAIRS-ARE-TWO-ELEMENT-VECTORS ..
+  Running test PZIP-WITH-INDEX-BASIC .......
+  Running test PZIP-WITH-INDEX-PRESERVES-ORDER ....................
+  Running test PFOREACH-RETURNS-NIL .
+  Running test PFOREACH-CALLS-FN-FOR-EVERY-ELEMENT .
+  Running test PFOREACH-EMPTY-COLLECTION .
+  Running test PFIND-RETURNS-FIRST-MATCH-BY-POSITION .
+  Running test PFIND-RETURNS-NIL-WHEN-NO-MATCH .
+  Running test PFIND-RETURNS-FIRST-NOT-LATER-MATCH .
+  Running test PFIND-SINGLE-ELEMENT-MATCH .
+  Running test PFIND-SINGLE-ELEMENT-NO-MATCH .
+  Running test PEXISTS-TRUE-WHEN-ANY-MATCH .
+  Running test PEXISTS-FALSE-WHEN-NONE-MATCH .
+  Running test PEXISTS-EMPTY-COLLECTION .
+  Running test PEXISTS-ALL-MATCH .
+  Running test PEXISTS-RETURNS-BOOLEAN .
+  Running test PFORALL-TRUE-WHEN-ALL-MATCH .
+  Running test PFORALL-FALSE-WHEN-ANY-FAIL .
+  Running test PFORALL-EMPTY-COLLECTION .
+  Running test PFORALL-SINGLE-ELEMENT-TRUE .
+  Running test PFORALL-SINGLE-ELEMENT-FALSE .
+  Running test PFORALL-RETURNS-BOOLEAN .
+  Running test PSIZE-BASIC .
+  Running test PSIZE-NONE-MATCH .
+  Running test PSIZE-ALL-MATCH .
+  Running test PSIZE-EMPTY-COLLECTION .
+  Running test PSIZE-LARGE .
+ Running test suite REDUCERS-TESTS
+  Running test TEST-PREDUCE ..
+  Running test TEST-FOLD ..
+  Running test AGGREGATE-SERIAL-SUM .
+  Running test AGGREGATE-PARALLEL-SUM .
+  Running test AGGREGATE-TYPE-CHANGING .
+  Running test AGGREGATE-ZERO-FUNCTION ..
+  Running test AGGREGATE-EMPTY-COLLECTION ..
+  Running test AGGREGATE-FREQUENCY-MAP ...
+ Did 295 checks.
+    Pass: 295 (100%)
+    Skip: 0 ( 0%)
+    Fail: 0 ( 0%)
+
+
+Running test suite FOL-TESTS
+ Running test ARITHMETIC-FUNCTIONS Running FOL test: arithmetic_test.fol... PASSED
+.
+ Running test BITWISE-FUNCTIONS Running FOL test: bitwise_test.fol... PASSED
+.
+ Running test COLLECTION-FUNCTIONS Running FOL test: collection_functions_test.fol... PASSED
+.
+ Running test COLLECTIONS Running FOL test: collections_test.fol... PASSED
+.
+ Running test COMPAREOPS Running FOL test: compareops_test.fol... PASSED
+.
+ Running test COMPILER ; in:
+;      IF (TRUTHY?
+;      (COMMON-LISP:NOT
+;       (TRUTHY?
+;        (=
+;         (LET #
+;           #)
+;         3))))
+;     (FOL.CORE::A 1)
+; 
+; caught STYLE-WARNING:
+;   The variable A is defined but never used.
+Running FOL test: compiler_test.fol... PASSED
+.
+ Running test DESTRUCTURE Running FOL test: destructure_test.fol... PASSED
+.
+ Running test FUNCTIONAL Running FOL test: functional_test.fol... PASSED
+.
+ Running test LOGICAL-OPERATIONS Running FOL test: logical_operations_test.fol... PASSED
+.
+ Running test MACROS ; in: LET ((#:MAX-820 3))
+;     (FOL.CORE::I #:I-821)
+; 
+; caught STYLE-WARNING:
+;   The variable I is defined but never used.
+; in: PROGN (DEFVAR WHILE-COUNTER (ATOM 0))
+;     (#:WHILE-872 NIL)
+; 
+; caught STYLE-WARNING:
+;   The variable #:WHILE-872 is assigned but never read.
+; in: PROGN (DEFVAR WHILE-COUNTER (ATOM 0))
+;     (#:WHILE-873 NIL)
+; 
+; caught STYLE-WARNING:
+;   The variable #:WHILE-873 is assigned but never read.
+; in: PROGN (DEFVAR WHILE-COUNTER (ATOM 0))
+;     (#:WHILE-874 NIL)
+; 
+; caught STYLE-WARNING:
+;   The variable #:WHILE-874 is assigned but never read.
+Running FOL test: macros_test.fol... Elapsed time: 0.002 msecs
+Elapsed time: 0.002 msecs
+; in:
+;      PROGN (IF (TRUTHY? (COMMON-LISP:NOT (TRUTHY? (= # 3))))
+;            (PROGN (ERROR "time returns body result"))
+;            NIL)
+;     (LAMBDA (FOL.CORE::M)
+;       (FOL.COMPILER.COLLECTION-FUNCTIONS:DICT :DOC "a test symbol"))
+; 
+; caught STYLE-WARNING:
+;   The variable M is defined but never used.
+FAILED
+  RUNTIME-ERROR in (FOL.MACROS:ASSERT
+                    (FOL.COMPILER.COMPAREOPS:=
+                     (FOL.COMPILER.MUTABLE:DEREF FOL.CORE::MACRO-COMP-RESULT)
+                     [2 3])
+                    "when inside doseq filters elements"):
+    when inside doseq filters elements
+  RUNTIME-ERROR in (FOL.MACROS:ASSERT
+                    (FOL.COMPILER.COMPAREOPS:=
+                     (FOL.COMPILER.MUTABLE:DEREF FOL.CORE::ITEMS) [10 20 30])
+                    "doseq collects items"):
+    doseq collects items
+  RUNTIME-ERROR in (FOL.MACROS:ASSERT
+                    (FOL.COMPILER.COMPAREOPS:=
+                     (FOL.COMPILER.MUTABLE:DEREF FOL.CORE::SUM-VEC) 6)
+                    "doseq sums vector elements"):
+    doseq sums vector elements
+  RUNTIME-ERROR in (FOL.MACROS:ASSERT
+                    (FOL.COMPILER.COMPAREOPS:=
+                     (FOL.COMPILER.MUTABLE:DEREF FOL.CORE::ACC2) 10)
+                    "dotimes with counter 0+1+2+3+4=10"):
+    dotimes with counter 0+1+2+3+4=10
+  RUNTIME-ERROR in (FOL.MACROS:ASSERT
+                    (FOL.COMPILER.COMPAREOPS:=
+                     (FOL.COMPILER.MUTABLE:DEREF FOL.CORE::ACC) 3)
+                    "dotimes executes body 3 times"):
+    dotimes executes body 3 times
+f
+ Running test MERGED-FUNCTIONS Running FOL test: merged_functions_test.fol... PASSED
+.
+ Running test METADATA Running FOL test: metadata_test.fol... PASSED
+.
+ Running test MISC-FUNCTIONS Running FOL test: misc_test.fol... PASSED
+.
+ Running test MUTABLE-FUNCTIONS ; in: LET ((A (ATOM 10 :VALIDATOR (LAMBDA (X) (> X 0)))))
+;     (ERROR (FOL.CORE::E)
+;            (IF (FOL.COMPILER.PRIMITIVES:TRUTHY?
+;                 (NOT
+;                  (FOL.COMPILER.PRIMITIVES:TRUTHY? FOL.COMPILER.PRIMITIVES:TRUE)))
+;                (PROGN (ERROR "validator rejected negative"))
+;                NIL))
+; 
+; caught STYLE-WARNING:
+;   The variable E is defined but never used.
+; in: LET ((A (ATOM 0)))
+;     (LAMBDA (FOL.CORE::K FOL.CORE::R FOL.CORE::O FOL.CORE::N)
+;       (FOL.COMPILER.MUTABLE:RESET! FOL.CORE::WITNESS FOL.CORE::N))
+; 
+; caught STYLE-WARNING:
+;   The variable K is defined but never used.
+; 
+; caught STYLE-WARNING:
+;   The variable R is defined but never used.
+; 
+; caught STYLE-WARNING:
+;   The variable O is defined but never used.
+Running FOL test: mutable_test.fol... PASSED
+.
+ Running test PRIMITIVE-FUNCTIONS Running FOL test: primitive_functions_test.fol... PASSED
+.
+ Running test PRIMITIVES Running FOL test: primitives_test.fol... PASSED
+.
+ Running test READER Running FOL test: reader_test.fol... PASSED
+.
+ Running test RELATIONAL Running FOL test: relational_test.fol... PASSED
+.
+ Running test DEFPACKAGE Running FOL test: defpackage_test.fol... PASSED
+.
+ Did 19 checks.
+    Pass: 18 (94%)
+    Skip: 0 ( 0%)
+    Fail: 1 ( 5%)
+
+ Failure Details:
+ --------------------------------
+ MACROS in FOL-TESTS [FOL-level tests for macros.lisp.]: 
+      
+"macros_test.fol"
+
+ evaluated to 
+
+"macros_test.fol"
+
+ which does not satisfy 
+
+LOAD-AND-RUN-FOL-TEST
+
+
+ --------------------------------
+
+; in: PROGN (DEFUN FOL.CORE::NIL-FN (FOL.CORE::X) NIL)
+;     (#:VAL645 FOL.CORE::NIL-FN)
+; 
+; caught WARNING:
+;   undefined variable: FOL.CORE::NIL-FN
+; 
+; compilation unit finished
+;   Undefined variable:
+;     FOL.CORE::NIL-FN
+;   caught 4 WARNING conditions
+;   caught 32 STYLE-WARNING conditions

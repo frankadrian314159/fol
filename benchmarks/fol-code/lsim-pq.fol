@@ -1,0 +1,343 @@
+(in-package "lsim"
+  (:export register-module get-module <component> <module-def> <logic-component>
+           compute-next-state register-primitive get-primitive defpart
+           expand-netlist expand-spec run-simulation Monitor Events AddEvents
+           RunLSim DisplayLSim *gate-evals* *last-netlist-ms* *last-sim-ms*))
+
+;; Electrical Netlist DSL for FOL — persistent leftist-heap event engine
+
+(def *circuit-modules* (atom {}))
+(def *gate-evals*       (atom 0))
+(def *last-netlist-ms*  (atom 0))
+(def *last-sim-ms*      (atom 0))
+
+(defn register-module [name def]
+  (swap! *circuit-modules* (fn [m] (assoc m name def))))
+
+(defn get-module [name]
+  (get @*circuit-modules* name))
+
+(defclass <component> []
+  [[name :initarg :name] [type :initarg :type] [connections :initarg :connections]])
+
+(defn component-name        [obj] (get obj :name))
+(defn component-type        [obj] (get obj :type))
+(defn component-connections [obj] (get obj :connections))
+
+(defclass <module-def> []
+  [[name :initarg :name] [ports :initarg :ports] [body :initarg :body]])
+
+(defn module-name  [obj] (get obj :name))
+(defn module-ports [obj] (get obj :ports))
+(defn module-body  [obj] (get obj :body))
+
+(defclass <logic-component> [<component>]
+  [[inputs :initarg :inputs] [outputs :initarg :outputs]
+   [delays :initarg :delays] [logic-fn :initarg :logic-fn]])
+
+(defn component-inputs   [obj] (get obj :inputs))
+(defn component-outputs  [obj] (get obj :outputs))
+(defn component-delays   [obj] (get obj :delays))
+(defn component-logic-fn [obj] (get obj :logic-fn))
+
+(defn compute-next-state [comp input-states changed-inputs]
+  (bind [logic-fn  (component-logic-fn comp)
+         delays    (component-delays comp)
+         new-states (logic-fn input-states)]
+    (map (fn [out-port]
+           (bind [delay (reduce (fn [max-d in-port]
+                                  (bind [d (get (get delays in-port) out-port)]
+                                    (if d (if (> d max-d) d max-d) max-d)))
+                                0 changed-inputs)]
+             {:port out-port :value (get new-states out-port) :delay delay}))
+         (component-outputs comp))))
+
+(def *primitives* (atom {}))
+
+(defn register-primitive [name factory]
+  (swap! *primitives* (fn [p] (assoc p name factory))))
+
+(defn get-primitive [type]
+  (get @*primitives* type))
+
+(register-primitive 'not
+  (fn [name param conns]
+    (make '<logic-component>
+      :name name :type 'not :connections conns
+      :inputs #{:in} :outputs #{:out}
+      :delays {:in {:out 1}}
+      :logic-fn (fn [s] {:out (bitxor (get s :in) 1)}))))
+
+(register-primitive 'nand
+  (fn [name param conns]
+    (make '<logic-component>
+      :name name :type 'nand :connections conns
+      :inputs #{:in1 :in2} :outputs #{:out}
+      :delays {:in1 {:out 2} :in2 {:out 2}}
+      :logic-fn (fn [s] {:out (bitxor (bitand (get s :in1) (get s :in2)) 1)}))))
+
+(register-primitive 'nor
+  (fn [name param conns]
+    (make '<logic-component>
+      :name name :type 'nor :connections conns
+      :inputs #{:in1 :in2} :outputs #{:out}
+      :delays {:in1 {:out 2} :in2 {:out 2}}
+      :logic-fn (fn [s] {:out (bitxor (bitor (get s :in1) (get s :in2)) 1)}))))
+
+(register-primitive 'and
+  (fn [name param conns]
+    (make '<logic-component>
+      :name name :type 'and :connections conns
+      :inputs #{:in1 :in2} :outputs #{:out}
+      :delays {:in1 {:out 3} :in2 {:out 3}}
+      :logic-fn (fn [s] {:out (bitand (get s :in1) (get s :in2))}))))
+
+(register-primitive 'or
+  (fn [name param conns]
+    (make '<logic-component>
+      :name name :type 'or :connections conns
+      :inputs #{:in1 :in2} :outputs #{:out}
+      :delays {:in1 {:out 3} :in2 {:out 3}}
+      :logic-fn (fn [s] {:out (bitor (get s :in1) (get s :in2))}))))
+
+(register-primitive 'xor
+  (fn [name param conns]
+    (make '<logic-component>
+      :name name :type 'xor :connections conns
+      :inputs #{:in1 :in2} :outputs #{:out}
+      :delays {:in1 {:out 3} :in2 {:out 3}}
+      :logic-fn (fn [s] {:out (bitxor (get s :in1) (get s :in2))}))))
+
+(register-primitive 'xnor
+  (fn [name param conns]
+    (make '<logic-component>
+      :name name :type 'xnor :connections conns
+      :inputs #{:in1 :in2} :outputs #{:out}
+      :delays {:in1 {:out 4} :in2 {:out 4}}
+      :logic-fn (fn [s] {:out (bitxor (bitxor (get s :in1) (get s :in2)) 1)}))))
+
+(register-primitive 'delay
+  (fn [name param conns]
+    (bind [d (if param param 0)]
+      (make '<logic-component>
+        :name name :type 'delay :connections conns
+        :inputs #{:in} :outputs #{:out}
+        :delays {:in {:out d}}
+        :logic-fn (fn [s] {:out (get s :in)})))))
+
+(defn qualify-name [prefix name]
+  (if (nil? prefix)
+      name
+      (symbol (str prefix "/" name))))
+
+(defn resolve-node [node-sym prefix bindings]
+  (bind [kw (find-keyword node-sym)]
+    (if (contains? bindings kw)
+        (get bindings kw)
+        (qualify-name prefix node-sym))))
+
+(defn parse-connections [args prefix bindings]
+  (loop [rem args acc {}]
+    (if (empty? rem)
+        acc
+        (bind [port     (first rem)
+               node-sym (second rem)
+               resolved (resolve-node node-sym prefix bindings)]
+          (recur (rest (rest rem)) (assoc acc port resolved))))))
+
+(defn expand-spec [spec prefix bindings]
+  (bind [type            (first spec)
+         name            (second spec)
+         raw-args        (rest (rest spec))
+         has-param?      (and (not (empty? raw-args)) (not (<keyword>? (first raw-args))))
+         param           (if has-param? (first raw-args) nil)
+         args            (if has-param? (rest raw-args) raw-args)
+         full-name       (qualify-name prefix name)
+         resolved-conns  (parse-connections args prefix bindings)
+         module-def      (get-module type)
+         primitive-factory (get-primitive type)]
+    (cond
+      (module-def
+       (bind [body (module-body module-def)]
+         (reduce (fn [acc child-spec]
+                   (concat acc (expand-spec child-spec full-name resolved-conns)))
+                 [] body)))
+      (primitive-factory
+       [(primitive-factory full-name param resolved-conns)])
+      (:else
+       [(make '<component> :name full-name :type type :connections resolved-conns)]))))
+
+(defn expand-netlist [top-module-name]
+  (bind [def (get-module top-module-name)]
+    (if (nil? def)
+        (error (str "Module " top-module-name " not found"))
+        (bind [top-bindings (reduce (fn [acc p] (assoc acc (find-keyword p) p))
+                                    {} (module-ports def))]
+          (reduce (fn [acc spec]
+                    (concat acc (expand-spec spec nil top-bindings)))
+                  [] (module-body def))))))
+
+(defn register-connectivity [comp map]
+  (reduce (fn [acc port]
+            (bind [node (get (component-connections comp) port)]
+              (update acc node (fn [comps] (conj (if comps comps []) comp)))))
+          map (collection-seq (component-inputs comp))))
+
+;; ---------------------------------------------------------------------------
+;; Persistent leftist heap, keyed on :time
+;;
+;; A node is nil (empty heap) or a dict:
+;;   {:rank r  :elem event  :left child  :right child}
+;;
+;; Leftist property: rank(left) >= rank(right)
+;;   where rank(nil) = 0, rank(node) = 1 + rank(right-spine)
+;;
+;; All operations are O(log n) with O(log n) new nodes per operation.
+;; ---------------------------------------------------------------------------
+
+(defn lh-rank [h]
+  (if (nil? h) 0 (get h :rank)))
+
+(defn lh-make-node [e left right]
+  ;; Keep the heavier subtree on the left to maintain leftist property.
+  (if (>= (lh-rank left) (lh-rank right))
+      {:rank (inc (lh-rank right)) :elem e :left left  :right right}
+      {:rank (inc (lh-rank left))  :elem e :left right :right left}))
+
+(defn lh-merge [h1 h2]
+  (if (nil? h1)
+      h2
+      (if (nil? h2)
+          h1
+          (bind [e1 (get h1 :elem)
+                 e2 (get h2 :elem)]
+            (if (<= (get e1 :time) (get e2 :time))
+                (lh-make-node e1 (get h1 :left)
+                                 (lh-merge (get h1 :right) h2))
+                (lh-make-node e2 (get h2 :left)
+                                 (lh-merge h1 (get h2 :right))))))))
+
+(defn lh-insert [h event]
+  (lh-merge {:rank 1 :elem event :left nil :right nil} h))
+
+(defn lh-peek [h]
+  (get h :elem))
+
+(defn lh-pop [h]
+  (lh-merge (get h :left) (get h :right)))
+
+;; Extract all events at the minimum time.  Returns [batch remaining-heap].
+(defn lh-pop-batch [h]
+  (if (nil? h)
+      [[] nil]
+      (bind [t0 (get (lh-peek h) :time)]
+        (loop [q h acc []]
+          (if (nil? q)
+              [acc q]
+              (if (/= (get (lh-peek q) :time) t0)
+                  [acc q]
+                  (recur (lh-pop q) (conj acc (lh-peek q)))))))))
+
+;; ---------------------------------------------------------------------------
+;; Input helpers
+;; ---------------------------------------------------------------------------
+
+(defn get-input-states [comp node-values]
+  (reduce (fn [acc port]
+            (bind [node (get (component-connections comp) port)]
+              (assoc acc port (get node-values node 0))))
+          {} (component-inputs comp)))
+
+(defn get-changed-ports [comp changed-nodes]
+  (filter (fn [port]
+            (bind [node (get (component-connections comp) port)]
+              (contains? changed-nodes node)))
+          (component-inputs comp)))
+
+;; ---------------------------------------------------------------------------
+;; Event-driven simulation
+;; ---------------------------------------------------------------------------
+
+(defn run-simulation [netlist initial-events max-time monitored-nodes]
+  (bind [connectivity (reduce (fn [acc c] (register-connectivity c acc)) {} netlist)]
+    (loop [queue        (reduce lh-insert nil initial-events)
+           node-values  {}
+           event-history {}
+           current-time  0]
+      (if (or (nil? queue) (> current-time max-time))
+          event-history
+          (bind [pop-result  (lh-pop-batch queue)
+                 batch       (first pop-result)
+                 remaining   (second pop-result)
+                 event-time  (get (first batch) :time)
+                 updates           (reduce (fn [acc evt]
+                                             (assoc acc (get evt :node) (get evt :value)))
+                                           {} batch)
+                 new-node-values   (merge node-values updates)
+                 new-event-history (reduce (fn [acc evt]
+                                             (bind [node (get evt :node)]
+                                               (if (contains? monitored-nodes node)
+                                                   (update acc node
+                                                           (fn [evts] (conj (if evts evts []) evt)))
+                                                   acc)))
+                                           event-history batch)
+                 changed-nodes     (reduce (fn [s k] (conj s k)) #{} (keys updates))
+                 affected-comps    (reduce (fn [acc node]
+                                             (bind [comps (get connectivity node)]
+                                               (if comps
+                                                   (reduce (fn [a c] (conj a c)) acc comps)
+                                                   acc)))
+                                           #{} changed-nodes)
+                 new-events        (reduce (fn [acc comp]
+                                             (do (swap! *gate-evals* (fn [n] (cl:+ n 1)))
+                                                 (bind [input-states  (get-input-states comp new-node-values)
+                                                        changed-ports (get-changed-ports comp changed-nodes)
+                                                        results       (compute-next-state comp input-states changed-ports)]
+                                                   (reduce (fn [a res]
+                                                             (bind [out-node    (get (component-connections comp) (get res :port))
+                                                                    current-val (get new-node-values out-node -1)]
+                                                               (if (/= (get res :value) current-val)
+                                                                   (conj a {:time  (+ event-time (get res :delay))
+                                                                            :node  out-node
+                                                                            :value (get res :value)})
+                                                                   a)))
+                                                           acc results))))
+                                           [] affected-comps)]
+            (recur (reduce lh-insert remaining new-events)
+                   new-node-values
+                   new-event-history
+                   event-time))))))
+
+;; ---------------------------------------------------------------------------
+;; Simulation shell
+;; ---------------------------------------------------------------------------
+
+(def *sim-monitored* (atom #{}))
+(def *sim-events*    (atom []))
+(def *sim-history*   (atom {}))
+
+(defn Monitor [& nodes]
+  (swap! *sim-monitored* (fn [s] (reduce (fn [acc n] (conj acc n)) s nodes))))
+
+(defn AddEvents [& events]
+  (swap! *sim-events* (fn [e] (concat e events))))
+
+(defn %now-ms []
+  (* 1000.0 (/ (cl:get-internal-real-time)
+               (cl:float cl:internal-time-units-per-second))))
+
+(defn RunLSim [module-name time]
+  (reset! *gate-evals* 0)
+  (bind [t0      (%now-ms)
+         netlist (expand-netlist module-name)
+         t1      (%now-ms)
+         _       (reset! *last-netlist-ms* (- t1 t0))
+         t2      (%now-ms)
+         result  (run-simulation netlist @*sim-events* time @*sim-monitored*)
+         t3      (%now-ms)
+         _       (reset! *last-sim-ms* (- t3 t2))]
+    (reset! *sim-history* result)
+    :simulation-complete))
+
+(defn DisplayLSim []
+  @*sim-history*)

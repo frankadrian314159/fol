@@ -189,6 +189,9 @@
    emit-param-bindings
    emit-single-param-binding
    emit-rest-param-binding
+   ;; Dict inner predicate checks
+   emit-dict-inner-predicates
+   emit-stripped-param-inner-predicates
    ;; Fixed-arity optimization
    emit-fixed-arity-pattern-check
    emit-fixed-arity-param-bindings
@@ -254,12 +257,13 @@
    ;; Metaclass
    persistent-class
    ;; Base class
-   <persistent-object> %persistent-storage
+   <persistent-object> %persistent-storage %make-persistent
    ;; Metadata
    %persistent-metadata
    ;; Functional update API
    update-slot
-   update-slots))
+   update-slots
+   dissoc-slots))
 
 (defpackage fol.compiler.collection-primitives
   (:use cl)
@@ -363,6 +367,8 @@
    <ordered-collection>?
    ;; Re-export constructor generic
    make
+   ;; Mixins
+   <dict-mixin> <sorted-dict-mixin>
    ;; Concrete: vector
    <vector>
    <vector>?
@@ -498,6 +504,8 @@
   (:import-from fol.compiler.collections
                 ;; Constructor generic
                 make
+    ;; Mixins
+    <dict-mixin> <sorted-dict-mixin>
                 ;; Base class (needed for method specializers)
                 <collection>
                 ;; Class name symbols (needed for make dispatch)
@@ -511,7 +519,7 @@
   (:import-from fol.compiler.collection-primitives
                 ref storage storage-items)
   (:import-from fol.compiler.persistent
-                <persistent-object> %persistent-storage update-slot)
+                <persistent-object> %persistent-storage update-slot dissoc-slots)
   (:import-from fol.compiler.destructure
                 fol-type-to-cl-type)
   (:export

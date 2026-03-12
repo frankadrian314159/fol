@@ -83,18 +83,16 @@
    #(a b)       -> #(a b)  ; destructuring patterns preserved"
   (mapcar (lambda (param)
             (cond
-             ;; Predicate specializer: (var (fn args...))
+             ;; Predicate specializer: (pattern (fn args...))
              ((and (listp param)
                    (not (null param))
                    (= (length param) 2)
-                   (symbolp (first param))
                    (listp (second param)))
                (first param))
-             ;; Type specializer: (var <type>)
+             ;; Type specializer: (pattern <type>)
              ((and (listp param)
                    (not (null param))
                    (= (length param) 2)
-                   (symbolp (first param))
                    (symbolp (second param)))
                (first param))
              (t param)))
@@ -130,11 +128,10 @@
      otherwise          -> (:any)"
   (cond
    ((symbolp elem) (list :any))
-   ;; Predicate specializer: (var (fn arg0 arg1 ...))
+   ;; Predicate specializer: (pattern (fn arg0 arg1 ...))
    ((and (listp elem)
          (not (null elem))
          (= (length elem) 2)
-         (symbolp (first elem))
          (listp (second elem))
          (not (null (second elem))))
      (let* ((pred-form (second elem))
@@ -142,11 +139,10 @@
        (if (type-predicate-p fn)
            (list :type-pred fn (rest pred-form))
            (list :pred fn (rest pred-form)))))
-   ;; Type specializer: (var <type>)
+   ;; Type specializer: (pattern <type>)
    ((and (listp elem)
          (not (null elem))
          (= (length elem) 2)
-         (symbolp (first elem))
          (symbolp (second elem)))
      (list :type (second elem)))
    ;; Nested FOL vector -> sequence destructuring
@@ -154,6 +150,9 @@
      (let ((elements (fol.compiler.collections:collection-seq elem)))
        (multiple-value-bind (filtered has-rest) (filter-as-bindings elements)
          (list :seq (mapcar #'compute-element-signature filtered) has-rest))))
+   ;; Nested FOL dict -> map destructuring
+   ((typep elem 'fol.compiler.collections:<dict>)
+     (list :any)) ; For now, treat map patterns as :any for dispatch purposes
    (t (list :any))))
 
 (defun compute-pattern-signature (param-list)
@@ -167,11 +166,10 @@
      (:pred fn args)    - arbitrary predicate specializer"
   (mapcar (lambda (param)
             (cond
-             ;; Predicate specializer: (var (fn arg0 arg1 ...))
+             ;; Predicate specializer: (pattern (fn arg0 arg1 ...))
              ((and (listp param)
                    (not (null param))
                    (= (length param) 2)
-                   (symbolp (first param))
                    (listp (second param))
                    (not (null (second param))))
                (let* ((pred-form (second param))
@@ -179,11 +177,10 @@
                  (if (type-predicate-p fn)
                      (list :type-pred fn (rest pred-form))
                      (list :pred fn (rest pred-form)))))
-             ;; Type specializer: (var <type>)
+             ;; Type specializer: (pattern <type>)
              ((and (listp param)
                    (not (null param))
                    (= (length param) 2)
-                   (symbolp (first param))
                    (symbolp (second param)))
                (list :type (second param)))
              ;; Sequence pattern (FOL vector)
@@ -191,6 +188,9 @@
                (let ((elements (fol.compiler.collections:collection-seq param)))
                  (multiple-value-bind (filtered has-rest) (filter-as-bindings elements)
                    (list :seq (mapcar #'compute-element-signature filtered) has-rest))))
+             ;; Map pattern (FOL dict)
+             ((typep param 'fol.compiler.collections:<dict>)
+               (list :any))
              ;; Default: any
              (t (list :any))))
       param-list))
@@ -410,6 +410,63 @@
                             (emit-single-param-binding elem `(elt ,temp ,idx))))
                        (setf bindings (append bindings sub-bindings)))))))
        bindings))
+   ((typep param 'fol.compiler.collections:<dict>)
+     (let* ((pairs (fol.compiler.collections:collection-seq param))
+            (temp (gensym "DESTR"))
+            (bindings (list (list temp access-expr))))
+       ;; Use forward append (not push+nreverse) so that sub-bindings
+       ;; referencing temp appear after temp is bound in the let* chain.
+       (dolist (pair pairs)
+         (let ((k (car pair)) (v (cdr pair)))
+           (cond
+            ((eq k :keys)
+              ;; v is a vector of symbols or (field binding) pairs.
+              ;; Simple symbol: bind (get temp :sym) to sym.
+              ;; Pair (field sym): bind (get temp :field) to sym.
+              ;; Pair (field (eql val)): predicate-only, no binding.
+              ;; Pair (field (dict-pat type)): nested destructure on field value.
+              (let ((syms (if (typep v 'fol.compiler.collections:<collection>)
+                              (fol.compiler.collections:collection-seq v)
+                              v)))
+                (dolist (s syms)
+                  (cond
+                    ;; Simple symbol: bind (get temp :sym) to sym
+                    ((symbolp s)
+                     (let ((key (intern (symbol-name s) :keyword)))
+                       (setf bindings
+                             (append bindings
+                                     (list (list s `(fol.compiler.collection-functions:get ,temp ,key)))))))
+                    ;; Pair (field-name binding-pattern)
+                    ((and (listp s) (= (length s) 2))
+                     (let* ((field (first s))
+                            (binding (second s))
+                            (key (intern (symbol-name field) :keyword))
+                            (field-access `(fol.compiler.collection-functions:get ,temp ,key)))
+                       (cond
+                         ;; (field sym) → bind field to sym
+                         ((symbolp binding)
+                          (setf bindings (append bindings (list (list binding field-access)))))
+                         ;; (field (eql val)) → predicate check only, no binding
+                         ((and (listp binding) (>= (length binding) 1)
+                               (symbolp (first binding))
+                               (string= (symbol-name (first binding)) "EQL"))
+                          nil)
+                         ;; (field (dict-pattern <type>)) → nested destructure on field
+                         ((and (listp binding) (= (length binding) 2)
+                               (symbolp (second binding))
+                               (typep (first binding) 'fol.compiler.collections:<dict>))
+                          (let ((sub-bindings (emit-single-param-binding (first binding) field-access)))
+                            (setf bindings (append bindings sub-bindings))))
+                         ;; (field dict-pattern) → nested destructure on field
+                         ((typep binding 'fol.compiler.collections:<dict>)
+                          (let ((sub-bindings (emit-single-param-binding binding field-access)))
+                            (setf bindings (append bindings sub-bindings)))))))
+                    ;; Fallback: skip
+                    (t nil)))))
+            ((eq k :as)
+              (unless (wildcard-param-p v)
+                (setf bindings (append bindings (list (list v temp)))))))))
+       bindings))
    (t (list (list (gensym "IGNORED") access-expr)))))
 
 (defun emit-rest-param-binding (rest-param arity args-sym)
@@ -417,6 +474,53 @@
    Returns NIL if rest-param is _ (wildcard)."
   (when (and rest-param (not (wildcard-param-p rest-param)))
         (list (list rest-param `(nthcdr ,arity ,args-sym)))))
+
+(defun emit-dict-inner-predicates (dict-param access-expr)
+  "Emit additional runtime predicate checks from a {:keys [...]} dict pattern.
+   Returns a list of CL check forms to be ANDed with the dispatch check.
+   Handles pairs in :keys vectors:
+   - (field (eql val))            → (eql (get obj :field) val)
+   - (field (nested-dict <type>)) → (typep (get obj :field) '<type>) + recursive
+   Simple symbols produce no checks (bindings only)."
+  (let ((pairs (fol.compiler.collections:collection-seq dict-param))
+        (checks nil))
+    (dolist (pair pairs)
+      (let ((k (car pair)) (v (cdr pair)))
+        (when (eq k :keys)
+          (let ((syms (if (typep v 'fol.compiler.collections:<collection>)
+                          (fol.compiler.collections:collection-seq v)
+                          v)))
+            (dolist (s syms)
+              (when (and (listp s) (= (length s) 2))
+                (let* ((field (first s))
+                       (binding (second s))
+                       (key (intern (symbol-name field) :keyword))
+                       (field-access `(fol.compiler.collection-functions:get ,access-expr ,key)))
+                  (cond
+                    ;; (field (eql val)) → eql check
+                    ((and (listp binding) (>= (length binding) 1)
+                          (symbolp (first binding))
+                          (string= (symbol-name (first binding)) "EQL"))
+                     (push `(eql ,field-access ,(second binding)) checks))
+                    ;; (field (dict-pattern <type>)) → typep + nested checks
+                    ((and (listp binding) (= (length binding) 2)
+                          (symbolp (second binding))
+                          (typep (first binding) 'fol.compiler.collections:<dict>))
+                     (let* ((type-sym (second binding))
+                            (inner-dict (first binding))
+                            (inner-checks (emit-dict-inner-predicates inner-dict field-access)))
+                       (push `(typep ,field-access ',type-sym) checks)
+                       (dolist (ic inner-checks) (push ic checks))))
+                    ;; Other forms: no extra check
+                    (t nil)))))))))
+    (nreverse checks)))
+
+(defun emit-stripped-param-inner-predicates (stripped-param access-expr)
+  "Emit inner predicate checks for a stripped parameter (type specializer removed).
+   For dict params with nested predicates, returns check forms.
+   For other params, returns nil."
+  (when (typep stripped-param 'fol.compiler.collections:<dict>)
+    (emit-dict-inner-predicates stripped-param access-expr)))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Fixed-arity emission (optimization for uniform-arity multi-clause)

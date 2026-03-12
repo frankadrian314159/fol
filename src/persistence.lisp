@@ -34,6 +34,19 @@ persistent vector trie.  See file header for threshold rationale.")
 (defclass persistent-effective-slot-definition (closer-mop:standard-effective-slot-definition)
     ((alias :initarg :alias :initform nil :accessor slot-definition-alias)))
 
+;;; ============================================================================
+;;; Schema Version Chain
+;;; ============================================================================
+
+;;; Each class-version snapshot records the alias-map and overflow layout that
+;;; were in effect FOR a given version, captured just before the transition to
+;;; the next version.  The chain is singly-linked, newest first.
+(defstruct (class-version (:constructor make-class-version (version-id alias-map overflow-indices prev)))
+  (version-id 0 :type fixnum :read-only t)
+  (alias-map nil :read-only t)
+  (overflow-indices nil :read-only t)
+  (prev nil :read-only t))
+
 (defclass persistent-class (standard-class)
     ((%slot-count :accessor persistent-class-slot-count
                   :initform 0
@@ -46,8 +59,14 @@ persistent vector trie.  See file header for threshold rationale.")
                        :documentation "Hash table mapping keywords to slot name symbols.")
      (%slot-aliases :accessor persistent-class-slot-aliases
                     :initform (make-hash-table :test 'eq)
-                    :documentation "Maps slot name symbols to their old-name aliases."))
-  (:documentation "Hybrid split layout metaclass with slot aliasing support."))
+                    :documentation "Maps slot name symbols to their old-name aliases.")
+     (%version-counter :accessor persistent-class-version-counter
+                       :initform 0
+                       :documentation "Monotonically increasing version counter; incremented on each defclass redefinition.")
+     (%version-chain :accessor persistent-class-version-chain
+                     :initform nil
+                     :documentation "Singly-linked list of class-version snapshots, newest first."))
+  (:documentation "Hybrid split layout metaclass with slot aliasing support and schema-version chain."))
 
 (defmethod closer-mop:direct-slot-definition-class ((class persistent-class) &rest initargs)
   (declare (ignore initargs))
@@ -75,13 +94,28 @@ persistent vector trie.  See file header for threshold rationale.")
                                            (superclass persistent-class))
   t)
 
+;;; Snapshot the current schema state just before each redefinition.
+;;; This preserves the single-hop alias-map and overflow-indices that describe
+;;; the transition FROM this version to the next, enabling multi-hop chain replay.
+(defmethod reinitialize-instance :before ((class persistent-class) &rest initargs)
+  (declare (ignore initargs))
+  (when (closer-mop:class-finalized-p class)
+        (let ((snapshot (make-class-version
+                         (persistent-class-version-counter class)
+                         (persistent-class-slot-aliases class)
+                         (persistent-class-overflow-indices class)
+                         (persistent-class-version-chain class))))
+          (setf (persistent-class-version-chain class) snapshot)
+          (incf (persistent-class-version-counter class)))))
+
 (defmethod closer-mop:compute-slots ((class persistent-class))
   "Split layout: first +native-slot-limit+ are native CLOS slots, the rest overflow to the vector."
   (let* ((all-slots (call-next-method))
          ;; Only count user slots (exclude internal ones)
          (user-slots (remove-if (lambda (s)
                                   (member (closer-mop:slot-definition-name s)
-                                          '(%persistent-vector %metadata %persistent-storage)))
+                                          '(%persistent-vector %metadata %persistent-storage
+                                                               %schema-version)))
                          all-slots))
          (count (length user-slots))
          (kw-map (make-hash-table :test 'eq)))
@@ -122,7 +156,8 @@ persistent vector trie.  See file header for threshold rationale.")
           (append native-slots
             (remove-if-not (lambda (s)
                              (member (closer-mop:slot-definition-name s)
-                                     '(%persistent-vector %metadata %persistent-storage)))
+                                     '(%persistent-vector %metadata %persistent-storage
+                                                          %schema-version)))
                 all-slots))))))
 
 ;;; ============================================================================
@@ -144,7 +179,11 @@ persistent vector trie.  See file header for threshold rationale.")
                        :documentation "Thread that owns this transient object, or NIL if persistent.")
      (%transient-buffer :accessor %transient-buffer
                         :initform nil
-                        :documentation "Mutable array for overflow slots when transient."))
+                        :documentation "Mutable array for overflow slots when transient.")
+     (%schema-version :accessor %schema-version
+                      :initform 0
+                      :documentation "Version counter at the time this instance was created or last migrated.
+Used to locate the correct starting point in the class version chain during multi-hop schema migration."))
   (:metaclass persistent-class)
   (:documentation "Base class for objects with persistent (immutable) slot storage."))
 
@@ -155,19 +194,24 @@ persistent vector trie.  See file header for threshold rationale.")
 (defmethod initialize-instance :around ((object <persistent-object>) &rest initargs &key &allow-other-keys)
   "Allow slot writes during initialization and handle slot aliasing in initargs."
   (let* ((class (class-of object))
-         (aliases (persistent-class-slot-aliases class))
-         (new-initargs (copy-list initargs)))
-    ;; Check aliases in initargs
-    (maphash (lambda (sname alias)
-               (let* ((kw (intern (string sname) :keyword))
-                      (alias-name (if (symbolp alias) (string alias) alias))
-                      (alias-kw (intern (string alias-name) :keyword)))
-                 (when (and (eq (getf new-initargs kw :not-found) :not-found)
-                            (not (eq (getf new-initargs alias-kw :not-found) :not-found)))
-                       (setf (getf new-initargs kw) (getf new-initargs alias-kw)))))
-             aliases)
-    (let ((*initializing-persistent-object* t))
-      (apply #'call-next-method object new-initargs))))
+         (aliases (persistent-class-slot-aliases class)))
+    (if (zerop (hash-table-count aliases))
+        ;; Fast path: no aliases — skip copy-list/maphash/apply
+        (let ((*initializing-persistent-object* t))
+          (call-next-method))
+        ;; Slow path: resolve alias initargs before passing to next method
+        (let ((new-initargs (copy-list initargs)))
+          (maphash (lambda (sname alias)
+                     (let* ((kw (intern (string sname) :keyword))
+                            (alias-name (if (symbolp alias) (string alias) alias))
+                            (alias-kw (intern (string alias-name) :keyword)))
+                       (when (and (eq (getf new-initargs kw :not-found) :not-found)
+                                  (not (eq (getf new-initargs alias-kw :not-found) :not-found)))
+                             (setf (getf new-initargs kw) (getf new-initargs alias-kw)))))
+                   aliases)
+          (let ((*initializing-persistent-object* t))
+            (apply #'call-next-method object new-initargs))))))
+
 (defmethod initialize-instance :after ((object <persistent-object>) &rest initargs)
   "Populate the overflow <vector> from initargs."
   (let* ((class (class-of object))
@@ -197,7 +241,111 @@ persistent vector trie.  See file header for threshold rationale.")
 
               ;; 4. Bind to the instance
               (let ((*initializing-persistent-object* t))
-                (setf (%persistent-vector object) persistent-vec)))))))
+                (setf (%persistent-vector object) persistent-vec)))))
+    ;; Record the schema version at birth so multi-hop migration can locate
+    ;; the correct starting point in the class version chain.
+    (let ((*initializing-persistent-object* t))
+      (setf (%schema-version object) (persistent-class-version-counter (class-of object))))))
+
+;;; When a class is redefined, SBCL's default update-instance-for-redefined-class
+;;; migrates only slots that are native in BOTH the old and the new schema.  Slots
+;;; that were native in the old schema but are absent (removed) or have moved into
+;;; the overflow zone in the new schema are "discarded"; their values arrive in
+;;; property-list keyed by the OLD slot name.
+;;;
+;;; Single-hop case: a :alias annotation on the new schema names the old slot —
+;;; we look up the old name directly in property-list.
+;;;
+;;; Multi-hop case: an instance may have been born at version N and never touched
+;;; while the class was redefined at version N+1, N+2, …, M.  SBCL performs a
+;;; single migration from the N layout to the current M layout; the chain of
+;;; intermediate renames is invisible in the property-list (which only contains
+;;; the N-era slot names).  We recover the full rename chain by composing the
+;;; single-hop alias maps stored in the version snapshots, producing a transitive
+;;; map from current slot names back to the birth-version slot names.
+(defmethod cl:update-instance-for-redefined-class
+  :after ((instance <persistent-object>)
+          added-slots discarded-slots property-list
+          &rest initargs)
+  "Multi-hop alias recovery: replay the version chain to find birth-version slot names,
+   then recover values from property-list and populate native/overflow targets."
+  (declare (ignore initargs added-slots discarded-slots))
+  (let* ((class (class-of instance))
+         (overflow-indices (persistent-class-overflow-indices class))
+         (birth-version (%schema-version instance))
+         (*initializing-persistent-object* t))
+
+    ;; -----------------------------------------------------------------------
+    ;; Build composed alias map: current-slot-name -> birth-version-slot-name
+    ;; by walking the version chain from newest snapshot back to birth-version.
+    ;; -----------------------------------------------------------------------
+    (let ((composed (make-hash-table :test 'eq)))
+
+      ;; Seed from the current defclass alias-map (single-hop: current → previous)
+      (maphash (lambda (sname alias)
+                 (setf (gethash sname composed) alias))
+               (persistent-class-slot-aliases class))
+
+      ;; Extend through each intermediate snapshot that is NEWER than birth-version.
+      ;; Each snapshot records the alias-map that was active IN that version, i.e.
+      ;; the renames that moved from (version-id - 1) → version-id.
+      (loop for snap = (persistent-class-version-chain class) then (class-version-prev snap)
+            while (and snap (> (class-version-version-id snap) birth-version))
+            do (let ((snap-aliases (class-version-alias-map snap)))
+                 (maphash (lambda (sname intermediate)
+                            ;; If 'intermediate' was itself a rename of something older,
+                            ;; chase the chain one more step.
+                            (let ((deeper (gethash intermediate snap-aliases)))
+                              (when deeper
+                                    (setf (gethash sname composed) deeper))))
+                          composed)))
+
+      ;; -----------------------------------------------------------------------
+      ;; Use the composed map to recover values from property-list.
+      ;; -----------------------------------------------------------------------
+      (when (and property-list (> (hash-table-count composed) 0))
+            (let (native-assignments overflow-assignments)
+
+              (maphash
+                (lambda (sname orig-name)
+                  (let ((old-val (getf property-list orig-name :not-found)))
+                    (unless (eq old-val :not-found)
+                      (if (and overflow-indices (gethash sname overflow-indices))
+                          (push (cons sname old-val) overflow-assignments)
+                          ;; Native: only assign if still unbound (initform may have run)
+                          (unless (slot-boundp instance sname)
+                            (push (cons sname old-val) native-assignments))))))
+                composed)
+
+              ;; Apply native recoveries
+              (dolist (pair native-assignments)
+                (setf (slot-value instance (car pair)) (cdr pair)))
+
+              ;; Apply overflow recoveries, rebuilding the persistent vector
+              (when overflow-assignments
+                    (let* ((size (hash-table-count overflow-indices))
+                           (temp-arr (make-array size :initial-element :unbound)))
+                      ;; Preserve existing overflow values (may be nil for a schema-1 instance)
+                      (when (%persistent-vector instance)
+                            (maphash (lambda (sname idx)
+                                       (declare (ignore sname))
+                                       (let ((val (fol.compiler.collection-primitives:ref
+                                                   (%persistent-vector instance) idx :not-found)))
+                                         (unless (eq val :not-found)
+                                           (setf (aref temp-arr idx) val))))
+                                     overflow-indices))
+                      ;; Overlay alias-recovered values
+                      (dolist (pair overflow-assignments)
+                        (setf (aref temp-arr (gethash (car pair) overflow-indices)) (cdr pair)))
+                      ;; Freeze into the trie
+                      (setf (%persistent-vector instance)
+                        (make-instance 'fol.compiler.collections:<vector>
+                          :storage (fol.compiler.collection-primitives::%build-vec-t-from-list
+                                    (coerce temp-arr 'list)))))))))
+
+    ;; Stamp the migrated instance with the current version so any further
+    ;; redefinitions start from the correct point in the chain.
+    (setf (%schema-version instance) (persistent-class-version-counter class))))
 
 ;;; ============================================================================
 ;;; MOP Integration - Slot Access
@@ -210,10 +358,12 @@ persistent vector trie.  See file header for threshold rationale.")
     (if idx
         (ecase operation
           (slot-value
-            (let ((val (fol.compiler.collection-primitives:ref (%persistent-vector object) idx :unbound)))
-              (if (eq val :unbound)
-                  (error "Slot ~A is unbound." slot-name)
-                  val)))
+            (if (null (%persistent-vector object))
+                (error "Slot ~A is unbound." slot-name)
+                (let ((val (fol.compiler.collection-primitives:ref (%persistent-vector object) idx :unbound)))
+                  (if (eq val :unbound)
+                      (error "Slot ~A is unbound." slot-name)
+                      val))))
           (setf
             (if (or *initializing-persistent-object* (eq (%transient-owner object) (bt:current-thread)))
                 (if (%transient-owner object)
@@ -225,9 +375,13 @@ persistent vector trie.  See file header for threshold rationale.")
                       (fol.compiler.collections:assoc (%persistent-vector object) idx new-value)))
                 (error "Cannot mutate persistent slot ~A. Use TRANSIENT to mutate." slot-name)))
           (slot-boundp
-            (if (and (%transient-p object) (%transient-buffer object))
-                (not (eq (aref (%transient-buffer object) idx) :unbound))
-                (not (eq (fol.compiler.collection-primitives:ref (%persistent-vector object) idx) :unbound))))
+            (cond
+             ((and (%transient-p object) (%transient-buffer object))
+               (not (eq (aref (%transient-buffer object) idx) :unbound)))
+             ((null (%persistent-vector object))
+               nil)
+             (t
+               (not (eq (fol.compiler.collection-primitives:ref (%persistent-vector object) idx) :unbound)))))
           (slot-makunbound
             (if (eq (%transient-owner object) (bt:current-thread))
                 (if (%transient-buffer object)
@@ -248,7 +402,7 @@ persistent vector trie.  See file header for threshold rationale.")
                                                      (slot closer-mop:standard-effective-slot-definition))
   "Prevent mutation of native slots after initialization."
   (let ((slot-name (closer-mop:slot-definition-name slot)))
-    (if (or (member slot-name '(%persistent-vector %metadata %persistent-storage %transient-owner %transient-buffer))
+    (if (or (member slot-name '(%persistent-vector %metadata %persistent-storage %transient-owner %transient-buffer %schema-version))
             *initializing-persistent-object*
             (eq (%transient-owner object) (bt:current-thread)))
         (call-next-method)
@@ -262,10 +416,28 @@ persistent vector trie.  See file header for threshold rationale.")
                                                (slot closer-mop:standard-effective-slot-definition))
   "Prevent slot-makunbound on native persistent slots."
   (let ((slot-name (closer-mop:slot-definition-name slot)))
-    (if (or (member slot-name '(%persistent-vector %metadata %persistent-storage %transient-owner %transient-buffer))
+    (if (or (member slot-name '(%persistent-vector %metadata %persistent-storage %transient-owner %transient-buffer %schema-version))
             (eq (%transient-owner object) (bt:current-thread)))
         (call-next-method)
         (error "Cannot makunbound persistent slots."))))
+
+;;; ============================================================================
+;;; Fast Construction (bypass initialize-instance MOP overhead)
+;;; ============================================================================
+
+(defun %make-persistent (class &rest initargs)
+  "Construct a persistent instance bypassing initialize-instance.
+   Avoids the MOP slot-iteration overhead of standard initialize-instance
+   (~550 ns/call on SBCL) for the common case of no-alias non-overflow classes.
+   CLASS must be a persistent-class instance (use load-time-value (find-class ...) at call site)."
+  (let ((obj (allocate-instance class)))
+    (let ((*initializing-persistent-object* t))
+      (loop for (key val) on initargs by #'cddr
+            for slot-name = (slot-name-from-keyword class key)
+            when slot-name
+              do (setf (slot-value obj slot-name) val))
+      (setf (%schema-version obj) (persistent-class-version-counter class)))
+    obj))
 
 ;;; ============================================================================
 ;;; Functional Update API
@@ -305,28 +477,23 @@ persistent vector trie.  See file header for threshold rationale.")
 
     (let ((*initializing-persistent-object* t)
           (new-obj (allocate-instance class)))
-      ;; allocate-instance does not apply initforms, so explicitly initialize
-      ;; the system slots that are excluded from slot-copying below.
       (setf (%transient-owner new-obj) nil)
       (setf (%transient-buffer new-obj) nil)
-      ;; 1. Shallow copy all native slots (up to +native-slot-limit+ user slots + %persistent-vector)
+      (setf (%schema-version new-obj) (persistent-class-version-counter class))
       (dolist (slot (closer-mop:class-slots class))
         (let* ((sname (closer-mop:slot-definition-name slot))
                (alias (gethash sname (persistent-class-slot-aliases class))))
-          (unless (member sname '(%persistent-vector %metadata %persistent-storage %transient-owner %transient-buffer))
+          (unless (member sname '(%persistent-vector %metadata %persistent-storage %transient-owner %transient-buffer %schema-version))
             (cond ((slot-boundp object sname)
                     (setf (slot-value new-obj sname) (slot-value object sname)))
                   ((and alias (slot-boundp object alias))
                     (setf (slot-value new-obj sname) (slot-value object alias)))))))
 
       (if is-wide
-          ;; Strategy 2: Wide object - route updates to native or overflow
           (let* ((overflow-indices (persistent-class-overflow-indices class))
                  (size (hash-table-count overflow-indices))
                  (temp-array (make-array size :initial-element :unbound))
                  (vector-mutated-p nil))
-
-            ;; 1. Initialize overflow buffer from old object (by name and alias)
             (maphash (lambda (sname idx)
                        (let ((alias (gethash sname (persistent-class-slot-aliases class))))
                          (cond ((slot-boundp object sname)
@@ -334,7 +501,6 @@ persistent vector trie.  See file header for threshold rationale.")
                                ((and alias (slot-boundp object alias))
                                  (setf (aref temp-array idx) (slot-value object alias))))))
                      overflow-indices)
-
             (loop for (key value) on slot-name-value-pairs by #'cddr
                   for slot-name = (if (keywordp key) (slot-name-from-keyword class key) key)
                   for overflow-idx = (and slot-name (gethash slot-name overflow-indices))
@@ -342,30 +508,70 @@ persistent vector trie.  See file header for threshold rationale.")
                          (progn
                           (setf (aref temp-array overflow-idx) value)
                           (setf vector-mutated-p t))
-
-                         ;; It's a native slot. Overwrite the copied value.
                          (if slot-name
                              (setf (slot-value new-obj slot-name) value)
                              (error "Unknown slot/attribute: ~A" key))))
-
-            ;; If any overflow slots were touched, freeze the mutated array back to the persistent <vector>
-            (when vector-mutated-p
-                  (setf (%persistent-vector new-obj)
-                    (make-instance 'fol.compiler.collections:<vector>
-                      :storage (fol.compiler.collection-primitives::%build-vec-t-from-list
-                                (coerce temp-array 'list))))))
-
-          ;; Strategy 1: Small object - purely native overwrite
+            (setf (%persistent-vector new-obj)
+              (if vector-mutated-p
+                  (make-instance 'fol.compiler.collections:<vector>
+                    :storage (fol.compiler.collection-primitives::%build-vec-t-from-list
+                              (coerce temp-array 'list)))
+                  (%persistent-vector object))))
           (loop for (key value) on slot-name-value-pairs by #'cddr
                 for slot-name = (if (keywordp key) (slot-name-from-keyword class key) key)
                 do (if slot-name
                        (setf (slot-value new-obj slot-name) value)
                        (error "Unknown slot/attribute: ~A" key))))
 
-      ;; Ensure metadata carries over
       (when (slot-boundp object '%metadata)
             (setf (%persistent-metadata new-obj) (%persistent-metadata object)))
 
-      ;; Ensure transient status DOES NOT carry over (updates result in persistent copies)
+      new-obj)))
+
+(defun dissoc-slots (object &rest keys)
+  "Return a new persistent object with the specified slots removed (unbound).
+   Works for both native and overflow slots."
+  (let* ((class (class-of object))
+         (is-wide (> (persistent-class-slot-count class) +native-slot-limit+))
+         (keys-to-remove (loop for k in keys
+                               collect (if (keywordp k)
+                                           (slot-name-from-keyword class k)
+                                           k))))
+    (let ((*initializing-persistent-object* t)
+          (new-obj (allocate-instance class)))
+      (setf (%transient-owner new-obj) nil)
+      (setf (%transient-buffer new-obj) nil)
+      (setf (%schema-version new-obj) (persistent-class-version-counter class))
+      (dolist (slot (closer-mop:class-slots class))
+        (let* ((sname (closer-mop:slot-definition-name slot))
+               (alias (gethash sname (persistent-class-slot-aliases class))))
+          (unless (member sname '(%persistent-vector %metadata %persistent-storage %transient-owner %transient-buffer %schema-version))
+            (unless (or (member sname keys-to-remove)
+                        (and alias (member alias keys-to-remove)))
+              (cond ((slot-boundp object sname)
+                      (setf (slot-value new-obj sname) (slot-value object sname)))
+                    ((and alias (slot-boundp object alias))
+                      (setf (slot-value new-obj sname) (slot-value object alias))))))))
+
+      (if is-wide
+          (let* ((overflow-indices (persistent-class-overflow-indices class))
+                 (size (hash-table-count overflow-indices))
+                 (temp-array (make-array size :initial-element :unbound)))
+            (maphash (lambda (sname idx)
+                       (let ((alias (gethash sname (persistent-class-slot-aliases class))))
+                         (unless (or (member sname keys-to-remove)
+                                     (and alias (member alias keys-to-remove)))
+                           (cond ((slot-boundp object sname)
+                                   (setf (aref temp-array idx) (slot-value object sname)))
+                                 ((and alias (slot-boundp object alias))
+                                   (setf (aref temp-array idx) (slot-value object alias)))))))
+                     overflow-indices)
+            (setf (%persistent-vector new-obj)
+              (make-instance 'fol.compiler.collections:<vector>
+                :storage (fol.compiler.collection-primitives::%build-vec-t-from-list
+                          (coerce temp-array 'list))))))
+
+      (when (slot-boundp object '%metadata)
+            (setf (%persistent-metadata new-obj) (%persistent-metadata object)))
 
       new-obj)))

@@ -215,22 +215,23 @@
 
 ;;; ── CL (hash-table for dists) ────────────────────────────────────────────
 
-(defun run-cl-bfs (n)
-  (let ((graph (make-array n))   ; graph[i] = list of successors
-        (dists (make-hash-table :size n)))
-    (dotimes (i (1- n)) (setf (svref graph i) (list (1+ i))))
-    (setf (svref graph (1- n)) nil)
+(defun run-cl-bfs (graph n)
+  "BFS on pre-built CL GRAPH with hash-table dists pre-initialized to -1."
+  (let ((dists (make-hash-table :size n :test #'eql))
+        (q     (make-array 16 :adjustable t :fill-pointer 0))
+        (qhead 0))
     (dotimes (i n) (setf (gethash i dists) -1))
     (setf (gethash 0 dists) 0)
-    (let ((q (list 0)))
-      (loop while q do
-        (let* ((u (pop q))
-               (d (gethash u dists)))
-          (dolist (v (svref graph u))
-            (when (= -1 (gethash v dists))
-              (setf (gethash v dists) (1+ d))
-              (nconc q (list v))))))
-      dists)))
+    (vector-push-extend 0 q)
+    (loop while (< qhead (fill-pointer q)) do
+      (let* ((u (aref q qhead))
+             (d (gethash u dists)))
+        (incf qhead)
+        (dolist (v (svref graph u))
+          (when (= -1 (gethash v dists))
+            (setf (gethash v dists) (1+ d))
+            (vector-push-extend v q)))))
+    dists))
 
 ;;; ── Persistent FOL (assoc on persistent dict for dists) ─────────────────
 
@@ -252,16 +253,20 @@
     (fol.compiler.collection-functions:assoc d 0 0)))
 
 (defun fol-bfs (graph n)
+  "BFS on pre-built FOL GRAPH with persistent HAMT dists pre-initialized to -1."
   (let ((dists (fol-make-dists n))
-        (q (list 0)))
-    (loop while q do
-      (let* ((u (pop q))
+        (q     (make-array 16 :adjustable t :fill-pointer 0))
+        (qhead 0))
+    (vector-push-extend 0 q)
+    (loop while (< qhead (fill-pointer q)) do
+      (let* ((u (aref q qhead))
              (d (fol.compiler.collection-functions:get dists u))
              (edges (fol.compiler.collection-functions:get graph u)))
+        (incf qhead)
         (dolist (v (fol.compiler.collections:collection-seq edges))
           (when (= -1 (fol.compiler.collection-functions:get dists v))
             (setf dists (fol.compiler.collection-functions:assoc dists v (1+ d)))
-            (nconc q (list v))))))
+            (vector-push-extend v q)))))
     dists))
 
 ;;; ── Transient FOL (transient-HAMT for dists) ─────────────────────────────
@@ -278,15 +283,18 @@
 (defun trans-bfs (graph n)
   "BFS with transient-HAMT for distances; graph is a CL array for speed."
   (let ((dists (trans-make-dists n))
-        (q (list 0)))
-    (loop while q do
-      (let* ((u (pop q))
+        (q     (make-array 16 :adjustable t :fill-pointer 0))
+        (qhead 0))
+    (vector-push-extend 0 q)
+    (loop while (< qhead (fill-pointer q)) do
+      (let* ((u (aref q qhead))
              (d (th-get dists u))
              (edges (svref graph u)))
+        (incf qhead)
         (dolist (v edges)
           (when (= -1 (th-get dists v))
             (fol.compiler.collection-primitives:hamt-assoc! dists v (1+ d))
-            (nconc q (list v))))))
+            (vector-push-extend v q)))))
     (fol.compiler.collection-primitives:hamt-persistent! dists)))
 
 ;;; ── Benchmark harness ────────────────────────────────────────────────────
@@ -301,7 +309,7 @@
 
     (let ((cl-time
            (bench-time "CL (hash-table dists)" runs
-             (run-cl-bfs n)))
+             (run-cl-bfs cl-graph n)))
           (fol-time
            (bench-time "Persistent FOL (assoc dists)" runs
              (fol-bfs fol-graph n)))

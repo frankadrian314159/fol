@@ -32,9 +32,15 @@
   "Check if X is a FOL <vector> instance (from the reader's [...] syntax)."
   (typep x 'fol.compiler.collections:<vector>))
 
+(defun sequence-p (x)
+  "Check if X is a sequence (CL list or FOL <vector>)."
+  (or (cl:listp x) (fol-vector-p x)))
+
 (defun fol-vector-to-list (v)
-  "Convert a FOL <vector> to a CL list of its elements."
-  (fol.compiler.collections:collection-seq v))
+  "Convert a FOL <vector> or CL list to a CL list of its elements."
+  (if (cl:listp v)
+      v
+      (fol.compiler.collections:collection-seq v)))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Phase 1: Parse (reader s-expressions -> AST)
@@ -363,11 +369,11 @@
    (defgeneric name ([params1] [params2] ...) option*)   - multi-pattern"
   (destructuring-bind (op name lambda-spec &rest options) form
     (declare (ignore op))
-    ;; Check if first element of options is a docstring
     (let ((docstring (and (>= (length options) 1) (stringp (first options)) (first options)))
           (actual-options (if (and (>= (length options) 1) (stringp (first options)))
                               (rest options)
                               options)))
+      (format t "DEBUG: parse-defgeneric lambda-spec type: ~A~%" (type-of lambda-spec))
       (let ((lambda-lists
              (cond
               ;; Single pattern: a vector
@@ -649,9 +655,12 @@
 (defun parse-loop (form)
   "Parse a loop form: (loop [name init name init ...] body...).
    The first argument is a vector of alternating name/init pairs."
-  (destructuring-bind (op bindings-vec &rest body) form
+  (destructuring-bind (op bindings &rest body) form
     (declare (ignore op))
-    (let* ((binding-list (fol-vector-to-list bindings-vec))
+    (let* ((binding-list (cond
+                          ((fol-vector-p bindings) (fol-vector-to-list bindings))
+                          ((cl:listp bindings) bindings)
+                          (t (error "loop: Expected a sequence for bindings, got ~S" bindings))))
            (parsed-bindings
             (loop for (name init) on binding-list by #'cddr
                   collect (cons name (parse-form init)))))
@@ -1872,15 +1881,23 @@
                    when accessor
                  collect `(cl:defun ,accessor (object)
                             (fol.compiler.collection-functions:get object ,storage-key)))
-         ;; Abstract guard: prevent direct instantiation, allow subclasses.
+         ;; Abstract guard: prevent direct make-instance calls from CL code.
          ,@(when abstractp
                  `((cl:defmethod cl:initialize-instance :before ((obj ,name) &rest args)
                      (cl:declare (cl:ignore args))
                      (cl:when (cl:eq (cl:class-of obj) (cl:find-class ',name))
                        (cl:error "Cannot instantiate abstract class ~A" ',name)))))
-         ;; Constructor — accept &rest so inherited initargs work too
-         (cl:defun ,constructor-name (&rest %ctor-args)
-           (cl:apply #'cl:make-instance ',name %ctor-args))
+         ;; Constructor — abstract classes always error; concrete classes use %make-persistent
+         ;; fast path (bypasses initialize-instance MOP overhead ~550ns/call on SBCL).
+         ;; load-time-value caches the class object, avoiding find-class on each call.
+         ,(if abstractp
+              `(cl:defun ,constructor-name (&rest %ctor-args)
+                 (cl:declare (cl:ignore %ctor-args))
+                 (cl:error "Cannot instantiate abstract class ~A" ',name))
+              `(cl:defun ,constructor-name (&rest %ctor-args)
+                 (cl:apply #'fol.compiler.persistent::%make-persistent
+                           (cl:load-time-value (cl:find-class ',name))
+                           %ctor-args)))
          ',name))))
 
 (defun emit-defstruct (node)
@@ -2088,8 +2105,16 @@
                       for signature = (getf c :signature)
                       for stripped = (getf c :stripped)
                       for body-nodes = (getf c :body-nodes)
-                      for check = (fol.compiler.destructure:emit-fixed-arity-pattern-check
-                                   signature param-syms)
+                      for base-check = (fol.compiler.destructure:emit-fixed-arity-pattern-check
+                                        signature param-syms)
+                        ;; Include inner dict predicate checks (e.g. nested :keys eql patterns)
+                      for inner-checks = (loop for param in stripped
+                                               for sym in param-syms
+                                               append (fol.compiler.destructure:emit-stripped-param-inner-predicates
+                                                       param sym))
+                      for check = (if inner-checks
+                                      `(cl:and ,base-check ,@inner-checks)
+                                      base-check)
                         ;; Only emit bindings for params that differ from function params
                       for bindings = (loop for param in stripped
                                            for sym in param-syms
@@ -2100,7 +2125,7 @@
                       for emitted-body = (mapcar #'emit-node body-nodes)
                       collect `(,check
                                  ,@(if bindings
-                                       `((let ,bindings ,@emitted-body))
+                                       `((cl:let* ,bindings ,@emitted-body))
                                        emitted-body)))))
           `(cl:defmethod ,name ,param-syms
              ,@(when *extra-special-vars*
@@ -2119,8 +2144,15 @@
                       for stripped = (getf c :stripped)
                       for rest-param = (getf c :rest-param)
                       for body-nodes = (getf c :body-nodes)
-                      for check = (fol.compiler.destructure:emit-clause-pattern-check
-                                   signature arity has-rest args-sym)
+                      for base-check = (fol.compiler.destructure:emit-clause-pattern-check
+                                        signature arity has-rest args-sym)
+                      for inner-checks = (loop for param in stripped
+                                               for i from 0
+                                               append (fol.compiler.destructure:emit-stripped-param-inner-predicates
+                                                       param `(nth ,i ,args-sym)))
+                      for check = (if inner-checks
+                                      `(cl:and ,base-check ,@inner-checks)
+                                      base-check)
                       for bindings = (cl:append
                                        (fol.compiler.destructure:emit-param-bindings
                                         stripped args-sym)
@@ -2128,7 +2160,7 @@
                                         rest-param arity args-sym))
                       for emitted-body = (mapcar #'emit-node body-nodes)
                       collect `(,check
-                                 (cl:let ,bindings
+                                 (cl:let* ,bindings
                                    ,@emitted-body)))))
           `(cl:defmethod ,name (&rest ,args-sym)
              ,@(when *extra-special-vars*
@@ -2156,13 +2188,19 @@
                         (param-vec (car clause))
                         (body-nodes (cdr clause))
                         (param-list (fol-vector-to-list param-vec))
-                        (has-specializers (some (lambda (p) (listp p)) param-list)))
+                        (has-specializers (some (lambda (p)
+                                                  (or (listp p)
+                                                      (typep p 'fol.compiler.collections:<dict>)
+                                                      (typep p 'fol.compiler.collections:<vector>)))
+                                              param-list)))
                    (if (and has-specializers
-                            ;; All specializers are pure type-name symbols (no predicate forms)?
+                            ;; Only emit CLOS defmethod if all parameters are simple symbols 
+                            ;; or (symbol type) specializers.
                             (every (lambda (p)
                                      (or (symbolp p)
                                          (and (listp p)
                                               (= (length p) 2)
+                                              (symbolp (first p))
                                               (symbolp (second p)))))
                                 param-list))
                        ;; All type specializers: emit proper CLOS defmethod with class specializers.

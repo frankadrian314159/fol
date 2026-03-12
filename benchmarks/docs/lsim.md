@@ -146,3 +146,120 @@ barrier to large-scale logic simulation — at extreme scale, it becomes an **ad
   1.5% of FOL run time at the 32×32×32 scale (down from 13.4% at 8×32×32).
 - FOL's concise syntax reduces source line counts by 15–28% vs equivalent CL for core
   simulation logic.
+
+---
+
+## 9. PQ-LSim: Isolated Event Queue Comparison
+
+To isolate the cost of the event queue data structure, a second benchmark variant
+(**PQ-LSim**) was built that holds all other implementation details constant and
+compares only two event queue implementations:
+
+- **CL-PQ**: mutable destructive leftist heap in pure Common Lisp (cons-cell quads,
+  in-place merge, O(1) allocation per pop/push)
+- **FOL-PQ**: persistent leftist heap using FOL's persistent collections (O(log n)
+  structural copies per merge)
+
+Both variants use the same circuit netlist and simulation loop; only the event queue
+differs. This removes the HAMT connectivity variable from the prior benchmark.
+
+### 9.1 Results
+
+Run with 56 GB SBCL heap (`--dynamic-space-size 57344`). Averages over 20 runs for
+small circuits, 3 runs for medium, 1 run for large.
+
+| Circuit | Engine | Wall (ms) | Alloc (MB) | GC% | Net (ms) | Sim (ms) | Gate Evals |
+| :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: |
+| **8bit-100** | CL-PQ | 2.9 | — | 0.0% | 0.3 | 2.6 | 876 |
+| | FOL-PQ | 26.5 | — | 0.0% | 1.6 | 24.9 | 876 |
+| **32bit-300** | CL-PQ | 27.4 | — | 0.0% | 1.0 | 26.4 | 10,224 |
+| | FOL-PQ | 254.0 | — | 3.2% | 6.3 | 247.7 | 10,224 |
+| **8x32-900** | CL-PQ | 559.4 | — | 5.4% | 6.7 | 552.7 | 281,248 |
+| | FOL-PQ | 5,271.2 | — | 3.0% | 52.2 | 5,218.9 | 281,248 |
+| **32x32-3000** | CL-PQ | 8,909.2 | 10,773 | 9.1% | 31.7 | 8,877.4 | 3,850,304 |
+| | FOL-PQ | 79,143.1 | 85,287 | 5.3% | 211.3 | 78,931.7 | 3,850,304 |
+| **8x32x32-9000** | CL-PQ | 125,600.2 | 250,441 | 3.6% | 123.4 | 125,476.7 | 89,708,032 |
+| | FOL-PQ | 903,176.8 | 2,002,024 | 0.7% | 764.9 | 902,411.7 | 89,708,032 |
+| **32x32x32-30000** | CL-PQ | 1,989,722.3 | 1,099,938 | 5.2% | 527.6 | 1,989,194.7 | 1,183,510,528 |
+| | FOL-PQ | 13,779,699.2 | 9,116,348 | 2.0% | 2,976.0 | 13,776,722.0 | 1,183,510,528 |
+
+*Alloc not captured for circuits with n=20 individual runs (only available in avg output).*
+
+### 9.2 Net Build Time per Gate
+
+Netlist build time divided by approximate gate count (128 / 512 / 1 024 / 4 096 /
+32 768 / 131 072 for the six circuits respectively).
+
+| Circuit | Gates | CL-PQ Net (ms) | FOL-PQ Net (ms) | CL-PQ µs/gate | FOL-PQ µs/gate | FOL/CL |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 8bit-100 | 128 | 0.3 | 1.6 | 2.34 | 12.50 | 5.3× |
+| 32bit-300 | 512 | 1.0 | 6.3 | 1.95 | 12.30 | 6.3× |
+| 8x32-900 | 1,024 | 6.7 | 52.2 | 6.54 | 50.98 | 7.8× |
+| 32x32-3000 | 4,096 | 31.7 | 211.3 | 7.74 | 51.59 | 6.7× |
+| 8x32x32-9000 | 32,768 | 123.4 | 764.9 | 3.77 | 23.35 | 6.2× |
+| 32x32x32-30000 | 131,072 | 527.6 | 2,976.0 | 4.03 | 22.71 | 5.6× |
+
+CL-PQ net build cost stabilises at ~4–8 µs/gate; FOL-PQ at ~23–51 µs/gate, converging
+toward ~6× at large scale.
+
+### 9.3 Simulation Time per Gate Eval
+
+Simulation time divided by total gate evaluations (event-driven; not all gates fire
+every step).
+
+| Circuit | Gate Evals | CL-PQ Sim (ms) | FOL-PQ Sim (ms) | CL-PQ µs/eval | FOL-PQ µs/eval | FOL/CL |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 8bit-100 | 876 | 2.6 | 24.9 | 2.97 | 28.42 | 9.6× |
+| 32bit-300 | 10,224 | 26.4 | 247.7 | 2.58 | 24.23 | 9.4× |
+| 8x32-900 | 281,248 | 552.7 | 5,218.9 | 1.97 | 18.56 | 9.4× |
+| 32x32-3000 | 3,850,304 | 8,877.4 | 78,931.7 | 2.31 | 20.50 | 8.9× |
+| 8x32x32-9000 | 89,708,032 | 125,476.7 | 902,411.7 | 1.40 | 10.06 | 7.2× |
+| 32x32x32-30000 | 1,183,510,528 | 1,989,194.7 | 13,776,722.0 | 1.68 | 11.64 | 6.9× |
+
+CL-PQ simulation cost is remarkably stable at **1.4–2.6 µs/eval** across all six
+circuits. FOL-PQ starts at ~28 µs/eval for small circuits and converges to ~10–12
+µs/eval at large scale — still ~7× above CL-PQ, with no inversion.
+
+### 9.4 Memory Ratio
+
+| Circuit | CL-PQ Alloc | FOL-PQ Alloc | Ratio |
+| :--- | ---: | ---: | ---: |
+| 32x32-3000 | 10,773 MB | 85,287 MB | 7.9× |
+| 8x32x32-9000 | 250,441 MB | 2,002,024 MB | 8.0× |
+| 32x32x32-30000 | 1,099,938 MB | 9,116,348 MB | 8.3× |
+
+### 9.5 Contrast with the HAMT-LSim Results
+
+The PQ-LSim results tell a fundamentally different story from the HAMT-LSim in
+sections 3–7:
+
+**HAMT-LSim (sections 3–7)**: FOL starts 1.4–6.2× slower at small scale, converges
+to 1.10× at 89.7 M gate evals, then **inverts to 3.72× faster** at 1.18 B gate evals.
+The inversion is driven by CL's mutable `make-hash-table` connectivity tables suffering
+severe cache thrashing as they grow to hundreds of thousands of entries.
+
+**PQ-LSim (this section)**: FOL is **consistently 7–9× slower** across all six circuit
+sizes. There is no inversion. The ratio narrows slightly (9.4× → 6.9×) but remains
+well above 1×.
+
+The difference is explained by what CL data structure is under pressure:
+
+| Benchmark | CL structure under stress | Cache behaviour at scale |
+| :--- | :--- | :--- |
+| HAMT-LSim | `make-hash-table` connectivity | Degrades sharply (4.2× slowdown 13× scale) |
+| PQ-LSim | Mutable leftist heap (cons cells) | Stays flat — list nodes are well-localised |
+
+A mutable destructive leftist heap reuses existing cons cells in-place; its working set
+at any moment is bounded by O(log n) nodes on the merge path. This remains cache-hot
+regardless of total circuit size. By contrast, hash tables with open addressing or
+chaining scatter their storage across memory as they grow.
+
+The persistent leftist heap pays a constant structural overhead: each merge allocates
+O(log n) new nodes even for small heaps. This overhead is real and does not go away at
+scale. At 89.7 M gate evals, FOL-PQ allocates **~8× more memory** than CL-PQ and
+runs ~7× slower; at 1.18 B gate evals the ratios are nearly identical.
+
+**Summary**: persistent collections win against mutable hash tables at extreme scale
+because HAMT structural sharing is cache-friendlier than hash-table scatter. They do
+**not** win against a well-implemented mutable heap, where the working set stays small
+and cache-resident at all scales.

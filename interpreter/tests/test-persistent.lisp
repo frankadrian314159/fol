@@ -471,3 +471,19 @@
   (is (subtypep 'test-person '<persistent-object>))
   (is (subtypep 'test-point '<persistent-object>))
   (is (subtypep 'test-empty '<persistent-object>)))
+
+(test persistent-dissoc
+  "Test functional removal of slots"
+  (let* ((p1 (make-instance 'test-person :name "Alice" :age 30))
+         (p2 (dissoc p1 :name)))
+    ;; Original unchanged
+    (is (slot-boundp p1 'name))
+    (is (equal "Alice" (slot-value p1 'name)))
+    
+    ;; p2 has slot unbound
+    (is (cl:not (slot-boundp p2 'name)))
+    (signals unbound-slot
+      (slot-value p2 'name))
+    
+    ;; p2 still has other slots
+    (is (= 30 (slot-value p2 'age)))))

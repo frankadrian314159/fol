@@ -2835,6 +2835,10 @@
       (setf tree (sycamore:tree-map-remove tree (fol.wrappers:fol-value k))))
     (make-instance (class-of coll) :items tree)))
 
+(defmethod dissoc ((coll <persistent-object>) &rest keys)
+  "Functional removal of slots from a persistent object. Dissoc'd slots become unbound."
+  (apply #'dissoc-pslot-values coll (mapcar #'fol.wrappers:fol-value keys)))
+
 (defmethod dissoc ((coll <priority-dict>) &rest keys)
   "Remove keys from priority-dict."
   (let ((items (pslot-value coll 'fol.collection::items))

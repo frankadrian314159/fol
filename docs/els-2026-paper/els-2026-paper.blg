@@ -15,70 +15,61 @@ Reallocating 'glb_str_ptr' (item size: 4) to 20 items.
 Reallocating 'global_strs' (item size: 1) to 4000000 items.
 Reallocating 'singl_function' (item size: 4) to 100 items.
 Warning--empty address in Apple1992
-Warning--empty publisher in Barendsen1993
-Warning--empty address in Barendsen1993
-Warning--empty publisher in Bracha2010
-Warning--empty address in Bracha2010
-Warning--page numbers missing in both pages and numpages fields in Bracha2010
 Warning--empty publisher in Chambers1993
 Warning--empty address in Chambers1993
 Warning--empty address in Ernst1998
-Warning--empty publisher in Flatt2015
-Warning--empty address in Flatt2015
-Warning--page numbers missing in both pages and numpages fields in Flatt2015
 Warning--empty publisher in Hickey2008
 Warning--empty address in Hickey2008
 Warning--empty address in Kiczales1991
-Warning--empty address in Muschevici2008
-Warning--empty publisher in Smith2023
-Warning--empty address in Smith2023
-Warning--page numbers missing in both pages and numpages fields in Smith2023
-Warning--empty publisher in TobinHochstadt2008
-Warning--empty address in TobinHochstadt2008
+Warning--empty publisher in Kmett2012
+Warning--empty address in Kmett2012
+Warning--page numbers missing in both pages and numpages fields in Kmett2012
+Warning--empty address in Lanza2006
+Warning--empty address in Okasaki1998
+Warning--empty publisher in Orleans2002
+Warning--empty address in Orleans2002
+Warning--empty address in Salzman2005
 Warning--can't use both volume and number fields in Ungar1987
 Warning--empty address in Ungar1987
-Warning--empty publisher in Wadler1990
-Warning--empty address in Wadler1990
-Warning--page numbers missing in both pages and numpages fields in Wadler1990
-You've used 21 entries,
+You've used 15 entries,
             6273 wiz_defined-function locations,
-            1657 strings with 21499 characters,
-and the built_in function-call counts, 21617 in all, are:
-= -- 2460
-> -- 619
-< -- 0
-+ -- 211
-- -- 228
-* -- 1402
-:= -- 2100
-add.period$ -- 103
-call.type$ -- 21
-change.case$ -- 135
-chr.to.int$ -- 21
-cite$ -- 47
-duplicate$ -- 2097
-empty$ -- 1475
-format.name$ -- 276
-if$ -- 5151
+            1615 strings with 20112 characters,
+and the built_in function-call counts, 13842 in all, are:
+= -- 1461
+> -- 325
+< -- 2
++ -- 99
+- -- 130
+* -- 830
+:= -- 1383
+add.period$ -- 80
+call.type$ -- 15
+change.case$ -- 82
+chr.to.int$ -- 15
+cite$ -- 32
+duplicate$ -- 1425
+empty$ -- 993
+format.name$ -- 150
+if$ -- 3190
 int.to.chr$ -- 2
 int.to.str$ -- 1
-missing$ -- 75
-newline$ -- 207
-num.names$ -- 147
-pop$ -- 901
+missing$ -- 43
+newline$ -- 160
+num.names$ -- 105
+pop$ -- 582
 preamble$ -- 1
-purify$ -- 303
+purify$ -- 202
 quote$ -- 0
-skip$ -- 773
+skip$ -- 542
 stack$ -- 0
-substring$ -- 1540
-swap$ -- 172
-text.length$ -- 0
+substring$ -- 1019
+swap$ -- 125
+text.length$ -- 2
 text.prefix$ -- 0
 top$ -- 0
-type$ -- 544
-warning$ -- 26
-while$ -- 146
+type$ -- 390
+warning$ -- 17
+while$ -- 113
 width$ -- 0
-write$ -- 433
-(There were 26 warnings)
+write$ -- 326
+(There were 17 warnings)

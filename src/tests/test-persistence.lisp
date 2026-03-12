@@ -245,3 +245,38 @@
   (is (closer-mop:validate-superclass
        (find-class 'standard-class)
        (find-class 'fol.compiler.persistent:persistent-class))))
+
+;;; ---------------------------------------------------------------------------
+;;; Dissoc
+;;; ---------------------------------------------------------------------------
+
+(test persistent-dissoc-slots
+  "dissoc-slots removes a slot (makes it unbound)."
+  (let* ((p1 (make-instance '<test-point> :x 1 :y 2))
+         (p2 (fol.compiler.persistent:dissoc-slots p1 'x)))
+    (is (not (slot-boundp p2 'x)))
+    (is (eql 2 (slot-value p2 'y)))
+    (is (slot-boundp p1 'x))))
+
+(test persistent-dissoc-multiple
+  "dissoc-slots removes multiple slots."
+  (let* ((person (make-instance '<test-person> :name "Alice" :age 30 :email "a@b.com"))
+         (updated (fol.compiler.persistent:dissoc-slots person 'age 'email)))
+    (is (string= "Alice" (slot-value updated 'name)))
+    (is (not (slot-boundp updated 'age)))
+    (is (not (slot-boundp updated 'email)))))
+
+(test massive-object-dissoc
+  "Massive objects can have slots removed via dissoc-slots."
+  (let* ((m1 (make-instance '<massive-object> :s0 100 :s34 999))
+         (m2 (fol.compiler.persistent:dissoc-slots m1 's34)))
+    (is (eql 100 (slot-value m2 's0)))
+    (is (not (slot-boundp m2 's34)))
+    (is (slot-boundp m1 's34))))
+
+(test persistent-high-level-dissoc
+  "High-level dissoc works on persistent objects."
+  (let* ((p1 (make-instance '<test-point> :x 1 :y 2))
+         (p2 (fol.compiler.collection-functions:dissoc p1 :x)))
+    (is (not (slot-boundp p2 'x)))
+    (is (eql 2 (slot-value p2 'y)))))

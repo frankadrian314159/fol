@@ -1,0 +1,145 @@
+(defpackage :ast-opt
+  (:use :fol.core)
+  (:export #:run-bench))
+(in-package :ast-opt)
+(defclass <ast-node> [] [])
+(defclass <op-lit> [<ast-node>] [[val]])
+(defclass <op-var> [<ast-node>] [[name]])
+(defclass <op-add> [<ast-node>] [[left] [right]])
+(defclass <op-sub> [<ast-node>] [[left] [right]])
+(defclass <op-mul> [<ast-node>] [[left] [right]])
+(defclass <op-div> [<ast-node>] [[left] [right]])
+(defclass <op-rem> [<ast-node>] [[left] [right]])
+(defclass <op-pow> [<ast-node>] [[left] [right]])
+(defclass <op-band> [<ast-node>] [[left] [right]])
+(defclass <op-bor> [<ast-node>] [[left] [right]])
+(defclass <op-bxor> [<ast-node>] [[left] [right]])
+(defclass <op-shl> [<ast-node>] [[left] [right]])
+(defclass <op-shr> [<ast-node>] [[left] [right]])
+(defclass <op-eq> [<ast-node>] [[left] [right]])
+(defclass <op-neq> [<ast-node>] [[left] [right]])
+(defclass <op-lt> [<ast-node>] [[left] [right]])
+(defclass <op-gt> [<ast-node>] [[left] [right]])
+(defclass <op-le> [<ast-node>] [[left] [right]])
+(defclass <op-ge> [<ast-node>] [[left] [right]])
+(defclass <op-and> [<ast-node>] [[left] [right]])
+(defclass <op-or> [<ast-node>] [[left] [right]])
+(defclass <op-concat> [<ast-node>] [[left] [right]])
+(defclass <op-split> [<ast-node>] [[left] [right]])
+(defclass <op-join> [<ast-node>] [[left] [right]])
+(defclass <op-map> [<ast-node>] [[left] [right]])
+;; All 54 optimization rules in a single multi-clause defmethod
+(defgeneric ast-optimize [node])
+(defmethod ast-optimize
+  ([({:keys [(left ({:keys [(val (eql 0))]} <op-lit>)) (right r)]} <op-add>)] r)
+  ([({:keys [(left l) (right ({:keys [(val (eql 0))]} <op-lit>))]} <op-add>)] l)
+  ([({:keys [(left ({:keys [(val (eql 0))]} <op-lit>)) (right r)]} <op-sub>)] r)
+  ([({:keys [(left l) (right ({:keys [(val (eql 0))]} <op-lit>))]} <op-sub>)] l)
+  ([({:keys [(left ({:keys [(val (eql 0))]} <op-lit>)) (right r)]} <op-mul>)] r)
+  ([({:keys [(left l) (right ({:keys [(val (eql 0))]} <op-lit>))]} <op-mul>)] l)
+  ([({:keys [(left ({:keys [(val (eql 0))]} <op-lit>)) (right r)]} <op-div>)] r)
+  ([({:keys [(left l) (right ({:keys [(val (eql 0))]} <op-lit>))]} <op-div>)] l)
+  ([({:keys [(left ({:keys [(val (eql 0))]} <op-lit>)) (right r)]} <op-rem>)] r)
+  ([({:keys [(left l) (right ({:keys [(val (eql 0))]} <op-lit>))]} <op-rem>)] l)
+  ([({:keys [(left ({:keys [(val (eql 0))]} <op-lit>)) (right r)]} <op-pow>)] r)
+  ([({:keys [(left l) (right ({:keys [(val (eql 0))]} <op-lit>))]} <op-pow>)] l)
+  ([({:keys [(left ({:keys [(val (eql 0))]} <op-lit>)) (right r)]} <op-band>)] r)
+  ([({:keys [(left l) (right ({:keys [(val (eql 0))]} <op-lit>))]} <op-band>)] l)
+  ([({:keys [(left ({:keys [(val (eql 0))]} <op-lit>)) (right r)]} <op-bor>)] r)
+  ([({:keys [(left l) (right ({:keys [(val (eql 0))]} <op-lit>))]} <op-bor>)] l)
+  ([({:keys [(left ({:keys [(val (eql 0))]} <op-lit>)) (right r)]} <op-bxor>)] r)
+  ([({:keys [(left l) (right ({:keys [(val (eql 0))]} <op-lit>))]} <op-bxor>)] l)
+  ([({:keys [(left ({:keys [(val (eql 0))]} <op-lit>)) (right r)]} <op-shl>)] r)
+  ([({:keys [(left l) (right ({:keys [(val (eql 0))]} <op-lit>))]} <op-shl>)] l)
+  ([({:keys [(left ({:keys [(val (eql 0))]} <op-lit>)) (right r)]} <op-shr>)] r)
+  ([({:keys [(left l) (right ({:keys [(val (eql 0))]} <op-lit>))]} <op-shr>)] l)
+  ([({:keys [(left ({:keys [(val (eql 0))]} <op-lit>)) (right r)]} <op-eq>)] r)
+  ([({:keys [(left l) (right ({:keys [(val (eql 0))]} <op-lit>))]} <op-eq>)] l)
+  ([({:keys [(left ({:keys [(val (eql 0))]} <op-lit>)) (right r)]} <op-neq>)] r)
+  ([({:keys [(left l) (right ({:keys [(val (eql 0))]} <op-lit>))]} <op-neq>)] l)
+  ([({:keys [(left ({:keys [(val (eql 0))]} <op-lit>)) (right r)]} <op-lt>)] r)
+  ([({:keys [(left l) (right ({:keys [(val (eql 0))]} <op-lit>))]} <op-lt>)] l)
+  ([({:keys [(left ({:keys [(val (eql 0))]} <op-lit>)) (right r)]} <op-gt>)] r)
+  ([({:keys [(left l) (right ({:keys [(val (eql 0))]} <op-lit>))]} <op-gt>)] l)
+  ([({:keys [(left ({:keys [(val (eql 0))]} <op-lit>)) (right r)]} <op-le>)] r)
+  ([({:keys [(left l) (right ({:keys [(val (eql 0))]} <op-lit>))]} <op-le>)] l)
+  ([({:keys [(left ({:keys [(val (eql 0))]} <op-lit>)) (right r)]} <op-ge>)] r)
+  ([({:keys [(left l) (right ({:keys [(val (eql 0))]} <op-lit>))]} <op-ge>)] l)
+  ([({:keys [(left ({:keys [(val (eql 0))]} <op-lit>)) (right r)]} <op-and>)] r)
+  ([({:keys [(left l) (right ({:keys [(val (eql 0))]} <op-lit>))]} <op-and>)] l)
+  ([({:keys [(left ({:keys [(val (eql 0))]} <op-lit>)) (right r)]} <op-or>)] r)
+  ([({:keys [(left l) (right ({:keys [(val (eql 0))]} <op-lit>))]} <op-or>)] l)
+  ([({:keys [(left ({:keys [(val (eql 0))]} <op-lit>)) (right r)]} <op-concat>)] r)
+  ([({:keys [(left l) (right ({:keys [(val (eql 0))]} <op-lit>))]} <op-concat>)] l)
+  ([({:keys [(left ({:keys [(val (eql 0))]} <op-lit>)) (right r)]} <op-split>)] r)
+  ([({:keys [(left l) (right ({:keys [(val (eql 0))]} <op-lit>))]} <op-split>)] l)
+  ([({:keys [(left ({:keys [(val (eql 0))]} <op-lit>)) (right r)]} <op-join>)] r)
+  ([({:keys [(left l) (right ({:keys [(val (eql 0))]} <op-lit>))]} <op-join>)] l)
+  ([({:keys [(left ({:keys [(val (eql 0))]} <op-lit>)) (right r)]} <op-map>)] r)
+  ([({:keys [(left l) (right ({:keys [(val (eql 0))]} <op-lit>))]} <op-map>)] l)
+  ([({:keys [(left ({:keys [(val (eql 1))]} <op-lit>)) (right r)]} <op-mul>)] r)
+  ([({:keys [(left l) (right ({:keys [(val (eql 1))]} <op-lit>))]} <op-mul>)] l)
+  ([({:keys [(left ({:keys [(val (eql 1))]} <op-lit>)) (right r)]} <op-div>)] r)
+  ([({:keys [(left l) (right ({:keys [(val (eql 1))]} <op-lit>))]} <op-div>)] l)
+  ([n] n))
+;; All 24 walk cases in a single multi-clause defmethod (1 base + 23 ops + op-lit passthrough)
+(defgeneric walk [node])
+(defmethod walk
+  ([(n <op-lit>)] n)
+  ([({:keys [(left l) (right r)]} <op-add>)]
+   (ast-optimize (make-<op-add> :left (walk l) :right (walk r))))
+  ([({:keys [(left l) (right r)]} <op-sub>)]
+   (ast-optimize (make-<op-sub> :left (walk l) :right (walk r))))
+  ([({:keys [(left l) (right r)]} <op-mul>)]
+   (ast-optimize (make-<op-mul> :left (walk l) :right (walk r))))
+  ([({:keys [(left l) (right r)]} <op-div>)]
+   (ast-optimize (make-<op-div> :left (walk l) :right (walk r))))
+  ([({:keys [(left l) (right r)]} <op-rem>)]
+   (ast-optimize (make-<op-rem> :left (walk l) :right (walk r))))
+  ([({:keys [(left l) (right r)]} <op-pow>)]
+   (ast-optimize (make-<op-pow> :left (walk l) :right (walk r))))
+  ([({:keys [(left l) (right r)]} <op-band>)]
+   (ast-optimize (make-<op-band> :left (walk l) :right (walk r))))
+  ([({:keys [(left l) (right r)]} <op-bor>)]
+   (ast-optimize (make-<op-bor> :left (walk l) :right (walk r))))
+  ([({:keys [(left l) (right r)]} <op-bxor>)]
+   (ast-optimize (make-<op-bxor> :left (walk l) :right (walk r))))
+  ([({:keys [(left l) (right r)]} <op-shl>)]
+   (ast-optimize (make-<op-shl> :left (walk l) :right (walk r))))
+  ([({:keys [(left l) (right r)]} <op-shr>)]
+   (ast-optimize (make-<op-shr> :left (walk l) :right (walk r))))
+  ([({:keys [(left l) (right r)]} <op-eq>)]
+   (ast-optimize (make-<op-eq> :left (walk l) :right (walk r))))
+  ([({:keys [(left l) (right r)]} <op-neq>)]
+   (ast-optimize (make-<op-neq> :left (walk l) :right (walk r))))
+  ([({:keys [(left l) (right r)]} <op-lt>)]
+   (ast-optimize (make-<op-lt> :left (walk l) :right (walk r))))
+  ([({:keys [(left l) (right r)]} <op-gt>)]
+   (ast-optimize (make-<op-gt> :left (walk l) :right (walk r))))
+  ([({:keys [(left l) (right r)]} <op-le>)]
+   (ast-optimize (make-<op-le> :left (walk l) :right (walk r))))
+  ([({:keys [(left l) (right r)]} <op-ge>)]
+   (ast-optimize (make-<op-ge> :left (walk l) :right (walk r))))
+  ([({:keys [(left l) (right r)]} <op-and>)]
+   (ast-optimize (make-<op-and> :left (walk l) :right (walk r))))
+  ([({:keys [(left l) (right r)]} <op-or>)]
+   (ast-optimize (make-<op-or> :left (walk l) :right (walk r))))
+  ([({:keys [(left l) (right r)]} <op-concat>)]
+   (ast-optimize (make-<op-concat> :left (walk l) :right (walk r))))
+  ([({:keys [(left l) (right r)]} <op-split>)]
+   (ast-optimize (make-<op-split> :left (walk l) :right (walk r))))
+  ([({:keys [(left l) (right r)]} <op-join>)]
+   (ast-optimize (make-<op-join> :left (walk l) :right (walk r))))
+  ([({:keys [(left l) (right r)]} <op-map>)]
+   (ast-optimize (make-<op-map> :left (walk l) :right (walk r))))
+  ([n] n))
+
+(defn build-tree [depth]
+  (if (= depth 0)
+      (make-<op-lit> :val 0)
+      (make-<op-add> :left (build-tree (- depth 1)) :right (make-<op-lit> :val 0))))
+
+(defn run-bench [n]
+  (bind [tree (build-tree 14)] ;; 2^14 nodes = 16384
+    (dotimes [i n]
+      (walk tree))))

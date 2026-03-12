@@ -2,7 +2,7 @@
 %%% Do NOT edit. File created by BibTeX with style
 %%% ACM-Reference-Format-Journals [18-Jan-2012].
 
-\begin{thebibliography}{21}
+\begin{thebibliography}{15}
 
 %%% ====================================================================
 %%% NOTE TO THE USER: you can override these defaults by providing
@@ -46,62 +46,14 @@
 \newblock
 
 
-\bibitem[Barendsen and Smetsers(1993)]%
-        {Barendsen1993}
-\bibfield{author}{\bibinfo{person}{Erik Barendsen} {and} \bibinfo{person}{Sjaak
-  Smetsers}.} \bibinfo{year}{1993}\natexlab{}.
-\newblock \showarticletitle{Uniqueness Typing for Functional Languages}. In
-  \bibinfo{booktitle}{\emph{Proceedings of the 5th International Workshop on
-  Implementation of Functional Languages}}. \bibinfo{pages}{1--25}.
+\bibitem[Bagwell(2001)]%
+        {Bagwell2000}
+\bibfield{author}{\bibinfo{person}{Phil Bagwell}.}
+  \bibinfo{year}{2001}\natexlab{}.
+\newblock \bibinfo{booktitle}{\emph{Ideal Hash Trees}}.
+\newblock \bibinfo{type}{Technical Report}~1. \bibinfo{institution}{EPFL},
+  \bibinfo{address}{Lausanne, Switzerland}.
 \newblock
-
-
-\bibitem[Bezanson et~al\mbox{.}(2017)]%
-        {Bezanson2017}
-\bibfield{author}{\bibinfo{person}{Jeff Bezanson}, \bibinfo{person}{Alan
-  Edelman}, \bibinfo{person}{Stefan Karpinski}, {and} \bibinfo{person}{Viral~B
-  Shah}.} \bibinfo{year}{2017}\natexlab{}.
-\newblock \showarticletitle{Julia: A Fresh Approach to Numerical Computing}.
-\newblock \bibinfo{journal}{\emph{SIAM Rev.}} \bibinfo{volume}{59},
-  \bibinfo{number}{1} (\bibinfo{year}{2017}), \bibinfo{pages}{65--98}.
-\newblock
-
-
-\bibitem[Bobrow et~al\mbox{.}(1988)]%
-        {Bobrow1988}
-\bibfield{author}{\bibinfo{person}{Daniel~G Bobrow}, \bibinfo{person}{Linda~G
-  DeMichiel}, \bibinfo{person}{Richard~P Gabriel}, \bibinfo{person}{Sonya~E
-  Keene}, \bibinfo{person}{Gregor Kiczales}, {and} \bibinfo{person}{David~A
-  Moon}.} \bibinfo{year}{1988}\natexlab{}.
-\newblock \showarticletitle{Common Lisp Object System Specification}.
-\newblock \bibinfo{journal}{\emph{SIGPLAN Notices}} \bibinfo{volume}{23},
-  \bibinfo{number}{SI} (\bibinfo{year}{1988}), \bibinfo{pages}{1--142}.
-\newblock
-
-
-\bibitem[Bracha et~al\mbox{.}(2010)]%
-        {Bracha2010}
-\bibfield{author}{\bibinfo{person}{Gilad Bracha}, \bibinfo{person}{Peter
-  von~der Ah{\'e}}, \bibinfo{person}{Vassili Bykov}, \bibinfo{person}{Yaron
-  Kashai}, \bibinfo{person}{William Maddox}, {and} \bibinfo{person}{David
-  Ungar}.} \bibinfo{year}{2010}\natexlab{}.
-\newblock \showarticletitle{The Newspeak programming language}. In
-  \bibinfo{booktitle}{\emph{Proceedings of the 19th symposium on Dynamic
-  languages}}.
-\newblock
-
-
-\bibitem[Burke(2007)]%
-        {Burke2007}
-\bibfield{author}{\bibinfo{person}{Scott~L Burke}.}
-  \bibinfo{year}{2007}\natexlab{}.
-\newblock \bibinfo{title}{FSet: A functional set-theoretic collections
-  library}.
-\newblock
-\urldef\tempurl%
-\url{https://common-lisp.net/project/fset/}
-\showURL{%
-\tempurl}
 
 
 \bibitem[Chambers(1993)]%
@@ -115,38 +67,14 @@
 \newblock
 
 
-\bibitem[Concas et~al\mbox{.}(2007)]%
-        {Concas2007}
-\bibfield{author}{\bibinfo{person}{Giulio Concas}, \bibinfo{person}{Michele
-  Marchesi}, \bibinfo{person}{Sandro Pinna}, {and} \bibinfo{person}{Nicola
-  Serra}.} \bibinfo{year}{2007}\natexlab{}.
-\newblock \showarticletitle{Power Laws in a Large Object-Oriented Software
-  System}.
-\newblock \bibinfo{journal}{\emph{IEEE Transactions on Software Engineering}}
-  \bibinfo{volume}{33}, \bibinfo{number}{10} (\bibinfo{year}{2007}),
-  \bibinfo{pages}{687--708}.
-\newblock
-
-
-\bibitem[Czaplicki(2012)]%
-        {Czaplicki2012}
-\bibfield{author}{\bibinfo{person}{Evan Czaplicki}.}
-  \bibinfo{year}{2012}\natexlab{}.
-\newblock \emph{\bibinfo{title}{Elm: Concurrent {FRP} for Functional {GUIs}}}.
-\newblock \bibinfo{thesistype}{Master's\ thesis}. \bibinfo{school}{Harvard
-  University}.
-\newblock
-
-
-\bibitem[Driscoll et~al\mbox{.}(1989)]%
-        {Driscoll1989}
-\bibfield{author}{\bibinfo{person}{James~R Driscoll}, \bibinfo{person}{Neil
-  Sarnak}, \bibinfo{person}{Daniel~D Sleator}, {and} \bibinfo{person}{Robert~E
-  Tarjan}.} \bibinfo{year}{1989}\natexlab{}.
-\newblock \showarticletitle{Making Data Structures Persistent}.
-\newblock \bibinfo{journal}{\emph{J. Comput. System Sci.}}
-  \bibinfo{volume}{38}, \bibinfo{number}{1} (\bibinfo{year}{1989}),
-  \bibinfo{pages}{86--124}.
+\bibitem[Crane(1972)]%
+        {Crane1972}
+\bibfield{author}{\bibinfo{person}{Clark~Allen Crane}.}
+  \bibinfo{year}{1972}\natexlab{}.
+\newblock \bibinfo{booktitle}{\emph{Linear Lists and Priority Queues as
+  Balanced Binary Trees}}.
+\newblock \bibinfo{type}{Technical Report} STAN-CS-72-259.
+  \bibinfo{institution}{Stanford University}.
 \newblock
 
 
@@ -158,16 +86,6 @@
 \newblock \showarticletitle{Predicate Dispatching: A Unified Theory of
   Dispatch}. In \bibinfo{booktitle}{\emph{ECOOP'98—Object-Oriented
   Programming}}. \bibinfo{publisher}{Springer}, \bibinfo{pages}{186--211}.
-\newblock
-
-
-\bibitem[Flatt et~al\mbox{.}(2015)]%
-        {Flatt2015}
-\bibfield{author}{\bibinfo{person}{Matthew Flatt} {et~al\mbox{.}}}
-  \bibinfo{year}{2015}\natexlab{}.
-\newblock \showarticletitle{The Racket Manifesto}. In
-  \bibinfo{booktitle}{\emph{20 Years of the {P}ast and 20 Years of the {F}uture
-  ({S}napshots), {D}agstuhl {S}eminar 15451}}.
 \newblock
 
 
@@ -217,36 +135,52 @@
 \newblock
 
 
-\bibitem[Muschevici et~al\mbox{.}(2008)]%
-        {Muschevici2008}
-\bibfield{author}{\bibinfo{person}{Radu Muschevici}, \bibinfo{person}{Alex
-  Potanin}, \bibinfo{person}{Ewan Tempero}, {and} \bibinfo{person}{James
-  Noble}.} \bibinfo{year}{2008}\natexlab{}.
-\newblock \showarticletitle{The Secret Life of Objects: Measures of
-  Object-Oriented Programs}. In \bibinfo{booktitle}{\emph{Proceedings of the
-  9th International Conference on Objects, Components, Models and Patterns}}.
-  \bibinfo{publisher}{Springer}, \bibinfo{pages}{52--71}.
+\bibitem[Kmett(2012)]%
+        {Kmett2012}
+\bibfield{author}{\bibinfo{person}{Edward Kmett}.}
+  \bibinfo{year}{2012}\natexlab{}.
+\newblock \showarticletitle{Lenses, Folds, and Traversals}. In
+  \bibinfo{booktitle}{\emph{Workshop on Generic Programming}}.
 \newblock
 
 
-\bibitem[Smith and Bates(2023)]%
-        {Smith2023}
-\bibfield{author}{\bibinfo{person}{Robert Smith} {and} \bibinfo{person}{Cole
-  Bates}.} \bibinfo{year}{2023}\natexlab{}.
-\newblock \showarticletitle{Coalton: Efficient, Statically Typed Functional
-  Programming on Common Lisp}. In \bibinfo{booktitle}{\emph{Proceedings of the
-  16th European Lisp Symposium}}.
+\bibitem[Lanza and Marinescu(2006)]%
+        {Lanza2006}
+\bibfield{author}{\bibinfo{person}{Michele Lanza} {and} \bibinfo{person}{Radu
+  Marinescu}.} \bibinfo{year}{2006}\natexlab{}.
+\newblock \bibinfo{booktitle}{\emph{Object-Oriented Metrics in Practice}}.
+\newblock \bibinfo{publisher}{Springer}.
 \newblock
 
 
-\bibitem[Tobin-Hochstadt and Felleisen(2008)]%
-        {TobinHochstadt2008}
-\bibfield{author}{\bibinfo{person}{Sam Tobin-Hochstadt} {and}
-  \bibinfo{person}{Matthias Felleisen}.} \bibinfo{year}{2008}\natexlab{}.
-\newblock \showarticletitle{The Design and Implementation of Typed Scheme}. In
-  \bibinfo{booktitle}{\emph{Proceedings of the 35th ACM SIGPLAN-SIGACT
-  Symposium on Principles of Programming Languages}}.
-  \bibinfo{pages}{395--406}.
+\bibitem[Okasaki(1998)]%
+        {Okasaki1998}
+\bibfield{author}{\bibinfo{person}{Chris Okasaki}.}
+  \bibinfo{year}{1998}\natexlab{}.
+\newblock \bibinfo{booktitle}{\emph{Purely Functional Data Structures}}.
+\newblock \bibinfo{publisher}{Cambridge University Press}.
+\newblock
+
+
+\bibitem[Orleans(2002)]%
+        {Orleans2002}
+\bibfield{author}{\bibinfo{person}{Doug Orleans}.}
+  \bibinfo{year}{2002}\natexlab{}.
+\newblock \showarticletitle{Filtered Dispatch}. In
+  \bibinfo{booktitle}{\emph{Proceedings of the 17th ACM SIGPLAN conference on
+  Object-oriented programming, systems, languages, and applications}}.
+  \bibinfo{pages}{20--26}.
+\newblock
+
+
+\bibitem[Salzman and Aldrich(2005)]%
+        {Salzman2005}
+\bibfield{author}{\bibinfo{person}{Lee Salzman} {and} \bibinfo{person}{Jonathan
+  Aldrich}.} \bibinfo{year}{2005}\natexlab{}.
+\newblock \showarticletitle{Prototypes with Multiple Dispatch: An Expressive
+  and Dynamic Object Model}. In \bibinfo{booktitle}{\emph{ECOOP
+  2005--Object-Oriented Programming}}. \bibinfo{publisher}{Springer},
+  \bibinfo{pages}{312--336}.
 \newblock
 
 
@@ -257,15 +191,6 @@
 \newblock \showarticletitle{Self: The power of simplicity}. In
   \bibinfo{booktitle}{\emph{ACM SIGPLAN Notices}}, Vol.~\bibinfo{volume}{22}.
   \bibinfo{publisher}{ACM}, \bibinfo{pages}{227--242}.
-\newblock
-
-
-\bibitem[Wadler(1990)]%
-        {Wadler1990}
-\bibfield{author}{\bibinfo{person}{Philip Wadler}.}
-  \bibinfo{year}{1990}\natexlab{}.
-\newblock \showarticletitle{Linear Types Can Change the World!}. In
-  \bibinfo{booktitle}{\emph{Programming Concepts and Methods}}.
 \newblock
 
 

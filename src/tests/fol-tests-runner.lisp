@@ -41,7 +41,25 @@ Returns T on success; prints error details and returns NIL on failure."
         (progn
          (format t "FAILED~%")
          (dolist (r results)
-           (format t "  ~A in ~S:~%    ~A~%" (first r) (second r) (third r)))
+           (format t "  ~A in ~S:~%    ~A~%" (first r) (second r) (third r))
+           (when (eq (first r) :runtime-error)
+             (let ((form (second r)))
+               (when (and (consp form) (eq (car form) 'fol.macros:assert))
+                 (let ((test-form (second form)))
+                   (format t "    [DEBUG] Assertion test: ~S~%" test-form)
+                   (when (and (listp test-form) 
+                              (member (first test-form) '(fol.compiler.compareops:= fol.compiler.compareops:%=)))
+                     (handler-case
+                         (let* ((left (second test-form))
+                                (right (third test-form))
+                                (lv (eval (fol.compiler:compilation-result-code (fol.compiler:compile-form left))))
+                                (rv (eval (fol.compiler:compilation-result-code (fol.compiler:compile-form right)))))
+                           (format t "    [DEBUG] Values: ~S vs ~S~%" lv rv))
+                       (error (e) (format t "    [DEBUG] Could not eval operands: ~A~%" e))))
+                   (handler-case
+                       (format t "    [DEBUG] Result of test was: ~S~%" (eval (fol.compiler:compilation-result-code (fol.compiler:compile-form test-form))))
+                     (error (e)
+                       (format t "    [DEBUG] Failed to eval test form: ~A~%" e))))))))
          nil)
         (progn
          (format t "PASSED~%")

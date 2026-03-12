@@ -23,6 +23,7 @@
            pslot-value
            set-pslot-value
            set-pslot-values
+           dissoc-pslot-values
            with-pslots
            <persistent-object>?
            %persistent-storage))

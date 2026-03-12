@@ -218,6 +218,128 @@ cost of `<vector>` trie operations is modest (3.05 us to 4.29 us from 32 to
    Above 32, FOL `<vector>` trie overflow adds measurable but modest
    overhead compared to the previous FSet-based approach.
 
+---
+
+## 4. Lazy Schema Evolution Benchmarks
+
+These benchmarks measure the cost of FOL's lazy schema migration system, where instances
+born under an older class layout are updated in-place on first access. The persistent-class
+metaclass snapshots each class redefinition into a `class-version` chain; the
+`update-instance-for-redefined-class :after` method replays the chain to recover values
+renamed across any number of intermediate redefinitions.
+
+All measurements: SBCL 2.6.0, Windows 11, AMD Ryzen 9 5900X.
+
+Both FOL and CL benchmarks use SBCL's built-in lazy migration machinery
+(`update-instance-for-redefined-class`). The CL versions use standard CLOS
+(`standard-class`, in-place `setf slot-value`) with a manually written
+`:after` method to recover renamed slots from the `property-list`. FOL
+generates this recovery code automatically from `:alias` annotations on
+the class definition.
+
+### 4a. Single-Hop Migration (Schema-1 → Schema-2)
+
+Schema evolution: 6-slot `<device>` (all native, T≤8) → 12-slot `<device>` (4 overflow
+slots, crosses T=8 boundary). Renamed slots carry `:alias` annotations in FOL. Population:
+10,000 instances born at Schema-1, first-touched after Schema-2 is defined.
+
+**FOL** (`update-slots` — functional, returns new object):
+
+| Workload | µs/op | Notes |
+|:---|---:|:---|
+| Schema-1 baseline: `update-slots :x` | 1.92 | No migration, 6-slot native |
+| Schema-2 native: `update-slots :x` | 4.01 | No migration, 12-slot hybrid (native copy) |
+| Schema-2 overflow: `update-slots :z-val` | 4.05 | No migration, 12-slot hybrid (trie rebuild) |
+| Schema-2 alias: `update-slots :z` → `z-val` | 4.15 | Keyword routed via backward-compat alias |
+| **Pass 1** (migrate + update) | **14.04** | SBCL lazy migration + alias recovery + update |
+| **Pass 2+** (post-migration steady-state) | **3.30** | Pure `update-slots`, migrated layout |
+| **Migration overhead** | **10.75** | Per-instance one-time cost |
+
+**CL** (`setf slot-value` — mutable, in-place):
+
+| Workload | µs/op | Notes |
+|:---|---:|:---|
+| Schema-1 baseline: `setf x` | 0.01 | No migration, in-place mutation |
+| Schema-2 native: `setf x` | 0.01 | No migration, in-place mutation |
+| Schema-2 renamed: `setf z-val` | 0.01 | No migration, in-place mutation |
+| **Pass 1** (migrate + setf) | **7.33** | SBCL lazy migration + manual :after + setf |
+| **Pass 2+** (post-migration steady-state) | **0.02** | Pure `setf slot-value` |
+| **Migration overhead** | **7.31** | Per-instance one-time cost |
+
+The migration overhead difference (10.75 vs 7.31 µs) reflects FOL's additional cost of
+allocating a new persistent object during `update-slots`. Steady-state diverges sharply:
+FOL's `update-slots` costs ~3.30 µs (new-object allocation + slot copy) vs CL's ~0.02 µs
+(in-place write). This is the inherent tradeoff of immutability.
+
+### 4b. Multi-Hop Migration (v0–v3 Chain)
+
+Schema evolution chain across 4 versions of `<sensor>`:
+
+```
+v0: id  x  y       val             (4 slots, all native)
+v1: id  x  y       val1 :alias val
+v2: id  x  y2 :alias y   val2 :alias val1
+v3: id  x  coord-y :alias y2  reading :alias val2
+```
+
+An instance born at v0 and first-touched at v3 requires a 3-hop composed alias lookup:
+`reading→val2→val1→val` and `coord-y→y2→y`. Population: 5,000 instances per birth
+version, all untouched until the migration cost benchmark fires.
+
+**Correctness** (all 9 checks pass):
+
+| Birth version | Slot | Expected | Result |
+|:---|:---|---:|:---|
+| v2 (1-hop) | `coord-y` recovered from `y2=777`  | 777 | OK |
+| v2 (1-hop) | `reading` recovered from `val2=999` | 999 | OK |
+| v1 (2-hop) | `coord-y` recovered via `y→y2→coord-y` | 777 | OK |
+| v1 (2-hop) | `reading` recovered via `val1→val2→reading` | 999 | OK |
+| v0 (3-hop) | `coord-y` recovered via `y→y2→coord-y` | 777 | OK |
+| v0 (3-hop) | `reading` recovered via `val→val1→val2→reading` | 999 | OK |
+
+**Migration cost — first-touch latency (µs/op)**:
+
+| Hop depth | Birth version | FOL µs/op | CL µs/op | Notes |
+|----------:|:---|---:|---:|:---|
+| 1-hop | v2 → v3 | 8.13 | 4.10 | FOL allocates new object; CL mutates in-place |
+| 2-hop | v1 → v3 | 8.36 | 5.62 | Extra plist scan in CL; extra hash-table walk in FOL |
+| 3-hop | v0 → v3 | 7.80 | 5.13 | Both dominated by SBCL migration machinery |
+
+FOL's chain-replay algorithm (one hash-table pass per snapshot) is responsible for the
+higher base cost vs CL's flat `getf` scan. At 3 hops the FOL and CL :after methods do
+comparable work; the remaining ~2.7 µs gap is FOL's persistent-object allocation.
+
+**Steady-state after migration (µs/op)** (150,000 ops per population):
+
+| Population | FOL `update-slots` µs/op | CL `setf slot-value` µs/op |
+|:---|---:|---:|
+| v3-native (no migration) | 1.40 | 0.01 |
+| v2-migrated (was 1-hop)  | 1.33 | 0.01 |
+| v1-migrated (was 2-hop)  | 1.56 | 0.01 |
+| v0-migrated (was 3-hop)  | 1.39 | 0.01 |
+
+Post-migration steady-state is uniform across all birth versions in both systems,
+confirming that migration cost is fully amortised after first touch.
+The ~140× difference in steady-state cost (1.4 µs vs 0.01 µs) is the intrinsic cost
+of persistent functional updates vs in-place mutation.
+
+### Key Findings (Schema Evolution)
+
+1. **Multi-hop recovery is essentially free**: The per-hop overhead of FOL's chain-replay
+   algorithm is sub-µs; 3-hop migration costs ≈8 µs — indistinguishable from 1-hop (8.13 µs).
+2. **Migration overhead is comparable to CL**: FOL pays 8–11 µs/instance vs CL's 4–7 µs.
+   The gap (~3 µs) is the persistent-object allocation in `update-slots`, not the alias recovery.
+3. **Zero user migration code**: FOL generates the composed alias-map automatically from
+   `:alias` annotations. The CL benchmark requires an explicit `update-instance-for-redefined-class
+   :after` method that must be updated manually every time a slot is renamed.
+4. **Steady-state uniformity**: After migration, all populations — regardless of birth
+   version — have identical update cost in both FOL and CL, confirming full layout normalisation.
+5. **Immutability tradeoff is explicit**: Steady-state `update-slots` costs ~140× more than
+   `setf slot-value` (1.4 µs vs 0.01 µs). This is the known and inherent cost of producing
+   a new immutable value rather than mutating in-place.
+
+---
+
 ## Running the Benchmarks
 
 ### Vector Operations
@@ -233,4 +355,30 @@ sbcl --noinform --non-interactive --load benchmarks/micro/map.lisp
 ### Persistence Overhead
 ```
 sbcl --noinform --non-interactive --load benchmarks/run-persistence-bench.lisp
+```
+
+### Schema Evolution — FOL (Single-hop)
+```
+sbcl --dynamic-space-size 4096 --noinform --non-interactive \
+     --eval "(push (truename \"src/\") asdf:*central-registry*)" \
+     --load benchmarks/schema-evolution-bench.lisp
+```
+
+### Schema Evolution — CL baseline (Single-hop)
+```
+sbcl --noinform --non-interactive \
+     --load benchmarks/schema-evolution-bench-cl.lisp
+```
+
+### Schema Evolution — FOL (Multi-hop)
+```
+sbcl --dynamic-space-size 4096 --noinform --non-interactive \
+     --eval "(push (truename \"src/\") asdf:*central-registry*)" \
+     --load benchmarks/multi-hop-migration-bench.lisp
+```
+
+### Schema Evolution — CL baseline (Multi-hop)
+```
+sbcl --noinform --non-interactive \
+     --load benchmarks/multi-hop-migration-bench-cl.lisp
 ```

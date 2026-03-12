@@ -331,6 +331,12 @@
   (let ((seq (fol.compiler.collections:collection-seq coll)))
     (when seq (cl:first seq))))
 
+(defmethod first ((coll cl:list))
+  (cl:first coll))
+
+(defmethod first ((coll (eql nil)))
+  nil)
+
 (defmethod first ((coll fol.compiler.collections:<vector>))
   (when (cl:plusp (fol.compiler.collections:collection-size coll))
         (ref coll 0)))
@@ -367,6 +373,12 @@
     (if (cl:rest seq)
         (%make-coll (class-name (class-of coll)) (cl:rest seq))
         (make-instance (class-of coll)))))
+
+(defmethod rest ((coll cl:list))
+  (cl:rest coll))
+
+(defmethod rest ((coll (eql nil)))
+  nil)
 
 (defmethod rest ((coll fol.compiler.collections:<vector>))
   (let ((sz (fol.compiler.collections:collection-size coll)))
@@ -617,13 +629,15 @@
       (setf curr (fol.compiler.collections:list-rest curr)))))
 
 (defmethod get ((coll <persistent-object>) key &optional default)
-  "Get slot/attribute value from a persistent object. 
+  "Get slot/attribute value from a persistent object.
    Works transparently for both native-slot and vector-backed objects.
    Expects key to be a keyword symbol mapped to a slot."
   (let* ((class (class-of coll))
          (slot-name (fol.compiler.persistent::slot-name-from-keyword class key)))
-    (if (and slot-name (slot-boundp coll slot-name))
-        (slot-value coll slot-name)
+    (if slot-name
+        (if (slot-boundp coll slot-name)
+            (slot-value coll slot-name)
+            default)
         default)))
 
 ;; CL hash-table: use gethash
@@ -690,6 +704,10 @@
   (let ((result coll))
     (dolist (k keys result)
       (setf result (fol.compiler.collections:collection-dissoc result k)))))
+
+(defmethod dissoc ((coll <persistent-object>) &rest keys)
+  "Functional removal of slots from a persistent object. Dissoc'd slots become unbound."
+  (apply #'dissoc-slots coll keys))
 
 
 ;;; ---------------------------------------------------------------------------
@@ -1846,7 +1864,7 @@
       (fol.compiler.collections:collection-seq a)
       (fol.compiler.collections:collection-seq b))))
 
-(defmethod %= ((a fol.compiler.collections:<dict>) (b fol.compiler.collections:<dict>))
+(defmethod %= ((a fol.compiler.collections:<dict-mixin>) (b fol.compiler.collections:<dict-mixin>))
   (cl:and (cl:= (size a) (size b))
     (cl:every (cl:lambda (pair)
                 (cl:multiple-value-bind (val found) (get a (cl:car pair))
@@ -1869,5 +1887,21 @@
                     (cl:and found-a found-b (cl:= count-a count-b)))))
       (fol.compiler.collections:collection-seq b))))
 
+(defmethod %= ((a <persistent-object>) (b <persistent-object>))
+  "Equality for persistent objects: same class and all slots %=."
+  (cl:and (eq (class-of a) (class-of b))
+          (cl:let* ((class (class-of a))
+                    (slots (closer-mop:class-slots class)))
+            (cl:every (cl:lambda (slot)
+                        (cl:let ((name (closer-mop:slot-definition-name slot)))
+                          (cl:if (cl:and (slot-boundp a name) (slot-boundp b name))
+                                 (%= (slot-value a name) (slot-value b name))
+                                 (cl:and (cl:not (slot-boundp a name))
+                                         (cl:not (slot-boundp b name))))))
+                      slots))))
+
 (defmethod %/= ((a fol.compiler.collections:<collection>) (b fol.compiler.collections:<collection>))
+  (cl:not (%= a b)))
+
+(defmethod %/= ((a <persistent-object>) (b <persistent-object>))
   (cl:not (%= a b)))

@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.2.2)  6 MAR 2026 08:21
+This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.2.2)  12 MAR 2026 17:11
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -700,7 +700,7 @@ nuxLibertineT-TLF.
 LaTeX Font Info:    Font shape `T1/LinuxLibertineT-TLF/m/n' will be
 (Font)              scaled to size 9.0pt on input line 3652.
 )
-Class acmart Info: Suppressing folios on input line 2.
+Class acmart Info: Printing folios on input line 2.
 
 (C:\Users\frank\AppData\Local\Programs\MiKTeX\tex/latex/listings\listings.sty
 \lst@mode=\count334
@@ -1097,6 +1097,18 @@ LaTeX Font Info:    Font shape `U/ntxexa/m/n' will be
 (Font)              scaled to size 9.0pt on input line 72.
 LaTeX Font Info:    Font shape `U/ntxexa/m/n' will be
 (Font)              scaled to size 6.6pt on input line 72.
+LaTeX Font Info:    Trying to load font information for T1+zi4 on input line 72
+.
+
+(C:\Users\frank\AppData\Local\Programs\MiKTeX\tex/latex/inconsolata\t1zi4.fd
+File: t1zi4.fd 2018/01/14 T1/zi4 (Inconsolata)
+)
+LaTeX Font Info:    Font shape `T1/zi4/m/n' will be
+(Font)              scaled to size 9.0pt on input line 72.
+Package microtype Info: Loading generic protrusion settings for font family
+(microtype)             `zi4' (encoding: T1).
+(microtype)             For optimal results, create family-specific settings.
+(microtype)             See the microtype manual for details.
 LaTeX Font Info:    Trying to load font information for TS1+LinuxLibertineT-TLF
  on input line 72.
 
@@ -1113,137 +1125,205 @@ Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             See the microtype manual for details.
 LaTeX Font Info:    Font shape `T1/LinuxLibertineT-TLF/m/it' will be
 (Font)              scaled to size 9.0pt on input line 72.
-LaTeX Font Info:    Trying to load font information for T1+zi4 on input line 76
-.
 
-(C:\Users\frank\AppData\Local\Programs\MiKTeX\tex/latex/inconsolata\t1zi4.fd
-File: t1zi4.fd 2018/01/14 T1/zi4 (Inconsolata)
-)
-LaTeX Font Info:    Font shape `T1/zi4/m/n' will be
-(Font)              scaled to size 9.0pt on input line 76.
-Package microtype Info: Loading generic protrusion settings for font family
-(microtype)             `zi4' (encoding: T1).
-(microtype)             For optimal results, create family-specific settings.
-(microtype)             See the microtype manual for details.
-LaTeX Font Info:    Font shape `T1/zi4/m/n' will be
-(Font)              scaled to size 7.0pt on input line 96.
+Underfull \vbox (badness 2809) has occurred while \output is active []
 
-[1.1{C:/Users/frank/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map}{C:/Users/
-frank/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/libertine/lbtn_25tcsq.enc}{
-C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/libertine/lbtn_76g
-pa5.enc}
+
+Underfull \hbox (badness 10000) in paragraph at lines 109--109
+[]|\T1/LinuxLibertineT-TLF/m/n/9 (+20) Violates im-mutabil-ity; struc-tural tra
+ns-for-
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 109--109
+\T1/LinuxLibertineT-TLF/m/n/9 (+20) ma-tions be-yond re-nam-ing must spe-cial-i
+ze
+ []
+
+LaTeX Font Info:    Font shape `T1/LinuxLibertineT-TLF/m/n' will be
+(Font)              scaled to size 8.0pt on input line 128.
+LaTeX Font Info:    Font shape `OT1/LinuxLibertineT-TLF/m/n' will be
+(Font)              scaled to size 8.0pt on input line 129.
+LaTeX Font Info:    Font shape `OT1/LinuxLibertineT-TLF/m/n' will be
+(Font)              scaled to size 6.0pt on input line 129.
+LaTeX Font Info:    Font shape `OML/nxlmi/m/it' will be
+(Font)              scaled to size 8.0pt on input line 129.
+LaTeX Font Info:    Font shape `OML/nxlmi/m/it' will be
+(Font)              scaled to size 6.0pt on input line 129.
+LaTeX Font Info:    Font shape `LMS/ntxsy/m/n' will be
+(Font)              scaled to size 8.0pt on input line 129.
+LaTeX Font Info:    Font shape `LMS/ntxsy/m/n' will be
+(Font)              scaled to size 6.0pt on input line 129.
+LaTeX Font Info:    Font shape `LMX/ntxexx/m/n' will be
+(Font)              scaled to size 8.0pt on input line 129.
+LaTeX Font Info:    Font shape `LMX/ntxexx/m/n' will be
+(Font)              scaled to size 6.0pt on input line 129.
+LaTeX Font Info:    Font shape `U/ntxmia/m/it' will be
+(Font)              scaled to size 8.0pt on input line 129.
+LaTeX Font Info:    Font shape `U/ntxmia/m/it' will be
+(Font)              scaled to size 6.0pt on input line 129.
+LaTeX Font Info:    Font shape `U/ntxsym/m/n' will be
+(Font)              scaled to size 8.0pt on input line 129.
+LaTeX Font Info:    Font shape `U/ntxsym/m/n' will be
+(Font)              scaled to size 6.0pt on input line 129.
+LaTeX Font Info:    Font shape `U/ntxsyc/m/n' will be
+(Font)              scaled to size 8.0pt on input line 129.
+LaTeX Font Info:    Font shape `U/ntxsyc/m/n' will be
+(Font)              scaled to size 6.0pt on input line 129.
+LaTeX Font Info:    Font shape `U/ntxexa/m/n' will be
+(Font)              scaled to size 8.0pt on input line 129.
+LaTeX Font Info:    Font shape `U/ntxexa/m/n' will be
+(Font)              scaled to size 6.0pt on input line 129.
+LaTeX Font Info:    Font shape `T1/LinuxLibertineT-TLF/m/it' will be
+(Font)              scaled to size 8.0pt on input line 130.
+LaTeX Font Info:    Font shape `T1/LinuxLibertineT-TLF/m/n' will be
+(Font)              scaled to size 6.0pt on input line 130.
+LaTeX Font Info:    Font shape `T1/LinuxLibertineT-TLF/m/n' will be
+(Font)              scaled to size 5.5pt on input line 130.
+LaTeX Font Info:    Font shape `T1/zi4/m/n' will be
+(Font)              scaled to size 8.0pt on input line 130.
+
+Class acmart Warning: A possible image without description on input line 140.
+
+LaTeX Font Info:    Font shape `T1/LinuxLibertineT-TLF/m/n' will be
+(Font)              scaled to size 6.6pt on input line 145.
+
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+ [1.1{C:/Users/frank/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map}{C:/Users
+/frank/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/libertine/lbtn_25tcsq.enc}
+{C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/libertine/lbtn_76
+gpa5.enc}
 
 {C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/libertine/lbtn_nh
 77jq.enc}{C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/libertin
 e/lbtn_oexx6f.enc}{C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/enc/dvips
-/libertine/lbtn_naooyc.enc}{C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/
-enc/dvips/libertine/lbtn_7grukw.enc}{C:/Users/frank/AppData/Local/Programs/MiKT
-eX/fonts/enc/dvips/inconsolata/i4-t1-4.enc}]
-LaTeX Font Info:    Font shape `T1/LinuxBiolinumT-TLF/m/n' will be
-(Font)              scaled to size 9.0pt on input line 177.
-LaTeX Font Info:    Font shape `T1/LinuxBiolinumT-TLF/m/n' will be
-(Font)              scaled to size 7.0pt on input line 177.
- [2.2]
-LaTeX Font Info:    Font shape `T1/zi4/b/n' will be
-(Font)              scaled to size 9.0pt on input line 177.
-
-Overfull \hbox (7.29095pt too wide) in paragraph at lines 177--178
-[]\T1/zi4/b/n/9 defn \T1/LinuxLibertineT-TLF/b/n/9 (-20) vs \T1/zi4/b/n/9 defge
-neric\T1/LinuxLibertineT-TLF/b/n/9 (-20) /\T1/zi4/b/n/9 defmethod\T1/LinuxLiber
-tineT-TLF/m/n/9 (-20) : Ev-ery FOL func-tion is dis-patched
- []
-
-LaTeX Font Info:    Font shape `T1/LinuxLibertineT-TLF/m/n' will be
-(Font)              scaled to size 6.6pt on input line 186.
-LaTeX Font Info:    Font shape `T1/LinuxLibertineT-TLF/m/n' will be
-(Font)              scaled to size 5.5pt on input line 186.
-
-Class acmart Warning: A possible image without description on input line 207.
-
-LaTeX Font Info:    Font shape `T1/LinuxLibertineT-TLF/m/n' will be
-(Font)              scaled to size 8.0pt on input line 217.
-LaTeX Font Info:    Font shape `OT1/LinuxLibertineT-TLF/m/n' will be
-(Font)              scaled to size 8.0pt on input line 218.
-LaTeX Font Info:    Font shape `OT1/LinuxLibertineT-TLF/m/n' will be
-(Font)              scaled to size 6.0pt on input line 218.
-LaTeX Font Info:    Font shape `OML/nxlmi/m/it' will be
-(Font)              scaled to size 8.0pt on input line 218.
-LaTeX Font Info:    Font shape `OML/nxlmi/m/it' will be
-(Font)              scaled to size 6.0pt on input line 218.
-LaTeX Font Info:    Font shape `LMS/ntxsy/m/n' will be
-(Font)              scaled to size 8.0pt on input line 218.
-LaTeX Font Info:    Font shape `LMS/ntxsy/m/n' will be
-(Font)              scaled to size 6.0pt on input line 218.
-LaTeX Font Info:    Font shape `LMX/ntxexx/m/n' will be
-(Font)              scaled to size 8.0pt on input line 218.
-LaTeX Font Info:    Font shape `LMX/ntxexx/m/n' will be
-(Font)              scaled to size 6.0pt on input line 218.
-LaTeX Font Info:    Font shape `U/ntxmia/m/it' will be
-(Font)              scaled to size 8.0pt on input line 218.
-LaTeX Font Info:    Font shape `U/ntxmia/m/it' will be
-(Font)              scaled to size 6.0pt on input line 218.
-LaTeX Font Info:    Font shape `U/ntxsym/m/n' will be
-(Font)              scaled to size 8.0pt on input line 218.
-LaTeX Font Info:    Font shape `U/ntxsym/m/n' will be
-(Font)              scaled to size 6.0pt on input line 218.
-LaTeX Font Info:    Font shape `U/ntxsyc/m/n' will be
-(Font)              scaled to size 8.0pt on input line 218.
-LaTeX Font Info:    Font shape `U/ntxsyc/m/n' will be
-(Font)              scaled to size 6.0pt on input line 218.
-LaTeX Font Info:    Font shape `U/ntxexa/m/n' will be
-(Font)              scaled to size 8.0pt on input line 218.
-LaTeX Font Info:    Font shape `U/ntxexa/m/n' will be
-(Font)              scaled to size 6.0pt on input line 218.
+/inconsolata/i4-t1-4.enc}{C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/en
+c/dvips/libertine/lbtn_naooyc.enc}{C:/Users/frank/AppData/Local/Programs/MiKTeX
+/fonts/enc/dvips/libertine/lbtn_7grukw.enc}]
 LaTeX Font Info:    Font shape `T1/LinuxLibertineT-TLF/b/n' will be
-(Font)              scaled to size 8.0pt on input line 220.
-LaTeX Font Info:    Font shape `T1/zi4/m/n' will be
-(Font)              scaled to size 8.0pt on input line 222.
+(Font)              scaled to size 8.0pt on input line 154.
+
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+
+
+LaTeX Font Warning: Font shape `T1/zi4/m/it' undefined
+(Font)              using `T1/zi4/m/n' instead on input line 165.
+
+LaTeX Font Info:    Font shape `T1/LinuxBiolinumT-TLF/m/n' will be
+(Font)              scaled to size 9.0pt on input line 169.
 LaTeX Font Info:    Font shape `T1/LinuxBiolinumT-TLF/m/it' will be
-(Font)              scaled to size 9.0pt on input line 232.
+(Font)              scaled to size 9.0pt on input line 169.
+LaTeX Font Info:    Font shape `T1/LinuxBiolinumT-TLF/m/n' will be
+(Font)              scaled to size 7.0pt on input line 189.
+[2.2]
 LaTeX Font Info:    Font shape `T1/LinuxLibertineT-TLF/m/sc' will be
-(Font)              scaled to size 9.0pt on input line 260.
+(Font)              scaled to size 9.0pt on input line 198.
+
+
+Class acmart Warning: \vspace should only be used to provide space above/below 
+surrounding objects on input line 216.
+
+
+Class acmart Warning: \vspace should only be used to provide space above/below 
+surrounding objects on input line 224.
+
+Package hyperref Info: bookmark level for unknown lstlisting defaults to 0 on i
+nput line 242.
+LaTeX Font Info:    Font shape `T1/zi4/b/n' will be
+(Font)              scaled to size 9.0pt on input line 242.
+LaTeX Font Info:    Font shape `T1/zi4/m/n' will be
+(Font)              scaled to size 7.0pt on input line 242.
 [3.3{C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/libertine/lbt
 n_ncsllp.enc}]
-Package hyperref Info: bookmark level for unknown lstlisting defaults to 0 on i
-nput line 275.
- [4.4]
+LaTeX Font Info:    Trying to load font information for TS1+zi4 on input line 2
+51.
+
+(C:\Users\frank\AppData\Local\Programs\MiKTeX\tex/latex/inconsolata\ts1zi4.fd
+File: ts1zi4.fd 2018/01/14 TS1/zi4 (Inconsolata)
+)
+LaTeX Font Info:    Font shape `TS1/zi4/m/n' will be
+(Font)              scaled to size 7.0pt on input line 251.
+Package microtype Info: Loading generic protrusion settings for font family
+(microtype)             `zi4' (encoding: TS1).
+(microtype)             For optimal results, create family-specific settings.
+(microtype)             See the microtype manual for details.
+
+Overfull \hbox (4.55804pt too wide) in paragraph at lines 282--283
+ \T1/LinuxBiolinumT-TLF/m/it/9 (-20) 3.1.5 Per-sis-tence and Ver-sion-ing Per-f
+or-mance.[] \T1/LinuxLibertineT-TLF/m/n/9 (-20) Ver-sion-ing overhead---
+ []
+
+
+Underfull \hbox (badness 1688) in paragraph at lines 322--323
+[]\T1/LinuxLibertineT-TLF/m/n/7 (+20) Multi-parameter type dis-patch na-tively;
+ li-braries like
+ []
+
 LaTeX Font Info:    Font shape `T1/LinuxLibertineT-TLF/m/it' will be
-(Font)              scaled to size 7.0pt on input line 328.
- [5.5]
-Overfull \hbox (8.38858pt too wide) in paragraph at lines 430--431
-\T1/LinuxLibertineT-TLF/m/n/9 (-20) by five slot up-dates. Each call dis-patche
-s through the \T1/zi4/m/n/9 fol.core:assoc
+(Font)              scaled to size 7.0pt on input line 323.
+[4.4{C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/inconsolata/i
+4-ts1.enc}]
+Overfull \hbox (16.19217pt too wide) in paragraph at lines 395--408
+ [][] 
  []
 
 
-Overfull \hbox (5.1615pt too wide) in paragraph at lines 430--431
-\T1/LinuxLibertineT-TLF/m/n/9 (-20) change is de-tected trig-gers a \T1/LinuxLi
-bertineT-TLF/m/it/9 (-20) re-cur-sive \T1/zi4/m/n/9 assoc \T1/LinuxLibertineT-T
-LF/m/n/9 (-20) to in-cre-ment \T1/zi4/m/n/9 _changes\T1/LinuxLibertineT-TLF/m/n
-/9 (-20) ---
+Overfull \hbox (1.20955pt too wide) in paragraph at lines 410--411
+[]\T1/LinuxLibertineT-TLF/m/n/9 (-20) Merge sort over-head ($\OT1/LinuxLibertin
+eT-TLF/m/n/9 (-20) 34\LMS/ntxsy/m/n/9 ^^B$\T1/LinuxLibertineT-TLF/m/n/9 (-20) )
+ stems from $\OML/nxlmi/m/it/9 O\LMS/ntxsy/m/n/9 ¹[] \OML/nxlmi/m/it/9 N\LMS/nt
+xsy/m/n/9 º$ \T1/LinuxLibertineT-TLF/m/n/9 (-20) trie node touches
+ []
+
+[5.5]
+Overfull \hbox (14.69896pt too wide) in paragraph at lines 508--519
+ [][] 
  []
 
 
-Overfull \hbox (5.93904pt too wide) in paragraph at lines 434--435
-[]\T1/LinuxLibertineT-TLF/b/n/9 (-20) Hierarchical Spec-u-la-tive Ex-e-cu-tion 
-\T1/LinuxLibertineT-TLF/m/n/9 (-20) (1,000,000 de-posits through
+Overfull \hbox (13.6132pt too wide) in paragraph at lines 526--527
+\T1/LinuxLibertineT-TLF/m/n/9 (-20) vs $[]\OT1/LinuxLibertineT-TLF/m/n/9 (-20) 
+37$\T1/LinuxLibertineT-TLF/m/n/9 (-20) ns for mu-ta-ble \T1/zi4/m/n/9 make-inst
+ance \T1/LinuxLibertineT-TLF/m/n/9 (-20) ($\OT1/LinuxLibertineT-TLF/m/n/9 (-20)
+ 5[]$\T1/LinuxLibertineT-TLF/m/n/9 (-20) ) and $[]\OT1/LinuxLibertineT-TLF/m/n/
+9 (-20) 25$\T1/LinuxLibertineT-TLF/m/n/9 (-20) ns for \T1/zi4/m/n/9 make-struct
+
  []
 
 
-Overfull \hbox (8.51212pt too wide) in paragraph at lines 434--435
-\T1/LinuxLibertineT-TLF/m/n/9 (-20) path copy in the persistent-object up-date,
- not the method-combination
+Overfull \hbox (1.9302pt too wide) in paragraph at lines 526--527
+[]\OT1/LinuxLibertineT-TLF/m/n/9 (-20) 877$\T1/LinuxLibertineT-TLF/m/n/9 (-20) 
+ns---$[]\OT1/LinuxLibertineT-TLF/m/n/9 (-20) 24[]$ \T1/LinuxLibertineT-TLF/m/n/
+9 (-20) over mu-ta-ble \T1/zi4/m/n/9 make-instance \T1/LinuxLibertineT-TLF/m/n/
+9 (-20) and $[]\OT1/LinuxLibertineT-TLF/m/n/9 (-20) 35[]$ \T1/LinuxLibertineT-T
+LF/m/n/9 (-20) over a struct
  []
 
 [6.6]
 LaTeX Font Info:    Font shape `TS1/LinuxLibertineT-TLF/b/n' will be
-(Font)              scaled to size 9.0pt on input line 476.
- [7.7{C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/libertine/lb
-tn_7f4ce4.enc}]
-Overfull \hbox (15.14677pt too wide) in paragraph at lines 541--542
-\T1/LinuxLibertineT-TLF/m/n/9 (-20) based or-dered dis-patch en-sures pre-dicta
-bil-ity by in-spec-tion. \T1/LinuxLibertineT-TLF/b/n/9 (-20) Racket \T1/LinuxLi
-bertineT-TLF/m/n/9 (-20) [[]]
+(Font)              scaled to size 9.0pt on input line 530.
+
+Overfull \hbox (13.73521pt too wide) in paragraph at lines 587--597
+ [][] 
+ []
+
+[7.7{C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/libertine/lbt
+n_7f4ce4.enc}]
+Overfull \hbox (10.44164pt too wide) in paragraph at lines 656--657
+[]\T1/LinuxLibertineT-TLF/m/n/9 (-20) The speci-ficity cal-cu-lus ap-plies the 
+re-cur-sive rule $\LMS/ntxsy/m/n/9 L¹[] \OML/nxlmi/m/it/9 p[] [] p[]\LMS/ntxsy/
+m/n/9 º \U/ntxmia/m/it/9 =
+ []
+
+
+Underfull \vbox (badness 3049) has occurred while \output is active []
+
+
+Overfull \hbox (30.35434pt too wide) in paragraph at lines 674--675
+[]\T1/LinuxLibertineT-TLF/m/n/9 (-20) The im-ple-men-ta-tion is avail-able at [
+]$https : / / github . com / frankadrian314159 /
  []
 
 (els-2026-paper.bbl
@@ -1252,14 +1332,12 @@ Package balance Warning: You have called \balance in second column
 (balance)                Columns might not be balanced.
 
 [8.8]
-LaTeX Info: Redefining \tempurl on input line 192.
-
-Underfull \hbox (badness 3646) in paragraph at lines 186--195
+Underfull \hbox (badness 3646) in paragraph at lines 104--113
 []\T1/LinuxLibertineT-TLF/m/n/7 (+20) Rich Hickey. 2009.  Are We There Yet?  JV
 M Lan-guages Sum-mit
  []
 
-LaTeX Info: Redefining \tempurl on input line 205.
+LaTeX Info: Redefining \tempurl on input line 123.
 )
 
 Class acmart Warning: Some images may lack descriptions.
@@ -1277,9 +1355,6 @@ rtant steps when creating your papers will ensure that the widest possible audi
 ence can ingest your work..
 
 
-Overfull \vbox (1.319pt too high) has occurred while \output is active []
-
-
 (C:\Users\frank\AppData\Local\Programs\MiKTeX\tex/generic/stringenc\se-pdfdoc.d
 ef
 File: se-pdfdoc.def 2019/11/29 v1.12 stringenc: PDFDocEncoding
@@ -1291,17 +1366,21 @@ File: se-utf8.def 2019/11/29 v1.12 stringenc: UTF-8
 LaTeX2e <2025-11-01>
 L3 programming layer <2025-12-24>
  ***********
+
+
+LaTeX Font Warning: Some font shapes were not available, defaults substituted.
+
 Package rerunfilecheck Info: File `els-2026-paper.out' has not changed.
-(rerunfilecheck)             Checksum: 3F1341E6A158DE764D81C949D8E7B8F6;4062.
+(rerunfilecheck)             Checksum: C94D16811F2D5961D9CDC8C229C1E4BC;3132.
  ) 
 Here is how much of TeX's memory you used:
- 23715 strings out of 467871
- 385701 string characters out of 5418377
- 1152079 words of memory out of 5000000
- 51300 multiletter control sequences out of 15000+600000
- 852732 words of font info for 549 fonts, out of 8000000 for 9000
+ 23780 strings out of 467871
+ 387005 string characters out of 5418377
+ 1312500 words of memory out of 5000000
+ 51318 multiletter control sequences out of 15000+600000
+ 864857 words of font info for 565 fonts, out of 8000000 for 9000
  1302 hyphenation exceptions out of 8191
- 90i,21n,131p,1773b,1220s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 90i,21n,131p,1662b,2097s stack positions out of 10000i,1000n,20000p,200000b,200000s
 <C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/inconsolata/
 Inconsolata-zi4b.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/
 public/inconsolata/Inconsolata-zi4r.pfb><C:/Users/frank/AppData/Local/Programs/
@@ -1321,9 +1400,9 @@ TXMI.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/newtx
 newtx/txmiaX.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/publ
 ic/newtx/txsym.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/pu
 blic/newtx/txsys.pfb>
-Output written on els-2026-paper.pdf (9 pages, 615912 bytes).
+Output written on els-2026-paper.pdf (9 pages, 624015 bytes).
 PDF statistics:
- 423 PDF objects out of 1000 (max. 8388607)
- 134 named destinations out of 1000 (max. 500000)
- 122569 words of extra memory for PDF output out of 128383 (max. 10000000)
+ 447 PDF objects out of 1000 (max. 8388607)
+ 153 named destinations out of 1000 (max. 500000)
+ 129193 words of extra memory for PDF output out of 154059 (max. 10000000)
 

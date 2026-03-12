@@ -83,10 +83,8 @@
                    (key (string slot-name)))
               (if (fset:domain-contains? storage key)
                   (fset:lookup storage key)
-                  ;; Slot not in storage - try initform or signal unbound
-                  (if (closer-mop:slot-definition-initfunction slot)
-                      (funcall (closer-mop:slot-definition-initfunction slot))
-                      (slot-unbound class object slot-name))))
+                  ;; Slot not in storage - signal unbound
+                  (slot-unbound class object slot-name)))
             ;; Storage doesn't exist yet (during initialization)
             ;; Use call-next-method to get standard slot behavior
             (call-next-method)))))
@@ -160,6 +158,20 @@
     ;; Update all slots in the storage
     (loop for (slot-name value) on slot-name-value-pairs by #'cddr
           do (setf storage (fset:with storage (string slot-name) value)))
+    ;; Initialize the new object with updated storage
+    (let ((*initializing-persistent-object* t))
+      (setf (%persistent-storage new-obj) storage))
+    new-obj))
+
+(defun dissoc-pslot-values (object &rest slot-names)
+  "Create a new persistent object with the specified slots removed from storage.
+   Removing a slot makes it unbound. Returns a new object."
+  (let* ((class (class-of object))
+         (new-obj (allocate-instance class))
+         (storage (%persistent-storage object)))
+    ;; Remove all specified slots from the storage
+    (dolist (slot-name slot-names)
+      (setf storage (fset:less storage (string slot-name))))
     ;; Initialize the new object with updated storage
     (let ((*initializing-persistent-object* t))
       (setf (%persistent-storage new-obj) storage))

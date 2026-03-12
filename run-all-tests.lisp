@@ -1,0 +1,8 @@
+(require :asdf)
+(let ((ql-init (merge-pathnames "quicklisp/setup.lisp" (user-homedir-pathname))))
+  (if (probe-file ql-init) (load ql-init)))
+(ql:quickload :fiveam :silent t)
+(pushnew (truename "src/") asdf:*central-registry*)
+(format t "Starting :fol-compiler/all-tests...~%")
+(asdf:test-system :fol-compiler/all-tests)
+(sb-ext:exit)
