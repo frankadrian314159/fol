@@ -156,7 +156,7 @@ coordinated state mutation is handled via Atom (CAS-based) and Ref (STM) primiti
 Slot storage uses a hybrid strategy: objects with $\le 8$ slots use native CLOS slots,
 while wider objects overflow into a 32-way persistent trie. This threshold keeps $\approx$80\%
 of classes~\cite{Lanza2006} on the native fast path; Table~\ref{tab:threshold-update} shows $T=8$ also minimizes modeled update cost for the 8-slot case, meeting both objectives.
-All redefinitions are handled lazily at the next object mutation (\texttt{assoc}, etc.).
+All redefinitions are handled lazily at the next object mutation (\texttt{assoc},\texttt{dissoc}, etc.).
 
 Immutability is enforced via the \texttt{persistent-class} metaclass, which intercepts slot
 access (Table~\ref{tab:mop-ops}) to: (1)~guard against mutation; (2)~map logical slots to the
@@ -230,8 +230,8 @@ by confining mutation to a thread-local window; $W$ successive writes cost $O(W 
 but allocate only $O(\log_{32} N)$ nodes (one initial path copy).
 \textbf{Macros} follow Clojure-style expansion.
 
-Generic functions dispatch by arity, then specificity.
-\textbf{Closed dispatch} (\texttt{defn}) emits a plain \texttt{defun} containing a \texttt{cond} cascade (full clause set known at load time); \texttt{call-next-method} is unavailable.
+Generic functions dispatch by arity, then specificity (Section \ref{sec:dispatch}).
+\textbf{Closed dispatch} (\texttt{defn}) emits a plain \texttt{defun} containing a \texttt{cond} cascade (full clause set known at load time) where \texttt{call-next-method} is unavailable.
 \textbf{Open dispatch} (\texttt{defmethod}) supports CLOS-style extensibility; use it when \texttt{call-next-method} or auxiliary qualifiers (\texttt{:before}/\texttt{:after}/\texttt{:around}) are needed.
 
 \section{Predicate Dispatch}
@@ -580,7 +580,7 @@ FOL \texttt{defn} (Closed Dispatch) & 57.2\,ns & 1.54$\times$ \\
 FOL \texttt{defgeneric} (Open Dispatch) & 60.6\,ns & 1.63$\times$ \\
 \bottomrule
 \end{tabular}
-\end{table}
+\end{table}o
 
 FOL's predicate dispatch adds $\approx$1.6$\times$ overhead relative to optimized CLOS type dispatch.
 The parity between FOL variants and the manual \texttt{cl:cond} baseline confirms that FOL's routing is as efficient
