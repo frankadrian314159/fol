@@ -1,0 +1,78 @@
+This is BibTeX, Version 0.99e
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: els2.aux
+Reallocating 'name_of_file' (item size: 1) to 21 items.
+The style file: ACM-Reference-Format.bst
+Reallocating 'name_of_file' (item size: 1) to 15 items.
+Reallocating 'singl_function' (item size: 4) to 100 items.
+Reallocating 'singl_function' (item size: 4) to 100 items.
+Reallocating 'wiz_functions' (item size: 4) to 6000 items.
+Database file #1: els-2026-paper.bib
+Reallocating 'singl_function' (item size: 4) to 100 items.
+Reallocating 'wiz_functions' (item size: 4) to 9000 items.
+Reallocating 'glb_str_end' (item size: 4) to 20 items.
+Reallocating 'glb_str_ptr' (item size: 4) to 20 items.
+Reallocating 'global_strs' (item size: 1) to 4000000 items.
+Reallocating 'singl_function' (item size: 4) to 100 items.
+Warning--empty address in Apple1992
+Warning--empty publisher in Chambers1993
+Warning--empty address in Chambers1993
+Warning--empty address in Emir2007
+Warning--empty address in Ernst1998
+Warning--empty publisher in Flatt2015
+Warning--empty address in Flatt2015
+Warning--page numbers missing in both pages and numpages fields in Flatt2015
+Warning--empty address in Flatt2006
+Warning--empty publisher in Hickey2008
+Warning--empty address in Hickey2008
+Warning--empty address in Kiczales1991
+Warning--empty address in Lanza2006
+Warning--empty address in Odersky2016
+Warning--empty address in Okasaki1998
+Warning--empty publisher in Orleans2002
+Warning--empty address in Orleans2002
+Warning--empty address in Salzman2005
+Warning--can't use both volume and number fields in Ungar1987
+Warning--empty address in Ungar1987
+You've used 22 entries,
+            6273 wiz_defined-function locations,
+            1663 strings with 21220 characters,
+and the built_in function-call counts, 20944 in all, are:
+= -- 2312
+> -- 544
+< -- 2
++ -- 172
+- -- 202
+* -- 1322
+:= -- 2083
+add.period$ -- 116
+call.type$ -- 22
+change.case$ -- 129
+chr.to.int$ -- 22
+cite$ -- 42
+duplicate$ -- 2081
+empty$ -- 1455
+format.name$ -- 242
+if$ -- 4885
+int.to.chr$ -- 2
+int.to.str$ -- 1
+missing$ -- 63
+newline$ -- 219
+num.names$ -- 154
+pop$ -- 835
+preamble$ -- 1
+purify$ -- 305
+quote$ -- 0
+skip$ -- 791
+stack$ -- 0
+substring$ -- 1559
+swap$ -- 189
+text.length$ -- 2
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 557
+warning$ -- 20
+while$ -- 154
+width$ -- 0
+write$ -- 461
+(There were 20 warnings)

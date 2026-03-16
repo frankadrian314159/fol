@@ -1,5 +1,5 @@
 \documentclass[sigconf,nonacm]{acmart}
-\settopmatter{printfolios=true}
+\settopmatter{printfolios=false}
 
 \usepackage{listings}
 \usepackage{booktabs}
@@ -20,6 +20,35 @@
   xleftmargin=0pt
 }
 
+\AtBeginDocument{%
+  \pdfgentounicode=0%
+  \hypersetup{unicode=false,%
+    pdfabstract={FOL (Functional Object Lisp) provides CLOS-style object orientation backed by persistent data structures, using the Common Lisp Metaobject Protocol (MOP). We contribute: (1) a persistent metaclass system with hybrid storage and lazy schema migration, and (2) a specificity-ordered predicate dispatch model. Persistent slot storage incurs 1.4--2.1x read overhead. In an AST optimization engine with 25 node classes and 54 predicate-dispatch rewrite rules, FOL is 19.2x slower than a defstruct+typecase baseline while providing O(1) speculative rollback. Whole-program overhead in a 1.18-billion-gate event-queue simulation narrows to 6.9x. Our predicate dispatch introduces a syntactically computable, level-based ordering that provides a predictable alternative to logical subsumption.}%
+  }%
+  % Override any SMP (4-byte) glyph->Unicode mappings back to ASCII.
+  % glyphtounicode-extra.tex (loaded by newer TeX Live) remaps cmmi/cmsy
+  % letter glyphs to Mathematical Italic/Script SMP codepoints.
+  % Resetting them here forces ASCII, preventing 4-byte UTF-8 in the PDF.
+  \pdfglyphtounicode{A}{0041}\pdfglyphtounicode{B}{0042}\pdfglyphtounicode{C}{0043}%
+  \pdfglyphtounicode{D}{0044}\pdfglyphtounicode{E}{0045}\pdfglyphtounicode{F}{0046}%
+  \pdfglyphtounicode{G}{0047}\pdfglyphtounicode{H}{0048}\pdfglyphtounicode{I}{0049}%
+  \pdfglyphtounicode{J}{004A}\pdfglyphtounicode{K}{004B}\pdfglyphtounicode{L}{004C}%
+  \pdfglyphtounicode{M}{004D}\pdfglyphtounicode{N}{004E}\pdfglyphtounicode{O}{004F}%
+  \pdfglyphtounicode{P}{0050}\pdfglyphtounicode{Q}{0051}\pdfglyphtounicode{R}{0052}%
+  \pdfglyphtounicode{S}{0053}\pdfglyphtounicode{T}{0054}\pdfglyphtounicode{U}{0055}%
+  \pdfglyphtounicode{V}{0056}\pdfglyphtounicode{W}{0057}\pdfglyphtounicode{X}{0058}%
+  \pdfglyphtounicode{Y}{0059}\pdfglyphtounicode{Z}{005A}%
+  \pdfglyphtounicode{a}{0061}\pdfglyphtounicode{b}{0062}\pdfglyphtounicode{c}{0063}%
+  \pdfglyphtounicode{d}{0064}\pdfglyphtounicode{e}{0065}\pdfglyphtounicode{f}{0066}%
+  \pdfglyphtounicode{g}{0067}\pdfglyphtounicode{h}{0068}\pdfglyphtounicode{i}{0069}%
+  \pdfglyphtounicode{j}{006A}\pdfglyphtounicode{k}{006B}\pdfglyphtounicode{l}{006C}%
+  \pdfglyphtounicode{m}{006D}\pdfglyphtounicode{n}{006E}\pdfglyphtounicode{o}{006F}%
+  \pdfglyphtounicode{p}{0070}\pdfglyphtounicode{q}{0071}\pdfglyphtounicode{r}{0072}%
+  \pdfglyphtounicode{s}{0073}\pdfglyphtounicode{t}{0074}\pdfglyphtounicode{u}{0075}%
+  \pdfglyphtounicode{v}{0076}\pdfglyphtounicode{w}{0077}\pdfglyphtounicode{x}{0078}%
+  \pdfglyphtounicode{y}{0079}\pdfglyphtounicode{z}{007A}%
+}
+
 \setcopyright{none}
 \acmDOI{}
 \acmISBN{}
@@ -27,8 +56,9 @@
 \acmYear{2026}
 
 \begin{document}
+\pdfgentounicode=0
 
-\title{FOL: Bridging CLOS and Clojure via the Metaobject Protocol}
+\title{FOL: Bridging Object-Oriented and Functional Programming via the Metaobject Protocol}
 
 \author{Frank Adrian}
 \affiliation{%
@@ -529,7 +559,7 @@ We measured performance for persistent objects vs mutable CLOS across slot count
 
 \begin{table}[htbp]
 \small
-\caption{Actual slot update overhead (µs/op) vs.\ native CLOS}
+\caption{Actual slot update overhead ($\mu$s/op) vs.\ native CLOS}
 \label{tab:micro-update}
 \begin{threeparttable}
 \begin{tabular}{rrrrl}
@@ -613,7 +643,7 @@ Table~\ref{tab:schema-evo-single} compares first-touch migration cost and post-m
 \begin{table}[htbp]
 \small
 \centering
-\caption{Single-hop lazy migration: FOL vs.\ CL (µs/op, 10K instances)}
+\caption{Single-hop lazy migration: FOL vs.\ CL ($\mu$s/op, 10K instances)}
 \label{tab:schema-evo-single}
 \begin{tabularx}{\columnwidth}{>{\raggedright\arraybackslash\hsize=0.6\hsize}X r r >{\raggedright\arraybackslash\hsize=1.4\hsize}X}
 \toprule
@@ -629,7 +659,7 @@ Steady-state update & 3.30 & 0.02 & post-migration, repeated use \\
 \begin{table}[htbp]
 \small
 \centering
-\caption{Multi-hop lazy migration first-touch cost (µs/op, 5K instances per cohort)}
+\caption{Multi-hop lazy migration first-touch cost ($\mu$s/op, 5K instances per cohort)}
 \label{tab:schema-evo-multi}
 \begin{tabularx}{\columnwidth}{lrrX}
 \toprule
@@ -678,5 +708,7 @@ The implementation is available at \url{https://github.com/frankadrian314159/fol
 \balance
 \bibliographystyle{ACM-Reference-Format}
 \bibliography{els-2026-paper}
+
+\AtEndDocument{\pdfgentounicode=0}
 
 \end{document}

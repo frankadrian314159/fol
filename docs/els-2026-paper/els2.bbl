@@ -1,0 +1,278 @@
+%%% -*-BibTeX-*-
+%%% Do NOT edit. File created by BibTeX with style
+%%% ACM-Reference-Format-Journals [18-Jan-2012].
+
+\begin{thebibliography}{22}
+
+%%% ====================================================================
+%%% NOTE TO THE USER: you can override these defaults by providing
+%%% customized versions of any of these macros before the \bibliography
+%%% command.  Each of them MUST provide its own final punctuation,
+%%% except for \shownote{} and \showURL{}.  The latter two
+%%% do not use final punctuation, in order to avoid confusing it with
+%%% the Web address.
+%%%
+%%% To suppress output of a particular field, define its macro to expand
+%%% to an empty string, or better, \unskip, like this:
+%%%
+%%% \newcommand{\showURL}[1]{\unskip}   % LaTeX syntax
+%%%
+%%% \def \showURL #1{\unskip}           % plain TeX syntax
+%%%
+%%% ====================================================================
+
+\ifx \showCODEN    \undefined \def \showCODEN     #1{\unskip}     \fi
+\ifx \showISBNx    \undefined \def \showISBNx     #1{\unskip}     \fi
+\ifx \showISBNxiii \undefined \def \showISBNxiii  #1{\unskip}     \fi
+\ifx \showISSN     \undefined \def \showISSN      #1{\unskip}     \fi
+\ifx \showLCCN     \undefined \def \showLCCN      #1{\unskip}     \fi
+\ifx \shownote     \undefined \def \shownote      #1{#1}          \fi
+\ifx \showarticletitle \undefined \def \showarticletitle #1{#1}   \fi
+\ifx \showURL      \undefined \def \showURL       {\relax}        \fi
+% The following commands are used for tagged output and should be
+% invisible to TeX
+\providecommand\bibfield[2]{#2}
+\providecommand\bibinfo[2]{#2}
+\providecommand\natexlab[1]{#1}
+\providecommand\showeprint[2][]{arXiv:#2}
+
+\bibitem[{Apple Computer, Inc.}(1992)]%
+        {Apple1992}
+\bibfield{author}{\bibinfo{person}{{Apple Computer, Inc.}}}
+  \bibinfo{year}{1992}\natexlab{}.
+\newblock \bibinfo{booktitle}{\emph{Dylan - An Object-Oriented Dynamic
+  Programming Language}}.
+\newblock \bibinfo{publisher}{Apple Computer, Inc.}
+\newblock
+
+
+\bibitem[Bagwell(2001)]%
+        {Bagwell2000}
+\bibfield{author}{\bibinfo{person}{Phil Bagwell}.}
+  \bibinfo{year}{2001}\natexlab{}.
+\newblock \bibinfo{booktitle}{\emph{Ideal Hash Trees}}.
+\newblock \bibinfo{type}{Technical Report}~1. \bibinfo{institution}{EPFL},
+  \bibinfo{address}{Lausanne, Switzerland}.
+\newblock
+
+
+\bibitem[Bezanson et~al\mbox{.}(2017)]%
+        {Bezanson2017}
+\bibfield{author}{\bibinfo{person}{Jeff Bezanson}, \bibinfo{person}{Alan
+  Edelman}, \bibinfo{person}{Stefan Karpinski}, {and} \bibinfo{person}{Viral~B
+  Shah}.} \bibinfo{year}{2017}\natexlab{}.
+\newblock \showarticletitle{Julia: A Fresh Approach to Numerical Computing}.
+\newblock \bibinfo{journal}{\emph{SIAM Rev.}} \bibinfo{volume}{59},
+  \bibinfo{number}{1} (\bibinfo{year}{2017}), \bibinfo{pages}{65--98}.
+\newblock
+
+
+\bibitem[Burke(2007)]%
+        {Burke2007}
+\bibfield{author}{\bibinfo{person}{Scott~L Burke}.}
+  \bibinfo{year}{2007}\natexlab{}.
+\newblock \bibinfo{title}{FSet: A functional set-theoretic collections
+  library}.
+\newblock
+\urldef\tempurl%
+\url{https://common-lisp.net/project/fset/}
+\showURL{%
+\tempurl}
+
+
+\bibitem[Chambers(1993)]%
+        {Chambers1993}
+\bibfield{author}{\bibinfo{person}{Craig Chambers}.}
+  \bibinfo{year}{1993}\natexlab{}.
+\newblock \showarticletitle{The Cecil Language: Design and Performance}. In
+  \bibinfo{booktitle}{\emph{Proceedings of the Conference on Object-Oriented
+  Programming Systems, Languages, and Applications}}.
+  \bibinfo{pages}{243--257}.
+\newblock
+
+
+\bibitem[Crane(1972)]%
+        {Crane1972}
+\bibfield{author}{\bibinfo{person}{Clark~Allen Crane}.}
+  \bibinfo{year}{1972}\natexlab{}.
+\newblock \bibinfo{booktitle}{\emph{Linear Lists and Priority Queues as
+  Balanced Binary Trees}}.
+\newblock \bibinfo{type}{Technical Report} STAN-CS-72-259.
+  \bibinfo{institution}{Stanford University}.
+\newblock
+
+
+\bibitem[Driscoll et~al\mbox{.}(1989)]%
+        {Driscoll1989}
+\bibfield{author}{\bibinfo{person}{James~R Driscoll}, \bibinfo{person}{Neil
+  Sarnak}, \bibinfo{person}{Daniel~D Sleator}, {and} \bibinfo{person}{Robert~E
+  Tarjan}.} \bibinfo{year}{1989}\natexlab{}.
+\newblock \showarticletitle{Making Data Structures Persistent}.
+\newblock \bibinfo{journal}{\emph{J. Comput. System Sci.}}
+  \bibinfo{volume}{38}, \bibinfo{number}{1} (\bibinfo{year}{1989}),
+  \bibinfo{pages}{86--124}.
+\newblock
+
+
+\bibitem[Emir et~al\mbox{.}(2007)]%
+        {Emir2007}
+\bibfield{author}{\bibinfo{person}{Burak Emir}, \bibinfo{person}{Martin
+  Odersky}, {and} \bibinfo{person}{John Williams}.}
+  \bibinfo{year}{2007}\natexlab{}.
+\newblock \showarticletitle{Matching Objects with Patterns}. In
+  \bibinfo{booktitle}{\emph{ECOOP 2007--Object-Oriented Programming}}.
+  \bibinfo{publisher}{Springer}, \bibinfo{pages}{273--298}.
+\newblock
+
+
+\bibitem[Ernst et~al\mbox{.}(1998)]%
+        {Ernst1998}
+\bibfield{author}{\bibinfo{person}{Michael~D Ernst}, \bibinfo{person}{Craig
+  Kaplan}, {and} \bibinfo{person}{Craig Chambers}.}
+  \bibinfo{year}{1998}\natexlab{}.
+\newblock \showarticletitle{Predicate Dispatching: A Unified Theory of
+  Dispatch}. In \bibinfo{booktitle}{\emph{ECOOP'98—Object-Oriented
+  Programming}}. \bibinfo{publisher}{Springer}, \bibinfo{pages}{186--211}.
+\newblock
+
+
+\bibitem[Flatt et~al\mbox{.}(2015)]%
+        {Flatt2015}
+\bibfield{author}{\bibinfo{person}{Matthew Flatt} {et~al\mbox{.}}}
+  \bibinfo{year}{2015}\natexlab{}.
+\newblock \showarticletitle{The Racket Manifesto}. In
+  \bibinfo{booktitle}{\emph{20 Years of the {P}ast and 20 Years of the {F}uture
+  ({S}napshots), {D}agstuhl {S}eminar 15451}}.
+\newblock
+
+
+\bibitem[Flatt et~al\mbox{.}(2006)]%
+        {Flatt2006}
+\bibfield{author}{\bibinfo{person}{Matthew Flatt},
+  \bibinfo{person}{Robert~Bruce Findler}, {and} \bibinfo{person}{Matthias
+  Felleisen}.} \bibinfo{year}{2006}\natexlab{}.
+\newblock \showarticletitle{Scheme with Classes, Mixins, and Traits}. In
+  \bibinfo{booktitle}{\emph{Asian Symposium on Programming Languages and
+  Systems}}. \bibinfo{publisher}{Springer}, \bibinfo{pages}{270--289}.
+\newblock
+
+
+\bibitem[{GHC Team}(2004)]%
+        {PeytonJones2004}
+\bibfield{author}{\bibinfo{person}{{GHC Team}}.}
+  \bibinfo{year}{2004}\natexlab{}.
+\newblock \bibinfo{booktitle}{\emph{{GHC} User's Guide: Overlapping
+  Instances}}.
+\newblock Glasgow Haskell Compiler.
+\newblock
+\newblock
+\shownote{https://downloads.haskell.org/ghc/latest/docs/users\_guide/}.
+
+
+\bibitem[Hickey(2008)]%
+        {Hickey2008}
+\bibfield{author}{\bibinfo{person}{Rich Hickey}.}
+  \bibinfo{year}{2008}\natexlab{}.
+\newblock \showarticletitle{The Clojure programming language}. In
+  \bibinfo{booktitle}{\emph{Proceedings of the 2008 symposium on Dynamic
+  languages}}. \bibinfo{pages}{1}.
+\newblock
+
+
+\bibitem[Hickey(2009)]%
+        {Hickey2009}
+\bibfield{author}{\bibinfo{person}{Rich Hickey}.}
+  \bibinfo{year}{2009}\natexlab{}.
+\newblock \bibinfo{title}{Are We There Yet?}
+\newblock \bibinfo{howpublished}{JVM Languages Summit Keynote}.
+\newblock
+\urldef\tempurl%
+\url{https://github.com/matthiasn/talk-transcripts/blob/master/Hickey_Rich/AreWeThereYet.md}
+\showURL{%
+\tempurl}
+
+
+\bibitem[Hickey(2014)]%
+        {Hickey2014}
+\bibfield{author}{\bibinfo{person}{Rich Hickey}.}
+  \bibinfo{year}{2014}\natexlab{}.
+\newblock \bibinfo{title}{Transducers}.
+\newblock \bibinfo{howpublished}{Clojure Blog}.
+\newblock
+\urldef\tempurl%
+\url{https://clojure.org/reference/transducers}
+\showURL{%
+\tempurl}
+
+
+\bibitem[Kiczales et~al\mbox{.}(1991)]%
+        {Kiczales1991}
+\bibfield{author}{\bibinfo{person}{Gregor Kiczales}, \bibinfo{person}{Jim
+  Des~Rivieres}, {and} \bibinfo{person}{Daniel~Gureasko Bobrow}.}
+  \bibinfo{year}{1991}\natexlab{}.
+\newblock \bibinfo{booktitle}{\emph{The Art of the Metaobject Protocol}}.
+\newblock \bibinfo{publisher}{MIT press}.
+\newblock
+
+
+\bibitem[Lanza and Marinescu(2006)]%
+        {Lanza2006}
+\bibfield{author}{\bibinfo{person}{Michele Lanza} {and} \bibinfo{person}{Radu
+  Marinescu}.} \bibinfo{year}{2006}\natexlab{}.
+\newblock \bibinfo{booktitle}{\emph{Object-Oriented Metrics in Practice}}.
+\newblock \bibinfo{publisher}{Springer}.
+\newblock
+
+
+\bibitem[Odersky et~al\mbox{.}(2016)]%
+        {Odersky2016}
+\bibfield{author}{\bibinfo{person}{Martin Odersky}, \bibinfo{person}{Lex
+  Spoon}, {and} \bibinfo{person}{Bill Venners}.}
+  \bibinfo{year}{2016}\natexlab{}.
+\newblock \bibinfo{booktitle}{\emph{Programming in Scala, 3rd Edition}}.
+\newblock \bibinfo{publisher}{Artima Press}.
+\newblock
+
+
+\bibitem[Okasaki(1998)]%
+        {Okasaki1998}
+\bibfield{author}{\bibinfo{person}{Chris Okasaki}.}
+  \bibinfo{year}{1998}\natexlab{}.
+\newblock \bibinfo{booktitle}{\emph{Purely Functional Data Structures}}.
+\newblock \bibinfo{publisher}{Cambridge University Press}.
+\newblock
+
+
+\bibitem[Orleans(2002)]%
+        {Orleans2002}
+\bibfield{author}{\bibinfo{person}{Doug Orleans}.}
+  \bibinfo{year}{2002}\natexlab{}.
+\newblock \showarticletitle{Filtered Dispatch}. In
+  \bibinfo{booktitle}{\emph{Proceedings of the 17th ACM SIGPLAN conference on
+  Object-oriented programming, systems, languages, and applications}}.
+  \bibinfo{pages}{20--26}.
+\newblock
+
+
+\bibitem[Salzman and Aldrich(2005)]%
+        {Salzman2005}
+\bibfield{author}{\bibinfo{person}{Lee Salzman} {and} \bibinfo{person}{Jonathan
+  Aldrich}.} \bibinfo{year}{2005}\natexlab{}.
+\newblock \showarticletitle{Prototypes with Multiple Dispatch: An Expressive
+  and Dynamic Object Model}. In \bibinfo{booktitle}{\emph{ECOOP
+  2005--Object-Oriented Programming}}. \bibinfo{publisher}{Springer},
+  \bibinfo{pages}{312--336}.
+\newblock
+
+
+\bibitem[Ungar and Smith(1987)]%
+        {Ungar1987}
+\bibfield{author}{\bibinfo{person}{David Ungar} {and}
+  \bibinfo{person}{Randall~B Smith}.} \bibinfo{year}{1987}\natexlab{}.
+\newblock \showarticletitle{Self: The power of simplicity}. In
+  \bibinfo{booktitle}{\emph{ACM SIGPLAN Notices}}, Vol.~\bibinfo{volume}{22}.
+  \bibinfo{publisher}{ACM}, \bibinfo{pages}{227--242}.
+\newblock
+
+
+\end{thebibliography}

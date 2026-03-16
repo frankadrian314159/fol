@@ -7,7 +7,7 @@
 #>
 
 # --- Configuration ---
-$project = "els-2026-paper"
+$project = "els2"
 $miktexRoot = "C:\Users\frank\AppData\Local\Programs\MiKTeX"
 
 # MiKTeX binaries are usually located in the \miktex\bin\x64 subdirectory of the install root
