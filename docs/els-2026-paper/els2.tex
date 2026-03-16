@@ -134,7 +134,7 @@ FOL represents objects as versioned points in time, where
 ``mutation'' is reified as a transition between immutable snapshots.
 
 FOL eases the ``new operations'' dimension of the Expression Problem: adding a traversal such as
-\texttt{count-ops}---which recurses over \texttt{:left}/\texttt{:right} slots and returns a value at
+\texttt{count-ops} in our AST optimization benchmark---which recurses over \texttt{:left}/\texttt{:right} slots and returns a value at
 leaves---requires only a new \texttt{defmethod} with one clause per handled node type; no existing class
 definitions change, and after rolling back a failed optimization pass, \texttt{count-ops} applies to the
 reverted tree without copying.
