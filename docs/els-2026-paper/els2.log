@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.2.2)  15 MAR 2026 21:41
+This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.2.2)  16 MAR 2026 19:28
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -700,7 +700,7 @@ nuxLibertineT-TLF.
 LaTeX Font Info:    Font shape `T1/LinuxLibertineT-TLF/m/n' will be
 (Font)              scaled to size 9.0pt on input line 3652.
 )
-Class acmart Info: Printing folios on input line 2.
+Class acmart Info: Suppressing folios on input line 2.
 
 (C:\Users\frank\AppData\Local\Programs\MiKTeX\tex/latex/listings\listings.sty
 \lst@mode=\count334
@@ -1159,10 +1159,13 @@ Overfull \hbox (10.0pt too wide) in alignment at lines 193--193
 [][][] 
  []
 
-[1.1{C:/Users/frank/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map}{C:/Users/
-frank/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/libertine/lbtn_25tcsq.enc}{
-C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/libertine/lbtn_76g
-pa5.enc}
+
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+ [1.1{C:/Users/frank/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map}{C:/Users
+/frank/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/libertine/lbtn_25tcsq.enc}
+{C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/libertine/lbtn_76
+gpa5.enc}
 
 {C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/libertine/lbtn_nh
 77jq.enc}{C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/libertin
@@ -1216,14 +1219,6 @@ LaTeX Font Info:    Font shape `T1/zi4/m/n' will be
 
 Class acmart Warning: A possible image without description on input line 256.
 
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-LaTeX Font Info:    Font shape `T1/LinuxBiolinumT-TLF/m/n' will be
-(Font)              scaled to size 9.0pt on input line 280.
-LaTeX Font Info:    Font shape `T1/LinuxBiolinumT-TLF/m/n' will be
-(Font)              scaled to size 7.0pt on input line 280.
- [2.2]
 LaTeX Font Info:    Font shape `T1/LinuxLibertineT-TLF/b/n' will be
 (Font)              scaled to size 8.0pt on input line 288.
 
@@ -1239,11 +1234,21 @@ Overfull \hbox (1.10017pt too wide) in paragraph at lines 306--313
 nteger?) (prime?)) \T1/LinuxLibertineT-TLF/m/n/9 (-20) re-ceives Level 3
  []
 
+LaTeX Font Info:    Font shape `T1/LinuxBiolinumT-TLF/m/n' will be
+(Font)              scaled to size 9.0pt on input line 315.
 LaTeX Font Info:    Font shape `T1/LinuxBiolinumT-TLF/m/it' will be
 (Font)              scaled to size 9.0pt on input line 315.
+
+Underfull \vbox (badness 2073) has occurred while \output is active []
+
+LaTeX Font Info:    Font shape `T1/LinuxBiolinumT-TLF/m/n' will be
+(Font)              scaled to size 7.0pt on input line 345.
+ [2.2]
 LaTeX Font Info:    Font shape `T1/LinuxLibertineT-TLF/m/sc' will be
 (Font)              scaled to size 9.0pt on input line 351.
-[3.3]
+
+[3.3{C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/libertine/lbt
+n_ncsllp.enc}]
 Package hyperref Info: bookmark level for unknown lstlisting defaults to 0 on i
 nput line 384.
 LaTeX Font Info:    Font shape `T1/zi4/b/n' will be
@@ -1261,9 +1266,8 @@ Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             For optimal results, create family-specific settings.
 (microtype)             See the microtype manual for details.
 
-[4.4{C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/libertine/lbt
-n_ncsllp.enc}{C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/inco
-nsolata/i4-ts1.enc}]
+[4.4{C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/inconsolata/i
+4-ts1.enc}]
 Overfull \hbox (4.55804pt too wide) in paragraph at lines 461--467
  \T1/LinuxBiolinumT-TLF/m/it/9 (-20) 3.2.1 Per-sis-tence and Ver-sion-ing Per-f
 or-mance.[] \T1/LinuxLibertineT-TLF/m/n/9 (-20) Ver-sion-ing overhead---
@@ -1417,9 +1421,9 @@ TXMI.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/newtx
 newtx/txmiaX.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/publ
 ic/newtx/txsym.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/pu
 blic/newtx/txsys.pfb>
-Output written on els2.pdf (9 pages, 609496 bytes).
+Output written on els2.pdf (9 pages, 609708 bytes).
 PDF statistics:
- 445 PDF objects out of 1000 (max. 8388607)
+ 446 PDF objects out of 1000 (max. 8388607)
  162 named destinations out of 1000 (max. 500000)
  129193 words of extra memory for PDF output out of 154059 (max. 10000000)
 
