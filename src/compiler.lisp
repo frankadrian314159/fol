@@ -2265,22 +2265,22 @@
             method-form)))))
 
 (defun emit-def (node)
-  "Emit a def node as CL defvar (only initializes if unbound)."
+  "Emit a def node as CL defparameter (always initializes if value provided)."
   (let ((name (fol.compiler.ast:def-node-name node))
         (value (fol.compiler.ast:def-node-value node)))
     (pushnew name *extra-special-vars*)
     (if value
-        `(cl:defvar ,name ,(emit-node value))
+        `(cl:defparameter ,name ,(emit-node value))
         `(cl:defvar ,name))))
 
 (defun emit-defdynamic (node)
-  "Emit a defdynamic node as CL defvar.
+  "Emit a defdynamic node as CL defparameter.
    Identical output to emit-def — defdynamic is an explicit-intent alias."
   (let ((name (fol.compiler.ast:defdynamic-node-name node))
         (value (fol.compiler.ast:defdynamic-node-value node)))
     (pushnew name *extra-special-vars*)
     (if value
-        `(cl:defvar ,name ,(emit-node value))
+        `(cl:defparameter ,name ,(emit-node value))
         `(cl:defvar ,name))))
 
 (defun emit-binding (node)

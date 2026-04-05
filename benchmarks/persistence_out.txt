@@ -1,0 +1,227 @@
+﻿To load "bordeaux-threads":
+  Load 1 ASDF system:
+    bordeaux-threads
+; Loading "bordeaux-threads"
+
+To load "usocket":
+  Load 1 ASDF system:
+    usocket
+; Loading "usocket"
+
+To load "cl-json":
+  Load 1 ASDF system:
+    cl-json
+; Loading "cl-json"
+
+To load "flexi-streams":
+  Load 1 ASDF system:
+    flexi-streams
+; Loading "flexi-streams"
+
+To load "fiveam":
+  Load 1 ASDF system:
+    fiveam
+; Loading "fiveam"
+
+To load "closer-mop":
+  Load 1 ASDF system:
+    closer-mop
+; Loading "closer-mop"
+
+To load "cl-ppcre":
+  Load 1 ASDF system:
+    cl-ppcre
+; Loading "cl-ppcre"
+..
+To load "fset":
+  Load 1 ASDF system:
+    fset
+; Loading "fset"
+..
+To load "sycamore":
+  Load 1 ASDF system:
+    sycamore
+; Loading "sycamore"
+
+To load "closer-mop":
+  Load 1 ASDF system:
+    closer-mop
+; Loading "closer-mop"
+
+To load "uuid":
+  Load 1 ASDF system:
+    uuid
+; Loading "uuid"
+......
+To load "bordeaux-threads":
+  Load 1 ASDF system:
+    bordeaux-threads
+; Loading "bordeaux-threads"
+
+To load "usocket":
+  Load 1 ASDF system:
+    usocket
+; Loading "usocket"
+
+To load "cl-ppcre":
+  Load 1 ASDF system:
+    cl-ppcre
+; Loading "cl-ppcre"
+
+sbcl : WARNING: System definition file #P"c:/Users/frank/Projects/FOL/fol/src/fol-compiler.asd" contains definition 
+for system "fol-extension-server". Please only define "fol-compiler" and secondary systems with a name starting with 
+"fol-compiler/" (e.g. "fol-compiler/test") in that file.
+At line:1 char:1
++ sbcl --noinform --non-interactive --load benchmarks/run-persistence-b ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (WARNING: System...) in that file.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+; file: C:/Users/frank/Projects/FOL/fol/benchmarks/micro/persistence-overhead.lisp
+; in: DEFUN RUN-PERSISTENCE-BENCHMARKS
+;     (DESTRUCTURING-BIND
+;         (FOL.BENCHMARKS.PERSISTENCE::N FOL.BENCHMARKS.PERSISTENCE::P-BYTES
+;          FOL.BENCHMARKS.PERSISTENCE::M-BYTES FOL.BENCHMARKS.PERSISTENCE::P-TIME
+;          FOL.BENCHMARKS.PERSISTENCE::M-TIME FOL.BENCHMARKS.PERSISTENCE::P-UPDATE
+;          FOL.BENCHMARKS.PERSISTENCE::M-UPDATE)
+;         FOL.BENCHMARKS.PERSISTENCE::R
+;       (FORMAT T "~5D | ~10,1F B  ~10,1F B  ~5,2Fx | ~10A ~10A ~5,2Fx~%"
+;               FOL.BENCHMARKS.PERSISTENCE::N FOL.BENCHMARKS.PERSISTENCE::P-BYTES
+;               FOL.BENCHMARKS.PERSISTENCE::M-BYTES
+;               (/ FOL.BENCHMARKS.PERSISTENCE::P-BYTES
+;                  (MAX 0.001 FOL.BENCHMARKS.PERSISTENCE::M-BYTES))
+;               (FOL.BENCHMARKS::FORMAT-TIME FOL.BENCHMARKS.PERSISTENCE::P-UPDATE)
+;               (FOL.BENCHMARKS::FORMAT-TIME FOL.BENCHMARKS.PERSISTENCE::M-UPDATE)
+;               (/ FOL.BENCHMARKS.PERSISTENCE::P-UPDATE
+;                  (MAX 1.0e-15 FOL.BENCHMARKS.PERSISTENCE::M-UPDATE))))
+; ==>
+;   (LET* ((#:G27
+;           (SB-C::CHECK-DS-LIST FOL.BENCHMARKS.PERSISTENCE::R 7 7
+;                                '(FOL.BENCHMARKS.PERSISTENCE::N
+;                                  FOL.BENCHMARKS.PERSISTENCE::P-BYTES
+;                                  FOL.BENCHMARKS.PERSISTENCE::M-BYTES
+;                                  FOL.BENCHMARKS.PERSISTENCE::P-TIME
+;                                  FOL.BENCHMARKS.PERSISTENCE::M-TIME
+;                                  FOL.BENCHMARKS.PERSISTENCE::P-UPDATE
+;                                  FOL.BENCHMARKS.PERSISTENCE::M-UPDATE)))
+;          (FOL.BENCHMARKS.PERSISTENCE::N (POP #:G27))
+;          (FOL.BENCHMARKS.PERSISTENCE::P-BYTES (POP #:G27))
+;          (FOL.BENCHMARKS.PERSISTENCE::M-BYTES (POP #:G27))
+;          (FOL.BENCHMARKS.PERSISTENCE::P-TIME (POP #:G27))
+;          (FOL.BENCHMARKS.PERSISTENCE::M-TIME (POP #:G27))
+;          (FOL.BENCHMARKS.PERSISTENCE::P-UPDATE (POP #:G27))
+;          (FOL.BENCHMARKS.PERSISTENCE::M-UPDATE (POP #:G27)))
+;     (FORMAT T "~5D | ~10,1F B  ~10,1F B  ~5,2Fx | ~10A ~10A ~5,2Fx~%"
+;             FOL.BENCHMARKS.PERSISTENCE::N FOL.BENCHMARKS.PERSISTENCE::P-BYTES
+;             FOL.BENCHMARKS.PERSISTENCE::M-BYTES
+;             (/ FOL.BENCHMARKS.PERSISTENCE::P-BYTES
+;                (MAX 0.001 FOL.BENCHMARKS.PERSISTENCE::M-BYTES))
+;             (FOL.BENCHMARKS::FORMAT-TIME FOL.BENCHMARKS.PERSISTENCE::P-UPDATE)
+;             (FOL.BENCHMARKS::FORMAT-TIME FOL.BENCHMARKS.PERSISTENCE::M-UPDATE)
+;             (/ FOL.BENCHMARKS.PERSISTENCE::P-UPDATE
+;                (MAX 1.0e-15 FOL.BENCHMARKS.PERSISTENCE::M-UPDATE))))
+; 
+; caught STYLE-WARNING:
+;   The variable P-TIME is defined but never used.
+; 
+; caught STYLE-WARNING:
+;   The variable M-TIME is defined but never used.
+
+================================================================
+  FOL Persistent Object Overhead Benchmarks
+  Persistent-class (hybrid layout) vs Standard CLOS
+  Objects with <= 32 slots use native CLOS slots
+  Objects with > 32 slots use 32 native + FSet overflow
+================================================================
+
+Warming up...
+
+--- 2 slots (all native) ---
+; 
+; compilation unit finished
+;   caught 2 STYLE-WARNING conditions
+  Construction memory:  Persistent=481.4 B/obj  Mutable=216.2 B/obj  Ratio=2.23x
+  Construction time:    Persistent=1.08 us/op  Mutable=516.58 ns/op  Ratio=2.09x
+  Read time (slot-0):   Persistent=17.54 ns/op  Mutable=13.72 ns/op  Ratio=1.28x
+  Update time (slot-0): Persistent=597.03 ns/op  Mutable=12.69 ns/op  Ratio=47.05x
+
+--- 4 slots (all native) ---
+  Construction memory:  Persistent=779.4 B/obj  Mutable=393.1 B/obj  Ratio=1.98x
+  Construction time:    Persistent=1.48 us/op  Mutable=780.01 ns/op  Ratio=1.89x
+  Read time (slot-0):   Persistent=23.18 ns/op  Mutable=16.97 ns/op  Ratio=1.37x
+  Update time (slot-0): Persistent=788.42 ns/op  Mutable=15.36 ns/op  Ratio=51.33x
+
+--- 8 slots (all native) ---
+  Construction memory:  Persistent=1558.9 B/obj  Mutable=746.7 B/obj  Ratio=2.09x
+  Construction time:    Persistent=2.38 us/op  Mutable=1.25 us/op  Ratio=1.91x
+  Read time (slot-0):   Persistent=28.82 ns/op  Mutable=19.11 ns/op  Ratio=1.51x
+  Update time (slot-0): Persistent=1.31 us/op  Mutable=14.74 ns/op  Ratio=89.04x
+
+--- 16 slots (all native) ---
+  Construction memory:  Persistent=2967.2 B/obj  Mutable=1450.4 B/obj  Ratio=2.05x
+  Construction time:    Persistent=4.02 us/op  Mutable=2.24 us/op  Ratio=1.80x
+  Read time (slot-0):   Persistent=30.87 ns/op  Mutable=13.11 ns/op  Ratio=2.36x
+  Update time (slot-0): Persistent=1.44 us/op  Mutable=20.74 ns/op  Ratio=69.37x
+
+--- 32 slots (all native) ---
+  Construction memory:  Persistent=5776.8 B/obj  Mutable=2857.4 B/obj  Ratio=2.02x
+  Construction time:    Persistent=7.71 us/op  Mutable=4.88 us/op  Ratio=1.58x
+  Read time (slot-0):   Persistent=30.09 ns/op  Mutable=14.52 ns/op  Ratio=2.07x
+  Update time (slot-0): Persistent=1.60 us/op  Mutable=14.97 ns/op  Ratio=106.70x
+
+--- 48 slots (hybrid: 32 native + overflow) ---
+  Construction memory:  Persistent=8632.5 B/obj  Mutable=4267.0 B/obj  Ratio=2.02x
+  Construction time:    Persistent=12.11 us/op  Mutable=8.16 us/op  Ratio=1.48x
+  Read time (slot-0):   Persistent=30.93 ns/op  Mutable=15.80 ns/op  Ratio=1.96x
+  Read time (slot-33):  Persistent=68.31 ns/op  Mutable=17.65 ns/op  Ratio=3.87x
+  Update time (slot-0): Persistent=1.81 us/op  Mutable=23.48 ns/op  Ratio=77.05x
+While evaluating the form starting at line 22, column 0
+  of #P"C:/Users/frank/Projects/FOL/fol/benchmarks/run-persistence-bench.lisp":
+Unhandled SIMPLE-ERROR in thread #<SB-THREAD:THREAD tid=132916 "main thread" RUNNING
+                                    {1100030003}>:
+  unknown type specifier: FOL.COMPILER.COLLECTIONS::LIST
+
+Backtrace for: #<SB-THREAD:THREAD tid=132916 "main thread" RUNNING {1100030003}>
+0: (SB-DEBUG::DEBUGGER-DISABLED-HOOK #<SIMPLE-ERROR "unknown type specifier: ~S" {1100FE5A93}> #<unused argument> 
+:QUIT T)
+1: (SB-DEBUG::RUN-HOOK *INVOKE-DEBUGGER-HOOK* #<SIMPLE-ERROR "unknown type specifier: ~S" {1100FE5A93}>)
+2: (INVOKE-DEBUGGER #<SIMPLE-ERROR "unknown type specifier: ~S" {1100FE5A93}>)
+3: (ERROR "unknown type specifier: ~S" FOL.COMPILER.COLLECTIONS::LIST)
+4: ((LABELS SB-KERNEL::RECURSE :IN SB-KERNEL:%%TYPEP) #(6 7 8 9 10 11 12 13 14 15 16 17 ...) #<SB-KERNEL:UNKNOWN-TYPE 
+FOL.COMPILER.COLLECTIONS::LIST>)
+5: (COERCE #(6 7 8 9 10 11 12 13 14 15 16 17 ...) FOL.COMPILER.COLLECTIONS::LIST)
+6: ((:METHOD FOL.COMPILER.COLLECTIONS:PERSISTENT! (CONS)) (:TRANSIENT-VECTOR . #(6 7 8 9 10 11 12 13 14 15 16 17 
+...))) [fast-method]
+7: (FOL.COMPILER.PERSISTENT:UPDATE-SLOTS #<PERSISTENT-TEST-48 {11026DD983}> :SLOT-33 42)
+8: (FOL.BENCHMARKS::MEASURE-RUN #<FUNCTION (LAMBDA NIL :IN FOL.BENCHMARKS.PERSISTENCE::BENCH-UPDATE-PERSISTENT-TIME) 
+{1100C009CB}> 100000)
+9: (FOL.BENCHMARKS.PERSISTENCE::BENCH-UPDATE-PERSISTENT-TIME #<PERSISTENT-TEST-48 {11026DD983}> :SLOT-33 100000)
+10: (FOL.BENCHMARKS.PERSISTENCE:RUN-PERSISTENCE-BENCHMARKS)
+11: (SB-INT:SIMPLE-EVAL-IN-LEXENV (FOL.BENCHMARKS.PERSISTENCE:RUN-PERSISTENCE-BENCHMARKS) #<NULL-LEXENV>)
+12: (EVAL-TLF (FOL.BENCHMARKS.PERSISTENCE:RUN-PERSISTENCE-BENCHMARKS) 7 NIL)
+13: ((LABELS SB-FASL::EVAL-FORM :IN SB-INT:LOAD-AS-SOURCE) (FOL.BENCHMARKS.PERSISTENCE:RUN-PERSISTENCE-BENCHMARKS) 7)
+14: ((LAMBDA (SB-KERNEL:FORM &KEY :CURRENT-INDEX &ALLOW-OTHER-KEYS) :IN SB-INT:LOAD-AS-SOURCE) 
+(FOL.BENCHMARKS.PERSISTENCE:RUN-PERSISTENCE-BENCHMARKS) :CURRENT-INDEX 7)
+15: (SB-C::%DO-FORMS-FROM-INFO #<FUNCTION (LAMBDA (SB-KERNEL:FORM &KEY :CURRENT-INDEX &ALLOW-OTHER-KEYS) :IN 
+SB-INT:LOAD-AS-SOURCE) {5FF10B}> #<SB-C::SOURCE-INFO {11047AB6C3}> SB-C::INPUT-ERROR-IN-LOAD)
+16: (SB-INT:LOAD-AS-SOURCE #<SB-INT:FORM-TRACKING-STREAM for "file 
+C:\\Users\\frank\\Projects\\FOL\\fol\\benchmarks\\run-persistence-bench.lisp" {11047A5FB3}> :VERBOSE NIL :PRINT NIL 
+:CONTEXT "loading")
+17: ((LABELS SB-FASL::LOAD-STREAM-1 :IN LOAD) #<SB-INT:FORM-TRACKING-STREAM for "file 
+C:\\Users\\frank\\Projects\\FOL\\fol\\benchmarks\\run-persistence-bench.lisp" {11047A5FB3}> NIL)
+18: (SB-FASL::CALL-WITH-LOAD-BINDINGS #<FUNCTION (LABELS SB-FASL::LOAD-STREAM-1 :IN LOAD) {5FF4CB}> 
+#<SB-INT:FORM-TRACKING-STREAM for "file C:\\Users\\frank\\Projects\\FOL\\fol\\benchmarks\\run-persistence-bench.lisp" 
+{11047A5FB3}> NIL #<SB-INT:FORM-TRACKING-STREAM for "file 
+C:\\Users\\frank\\Projects\\FOL\\fol\\benchmarks\\run-persistence-bench.lisp" {11047A5FB3}>)
+19: (LOAD #P"benchmarks/run-persistence-bench.lisp" :VERBOSE NIL :PRINT NIL :IF-DOES-NOT-EXIST :ERROR :EXTERNAL-FORMAT 
+:DEFAULT)
+20: (SB-IMPL::PROCESS-EVAL/LOAD-OPTIONS ((:LOAD . "benchmarks/run-persistence-bench.lisp") (:QUIT)))
+21: (SB-IMPL::TOPLEVEL-INIT)
+22: ((FLET SB-UNIX::BODY :IN SB-IMPL::START-LISP))
+23: ((FLET "WITHOUT-INTERRUPTS-BODY-3" :IN SB-IMPL::START-LISP))
+24: (SB-IMPL::%START-LISP)
+25: ("foreign function: #x140046A39")
+26: ("foreign function: #x14000AD20")
+
+unhandled condition in --disable-debugger mode, quitting

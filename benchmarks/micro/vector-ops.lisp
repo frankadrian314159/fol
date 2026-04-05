@@ -9,7 +9,6 @@
   (format t "Quickloading ~A...~%" system)
   (ql:quickload system :silent t))
 
-(safe-quickload :fset)
 (safe-quickload :sycamore)
 (safe-quickload :cl-ppcre)
 (safe-quickload :uuid)
@@ -51,22 +50,18 @@
   (format t "=========================================================~%")
 
   (let ((cl-vec (make-array size :initial-element 0))
-        (fset-seq (fset:convert 'fset:seq (make-list size :initial-element 0)))
         (fol-vec (vector)))
     (loop for i from 0 below size do (setf fol-vec (conj fol-vec 0)))
 
     ;; --- Access Benchmarks ---
     (format t "Access (Random):~%")
     (let ((indices (loop repeat size collect (random size))))
-      (with-timing "Common Lisp (AREF)"
-                   (loop repeat iters do
-                           (dolist (i indices)
-                             (aref cl-vec i))))
-
-      (with-timing "FSet (LOOKUP)"
-                   (loop repeat iters do
-                           (dolist (i indices)
-                             (fset:lookup fset-seq i))))
+      (let ((total-sum 0))
+        (with-timing "Common Lisp (AREF)"
+                     (loop repeat iters do
+                             (dolist (i indices)
+                               (incf total-sum (aref cl-vec i)))))
+        (format t "    [Checksum: ~D]~%" total-sum))
 
       (with-timing "FOL (COLLECTION-REF)"
                    (loop repeat iters do
@@ -79,16 +74,13 @@
                              (get fol-vec i)))))
 
     (format t "~%Update (Sequential):~%")
-    (with-timing "Common Lisp (SETF AREF) - In place"
-                 (loop repeat iters do
-                         (loop for i from 0 below size do
-                                 (setf (aref cl-vec i) i))))
-
-    (with-timing "FSet (WITH)"
-                 (loop repeat iters do
-                         (let ((tmp fset-seq))
+    (let ((checksum 0))
+      (with-timing "Common Lisp (SETF AREF) - In place"
+                   (loop repeat iters do
                            (loop for i from 0 below size do
-                                   (setf tmp (fset:with tmp i i))))))
+                                   (setf (aref cl-vec i) i)
+                                   (incf checksum (aref cl-vec i)))))
+      (format t "    [Checksum: ~D]~%" checksum))
 
     (with-timing "FOL (COLLECTION-ASSOC)"
                  (loop repeat iters do
@@ -109,12 +101,6 @@
                            (loop for i from 0 below size do
                                    (vector-push-extend i v)))))
 
-    (with-timing "FSet (WITH-LAST)"
-                 (loop repeat iters do
-                         (let ((tmp (fset:empty-seq)))
-                           (loop for i from 0 below size do
-                                   (setf tmp (fset:with-last tmp i))))))
-
     (with-timing "FOL (CONJ)"
                  (loop repeat iters do
                          (let ((tmp (vector)))
@@ -122,4 +108,4 @@
                                    (setf tmp (conj tmp i))))))))
 
 ;; Execute if run as a script
-(run-benchmarks :size 100000 :iters 10)
+(run-benchmarks :size 1000000 :iters 10)

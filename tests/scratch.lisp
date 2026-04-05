@@ -1,0 +1,17 @@
+(require :asdf)
+(let ((quicklisp-init (merge-pathnames "quicklisp/setup.lisp" (user-homedir-pathname))))
+  (when (probe-file quicklisp-init)
+    (load quicklisp-init)))
+(ql:quickload :fiveam :silent t)
+(ql:quickload :closer-mop :silent t)
+(ql:quickload :trivial-garbage :silent t)
+(ql:quickload :bordeaux-threads :silent t)
+(ql:quickload :cl-ppcre :silent t)
+(ql:quickload :uuid :silent t)
+
+(pushnew (truename "src/") asdf:*central-registry*)
+(asdf:load-system :fol-compiler)
+
+(let* ((form '(fol.macros:dotimes #(i 3) (fol.compiler.mutable:swap! fol.core::acc fol.core::inc)))
+       (res (fol.compiler:compile-form form)))
+  (format t "~%--- EXPANSION ---~%~S~%" (fol.compiler:compilation-result-code res)))

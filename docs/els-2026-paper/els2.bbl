@@ -2,7 +2,7 @@
 %%% Do NOT edit. File created by BibTeX with style
 %%% ACM-Reference-Format-Journals [18-Jan-2012].
 
-\begin{thebibliography}{22}
+\begin{thebibliography}{23}
 
 %%% ====================================================================
 %%% NOTE TO THE USER: you can override these defaults by providing
@@ -102,6 +102,19 @@
 \newblock
 
 
+\bibitem[Dantam(2013)]%
+        {Dantam2013}
+\bibfield{author}{\bibinfo{person}{Neil~T. Dantam}.}
+  \bibinfo{year}{2013}\natexlab{}.
+\newblock \bibinfo{title}{Sycamore: Purely Functional Data Structures for
+  Common Lisp}.
+\newblock
+\urldef\tempurl%
+\url{https://github.com/ndantam/sycamore}
+\showURL{%
+\tempurl}
+
+
 \bibitem[Driscoll et~al\mbox{.}(1989)]%
         {Driscoll1989}
 \bibfield{author}{\bibinfo{person}{James~R Driscoll}, \bibinfo{person}{Neil
@@ -137,13 +150,17 @@
 
 
 \bibitem[Flatt et~al\mbox{.}(2015)]%
-        {Flatt2015}
+        {flatt:manifesto}
 \bibfield{author}{\bibinfo{person}{Matthew Flatt} {et~al\mbox{.}}}
   \bibinfo{year}{2015}\natexlab{}.
-\newblock \showarticletitle{The Racket Manifesto}. In
-  \bibinfo{booktitle}{\emph{20 Years of the {P}ast and 20 Years of the {F}uture
-  ({S}napshots), {D}agstuhl {S}eminar 15451}}.
+\newblock \showarticletitle{The {Racket} Manifesto}. In
+  \bibinfo{booktitle}{\emph{20 Years of the Past and 20 Years of the Future
+  (Snapshots), {Dagstuhl Seminar} 15451}}.
 \newblock
+\urldef\tempurl%
+\url{https://doi.org/10.4230/DagRep.5.11.112}
+\showURL{%
+\tempurl}
 
 
 \bibitem[Flatt et~al\mbox{.}(2006)]%

@@ -79,9 +79,9 @@
 ;;; ===========================================================================
 
 (defmethod transient ((v <vector>))
-  ;; Store elements in reverse order so conj! (push) adds to the "end" logically
-  ;; and persistent! (nreverse) restores original order + additions.
-  (%make-transient-vector (nreverse (collection-seq v))))
+  (let* ((seq (collection-seq v))
+         (arr (make-array (length seq) :initial-contents seq :adjustable t :fill-pointer t)))
+    (%make-transient-vector arr)))
 
 (defmethod transient ((d <dict>))
   (let ((tv (%make-transient-dict (make-hash-table :test 'equal))))
@@ -101,9 +101,8 @@
 (defmethod persistent! ((tv cons))
   (case (car tv)
     (:transient-vector
-     (let ((elements (nreverse (cdr tv))))
-       (make-instance '<vector>
-         :storage (fol.compiler.collection-primitives:%build-vec-t-from-list elements))))
+     (make-instance '<vector>
+       :storage (fol.compiler.collection-primitives:%build-vec-t-from-list (coerce (cdr tv) 'cl:list))))
     (:transient-dict
      (let ((flat-list nil))
        (maphash (lambda (k v)
@@ -126,7 +125,7 @@
 (defmethod conj! ((tv cons) val)
   (case (car tv)
     (:transient-vector
-     (push val (cdr tv)))
+     (vector-push-extend val (cdr tv)))
     (:transient-set
      (setf (gethash val (cdr tv)) t))
     (t (error "conj! not supported for transient ~A" (car tv))))
@@ -135,8 +134,8 @@
 (defmethod pop! ((tv cons))
   (case (car tv)
     (:transient-vector
-     (if (cdr tv)
-         (pop (cdr tv))
+     (if (> (length (cdr tv)) 0)
+         (vector-pop (cdr tv))
          (error "pop! from empty transient vector")))
     (t (error "pop! not supported for transient ~A" (car tv))))
   tv)
@@ -145,6 +144,8 @@
   (case (car td)
     (:transient-dict
      (setf (gethash key (cdr td)) val))
+    (:transient-vector
+     (setf (aref (cdr td) key) val))
     (t (error "assoc! not supported for transient ~A" (car td))))
   td)
 

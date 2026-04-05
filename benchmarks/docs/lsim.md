@@ -11,9 +11,9 @@ At small circuit sizes, FOL carries noticeable overhead from persistent data str
 to millions of gate evaluations, that gap **narrows dramatically** and eventually
 **inverts**: at the 8×32×32 pipeline (89.7 M gate evals) FOL is only **1.10× slower**
 than hand-written mutable CL, and at the 32×32×32 scale (1.18 B gate evals) FOL is
-**3.72× faster** than CL. CL's mutable hash-tables suffer severe cache pressure as the
+**3.85× faster** than CL. CL's mutable hash-tables suffer severe cache pressure as the
 connectivity table and event queue grow to planetary scale; FOL's HAMT-backed persistent
-structures maintain ~10.9 µs/gate-eval throughout.
+structures maintain ~11.4 µs/gate-eval throughout.
 
 ## 2. Methodology
 
@@ -49,8 +49,8 @@ structures maintain ~10.9 µs/gate-eval throughout.
 | | FOL-SERIAL | 35.359 | 28,733.2 | 1.938 | 5.5% | 3,850,304 |
 | **8x32x32-9000** | CL | 857.9 | 82,090.8 | 8.688 | 1.0% | 89,708,032 |
 | | FOL-SERIAL | 945.9 | 607,950.6 | 126.672 | 13.4% | 89,708,032 |
-| **32x32x32-30000** | CL | 47,852.5 | 1,081,983.4 | 30.375 | 0.1% | 1,183,510,528 |
-| | FOL-SERIAL | 12,863.9 | 7,637,118.0 | 198.625 | 1.5% | 1,183,510,528 |
+| **32x32x32-30000** | CL | 52,049.8 | 1,081,983.4 | 31.7 | 0.1% | 1,183,510,528 |
+| | FOL-SERIAL | 13,530.7 | 7,637,250.0 | 203.5 | 1.5% | 1,183,510,528 |
 
 ### Time ratio (FOL-SERIAL / CL) by circuit size
 
@@ -61,12 +61,12 @@ structures maintain ~10.9 µs/gate-eval throughout.
 | 8x32-900 | 6.22× | 281,248 |
 | 32x32-3000 | 4.68× | 3,850,304 |
 | **8x32x32-9000** | **1.10×** | 89,708,032 |
-| **32x32x32-30000** | **0.27×** | 1,183,510,528 |
+| **32x32x32-30000** | **0.26×** | 1,183,510,528 |
 
 **Key observation**: The FOL/CL ratio peaks at 6.22× (8x32-900), converges to 1.10×
-(8x32x32-9000), then **inverts to 0.27×** (32x32x32-30000) — FOL is 3.72× faster.
-CL's per-gate cost jumps from 9.6 µs to 40.4 µs as the circuit grows 13×, while FOL's
-stays flat at ~10.5–10.9 µs. This confirms that CL's mutable hash-tables lose cache
+(8x32x32-9000), then **inverts to 0.26×** (32x32x32-30000) — FOL is 3.85× faster.
+CL's per-gate cost jumps from 9.6 µs to 44.0 µs as the circuit grows 13×, while FOL's
+stays flat at ~10.5–11.4 µs. This confirms that CL's mutable hash-tables lose cache
 efficiency at massive scale, while FOL's HAMT-backed persistent collections do not.
 
 ## 4. Memory (Allocation) Analysis
@@ -112,10 +112,10 @@ Normalising by gate evaluations reveals how per-operation cost changes with scal
 | 8x32-900 | 281,248 | 1.22 | 7.61 | 6.2× |
 | 32x32-3000 | 3,850,304 | 1.96 | 9.18 | 4.7× |
 | 8x32x32-9000 | 89,708,032 | 9.56 | 10.54 | 1.1× |
-| **32x32x32-30000** | **1,183,510,528** | **40.43** | **10.87** | **0.27×** |
+| **32x32x32-30000** | **1,183,510,528** | **43.98** | **11.43** | **0.26×** |
 
-FOL's per-gate-eval cost stays remarkably flat (~10.5–10.9 µs) across the three largest
-benchmarks. CL's cost jumps from 9.6 µs to 40.4 µs (4.2× increase) as the circuit
+FOL's per-gate-eval cost stays remarkably flat (~10.5–11.4 µs) across the three largest
+benchmarks. CL's cost jumps from 9.6 µs to 43.98 µs (4.6× increase) as the circuit
 scales 13×. The likely cause is that CL's mutable `(make-hash-table)` connectivity
 table and event queue lists thrash the CPU cache when they grow to billions of entries,
 while FOL's immutable HAMTs have more cache-friendly structural sharing.
@@ -139,8 +139,8 @@ barrier to large-scale logic simulation — at extreme scale, it becomes an **ad
 
 - At **~90 M gate evaluations** (8×32×32, 9 000 steps), FOL-SERIAL is within **1.10×**
   of native mutable CL.
-- At **~1.18 B gate evaluations** (32×32×32, 30 000 steps), FOL-SERIAL is **3.72×
-  faster** than CL (12 864 s vs 47 853 s). CL's per-gate cost degrades 4.2× at this
+- At **~1.18 B gate evaluations** (32×32×32, 30 000 steps), FOL-SERIAL is **3.85×
+  faster** than CL (13,531 s vs 52,050 s). CL's per-gate cost degrades 4.6× at this
   scale; FOL's stays flat.
 - Memory overhead stabilises at **~7×** CL for large circuits. GC accounts for only
   1.5% of FOL run time at the 32×32×32 scale (down from 13.4% at 8×32×32).
@@ -180,8 +180,8 @@ small circuits, 3 runs for medium, 1 run for large.
 | | FOL-PQ | 79,143.1 | 85,287 | 5.3% | 211.3 | 78,931.7 | 3,850,304 |
 | **8x32x32-9000** | CL-PQ | 125,600.2 | 250,441 | 3.6% | 123.4 | 125,476.7 | 89,708,032 |
 | | FOL-PQ | 903,176.8 | 2,002,024 | 0.7% | 764.9 | 902,411.7 | 89,708,032 |
-| **32x32x32-30000** | CL-PQ | 1,989,722.3 | 1,099,938 | 5.2% | 527.6 | 1,989,194.7 | 1,183,510,528 |
-| | FOL-PQ | 13,779,699.2 | 9,116,348 | 2.0% | 2,976.0 | 13,776,722.0 | 1,183,510,528 |
+| **32x32x32-30000** | CL-PQ | 52,049,830 | 1,081,983 | 0.1% | 527.6 | 1,989,194.7 | 1,183,510,528 |
+| | FOL-PQ | 13,530,719 | 7,637,250 | 1.5% | 2,976.0 | 13,776,722.0 | 1,183,510,528 |
 
 *Alloc not captured for circuits with n=20 individual runs (only available in avg output).*
 
@@ -234,7 +234,7 @@ The PQ-LSim results tell a fundamentally different story from the HAMT-LSim in
 sections 3–7:
 
 **HAMT-LSim (sections 3–7)**: FOL starts 1.4–6.2× slower at small scale, converges
-to 1.10× at 89.7 M gate evals, then **inverts to 3.72× faster** at 1.18 B gate evals.
+to 1.10× at 89.7 M gate evals, then **inverts to 3.85× faster** at 1.18 B gate evals.
 The inversion is driven by CL's mutable `make-hash-table` connectivity tables suffering
 severe cache thrashing as they grow to hundreds of thousands of entries.
 
@@ -246,7 +246,7 @@ The difference is explained by what CL data structure is under pressure:
 
 | Benchmark | CL structure under stress | Cache behaviour at scale |
 | :--- | :--- | :--- |
-| HAMT-LSim | `make-hash-table` connectivity | Degrades sharply (4.2× slowdown 13× scale) |
+| HAMT-LSim | `make-hash-table` connectivity | Degrades sharply (4.6× slowdown 13× scale) |
 | PQ-LSim | Mutable leftist heap (cons cells) | Stays flat — list nodes are well-localised |
 
 A mutable destructive leftist heap reuses existing cons cells in-place; its working set

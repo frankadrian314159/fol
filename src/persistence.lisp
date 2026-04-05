@@ -491,32 +491,38 @@ Used to locate the correct starting point in the class version chain during mult
 
       (if is-wide
           (let* ((overflow-indices (persistent-class-overflow-indices class))
-                 (size (hash-table-count overflow-indices))
-                 (temp-array (make-array size :initial-element :unbound))
+                 (any-overflow (some (lambda (k) (gethash (if (keywordp k) (slot-name-from-keyword class k) k) overflow-indices))
+                                     (loop for (key val) on slot-name-value-pairs by #'cddr collect key)))
                  (vector-mutated-p nil))
-            (maphash (lambda (sname idx)
-                       (let ((alias (gethash sname (persistent-class-slot-aliases class))))
-                         (cond ((slot-boundp object sname)
-                                 (setf (aref temp-array idx) (slot-value object sname)))
-                               ((and alias (slot-boundp object alias))
-                                 (setf (aref temp-array idx) (slot-value object alias))))))
-                     overflow-indices)
-            (loop for (key value) on slot-name-value-pairs by #'cddr
-                  for slot-name = (if (keywordp key) (slot-name-from-keyword class key) key)
-                  for overflow-idx = (and slot-name (gethash slot-name overflow-indices))
-                  do (if overflow-idx
-                         (progn
-                          (setf (aref temp-array overflow-idx) value)
-                          (setf vector-mutated-p t))
-                         (if slot-name
-                             (setf (slot-value new-obj slot-name) value)
-                             (error "Unknown slot/attribute: ~A" key))))
-            (setf (%persistent-vector new-obj)
-              (if vector-mutated-p
-                  (make-instance 'fol.compiler.collections:<vector>
-                    :storage (fol.compiler.collection-primitives::%build-vec-t-from-list
-                              (coerce temp-array 'list)))
-                  (%persistent-vector object))))
+            (if any-overflow
+                (let ((tv (when (%persistent-vector object)
+                            (fol.compiler.collections:transient (%persistent-vector object)))))
+                  (unless tv
+                    (let ((size (hash-table-count overflow-indices)))
+                      (setf tv (fol.compiler.collections::%make-transient-vector 
+                                (make-array size :initial-element :unbound :adjustable t :fill-pointer t)))))
+                  (loop for (key value) on slot-name-value-pairs by #'cddr
+                        for slot-name = (if (keywordp key) (slot-name-from-keyword class key) key)
+                        for overflow-idx = (and slot-name (gethash slot-name overflow-indices))
+                        do (if overflow-idx
+                               (progn
+                                 (fol.compiler.collections:assoc! tv overflow-idx value)
+                                 (setf vector-mutated-p t))
+                               (if slot-name
+                                   (setf (slot-value new-obj slot-name) value)
+                                   (error "Unknown slot/attribute: ~A" key))))
+                  (setf (%persistent-vector new-obj)
+                    (if vector-mutated-p
+                        (fol.compiler.collections:persistent! tv)
+                        (%persistent-vector object))))
+                ;; Native-only update: just copy the existing vector
+                (progn
+                  (setf (%persistent-vector new-obj) (%persistent-vector object))
+                  (loop for (key value) on slot-name-value-pairs by #'cddr
+                        for slot-name = (if (keywordp key) (slot-name-from-keyword class key) key)
+                        do (if slot-name
+                               (setf (slot-value new-obj slot-name) value)
+                               (error "Unknown slot/attribute: ~A" key))))))
           (loop for (key value) on slot-name-value-pairs by #'cddr
                 for slot-name = (if (keywordp key) (slot-name-from-keyword class key) key)
                 do (if slot-name
@@ -553,23 +559,25 @@ Used to locate the correct starting point in the class version chain during mult
                     ((and alias (slot-boundp object alias))
                       (setf (slot-value new-obj sname) (slot-value object alias))))))))
 
-      (if is-wide
+      (if (and is-wide (%persistent-vector object))
           (let* ((overflow-indices (persistent-class-overflow-indices class))
-                 (size (hash-table-count overflow-indices))
-                 (temp-array (make-array size :initial-element :unbound)))
-            (maphash (lambda (sname idx)
-                       (let ((alias (gethash sname (persistent-class-slot-aliases class))))
-                         (unless (or (member sname keys-to-remove)
-                                     (and alias (member alias keys-to-remove)))
-                           (cond ((slot-boundp object sname)
-                                   (setf (aref temp-array idx) (slot-value object sname)))
-                                 ((and alias (slot-boundp object alias))
-                                   (setf (aref temp-array idx) (slot-value object alias)))))))
-                     overflow-indices)
-            (setf (%persistent-vector new-obj)
-              (make-instance 'fol.compiler.collections:<vector>
-                :storage (fol.compiler.collection-primitives::%build-vec-t-from-list
-                          (coerce temp-array 'list))))))
+                 (any-overflow (some (lambda (k) (gethash k overflow-indices)) keys-to-remove)))
+            (if any-overflow
+                (let ((tv (fol.compiler.collections:transient (%persistent-vector object)))
+                      (vector-mutated-p nil))
+                  (maphash (lambda (sname idx)
+                             (let ((alias (gethash sname (persistent-class-slot-aliases class))))
+                               (when (or (member sname keys-to-remove)
+                                         (and alias (member alias keys-to-remove)))
+                                 (fol.compiler.collections:assoc! tv idx :unbound)
+                                 (setf vector-mutated-p t))))
+                           overflow-indices)
+                  (setf (%persistent-vector new-obj)
+                    (if vector-mutated-p
+                        (fol.compiler.collections:persistent! tv)
+                        (%persistent-vector object))))
+                ;; Native-only dissoc: just copy the existing vector
+                (setf (%persistent-vector new-obj) (%persistent-vector object)))))
 
       (when (slot-boundp object '%metadata)
             (setf (%persistent-metadata new-obj) (%persistent-metadata object)))

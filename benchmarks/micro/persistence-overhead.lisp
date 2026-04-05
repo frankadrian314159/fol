@@ -221,6 +221,14 @@
                               (format-time p-upd-ov) (format-time m-upd-ov)
                               (/ p-upd-ov (max 1e-15 m-upd-ov)))))
 
+                  ;; D3. Update time (native slot on wide object, specifically to test optimization)
+                  (when (= n 64)
+                    (let ((p-update-wide (bench-update-persistent-time p-obj first-kw update-iters))
+                          (m-update-wide (bench-update-mutable-time m-obj first-slot update-iters)))
+                      (format t "  Update (native slot on 64-slot obj): Persistent=~A/op  Mutable=~A/op  Ratio=~,2Fx~%"
+                              (format-time p-update-wide) (format-time m-update-wide)
+                              (/ p-update-wide (max 1e-15 m-update-wide)))))
+
                   ;; Collect for summary
                   (push (list n p-bytes m-bytes p-time m-time p-update m-update)
                         results))))))))
