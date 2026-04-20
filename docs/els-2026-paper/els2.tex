@@ -143,7 +143,7 @@ FOL's level-based ordering (predicates $>$ types $>$ destructuring $>$ wildcards
 
 FOL (Functional Object Lisp) addresses these via the MOP~\cite{Kiczales1991}: every class instance is backed by persistent data structures, and specificity-ordered predicate dispatch integrates with standard method combinations. Unlike coarse-grained STM or Versioned Objects, FOL applies persistence at the field level, inheriting structural sharing within the CLOS model.
 Slot mutation is replaced by functional \texttt{assoc}/\texttt{dissoc}; all other CLOS interfaces behave normally.
-The contributions compose: Listing~\ref{lst:predicate-persistent} (Section~\ref{sec:dispatch}) shows a predicate specializer gating on a runtime value while reading persistent slot state; Listing~\ref{lst:guard} shows $O(1)$ update discard enabled by the pre-update snapshot being an immutable value.\footnote{FOL addresses the \emph{new-operations} dimension of the Expression Problem~\cite{Wadler1990}: new generic functions can be defined over existing classes without modification; adding a new data type with distinct behavior may require new method clauses.}
+The contributions compose: Listing~\ref{lst:predicate-persistent} (Section~\ref{sec:dispatch}) shows a predicate specializer gating on a runtime value while reading persistent slot state---neither contribution alone suffices. Listing~\ref{lst:guard} shows $O(1)$ update discard enabled by the pre-update snapshot being an immutable value; the \texttt{:around} qualifier and the immutability invariant are both required for the pattern to work without copying.\footnote{FOL addresses the \emph{new-operations} dimension of the Expression Problem~\cite{Wadler1990}: new generic functions can be defined over existing classes without modification; adding a new data type with distinct behavior may require new method clauses.}
 
 The contributions of this paper are:
 \begin{enumerate}
@@ -164,7 +164,7 @@ while wider objects overflow into a 32-way persistent trie.
 Based on Lanza's~\cite{Lanza2006} distributions, this threshold covers $\approx$80\% of classes.
 Table~\ref{tab:threshold-update} shows $T=8$ also minimizes modeled update cost for 8-slot
 objects.
-All redefinitions are handled lazily at the next object mutation (\texttt{assoc},\texttt{dissoc}, etc.).
+All redefinitions are handled lazily at the next object mutation (\texttt{assoc}, \texttt{dissoc}, etc.); reads of renamed slots resolve via the alias map without triggering migration.
 
 The \texttt{persistent-class} metaclass (Table~\ref{tab:mop-ops}) ensures no slot value is modifiable post-initialization; standard CLOS mutation paths raise runtime errors.
 Standard CL can read slots via \texttt{slot-value} or accessors; mutation raises errors.
@@ -200,7 +200,7 @@ place of the class precedence list.}} \\
 
 \subsection{Collections and Runtime}
 FOL implements persistent \textbf{Vectors} (32-way tries)~\cite{Okasaki1998}, \textbf{Maps/Sets} (32-way HAMTs)~\cite{Bagwell2000}, and \textbf{Sorted collections} (32-way B-trees). Branching factor 32 minimizes depth and optimizes updates.
-For keyword keys, HAMT lookup is $\approx$$1.3\times$ faster than \texttt{gethash},\footnote{Mean of $10^6$ single-key lookups on a 1{,}000-entry map, SBCL 2.6.0 x86-64.}
+For keyword keys, HAMT lookup is $\approx$$1.3\times$ faster than \texttt{gethash},\footnote{Mean of $10^6$ single-key lookups on a 1{,}000-entry map, SBCL 2.6.0 x86-64. At branching factor 32, a 1{,}000-entry map has depth $\le 2$; the speedup reflects EQL-path avoidance rather than depth reduction and may not scale linearly to larger maps.}
 as EQL comparison avoids the general hashing path.
 
 FOL transpiles to Common Lisp (compiled by SBCL) via four phases: \textbf{reader expansion}, \textbf{macro expansion}, \textbf{code generation}, and \textbf{compilation}.
@@ -295,7 +295,7 @@ The fix is to write clauses matching the fixed ordering:
   ([x (even?)]    :even)         ; catches even integers
   ([x <integer>]  :other-int))   ; catches remaining integers
 \end{lstlisting}
-Shadowed clauses are detected at runtime, trading theorem-prover exactness for bounded compilation.
+Shadowed clauses are detected at runtime: on the first invocation that reaches a clause but finds a more-specific clause has already matched, a continuable warning is signaled naming the shadowed clause. This trades theorem-prover exactness for bounded compilation.
 
 Definition-order reliance creates modularity hazards at the REPL or across libraries. We are exploring explicit ordering mechanisms, analogous to Clojure's \texttt{prefer-method}, for a future version.
 
@@ -321,7 +321,7 @@ follow $\prec_{\text{disp}}$; standard CLOS execution semantics
 \end{tabular}
 \end{table}
 
-For compound predicates, level calculus applies $\mathcal{L}(\texttt{and}~p_1 \dots p_n) = \max_i \mathcal{L}(p_i)$: a conjunction of type predicates is Level~2, while a mixed conjunction is Level~3. Disjunction and negation are not supported as dispatch combinators. Conjunction is supported because its level is bounded by $\max$, yielding a sound syntactic upper bound.
+For compound predicates, level calculus applies $\mathcal{L}(\texttt{and}~p_1 \dots p_n) = \max_i \mathcal{L}(p_i)$: a conjunction of type predicates is Level~2, while a mixed conjunction is Level~3. Disjunction and negation are not supported as dispatch combinators. Conjunction is supported because $\mathcal{L}(\texttt{and})=\max_i \mathcal{L}(p_i)$ is a sound upper bound: any input satisfying the conjunction satisfies at least one conjunct, so the conjunction is at least as specific as its most specific member. Disjunction would require the \emph{minimum} level (a disjunction is satisfied by a \emph{broader} set of inputs than any disjunct alone, making it less specific, not more), which would force all disjunctions to Level~0 regardless of their predicates---unlikely to be useful. Negation inverts the semantics entirely: the level of ``not $p$'' is unrelated to the level of $p$, and ordering a negated predicate against its positive counterpart would require semantic reasoning beyond syntactic levels.
 
 \textbf{Known deficiency --- type-annotated conjunctions.}
 \texttt{(and (<integer>) (prime?))} receives Level~3 ($\max(2,3) = 3$), the same level as the bare
@@ -496,7 +496,7 @@ These checks apply to source-level \texttt{defclass} forms; programmatic constru
 (defclass <sensor> [] [[id] [val :alias reading]])
 \end{lstlisting}
 
-\noindent At first post-redefinition access, chain replay finds \texttt{:reading} in discarded slot property-lists and writes it into \texttt{:val}; afterwards \texttt{(get obj :reading)} resolves via the alias map, so call sites need no updates.
+\noindent At first post-redefinition \emph{mutation} (\texttt{assoc}/\texttt{dissoc}), chain replay finds \texttt{:reading} in discarded slot property-lists and writes it into \texttt{:val} in the new object. Before that mutation, reads of \texttt{:reading} resolve via the alias map at the call site; no instance modification occurs on a read-only access.
 
 \subsubsection{Persistence and Versioning Performance}
 Versioning overhead is $O(H \cdot A)$ ($H$ = redefinitions, $A$ = aliases per hop); in practice $H \cdot A \ll 50$.
@@ -558,9 +558,9 @@ $T=8$ is optimal for the 8-slot case and achieves the minimum for $N\ge 32$; it 
 \midrule
 2   & 0.58\,$\mu$s & 14.1\,ns &  41$\times$ & 2 native slots \\
 8   & 1.03\,$\mu$s & 13.4\,ns &  77$\times$ & 8 native slots \\
-32  & 1.08\,$\mu$s & 26.8\,ns &  40$\times$ & all-native (T=8 strategy) \\
-48  & 2.23\,$\mu$s & 24.0\,ns &  93$\times$\tnote{a} & 32N + 16-slot trie \\
-128 & 4.00\,$\mu$s & 16.1\,ns & 248$\times$ & 32N + 96-slot trie \\
+32  & 1.08\,$\mu$s & 26.8\,ns &  40$\times$ & 8N + 24V trie \\
+48  & 2.23\,$\mu$s & 24.0\,ns &  93$\times$\tnote{a} & 8N + 40V trie \\
+128 & 4.00\,$\mu$s & 16.1\,ns & 248$\times$ & 8N + 120V trie \\
 \bottomrule
 \end{tabular}
 \begin{tablenotes}
@@ -652,7 +652,7 @@ Steady-state update & 0.77 & 0.02 & post-migration, repeated use \\
 \textbf{Hop depth} & \textbf{FOL} & \textbf{CL} & \textbf{Notes} \\
 \midrule
 1-hop (v2$\to$v3) & 8.19 & 4.10 & FOL allocates new object; CL mutates in-place \\
-2-hop (v1$\to$v3) & 3.57 & 5.62 & extra plist scan (CL); extra hash-table pass (FOL) \\
+2-hop (v1$\to$v3) & 3.57 & 5.62 & CL plist scan grows $O(A{\cdot}H)$; FOL alias-map composition is $O(A)$ regardless of hop depth \\
 3-hop (v0$\to$v3) & 4.48 & 5.13 & both dominated by SBCL migration machinery \\
 \midrule
 Steady-state & 0.69 & 0.01 & post-migration; uniform across all cohorts \\
@@ -801,21 +801,28 @@ Table~\ref{tab:lsim-perf} covers six configurations spanning five orders of magn
 \small
 \caption{LSim PQ Scaling Results (mean CPU time).}
 \label{tab:lsim-perf}
+\begin{threeparttable}
 \begin{tabular}{lrrrr}
 \toprule
-\textbf{Config} & \textbf{Gate Evals} & \textbf{CL} & \textbf{FOL} & \textbf{Ratio} \\
+\textbf{Config} & \textbf{Gate Evals} & \textbf{CL} & \textbf{FOL} & \textbf{Ratio (FOL/CL)} \\
 \midrule
 8bit-100        &           876 &   78\,ms &  109\,ms & 1.4$\times$ \\
 32bit-300       &        10\,224 &  94\,ms &   141\,ms & 1.5$\times$ \\
 8x32-9000        &       281\,248 &   359\,ms &   1.87\,s & 5.2$\times$ \\
 32x32-3000      &     3\,850\,304 &   7.57\,s &  34.15\,s  & 4.5$\times$ \\
 8x32x32-9000    &    89\,708\,032 &   906\,s  &   983\,s  & 1.1$\times$ \\
-32x32x32-30000  & 1,183,510,528 & 52,050\,s & 13,531\,s & 0.26$\times$ \\
+32x32x32-30000  & 1,183,510,528 & 52,050\,s & 13,531\,s & 0.26$\times$\tnote{a} \\
 \bottomrule
 \end{tabular}
+\begin{tablenotes}
+  \footnotesize
+  \item[a] Ratio $<1$ means FOL is faster than CL; 0.26$\times$ = FOL is 3.8$\times$ faster.
+        The largest config was not ablated (Table~\ref{tab:lsim-ablation}); the fragmentation explanation is mechanistic, not derived from the 2$\times$2 breakdown.
+\end{tablenotes}
+\end{threeparttable}
 \end{table}
 
-the persistent heap's $O(\log n)$ allocation yields better cache locality than the fragmented mutable heap at scale.
+At extreme scale, fragmentation in the CL mutable heap degrades cache locality; the persistent heap's $O(\log n)$ path-copying avoids unbounded fragmentation, yielding the 3.8$\times$ advantage.
 
 A 2$\times$2 ablation (Table~\ref{tab:lsim-ablation}) breaks down these costs.
 

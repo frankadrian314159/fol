@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.2.2)  19 APR 2026 21:13
+This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.2.2)  19 APR 2026 21:25
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1166,14 +1166,8 @@ LaTeX Font Info:    Font shape `T1/LinuxLibertineT-TLF/m/n' will be
 
 Class acmart Warning: A possible image without description on input line 268.
 
-LaTeX Font Info:    Font shape `T1/LinuxBiolinumT-TLF/m/n' will be
-(Font)              scaled to size 9.0pt on input line 278.
-LaTeX Font Info:    Font shape `T1/LinuxBiolinumT-TLF/m/n' will be
-(Font)              scaled to size 7.0pt on input line 278.
-[2.2]
 LaTeX Font Info:    Trying to load font information for TS1+zi4 on input line 2
 88.
-
 (C:\Users\frank\AppData\Local\Programs\MiKTeX\tex/latex/inconsolata\ts1zi4.fd
 File: ts1zi4.fd 2018/01/14 TS1/zi4 (Inconsolata)
 )
@@ -1197,16 +1191,21 @@ lus ap-plies $\LMS/ntxsy/m/n/9 L¹[] \OML/nxlmi/m/it/9 p[] [] p[]\LMS/ntxsy/m/n/
 9 º \U/ntxmia/m/it/9 =
  []
 
+LaTeX Font Info:    Font shape `T1/LinuxBiolinumT-TLF/m/n' will be
+(Font)              scaled to size 9.0pt on input line 330.
+LaTeX Font Info:    Font shape `T1/LinuxBiolinumT-TLF/m/n' will be
+(Font)              scaled to size 7.0pt on input line 330.
+[2.2{C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/inconsolata/i
+4-ts1.enc}]
 LaTeX Font Info:    Font shape `T1/LinuxBiolinumT-TLF/m/it' will be
 (Font)              scaled to size 9.0pt on input line 332.
-[3.3{C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/inconsolata/i
-4-ts1.enc}]
 LaTeX Font Info:    Font shape `T1/LinuxLibertineT-TLF/m/sc' will be
 (Font)              scaled to size 9.0pt on input line 369.
+ [3.3{C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/libertine/lb
+tn_ncsllp.enc}]
 Package hyperref Info: bookmark level for unknown lstlisting defaults to 0 on i
 nput line 387.
- [4.4{C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/libertine/lb
-tn_ncsllp.enc}]
+ [4.4]
 Overfull \hbox (7.57104pt too wide) in paragraph at lines 488--491
 \T1/LinuxLibertineT-TLF/m/n/9 (-20) Chain re-play (\T1/zi4/m/it/9 :after \T1/Li
 nuxLibertineT-TLF/m/n/9 (-20) on \T1/zi4/m/it/9 update-instance-for-redefined-c
@@ -1248,36 +1247,33 @@ Overfull \hbox (3.20181pt too wide) in paragraph at lines 626--628
 9 (-20) method. FOL first-touch
  []
 
-
+[6.6]
 Overfull \hbox (12.47217pt too wide) in paragraph at lines 735--753
  [] 
  []
 
-[6.6]
+
 Overfull \hbox (12.7836pt too wide) in paragraph at lines 778--789
  [][] 
  []
 
 
-Overfull \hbox (5.69897pt too wide) in paragraph at lines 826--837
+Overfull \hbox (6.69574pt too wide) in paragraph at lines 805--823
+ [] 
+ []
+
+
+Overfull \hbox (5.69897pt too wide) in paragraph at lines 833--844
  [][] 
  []
 
 [7.7]
-Overfull \hbox (7.54222pt too wide) in paragraph at lines 903--904
+Overfull \hbox (7.54222pt too wide) in paragraph at lines 910--911
 \T1/LinuxLibertineT-TLF/m/n/9 (-20) heap. FOL ex-tends Com-mon Lisp func-tional
  li-braries like Sycamore [[]]
  []
 
-(els2.bbl
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-
-
-Package balance Warning: You have called \balance in second column
-(balance)                Columns might not be balanced.
-
-[8.8]
+[8.8] (els2.bbl
 LaTeX Info: Redefining \tempurl on input line 137.
 LaTeX Info: Redefining \tempurl on input line 187.
 LaTeX Info: Redefining \tempurl on input line 234.
@@ -1318,16 +1314,16 @@ L3 programming layer <2025-12-24>
 LaTeX Font Warning: Some font shapes were not available, defaults substituted.
 
 Package rerunfilecheck Info: File `els2.out' has not changed.
-(rerunfilecheck)             Checksum: 5D5374F15DAD3EA7E50183A2EFDF01EF;3498.
+(rerunfilecheck)             Checksum: 25197C2D522A7A1110FABD506A8E852C;3498.
  ) 
 Here is how much of TeX's memory you used:
- 23952 strings out of 467871
- 389881 string characters out of 5418377
- 1342670 words of memory out of 5000000
+ 23955 strings out of 467871
+ 389943 string characters out of 5418377
+ 1226860 words of memory out of 5000000
  51379 multiletter control sequences out of 15000+600000
- 870231 words of font info for 592 fonts, out of 8000000 for 9000
+ 870487 words of font info for 593 fonts, out of 8000000 for 9000
  1302 hyphenation exceptions out of 8191
- 90i,21n,131p,1003b,1333s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 90i,21n,131p,1091b,2096s stack positions out of 10000i,1000n,20000p,200000b,200000s
 <C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/inconsolata/
 Inconsolata-zi4b.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/
 public/inconsolata/Inconsolata-zi4r.pfb><C:/Users/frank/AppData/Local/Programs/
@@ -1347,9 +1343,9 @@ TXMI.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/newtx
 newtx/txmiaX.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/publ
 ic/newtx/txsym.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/pu
 blic/newtx/txsys.pfb>
-Output written on els2.pdf (9 pages, 627757 bytes).
+Output written on els2.pdf (9 pages, 630746 bytes).
 PDF statistics:
- 559 PDF objects out of 1000 (max. 8388607)
- 226 named destinations out of 1000 (max. 500000)
+ 561 PDF objects out of 1000 (max. 8388607)
+ 227 named destinations out of 1000 (max. 500000)
  129721 words of extra memory for PDF output out of 154059 (max. 10000000)
 
