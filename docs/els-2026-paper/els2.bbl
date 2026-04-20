@@ -42,7 +42,8 @@
   \bibinfo{year}{1992}\natexlab{}.
 \newblock \bibinfo{booktitle}{\emph{Dylan - An Object-Oriented Dynamic
   Programming Language}}.
-\newblock \bibinfo{publisher}{Apple Computer, Inc.}
+\newblock \bibinfo{publisher}{Apple Computer, Inc.},
+  \bibinfo{address}{Cupertino, CA, USA}.
 \newblock
 
 
@@ -96,9 +97,10 @@
   Kiselyov}, {and} \bibinfo{person}{Chung-chieh Shan}.}
   \bibinfo{year}{2009}\natexlab{}.
 \newblock \showarticletitle{Finally Tagless, Partially Evaluated: Tagless
-  Staged Interpreters for Simpler Typed Languages}. In
-  \bibinfo{booktitle}{\emph{Journal of Functional Programming}},
-  Vol.~\bibinfo{volume}{19}. \bibinfo{pages}{509--543}.
+  Staged Interpreters for Simpler Typed Languages}.
+\newblock \bibinfo{journal}{\emph{Journal of Functional Programming}}
+  \bibinfo{volume}{19}, \bibinfo{number}{5} (\bibinfo{year}{2009}),
+  \bibinfo{pages}{509--543}.
 \newblock
 
 
@@ -108,8 +110,8 @@
   \bibinfo{year}{1993}\natexlab{}.
 \newblock \showarticletitle{The Cecil Language: Design and Performance}. In
   \bibinfo{booktitle}{\emph{Proceedings of the Conference on Object-Oriented
-  Programming Systems, Languages, and Applications}}.
-  \bibinfo{pages}{243--257}.
+  Programming Systems, Languages, and Applications}}. \bibinfo{publisher}{ACM},
+  \bibinfo{address}{New York, NY, USA}, \bibinfo{pages}{243--257}.
 \newblock
 
 
@@ -156,7 +158,8 @@
   \bibinfo{year}{2007}\natexlab{}.
 \newblock \showarticletitle{Matching Objects with Patterns}. In
   \bibinfo{booktitle}{\emph{ECOOP 2007--Object-Oriented Programming}}.
-  \bibinfo{publisher}{Springer}, \bibinfo{pages}{273--298}.
+  \bibinfo{publisher}{Springer}, \bibinfo{address}{Berlin, Heidelberg},
+  \bibinfo{pages}{273--298}.
 \newblock
 
 
@@ -167,7 +170,8 @@
   \bibinfo{year}{1998}\natexlab{}.
 \newblock \showarticletitle{Predicate Dispatching: A Unified Theory of
   Dispatch}. In \bibinfo{booktitle}{\emph{ECOOP'98—Object-Oriented
-  Programming}}. \bibinfo{publisher}{Springer}, \bibinfo{pages}{186--211}.
+  Programming}}. \bibinfo{publisher}{Springer}, \bibinfo{address}{Berlin,
+  Heidelberg}, \bibinfo{pages}{186--211}.
 \newblock
 
 
@@ -214,7 +218,8 @@
   \bibinfo{year}{2008}\natexlab{}.
 \newblock \showarticletitle{The Clojure programming language}. In
   \bibinfo{booktitle}{\emph{Proceedings of the 2008 symposium on Dynamic
-  languages}}. \bibinfo{pages}{1}.
+  languages}}. \bibinfo{publisher}{ACM}, \bibinfo{address}{New York, NY, USA},
+  \bibinfo{pages}{1--10}.
 \newblock
 
 
@@ -323,6 +328,7 @@
 \newblock \showarticletitle{Filtered Dispatch}. In
   \bibinfo{booktitle}{\emph{Proceedings of the 17th ACM SIGPLAN conference on
   Object-oriented programming, systems, languages, and applications}}.
+  \bibinfo{publisher}{ACM}, \bibinfo{address}{New York, NY, USA},
   \bibinfo{pages}{20--26}.
 \newblock
 
@@ -376,6 +382,8 @@
   \bibinfo{year}{1990}\natexlab{}.
 \newblock \showarticletitle{Linear Types Can Change the World!}. In
   \bibinfo{booktitle}{\emph{Programming Concepts and Methods}}.
+  \bibinfo{publisher}{North-Holland}, \bibinfo{address}{Amsterdam,
+  Netherlands}, \bibinfo{pages}{347--359}.
 \newblock
 
 
