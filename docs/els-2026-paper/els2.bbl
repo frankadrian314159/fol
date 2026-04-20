@@ -2,7 +2,7 @@
 %%% Do NOT edit. File created by BibTeX with style
 %%% ACM-Reference-Format-Journals [18-Jan-2012].
 
-\begin{thebibliography}{23}
+\begin{thebibliography}{33}
 
 %%% ====================================================================
 %%% NOTE TO THE USER: you can override these defaults by providing
@@ -46,6 +46,16 @@
 \newblock
 
 
+\bibitem[Atkinson and Morrison(1995)]%
+        {Morrison1991}
+\bibfield{author}{\bibinfo{person}{Malcolm Atkinson} {and} \bibinfo{person}{Ron
+  Morrison}.} \bibinfo{year}{1995}\natexlab{}.
+\newblock \showarticletitle{Orthogonally Persistent Object Systems}.
+\newblock \bibinfo{journal}{\emph{The VLDB Journal}} \bibinfo{volume}{4},
+  \bibinfo{number}{3} (\bibinfo{year}{1995}), \bibinfo{pages}{319--401}.
+\newblock
+
+
 \bibitem[Bagwell(2001)]%
         {Bagwell2000}
 \bibfield{author}{\bibinfo{person}{Phil Bagwell}.}
@@ -78,6 +88,18 @@
 \url{https://common-lisp.net/project/fset/}
 \showURL{%
 \tempurl}
+
+
+\bibitem[Carette et~al\mbox{.}(2009)]%
+        {Carette2009}
+\bibfield{author}{\bibinfo{person}{Jacques Carette}, \bibinfo{person}{Oleg
+  Kiselyov}, {and} \bibinfo{person}{Chung-chieh Shan}.}
+  \bibinfo{year}{2009}\natexlab{}.
+\newblock \showarticletitle{Finally Tagless, Partially Evaluated: Tagless
+  Staged Interpreters for Simpler Typed Languages}. In
+  \bibinfo{booktitle}{\emph{Journal of Functional Programming}},
+  Vol.~\bibinfo{volume}{19}. \bibinfo{pages}{509--543}.
+\newblock
 
 
 \bibitem[Chambers(1993)]%
@@ -209,6 +231,31 @@
 \tempurl}
 
 
+\bibitem[Hickey(2010a)]%
+        {Hickey2010protocols}
+\bibfield{author}{\bibinfo{person}{Rich Hickey}.}
+  \bibinfo{year}{2010}\natexlab{a}.
+\newblock \bibinfo{title}{Clojure Protocols}.
+\newblock \bibinfo{howpublished}{Clojure Reference Documentation}.
+\newblock
+\urldef\tempurl%
+\url{https://clojure.org/reference/protocols}
+\showURL{%
+\tempurl}
+
+
+\bibitem[Hickey(2010b)]%
+        {hickey2010expressionproblem}
+\bibfield{author}{\bibinfo{person}{Rich Hickey}.}
+  \bibinfo{year}{2010}\natexlab{b}.
+\newblock \bibinfo{title}{Clojure’s Solutions to the Expression Problem}.
+\newblock \bibinfo{howpublished}{Conference talk at Strange Loop}.
+\newblock
+\newblock
+\shownote{Available at
+  \url{[thestrangeloop.com](https://www.thestrangeloop.com/2010/clojures-solutions-to-the-expression-problem.html}}.
+
+
 \bibitem[Hickey(2014)]%
         {Hickey2014}
 \bibfield{author}{\bibinfo{person}{Rich Hickey}.}
@@ -241,6 +288,17 @@
 \newblock
 
 
+\bibitem[Millstein(2004)]%
+        {Millstein2004}
+\bibfield{author}{\bibinfo{person}{Todd Millstein}.}
+  \bibinfo{year}{2004}\natexlab{}.
+\newblock \showarticletitle{Practical Predicate Dispatch}. In
+  \bibinfo{booktitle}{\emph{Proceedings of the 19th Annual ACM SIGPLAN
+  Conference on Object-Oriented Programming, Systems, Languages, and
+  Applications}}. \bibinfo{publisher}{ACM}, \bibinfo{pages}{345--364}.
+\newblock
+
+
 \bibitem[Odersky et~al\mbox{.}(2016)]%
         {Odersky2016}
 \bibfield{author}{\bibinfo{person}{Martin Odersky}, \bibinfo{person}{Lex
@@ -260,6 +318,17 @@
 \newblock
 
 
+\bibitem[Oliveira and Cook(2012)]%
+        {Oliveira2012}
+\bibfield{author}{\bibinfo{person}{Bruno C. d.~S. Oliveira} {and}
+  \bibinfo{person}{William~R. Cook}.} \bibinfo{year}{2012}\natexlab{}.
+\newblock \showarticletitle{Extensibility for the Masses: Practical
+  Extensibility with Object Algebras}. In \bibinfo{booktitle}{\emph{Proceedings
+  of the 26th European Conference on Object-Oriented Programming (ECOOP)}}.
+  \bibinfo{publisher}{Springer}, \bibinfo{pages}{2--27}.
+\newblock
+
+
 \bibitem[Orleans(2002)]%
         {Orleans2002}
 \bibfield{author}{\bibinfo{person}{Doug Orleans}.}
@@ -268,6 +337,17 @@
   \bibinfo{booktitle}{\emph{Proceedings of the 17th ACM SIGPLAN conference on
   Object-oriented programming, systems, languages, and applications}}.
   \bibinfo{pages}{20--26}.
+\newblock
+
+
+\bibitem[Penney and Stein(1987)]%
+        {Penney1987}
+\bibfield{author}{\bibinfo{person}{D.~J. Penney} {and} \bibinfo{person}{J.
+  Stein}.} \bibinfo{year}{1987}\natexlab{}.
+\newblock \showarticletitle{Class Modification in the {GemStone}
+  Object-Oriented {DBMS}}. In \bibinfo{booktitle}{\emph{Proceedings of the 2nd
+  ACM Conference on Object-Oriented Programming Systems, Languages, and
+  Applications (OOPSLA)}}. \bibinfo{publisher}{ACM}, \bibinfo{pages}{111--117}.
 \newblock
 
 
@@ -282,13 +362,43 @@
 \newblock
 
 
+\bibitem[Skarra and Zdonik(1986)]%
+        {Skarra1986}
+\bibfield{author}{\bibinfo{person}{Andrea~H. Skarra} {and}
+  \bibinfo{person}{Stanley~B. Zdonik}.} \bibinfo{year}{1986}\natexlab{}.
+\newblock \showarticletitle{The Management of Changing Types in an
+  Object-Oriented Database}. In \bibinfo{booktitle}{\emph{Proceedings of the
+  1st ACM Conference on Object-Oriented Programming Systems, Languages, and
+  Applications (OOPSLA)}}. \bibinfo{publisher}{ACM}, \bibinfo{pages}{483--495}.
+\newblock
+
+
 \bibitem[Ungar and Smith(1987)]%
         {Ungar1987}
 \bibfield{author}{\bibinfo{person}{David Ungar} {and}
-  \bibinfo{person}{Randall~B Smith}.} \bibinfo{year}{1987}\natexlab{}.
-\newblock \showarticletitle{Self: The power of simplicity}. In
-  \bibinfo{booktitle}{\emph{ACM SIGPLAN Notices}}, Vol.~\bibinfo{volume}{22}.
-  \bibinfo{publisher}{ACM}, \bibinfo{pages}{227--242}.
+  \bibinfo{person}{Randall~B. Smith}.} \bibinfo{year}{1987}\natexlab{}.
+\newblock \showarticletitle{Self: The Power of Simplicity}.
+\newblock \bibinfo{journal}{\emph{ACM SIGPLAN Notices}} \bibinfo{volume}{22},
+  \bibinfo{number}{12} (\bibinfo{year}{1987}), \bibinfo{pages}{227--242}.
+\newblock
+
+
+\bibitem[Wadler(1990)]%
+        {Wadler1990}
+\bibfield{author}{\bibinfo{person}{Philip Wadler}.}
+  \bibinfo{year}{1990}\natexlab{}.
+\newblock \showarticletitle{Linear Types Can Change the World!}. In
+  \bibinfo{booktitle}{\emph{Programming Concepts and Methods}}.
+\newblock
+
+
+\bibitem[Zenger and Odersky(2005)]%
+        {Zenger2005}
+\bibfield{author}{\bibinfo{person}{Matthias Zenger} {and}
+  \bibinfo{person}{Martin Odersky}.} \bibinfo{year}{2005}\natexlab{}.
+\newblock \showarticletitle{Independently Extensible Solutions to the
+  Expression Problem}. In \bibinfo{booktitle}{\emph{Proceedings of the 12th
+  International Workshop on Foundations of Object-Oriented Languages (FOOL)}}.
 \newblock
 
 

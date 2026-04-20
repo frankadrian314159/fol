@@ -1,0 +1,174 @@
+;;; =============================================================================
+;;; Expression Interpreter — Adoption Cost Benchmark (FOL port)
+;;; Persistent CLOS hierarchy, predicate dispatch, persistent dict environment.
+;;; Corresponds to lisp-code/interpreter.lisp.
+;;;
+;;; This is a direct port of a standard CLOS interpreter to FOL.  Changes:
+;;;   - defclass: gains persistent metaclass automatically (no code change needed)
+;;;   - defgeneric/defmethod: syntax identical in shape; predicate dispatch
+;;;       replaces CLOS type dispatch
+;;;   - eval-expr let-expr branch: (assoc env bvar v) instead of mutate/restore
+;;;   - free-vars: persistent sets (#{...}) instead of CL lists
+;;;   - pretty: (str ...) instead of (concatenate 'string ...)
+;;;   - env: persistent dict {:x 3 :y 5 :z 2} instead of hash-table
+;;; =============================================================================
+
+(in-package "interp-fol"
+  (:use "fol.core")
+  (:export run-bench build-corpus))
+
+;;; ---------------------------------------------------------------------------
+;;; AST class hierarchy: 7 node types, persistent objects via MOP metaclass
+;;; ---------------------------------------------------------------------------
+
+(defclass <expr> [] [])
+
+(defclass <num-expr> [<expr>] [[val]])
+(defclass <var-expr> [<expr>] [[name]])
+(defclass <add-expr> [<expr>] [[left] [right]])
+(defclass <mul-expr> [<expr>] [[left] [right]])
+(defclass <let-expr> [<expr>] [[bvar] [bval] [body]])
+(defclass <if-expr>  [<expr>] [[test] [consequent] [alternate]])
+(defclass <neg-expr> [<expr>] [[arg]])
+
+;;; ---------------------------------------------------------------------------
+;;; eval-expr — evaluates an expression in a persistent dict environment
+;;;
+;;; let-expr uses (assoc env bvar v): O(log N) functional update, returning a
+;;; new dict with structural sharing.  No mutation; no save/restore bookkeeping.
+;;; ---------------------------------------------------------------------------
+
+(defgeneric eval-expr [expr env])
+
+(defmethod eval-expr
+  ([(e <num-expr>) env]
+   (get e :val))
+
+  ([(e <var-expr>) env]
+   (get env (get e :name) 0))
+
+  ([(e <add-expr>) env]
+   (+ (eval-expr (get e :left)  env)
+      (eval-expr (get e :right) env)))
+
+  ([(e <mul-expr>) env]
+   (* (eval-expr (get e :left)  env)
+      (eval-expr (get e :right) env)))
+
+  ([(e <let-expr>) env]
+   (bind [v       (eval-expr (get e :bval) env)
+          new-env (assoc env (get e :bvar) v)]
+     (eval-expr (get e :body) new-env)))
+
+  ([(e <if-expr>) env]
+   (if (= (eval-expr (get e :test) env) 0)
+       (eval-expr (get e :alternate)  env)
+       (eval-expr (get e :consequent) env)))
+
+  ([(e <neg-expr>) env]
+   (- (eval-expr (get e :arg) env))))
+
+;;; ---------------------------------------------------------------------------
+;;; pretty — pretty-prints an expression to a string (second generic function)
+;;; ---------------------------------------------------------------------------
+
+(defgeneric pretty [expr])
+
+(defmethod pretty
+  ([(e <num-expr>)]
+   (str (get e :val)))
+
+  ([(e <var-expr>)]
+   (str (get e :name)))
+
+  ([(e <add-expr>)]
+   (str "(+ " (pretty (get e :left)) " " (pretty (get e :right)) ")"))
+
+  ([(e <mul-expr>)]
+   (str "(* " (pretty (get e :left)) " " (pretty (get e :right)) ")"))
+
+  ([(e <let-expr>)]
+   (str "(let [" (get e :bvar) " " (pretty (get e :bval)) "] "
+        (pretty (get e :body)) ")"))
+
+  ([(e <if-expr>)]
+   (str "(if " (pretty (get e :test)) " "
+        (pretty (get e :consequent)) " "
+        (pretty (get e :alternate)) ")"))
+
+  ([(e <neg-expr>)]
+   (str "(- " (pretty (get e :arg)) ")")))
+
+;;; ---------------------------------------------------------------------------
+;;; free-vars — returns a persistent set of free variable names
+;;; Uses FOL persistent sets (Sycamore hash-set) instead of CL lists.
+;;; bound: a persistent set of variable names already in scope.
+;;; ---------------------------------------------------------------------------
+
+(defgeneric free-vars [expr bound])
+
+(defmethod free-vars
+  ([(e <num-expr>) bound] #{})
+
+  ([(e <var-expr>) bound]
+   (if (contains? bound (get e :name))
+       #{}
+       #{(get e :name)}))
+
+  ([(e <add-expr>) bound]
+   (union (free-vars (get e :left)  bound)
+          (free-vars (get e :right) bound)))
+
+  ([(e <mul-expr>) bound]
+   (union (free-vars (get e :left)  bound)
+          (free-vars (get e :right) bound)))
+
+  ([(e <let-expr>) bound]
+   (union (free-vars (get e :bval) bound)
+          (free-vars (get e :body) (conj bound (get e :bvar)))))
+
+  ([(e <if-expr>) bound]
+   (union (free-vars (get e :test) bound)
+          (union (free-vars (get e :consequent) bound)
+                 (free-vars (get e :alternate)  bound))))
+
+  ([(e <neg-expr>) bound]
+   (free-vars (get e :arg) bound)))
+
+;;; ---------------------------------------------------------------------------
+;;; Benchmark infrastructure
+;;; ---------------------------------------------------------------------------
+
+(defn build-expr [depth idx]
+  (if (<= depth 0)
+      (if (= (mod idx 2) 0)
+          (make-<num-expr> :val (mod idx 5))
+          (make-<var-expr> :name (cond
+                                   ((= (mod idx 3) 0) :x)
+                                   ((= (mod idx 3) 1) :y)
+                                   (true              :z))))
+      (bind [m (mod idx 5)]
+        (if (= m 4)
+            (make-<neg-expr> :arg (build-expr (- depth 1) (* idx 2)))
+            (bind [l (build-expr (- depth 1) (* idx 2))
+                   r (build-expr (- depth 1) (+ (* idx 2) 1))]
+              (cond
+                ((= m 0) (make-<add-expr> :left l :right r))
+                ((= m 1) (make-<mul-expr> :left l :right r))
+                ((= m 2) (make-<let-expr> :bvar :x :bval l :body r))
+                (true    (make-<if-expr>  :test        (make-<var-expr> :name :x)
+                                          :consequent  l
+                                          :alternate   r))))))))
+
+(defn build-corpus [corpus-size depth]
+  (mapv (fn [i] (build-expr depth i)) (range corpus-size)))
+
+(defn run-bench [n]
+  (bind [corpus (build-corpus 50 5)
+         env    {:x 3 :y 5 :z 2}]
+    (dotimes [i n]
+      (dotimes [j (size corpus)]
+        (bind [expr (nth corpus j)]
+          (eval-expr expr env)
+          (pretty    expr)
+          (free-vars expr #{}))))))
