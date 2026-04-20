@@ -2,7 +2,7 @@
 %%% Do NOT edit. File created by BibTeX with style
 %%% ACM-Reference-Format-Journals [18-Jan-2012].
 
-\begin{thebibliography}{33}
+\begin{thebibliography}{32}
 
 %%% ====================================================================
 %%% NOTE TO THE USER: you can override these defaults by providing
@@ -216,19 +216,6 @@
   \bibinfo{booktitle}{\emph{Proceedings of the 2008 symposium on Dynamic
   languages}}. \bibinfo{pages}{1}.
 \newblock
-
-
-\bibitem[Hickey(2009)]%
-        {Hickey2009}
-\bibfield{author}{\bibinfo{person}{Rich Hickey}.}
-  \bibinfo{year}{2009}\natexlab{}.
-\newblock \bibinfo{title}{Are We There Yet?}
-\newblock \bibinfo{howpublished}{JVM Languages Summit Keynote}.
-\newblock
-\urldef\tempurl%
-\url{https://github.com/matthiasn/talk-transcripts/blob/master/Hickey_Rich/AreWeThereYet.md}
-\showURL{%
-\tempurl}
 
 
 \bibitem[Hickey(2010a)]%

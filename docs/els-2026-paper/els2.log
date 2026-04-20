@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.2.2)  19 APR 2026 19:31
+This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.2.2)  19 APR 2026 20:28
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1131,12 +1131,6 @@ Package microtype Info: Loading generic protrusion settings for font family
 LaTeX Font Info:    Font shape `T1/LinuxLibertineT-TLF/m/it' will be
 (Font)              scaled to size 9.0pt on input line 122.
 
-Overfull \hbox (34.0924pt too wide) in paragraph at lines 139--143
-\T1/zi4/m/n/9 cond \T1/LinuxLibertineT-TLF/m/n/9 (-20) guards, los-ing ex-ten-s
-i-bil-ity. Li-braries such as \T1/zi4/m/n/9 filtered-functions \T1/LinuxLiberti
-neT-TLF/m/n/9 (-20) [[]]
- []
-
 
 Class acmart Warning: \vspace should only be used to provide space above/below 
 surrounding objects on input line 144.
@@ -1149,19 +1143,27 @@ LaTeX Font Info:    Font shape `T1/LinuxLibertineT-TLF/m/it' will be
 (Font)              scaled to size 7.0pt on input line 147.
 
 LaTeX Font Warning: Font shape `T1/zi4/m/it' undefined
-(Font)              using `T1/zi4/m/n' instead on input line 173.
+(Font)              using `T1/zi4/m/n' instead on input line 171.
 
 
-Overfull \hbox (63.8321pt too wide) in paragraph at lines 173--176
+Overfull \hbox (63.8321pt too wide) in paragraph at lines 171--174
 []\T1/LinuxLibertineT-TLF/m/n/9 (-20) The \T1/zi4/m/n/9 persistent-class \T1/Li
 nuxLibertineT-TLF/m/n/9 (-20) meta-class (Ta-ble []1[]) en-forces: \T1/LinuxLib
 ertineT-TLF/m/it/9 (-20) af-ter \T1/zi4/m/n/9 initialize-instance
  []
 
-[1.1{C:/Users/frank/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map}{C:/Users/
-frank/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/libertine/lbtn_25tcsq.enc}{
-C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/libertine/lbtn_76g
-pa5.enc}
+
+Overfull \hbox (10.0pt too wide) in alignment at lines 200--200
+[][][] 
+ []
+
+
+Underfull \vbox (badness 1052) has occurred while \output is active []
+
+ [1.1{C:/Users/frank/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map}{C:/Users
+/frank/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/libertine/lbtn_25tcsq.enc}
+{C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/libertine/lbtn_76
+gpa5.enc}
 
 {C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/libertine/lbtn_nh
 77jq.enc}{C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/libertin
@@ -1169,99 +1171,100 @@ e/lbtn_oexx6f.enc}{C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/enc/dvips
 /inconsolata/i4-t1-4.enc}{C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/en
 c/dvips/libertine/lbtn_naooyc.enc}{C:/Users/frank/AppData/Local/Programs/MiKTeX
 /fonts/enc/dvips/libertine/lbtn_7grukw.enc}]
-Overfull \hbox (10.0pt too wide) in alignment at lines 202--202
-[][][] 
- []
-
 LaTeX Font Info:    Font shape `T1/zi4/m/n' will be
-(Font)              scaled to size 7.0pt on input line 214.
+(Font)              scaled to size 7.0pt on input line 212.
+
+Underfull \vbox (badness 2005) has occurred while \output is active []
+
 LaTeX Font Info:    Font shape `T1/zi4/b/n' will be
-(Font)              scaled to size 9.0pt on input line 241.
+(Font)              scaled to size 9.0pt on input line 238.
 LaTeX Font Info:    Font shape `T1/LinuxLibertineT-TLF/m/n' will be
-(Font)              scaled to size 8.0pt on input line 243.
+(Font)              scaled to size 8.0pt on input line 240.
 LaTeX Font Info:    Font shape `T1/LinuxLibertineT-TLF/m/it' will be
-(Font)              scaled to size 8.0pt on input line 265.
+(Font)              scaled to size 8.0pt on input line 262.
 LaTeX Font Info:    Font shape `T1/LinuxLibertineT-TLF/m/n' will be
-(Font)              scaled to size 6.0pt on input line 265.
+(Font)              scaled to size 6.0pt on input line 262.
 
-Class acmart Warning: A possible image without description on input line 276.
 
-LaTeX Font Info:    Trying to load font information for TS1+zi4 on input line 3
-00.
+Class acmart Warning: A possible image without description on input line 273.
+
+[2.2]
+LaTeX Font Info:    Trying to load font information for TS1+zi4 on input line 2
+97.
+
 (C:\Users\frank\AppData\Local\Programs\MiKTeX\tex/latex/inconsolata\ts1zi4.fd
 File: ts1zi4.fd 2018/01/14 TS1/zi4 (Inconsolata)
 )
 LaTeX Font Info:    Font shape `TS1/zi4/m/n' will be
-(Font)              scaled to size 7.0pt on input line 300.
+(Font)              scaled to size 7.0pt on input line 297.
 Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             `zi4' (encoding: TS1).
 (microtype)             For optimal results, create family-specific settings.
 (microtype)             See the microtype manual for details.
 
-Overfull \hbox (1.05663pt too wide) in paragraph at lines 315--319
+Overfull \hbox (1.05663pt too wide) in paragraph at lines 312--316
 \T1/LinuxLibertineT-TLF/m/n/9 (-20) stan-dard CLOS ex-e-cu-tion se-man-tics (mo
 st-specific-first for \T1/zi4/m/it/9 :before\T1/LinuxLibertineT-TLF/m/n/9 (-20)
  ,
  []
 
 
-Overfull \hbox (18.0868pt too wide) in paragraph at lines 337--343
+Overfull \hbox (18.0868pt too wide) in paragraph at lines 334--340
 []\T1/LinuxLibertineT-TLF/m/n/9 (-20) For com-pound pred-i-cates, the level cal
 -cu-lus ap-plies $\LMS/ntxsy/m/n/9 L¹[] \OML/nxlmi/m/it/9 p[] [] p[]\LMS/ntxsy/
 m/n/9 º \U/ntxmia/m/it/9 =
  []
 
-[2.2{C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/inconsolata/i
-4-ts1.enc}]
 LaTeX Font Info:    Font shape `T1/LinuxBiolinumT-TLF/m/n' will be
-(Font)              scaled to size 9.0pt on input line 353.
+(Font)              scaled to size 9.0pt on input line 350.
 LaTeX Font Info:    Font shape `T1/LinuxBiolinumT-TLF/m/it' will be
-(Font)              scaled to size 9.0pt on input line 353.
+(Font)              scaled to size 9.0pt on input line 350.
 LaTeX Font Info:    Font shape `T1/LinuxLibertineT-TLF/m/sc' will be
-(Font)              scaled to size 9.0pt on input line 390.
- [3.3]
+(Font)              scaled to size 9.0pt on input line 387.
+[3.3{C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/inconsolata/i
+4-ts1.enc}{C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/liberti
+ne/lbtn_ncsllp.enc}]
 Package hyperref Info: bookmark level for unknown lstlisting defaults to 0 on i
-nput line 411.
- [4.4{C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/libertine/lb
-tn_ncsllp.enc}]
-Overfull \hbox (7.57104pt too wide) in paragraph at lines 536--544
+nput line 405.
+ [4.4]
+Overfull \hbox (7.57104pt too wide) in paragraph at lines 511--519
 \T1/LinuxLibertineT-TLF/m/n/9 (-20) Chain re-play (\T1/zi4/m/it/9 :after \T1/Li
 nuxLibertineT-TLF/m/n/9 (-20) on \T1/zi4/m/it/9 update-instance-for-redefined-c
 lass\T1/LinuxLibertineT-TLF/m/n/9 (-20) )
  []
 
 
-Overfull \hbox (5.62616pt too wide) in paragraph at lines 561--562
+Overfull \hbox (5.62616pt too wide) in paragraph at lines 536--537
 \T1/LinuxLibertineT-TLF/m/n/9 (-20) FOL fills a gap be-tween CLOS and Clo-jure 
 (Ta-ble []5[]): where \T1/zi4/m/it/9 defrecord
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 586--587
+Underfull \hbox (badness 10000) in paragraph at lines 561--562
 []\T1/zi4/m/n/7 defmulti \T1/LinuxLibertineT-TLF/m/n/7 (+20) dis-patches via a 
 user-supplied func-tion;
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 586--587
+Underfull \hbox (badness 10000) in paragraph at lines 561--562
 \T1/zi4/m/n/7 prefer-method\T1/LinuxLibertineT-TLF/m/n/7 (+20) /\T1/zi4/m/n/7 d
 erive \T1/LinuxLibertineT-TLF/m/n/7 (+20) al-low man-ual over-rides but
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 589--590
+Underfull \hbox (badness 10000) in paragraph at lines 564--565
 []\T1/LinuxLibertineT-TLF/m/n/7 (+20) Slot stor-age backed by im-mutable HAMTs;
  \T1/zi4/m/n/7 (setf
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 590--591
+Underfull \hbox (badness 10000) in paragraph at lines 565--566
 []\T1/LinuxLibertineT-TLF/m/n/7 (+20) Renamed slots re-cov-ered au-to-mat-i-cal
 ly at first post-
  []
 
 
-Overfull \hbox (30.04271pt too wide) in paragraph at lines 599--603
+Overfull \hbox (30.04271pt too wide) in paragraph at lines 574--578
 \T1/zi4/m/it/9 make-instance\T1/LinuxLibertineT-TLF/m/n/9 (-20) , $\OT1/LinuxLi
 bertineT-TLF/m/n/9 (-20) 5[]$\T1/LinuxLibertineT-TLF/m/n/9 (-20) ); \T1/zi4/m/i
 t/9 %make-persistent \T1/LinuxLibertineT-TLF/m/n/9 (-20) by-passes \T1/zi4/m/it
@@ -1269,73 +1272,42 @@ t/9 %make-persistent \T1/LinuxLibertineT-TLF/m/n/9 (-20) by-passes \T1/zi4/m/it
  []
 
 [5.5]
-Overfull \hbox (13.73521pt too wide) in paragraph at lines 663--673
+Overfull \hbox (13.73521pt too wide) in paragraph at lines 638--648
  [][] 
  []
 
 
-Overfull \hbox (3.20181pt too wide) in paragraph at lines 680--682
+Overfull \hbox (3.20181pt too wide) in paragraph at lines 655--657
 \T1/zi4/m/it/9 update-instance-for-redefined-class \T1/LinuxLibertineT-TLF/m/n/
 9 (-20) method. FOL first-touch
  []
 
 [6.6]
-Overfull \hbox (12.47217pt too wide) in paragraph at lines 790--808
+Overfull \hbox (12.47217pt too wide) in paragraph at lines 765--783
  [] 
  []
 
 
-Overfull \hbox (12.7836pt too wide) in paragraph at lines 835--846
+Overfull \hbox (12.7836pt too wide) in paragraph at lines 810--821
  [][] 
  []
 
 
-Overfull \hbox (5.69897pt too wide) in paragraph at lines 886--897
+Overfull \hbox (5.69897pt too wide) in paragraph at lines 858--869
  [][] 
  []
 
 [7.7]
-Overfull \hbox (11.18628pt too wide) in paragraph at lines 914--918
-\T1/zi4/m/it/9 <mul-expr>\T1/LinuxLibertineT-TLF/m/n/9 (-20) , \T1/zi4/m/it/9 <
-let-expr>\T1/LinuxLibertineT-TLF/m/n/9 (-20) , \T1/zi4/m/it/9 <if-expr>\T1/Linu
-xLibertineT-TLF/m/n/9 (-20) , and \T1/zi4/m/it/9 <neg-expr>\T1/LinuxLibertineT-
-TLF/m/n/9 (-20) . Three generic
- []
-
-
-Overfull \hbox (32.45578pt too wide) in paragraph at lines 914--918
-\T1/LinuxLibertineT-TLF/m/n/9 (-20) func-tions are de-fined with-out mod-i-fy-i
-ng the class def-i-ni-tions^^Vdemonstrating
- []
-
-
-Overfull \hbox (76.30684pt too wide) in paragraph at lines 932--940
- [][] 
- []
-
-[8.8]
-Overfull \hbox (1.37471pt too wide) in paragraph at lines 985--989
+Overfull \hbox (1.37471pt too wide) in paragraph at lines 953--957
 \T1/LinuxLibertineT-TLF/m/n/9 (-20) per-sis-tent Smalltalk ob-jects, re-quir-in
 g an ex-plicit con-ver-sion method
  []
 
-(els2.bbl
-
-Package balance Warning: You have called \balance in second column
-(balance)                Columns might not be balanced.
-
-[9.9]
+[8.8] (els2.bbl
 LaTeX Info: Redefining \tempurl on input line 135.
 LaTeX Info: Redefining \tempurl on input line 183.
 LaTeX Info: Redefining \tempurl on input line 229.
-
-Underfull \hbox (badness 3646) in paragraph at lines 223--232
-[]\T1/LinuxLibertineT-TLF/m/n/7 (+20) Rich Hickey. 2009.  Are We There Yet?  JV
-M Lan-guages Sum-mit
- []
-
-LaTeX Info: Redefining \tempurl on input line 242.
-LaTeX Info: Redefining \tempurl on input line 267.
+LaTeX Info: Redefining \tempurl on input line 254.
 )
 
 Class acmart Warning: Some images may lack descriptions.
@@ -1353,16 +1325,13 @@ rtant steps when creating your papers will ensure that the widest possible audi
 ence can ingest your work..
 
 
-Overfull \vbox (1.333pt too high) has occurred while \output is active []
-
-
 (C:\Users\frank\AppData\Local\Programs\MiKTeX\tex/generic/stringenc\se-pdfdoc.d
 ef
 File: se-pdfdoc.def 2019/11/29 v1.12 stringenc: PDFDocEncoding
 )
 (C:\Users\frank\AppData\Local\Programs\MiKTeX\tex/generic/stringenc\se-utf8.def
 File: se-utf8.def 2019/11/29 v1.12 stringenc: UTF-8
-) [10.10] (els2.aux)
+) [9.9] (els2.aux)
  ***********
 LaTeX2e <2025-11-01>
 L3 programming layer <2025-12-24>
@@ -1375,13 +1344,13 @@ Package rerunfilecheck Info: File `els2.out' has not changed.
 (rerunfilecheck)             Checksum: 25197C2D522A7A1110FABD506A8E852C;3498.
  ) 
 Here is how much of TeX's memory you used:
- 23995 strings out of 467871
- 390904 string characters out of 5418377
- 1233727 words of memory out of 5000000
- 51380 multiletter control sequences out of 15000+600000
- 869541 words of font info for 618 fonts, out of 8000000 for 9000
+ 23968 strings out of 467871
+ 390269 string characters out of 5418377
+ 1203221 words of memory out of 5000000
+ 51377 multiletter control sequences out of 15000+600000
+ 867176 words of font info for 604 fonts, out of 8000000 for 9000
  1302 hyphenation exceptions out of 8191
- 90i,21n,131p,1003b,1333s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 90i,21n,131p,1003b,1604s stack positions out of 10000i,1000n,20000p,200000b,200000s
 <C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/inconsolata/
 Inconsolata-zi4b.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/
 public/inconsolata/Inconsolata-zi4r.pfb><C:/Users/frank/AppData/Local/Programs/
@@ -1400,9 +1369,9 @@ Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/newtx/NewTXMI7.pfb
 pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/newtx/txsy
 m.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/newtx/tx
 sys.pfb>
-Output written on els2.pdf (10 pages, 599185 bytes).
+Output written on els2.pdf (9 pages, 592172 bytes).
 PDF statistics:
- 568 PDF objects out of 1000 (max. 8388607)
- 230 named destinations out of 1000 (max. 500000)
+ 557 PDF objects out of 1000 (max. 8388607)
+ 227 named destinations out of 1000 (max. 500000)
  125625 words of extra memory for PDF output out of 128383 (max. 10000000)
 

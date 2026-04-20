@@ -45,45 +45,45 @@ Warning--page numbers missing in both pages and numpages fields in Wadler1990
 Warning--empty publisher in Zenger2005
 Warning--empty address in Zenger2005
 Warning--page numbers missing in both pages and numpages fields in Zenger2005
-You've used 33 entries,
+You've used 32 entries,
             6273 wiz_defined-function locations,
-            1729 strings with 23295 characters,
-and the built_in function-call counts, 32197 in all, are:
-= -- 3656
-> -- 813
+            1724 strings with 23144 characters,
+and the built_in function-call counts, 31462 in all, are:
+= -- 3572
+> -- 796
 < -- 2
-+ -- 260
-- -- 315
-* -- 1989
-:= -- 3141
-add.period$ -- 169
-call.type$ -- 33
-change.case$ -- 191
-chr.to.int$ -- 32
-cite$ -- 64
-duplicate$ -- 3197
-empty$ -- 2241
-format.name$ -- 379
-if$ -- 7608
++ -- 256
+- -- 308
+* -- 1949
+:= -- 3063
+add.period$ -- 164
+call.type$ -- 32
+change.case$ -- 186
+chr.to.int$ -- 31
+cite$ -- 63
+duplicate$ -- 3126
+empty$ -- 2190
+format.name$ -- 372
+if$ -- 7446
 int.to.chr$ -- 3
 int.to.str$ -- 1
 missing$ -- 101
-newline$ -- 314
-num.names$ -- 230
-pop$ -- 1295
+newline$ -- 302
+num.names$ -- 223
+pop$ -- 1273
 preamble$ -- 1
-purify$ -- 453
+purify$ -- 440
 quote$ -- 0
-skip$ -- 1213
+skip$ -- 1183
 stack$ -- 0
-substring$ -- 2406
-swap$ -- 286
+substring$ -- 2352
+swap$ -- 282
 text.length$ -- 2
 text.prefix$ -- 0
 top$ -- 0
-type$ -- 853
+type$ -- 823
 warning$ -- 31
-while$ -- 244
+while$ -- 237
 width$ -- 0
-write$ -- 674
+write$ -- 652
 (There were 31 warnings)
