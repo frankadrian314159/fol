@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.2.2)  19 APR 2026 21:40
+This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.2.2)  19 APR 2026 21:43
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1271,12 +1271,6 @@ Overfull \hbox (12.7836pt too wide) in paragraph at lines 892--903
  [][] 
  []
 
-
-Overfull \hbox (7.54222pt too wide) in paragraph at lines 909--910
-\T1/LinuxLibertineT-TLF/m/n/9 (-20) heap. FOL ex-tends Com-mon Lisp func-tional
- li-braries like Sycamore [[]]
- []
-
 (els2.bbl
 Underfull \vbox (badness 3769) has occurred while \output is active []
 
@@ -1291,7 +1285,7 @@ LaTeX Info: Redefining \tempurl on input line 187.
 LaTeX Info: Redefining \tempurl on input line 234.
 LaTeX Info: Redefining \tempurl on input line 259.
 
-Underfull \vbox (badness 1558) has occurred while \output is active []
+Underfull \vbox (badness 10000) has occurred while \output is active []
 
 )
 
@@ -1331,7 +1325,7 @@ Package rerunfilecheck Info: File `els2.out' has not changed.
 Here is how much of TeX's memory you used:
  23955 strings out of 467871
  389949 string characters out of 5418377
- 1258889 words of memory out of 5000000
+ 1258629 words of memory out of 5000000
  51379 multiletter control sequences out of 15000+600000
  870487 words of font info for 593 fonts, out of 8000000 for 9000
  1302 hyphenation exceptions out of 8191
@@ -1355,7 +1349,7 @@ TXMI.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/newtx
 newtx/txmiaX.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/publ
 ic/newtx/txsym.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/pu
 blic/newtx/txsys.pfb>
-Output written on els2.pdf (9 pages, 627745 bytes).
+Output written on els2.pdf (9 pages, 627658 bytes).
 PDF statistics:
  559 PDF objects out of 1000 (max. 8388607)
  227 named destinations out of 1000 (max. 500000)

@@ -906,10 +906,10 @@ Optimizer  & CL  &  0.240\,ms/pass &  0.125\,MB/pass & 1.0$\times$ \\
 \label{sec:related}
 
 \paragraph{Persistent data structures.}
-FOL's trie implementation follows Bagwell's HAMT~\cite{Bagwell2000} and Clojure's designs~\cite{Hickey2008}, building on path-copying persistence~\cite{Driscoll1989}; Okasaki's heaps~\cite{Okasaki1998} underpin our LSim heap. FOL extends Common Lisp functional libraries like Sycamore~\cite{Dantam2013} and FSet~\cite{Burke2007} to MOP-integrated persistent \emph{objects} with predicate dispatch and schema evolution.
+FOL's trie follows Bagwell's HAMT~\cite{Bagwell2000} and Clojure~\cite{Hickey2008}, using path-copying persistence~\cite{Driscoll1989}; Okasaki's heaps~\cite{Okasaki1998} underpin our LSim heap. FOL extends libraries like Sycamore~\cite{Dantam2013} and FSet~\cite{Burke2007} to persistent \emph{objects} with predicate dispatch.
 
 \paragraph{Schema evolution.}
-Gemstone~\cite{Penney1987} and ENCORE~\cite{Skarra1986} pioneered lazy migration for persistent objects, but both require explicit coercion code for renames~\cite{Morrison1991}. FOL's contribution is declarative migration via \texttt{:alias}: multi-hop chains compose in a single pass without procedural code or runtime changes beyond the CLOS MOP.
+Gemstone~\cite{Penney1987} and ENCORE~\cite{Skarra1986} pioneered lazy migration, but require explicit coercion code for renames~\cite{Morrison1991}. FOL provides declarative migration via \texttt{:alias}; multi-hop chains compose in a single pass via the CLOS MOP.
 
 \paragraph{OOP/FP bridges and pattern dispatch in other languages.}
 Scala's case classes~\cite{Odersky2016} and \texttt{match}~\cite{Emir2007} provide immutable ADTs with structural dispatch, but updates require explicit \texttt{copy} and the class system is not MOP-integrated.
