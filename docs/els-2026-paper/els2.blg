@@ -30,45 +30,45 @@ Warning--empty address in Skarra1986
 Warning--empty publisher in Zenger2005
 Warning--empty address in Zenger2005
 Warning--page numbers missing in both pages and numpages fields in Zenger2005
-You've used 32 entries,
+You've used 31 entries,
             6273 wiz_defined-function locations,
-            1732 strings with 23258 characters,
-and the built_in function-call counts, 31849 in all, are:
-= -- 3719
-> -- 796
+            1726 strings with 23170 characters,
+and the built_in function-call counts, 31114 in all, are:
+= -- 3635
+> -- 779
 < -- 2
-+ -- 256
-- -- 308
-* -- 1984
-:= -- 3095
-add.period$ -- 165
-call.type$ -- 32
-change.case$ -- 186
-chr.to.int$ -- 31
-cite$ -- 48
-duplicate$ -- 3131
-empty$ -- 2194
-format.name$ -- 372
-if$ -- 7576
++ -- 252
+- -- 301
+* -- 1944
+:= -- 3017
+add.period$ -- 160
+call.type$ -- 31
+change.case$ -- 181
+chr.to.int$ -- 30
+cite$ -- 47
+duplicate$ -- 3060
+empty$ -- 2143
+format.name$ -- 365
+if$ -- 7414
 int.to.chr$ -- 3
 int.to.str$ -- 1
 missing$ -- 100
-newline$ -- 303
-num.names$ -- 223
-pop$ -- 1231
+newline$ -- 291
+num.names$ -- 216
+pop$ -- 1209
 preamble$ -- 1
-purify$ -- 440
+purify$ -- 427
 quote$ -- 0
-skip$ -- 1186
+skip$ -- 1156
 stack$ -- 0
-substring$ -- 2432
-swap$ -- 301
+substring$ -- 2378
+swap$ -- 297
 text.length$ -- 2
 text.prefix$ -- 0
 top$ -- 0
-type$ -- 809
+type$ -- 779
 warning$ -- 16
-while$ -- 242
+while$ -- 235
 width$ -- 0
-write$ -- 664
+write$ -- 642
 (There were 16 warnings)

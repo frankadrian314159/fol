@@ -2,7 +2,7 @@
 %%% Do NOT edit. File created by BibTeX with style
 %%% ACM-Reference-Format-Journals [18-Jan-2012].
 
-\begin{thebibliography}{32}
+\begin{thebibliography}{31}
 
 %%% ====================================================================
 %%% NOTE TO THE USER: you can override these defaults by providing
@@ -246,19 +246,6 @@
 \newblock
 \shownote{Available at
   \url{[thestrangeloop.com](https://www.thestrangeloop.com/2010/clojures-solutions-to-the-expression-problem.html}}.
-
-
-\bibitem[Hickey(2014)]%
-        {Hickey2014}
-\bibfield{author}{\bibinfo{person}{Rich Hickey}.}
-  \bibinfo{year}{2014}\natexlab{}.
-\newblock \bibinfo{title}{Transducers}.
-\newblock \bibinfo{howpublished}{Clojure Blog}.
-\newblock
-\urldef\tempurl%
-\url{https://clojure.org/reference/transducers}
-\showURL{%
-\tempurl}
 
 
 \bibitem[Kiczales et~al\mbox{.}(1991)]%
