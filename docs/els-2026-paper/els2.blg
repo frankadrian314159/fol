@@ -14,6 +14,9 @@ Reallocating 'glb_str_end' (item size: 4) to 20 items.
 Reallocating 'glb_str_ptr' (item size: 4) to 20 items.
 Reallocating 'global_strs' (item size: 1) to 4000000 items.
 Reallocating 'singl_function' (item size: 4) to 100 items.
+Warning--empty publisher in Chambers1999
+Warning--empty address in Chambers1999
+Warning--empty address in Clifton2000
 Warning--empty publisher in flatt:manifesto
 Warning--empty address in flatt:manifesto
 Warning--page numbers missing in both pages and numpages fields in flatt:manifesto
@@ -30,45 +33,45 @@ Warning--empty address in Skarra1986
 Warning--empty publisher in Zenger2005
 Warning--empty address in Zenger2005
 Warning--page numbers missing in both pages and numpages fields in Zenger2005
-You've used 31 entries,
+You've used 32 entries,
             6273 wiz_defined-function locations,
-            1726 strings with 23170 characters,
-and the built_in function-call counts, 31114 in all, are:
-= -- 3635
-> -- 779
+            1733 strings with 23504 characters,
+and the built_in function-call counts, 32473 in all, are:
+= -- 3779
+> -- 832
 < -- 2
-+ -- 252
-- -- 301
-* -- 1944
-:= -- 3017
-add.period$ -- 160
-call.type$ -- 31
-change.case$ -- 181
-chr.to.int$ -- 30
-cite$ -- 47
-duplicate$ -- 3060
-empty$ -- 2143
-format.name$ -- 365
-if$ -- 7414
++ -- 270
+- -- 320
+* -- 2045
+:= -- 3149
+add.period$ -- 165
+call.type$ -- 32
+change.case$ -- 190
+chr.to.int$ -- 31
+cite$ -- 51
+duplicate$ -- 3186
+empty$ -- 2230
+format.name$ -- 392
+if$ -- 7736
 int.to.chr$ -- 3
 int.to.str$ -- 1
-missing$ -- 100
-newline$ -- 291
-num.names$ -- 216
-pop$ -- 1209
+missing$ -- 105
+newline$ -- 298
+num.names$ -- 223
+pop$ -- 1269
 preamble$ -- 1
-purify$ -- 427
+purify$ -- 444
 quote$ -- 0
-skip$ -- 1156
+skip$ -- 1206
 stack$ -- 0
-substring$ -- 2378
-swap$ -- 297
+substring$ -- 2474
+swap$ -- 309
 text.length$ -- 2
 text.prefix$ -- 0
 top$ -- 0
-type$ -- 779
-warning$ -- 16
-while$ -- 235
+type$ -- 809
+warning$ -- 19
+while$ -- 241
 width$ -- 0
-write$ -- 642
-(There were 16 warnings)
+write$ -- 659
+(There were 19 warnings)

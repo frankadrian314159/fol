@@ -2,7 +2,7 @@
 %%% Do NOT edit. File created by BibTeX with style
 %%% ACM-Reference-Format-Journals [18-Jan-2012].
 
-\begin{thebibliography}{31}
+\begin{thebibliography}{32}
 
 %%% ====================================================================
 %%% NOTE TO THE USER: you can override these defaults by providing
@@ -104,14 +104,27 @@
 \newblock
 
 
-\bibitem[Chambers(1993)]%
-        {Chambers1993}
-\bibfield{author}{\bibinfo{person}{Craig Chambers}.}
-  \bibinfo{year}{1993}\natexlab{}.
-\newblock \showarticletitle{The Cecil Language: Design and Performance}. In
-  \bibinfo{booktitle}{\emph{Proceedings of the Conference on Object-Oriented
-  Programming Systems, Languages, and Applications}}. \bibinfo{publisher}{ACM},
-  \bibinfo{address}{New York, NY, USA}, \bibinfo{pages}{243--257}.
+\bibitem[Chambers and Chen(1999)]%
+        {Chambers1999}
+\bibfield{author}{\bibinfo{person}{Craig Chambers} {and}
+  \bibinfo{person}{Weimin Chen}.} \bibinfo{year}{1999}\natexlab{}.
+\newblock \showarticletitle{Efficient Multiple and Predicate Dispatching}. In
+  \bibinfo{booktitle}{\emph{Proceedings of the 14th ACM SIGPLAN conference on
+  Object-oriented programming, systems, languages, and applications}}.
+  \bibinfo{pages}{238--255}.
+\newblock
+
+
+\bibitem[Clifton et~al\mbox{.}(2000)]%
+        {Clifton2000}
+\bibfield{author}{\bibinfo{person}{Curtis Clifton}, \bibinfo{person}{Gary~T.
+  Leavens}, \bibinfo{person}{Craig Chambers}, {and} \bibinfo{person}{Todd
+  Millstein}.} \bibinfo{year}{2000}\natexlab{}.
+\newblock \showarticletitle{MultiJava: Modular Open Classes and Symmetric
+  Multiple Dispatch for Java}. In \bibinfo{booktitle}{\emph{Proceedings of the
+  15th ACM SIGPLAN Conference on Object-Oriented Programming, Systems,
+  Languages, and Applications}}. \bibinfo{publisher}{ACM},
+  \bibinfo{pages}{130--145}.
 \newblock
 
 
