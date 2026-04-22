@@ -67,22 +67,22 @@
 \email{frank.adrian314159@gmail.com}
 
 \begin{abstract}
-Hickey~\cite{hickey2010expressionproblem} omitted CLOS from Clojure as a
-complexity hazard incompatible with immutability.
+Hickey~\cite{hickey2010expressionproblem} omitted CLOS from Clojure because its
+mutable objects are a complexity hazard incompatible with immutability.
 FOL (Functional Object Lisp) uses the Metaobject Protocol (MOP) to
-back instances with persistent structures, preserving the full CLOS model
-while enforcing value semantics.
+back instances with persistent structures, preserving CLOS's open dispatch model
+while enforcing immutable reference semantics.
 FOL contributes a persistent metaclass with hybrid storage and lazy migration,
 and a specificity-ordered predicate dispatch model.
 
 Slot reads incur 1.2--2.0$\times$ overhead; slot updates cost 30--248$\times$ in
 isolation.
-At typical workload scales, FOL is 5--43$\times$ slower than mutable CLOS; however, the fixed
-$O(\log n)$ structural-copy cost avoids heap fragmentation, and at extreme scale the persistent
-heap outperforms a fragmented mutable baseline, yielding a 3.8$\times$ runtime advantage in
-logic simulation.
+At idiomatic workload scales, FOL is 7--43$\times$ slower than mutable CLOS; naive direct translation
+of mutable algorithms reaches 96$\times$ (persistent Quicksort); however, at extreme
+scale persistent state maps avoid the hash-table fragmentation that degrades the mutable baseline,
+yielding a 3.8$\times$ runtime advantage in logic simulation.
 Predicate dispatch uses a level-based ordering sorted once at load time in $O(ND \log N)$
-($D$ = hierarchy depth), avoiding the $O(N^2)$ theorem-prover overhead of subsumption systems;
+($D$ = hierarchy depth), avoiding the pairwise theorem-prover overhead of subsumption systems;
 the trade-off is an $O(N)$ per-call linear scan (vs.\ $O(1)$ cached dispatch), with closed
 \texttt{defn} dispatch matching hand-written \texttt{cond} cascade performance.
 \end{abstract}
@@ -130,20 +130,18 @@ Common Lisp’s object system (CLOS) is extensible, but its mutable objects crea
 \textbf{P1 — Speculative update cost.}
 Speculative workloads must copy objects or maintain undo logs.
 Persistent alternatives (FSet~\cite{Burke2007}, Sycamore~\cite{Dantam2013}) lack CLOS integration and generic-function dispatch.
-Isolated slot updates cost 30--248$\times$, but $O(\log n)$ structural sharing bounds per-update cost regardless of the number of live objects in the system; at sufficient scale, path-copying avoids the heap fragmentation that degrades mutable baselines (Section~\ref{sec:simbench}).
+Isolated slot updates cost 30--248$\times$, but $O(\log n)$ structural sharing bounds per-update cost regardless of the number of live objects in the system; at sufficient scale, persistent collections used as instance state maps avoid the hash-table fragmentation that degrades mutable baselines (Section~\ref{sec:simbench}).
 
 \textbf{P2 — Schema evolution labor.}
 Renaming slots requires manual \texttt{update-instance-for-redefined-class} methods; the standard hook lacks automatic forwarding.
 FOL’s \texttt{:alias} annotation recovers renamed slots at first access, composing multi-hop chains in a single pass (Section~\ref{sec:evobench}).
 
 \textbf{P3 — Inexpressive predicate dispatch.}
-CLOS dispatch is type-limited; value-level conditions require manual \texttt{cond} guards, losing extensibility.
-Libraries such as \texttt{filtered-functions}~\cite{Orleans2002} extend this with logical subsumption but require $O(N^2)$ theorem-prover calls.
-FOL's level-based ordering (predicates $>$ types $>$ destructuring $>$ wildcards) is decidable at load time in $O(ND \log N)$ ($D$ = hierarchy depth); per-invocation overhead matches a manual \texttt{cond} cascade (${\approx}1.6{\times}$ vs.\ CLOS; Section~\ref{sec:predbench}).
+CLOS dispatch is type-limited; value-level conditions require manual guards, losing extensibility.
+\texttt{filtered-functions}~\cite{Orleans2002} extends this via subsumption but requires pairwise logical-implication checks over Boolean predicate expressions.
+FOL's syntactic ordering is decidable at load time in $O(ND \log N)$; per-call overhead matches manual \texttt{cond} cascades ($1.6{\times}$; Section~\ref{sec:predbench}).
 
-FOL (Functional Object Lisp) addresses these via the MOP~\cite{Kiczales1991}: every class instance is backed by persistent data structures, and specificity-ordered predicate dispatch integrates with standard method combinations.
-Slot mutation is replaced by \texttt{assoc}/\texttt{dissoc}; other CLOS interfaces behave normally (Table~\ref{tab:mop-ops}).
-The contributions compose: Listing~\ref{lst:predicate-persistent} (Section~\ref{sec:dispatch}) shows a predicate gating on runtime values while reading persistent state. Listing~\ref{lst:guard} shows $O(1)$ update discard; the \texttt{:around} qualifier and the immutability invariant enable this pattern without copying.\footnote{FOL addresses both dimensions of the Expression Problem~\cite{Wadler1990}: new generic functions can be added over existing classes; new clauses can be added for new types. Static safety for the new-types dimension requires type-system guarantees FOL does not provide.}
+FOL (Functional Object Lisp) addresses these problems via the MOP~\cite{Kiczales1991}: class instances are backed by persistent data structures, and specificity-ordered predicate dispatch integrates with standard method combinations. Slot mutation is replaced by functional \texttt{assoc}; other CLOS interfaces behave normally (Table~\ref{tab:mop-ops}). The contributions compose: Listing~\ref{lst:predicate-persistent} gates on runtime values while reading persistent state, while Listing~\ref{lst:guard} enables $O(1)$ update discard without copying.\footnote{FOL addresses both dimensions of the Expression Problem~\cite{Wadler1990} within a dynamically typed setting: new generic functions can be added over existing classes, and new clauses can be added for new types, without modifying existing code. Static type safety guarantees are absent by design.}
 
 The contributions of this paper are:
 \begin{enumerate}
@@ -158,18 +156,12 @@ The contributions of this paper are:
 \section{Architecture}
 \label{sec:architecture}
 
-\subsection{Object Implementation}
-Slot storage uses a hybrid strategy: objects with $\le 8$ slots use native CLOS slots,
-while wider objects overflow into a 32-way persistent trie.
-Based on Lanza's Java class distributions~\cite{Lanza2006}, $\approx$80\% of classes have $\le$8 slots.
-Table~\ref{tab:threshold-update} shows $T=8$ also minimizes modeled update cost for 8-slot
-objects.
-All redefinitions are handled lazily at the next object mutation (\texttt{assoc}, \texttt{dissoc}, etc.); reads of renamed slots resolve via the alias map without triggering migration.
+Slot storage uses a hybrid layout: objects with $\le 8$ slots use native slots; wider objects use a 32-way trie. Most classes (80\%) have $\le$8 slots~\cite{Lanza2006}. Redefinitions are lazy: renamed slots resolve via alias maps; additions evaluate \texttt{:initform}s. If added slots push a native object $> 8$ slots, its next mutation converts it to a trie layout.
 
-The \texttt{persistent-class} metaclass (Table~\ref{tab:mop-ops}) ensures no slot value is modifiable post-initialization; standard CLOS mutation paths raise runtime errors.
-\texttt{assoc}/\texttt{dissoc} return a structurally equal ($=$) fresh instance sharing structure with the original, preserving \texttt{\%metadata}; references are pointers to immutable snapshots, decoupling state from identity ($\textit{eq}$).
+The \texttt{persistent-class} metaclass ensures post-initialization immutability; standard mutations raise errors. \texttt{assoc} returns a fresh instance sharing unchanged trie nodes via path copying. Snapshots decouple state from identity.
 
-A reserved \texttt{\%metadata} slot stores non-structural annotations; objects differing only in metadata are \texttt{=} and hash identically. Change-count slots used for diff tracking (Section~\ref{sec:dispatch}) are structural and visible to \texttt{=}; callers wishing to track changes invisibly should store them in \texttt{\%metadata} instead.
+\subsection{Collections and Runtime}
+FOL implements persistent \textbf{Vectors}, \textbf{Maps/Sets}, and \textbf{Sorted collections} using 32-way tries~\cite{Okasaki1998,Bagwell2000}. Branching factor 32 balances tree depth against cache-line node size. FOL transpiles to Common Lisp via expansion and code generation phases.
 
 \begin{table*}[tp]
 \caption{MOP Protocol Adaptation}
@@ -191,38 +183,19 @@ A reserved \texttt{\%metadata} slot stores non-structural annotations; objects d
 \texttt{change-class} & Omitted & Changing a live object's class violates immutability; callers construct a new instance of the target class instead (requires compatible metaclasses) \\
 \midrule
 \multicolumn{3}{p{\textwidth}}{\textit{Method combination uses standard CLOS execution semantics
-(\texttt{:before}/\texttt{:after}/\texttt{:around}), with method ordering determined by $\prec_{\text{disp}}$ in
-place of the class precedence list.}} \\
+(\texttt{:before}/\texttt{:after}/\texttt{:around}). $\prec_{\text{disp}}$ replaces the class precedence list; as a total order, it preserves CLOS's most/least-specific-first guarantees even if ties are broken by definition index.}} \\
 \bottomrule
 \end{tabularx}
 \end{table*}
 
-\subsection{Collections and Runtime}
-FOL implements persistent \textbf{Vectors} (32-way tries)~\cite{Okasaki1998}, \textbf{Maps/Sets} (32-way HAMTs)~\cite{Bagwell2000}, and \textbf{Sorted collections} (32-way B-trees). Branching factor 32 minimizes depth and optimizes updates.
-For keyword keys, HAMT lookup is $\approx$$1.3\times$ faster than \texttt{gethash},\footnote{Mean of $10^6$ single-key lookups on a 1{,}000-entry map, SBCL 2.6.0 x86-64. At branching factor 32, a 1{,}000-entry map has depth $\le 2$; the speedup reflects EQL-path avoidance rather than depth reduction and may not scale linearly to larger maps.}
-as EQL comparison avoids the general hashing path.
-
-FOL transpiles to Common Lisp (compiled by SBCL) via four phases: \textbf{reader expansion}, \textbf{macro expansion}, \textbf{code generation}, and \textbf{compilation}.
-
 \subsection{Space Complexity}
-FOL collections and identity types (Atoms, Refs, Agents) hold only the current value; old snapshots are GC-eligible as soon as no live reference remains.\footnote{User-managed versioning is available: callers may hold any prior \texttt{assoc} root; structural sharing ensures retained versions cost only $O(\log_{32} N)$ extra nodes.}
-Each \texttt{assoc} copies one root-to-leaf path---$O(\log_{32} N)$ new nodes, not $O(N)$.
-Short-lived intermediates are reclaimed in SBCL's nursery, keeping GC overhead at 1.5\% in the LSim benchmark; the $14{\times}$ peak allocation in the AST benchmark (Section~\ref{sec:ast-bench}) reflects this path-copying volume but remains bounded by the trie depth.
+Collections and identity types (Atoms, Refs, Agents) hold only current values; old snapshots are GC-eligible unless referenced. Each \texttt{assoc} copies one root-to-leaf path ($O(\log_{32} N)$ nodes), so allocation per update is bounded by trie depth rather than collection size. SBCL nursery reclamation keeps GC overhead at ${\approx}$1.5\% in the LSim benchmark (profiled at the 8x32x32-9000 configuration via \texttt{sb-sprof}).
 
 \section{Features}
 \label{sec:features}
 
-FOL adopts Clojure's literal syntax and sequence APIs and provides:
-\textbf{Transducers}~\cite{Hickey2014} decouple algorithm logic from collection type.
-\textbf{Lazy sequences} defer computation, enabling infinite sequences.
-\textbf{Atoms} provide compare and swap-based mutable references; \textbf{Refs} provide STM with optimistic concurrency; \textbf{Agents} handle asynchronous updates.
-\textbf{Transient builders} reduce bulk update overhead via thread-local mutation; $W$ writes cost $O(W \log_{32} N)$ time but maintain only $O(\log_{32} N)$ peak live dirty nodes, committed at finalization.
-\textbf{Macros} follow Clojure-style expansion.
-
-Generic functions dispatch by arity, then specificity (Section \ref{sec:dispatch}).
-\textbf{Closed dispatch} (\texttt{defn}) emits a \texttt{defun} with a static \texttt{cond} cascade; the clause set is fixed when the defining file is loaded and cannot be extended thereafter.
-\textbf{Open dispatch} (\texttt{defmethod}) supports CLOS method combinations and clause addition after the defining file is loaded.
-As \texttt{defn} and \texttt{defmethod} compete for the function slot, programmers must choose one per name; defining both signals a compile-time error.
+FOL adopts Clojure's literal syntax and sequence APIs. \textbf{Transducers} decouple algorithm logic; \textbf{Lazy sequences} defer computation; \textbf{Atoms}, \textbf{Refs}, and \textbf{Agents} handle state transitions; and \textbf{Transient builders} reduce bulk update overhead. \textbf{Macros} follow Clojure-style expansion.
+Generic functions dispatch by arity, then specificity (Section \ref{sec:dispatch}). \textbf{Closed dispatch} (\texttt{defn}) emits a static \texttt{cond} cascade; \textbf{open dispatch} (\texttt{defmethod}) supports CLOS method combinations and extensibility. Programmers must choose one per function name.
 Table~\ref{tab:defn-vs-defmethod} summarises the decision criteria.
 
 \begin{table}[htbp]
@@ -255,7 +228,7 @@ $\begin{array}{rcl}
 \textit{defg/m} & ::= & \texttt{(defgeneric } \textit{name} \dots \texttt{)} \mid \texttt{(defmethod } \textit{name} ~ \textit{qualifier}^? ~ (\textit{s-clause} \mid \textit{m-clause}) \texttt{)} \\
 \textit{s-clause}& ::= & \texttt{[} \textit{param}^* \texttt{]} ~ \textit{body}^+ \\
 \textit{m-clause}& ::= & \texttt{\{} (\textit{symbol} ~ \textit{param} \mid \texttt{:keys~[} (\textit{symbol} \mid \texttt{(} \textit{sym} ~ \textit{param} \texttt{)})^* \texttt{]})^* \texttt{\}} ~ \textit{body}^+ \\
-\textit{param} & ::= & \textit{symbol} \mid \textit{type} \mid \texttt{(} \textit{symbol} ~ \textit{type} \texttt{)} \mid \texttt{(} \textit{symbol} ~ \texttt{(} \textit{fn} ~ \textit{arg}^* \texttt{)} \texttt{)} \mid \textit{destr} \\
+\textit{param} & ::= & \textit{symbol} \mid \texttt{(} \textit{symbol} ~ \textit{type} \texttt{)} \mid \texttt{(} \textit{symbol} ~ \texttt{(} \textit{fn} ~ \textit{arg}^* \texttt{)} \texttt{)} \mid \textit{destr} \\
 \textit{destr} & ::= & \texttt{[} \textit{param}^* \texttt{]} \mid \texttt{\{} \texttt{:keys~[} (\textit{symbol} \mid \texttt{(} \textit{sym} ~ \textit{param} \texttt{)})^* \texttt{]} \texttt{\}} \\
 \textit{type} & ::= & \texttt{<}\textit{type-name}\texttt{>} \\
 \textit{qualifier} & ::= & \texttt{:before} \mid \texttt{:after} \mid \texttt{:around}
@@ -265,39 +238,19 @@ $\begin{array}{rcl}
 \end{figure*}
 
 \subsection{Dispatch Ordering Rules}
-FOL's predicate specializers \texttt{(var (fn args...))} evaluate as \texttt{(fn var args...)} at dispatch time; \texttt{(x (even?))} constrains value space beyond class membership, so predicates are more specific than types.
-Specificity categories (Table~\ref{tab:specificity}) order patterns by constraint strength (Level 3 $>$ 2 $>$ 1 $>$ 0), resolving ties via definition order.
-$\prec_{\text{disp}}$ conservatively approximates semantic specificity: Level-3 predicates fire before Level-2 types even for superset extensions. Use explicit guards---\texttt{(and (<integer>) (even?))}---to clarify domains.
-Level~2 uses semantic subclassing (Spec-Type) for single parameters and first-parameter lexicography for multi-parameter patterns; Level~1 uses arity containment (Spec-Length/Spec-Fixed).
-For example consider the following code:
+FOL's predicate specializers \texttt{(var (fn args...))} evaluate at dispatch time; predicates are more specific than types. Specificity categories (Table~\ref{tab:specificity}) resolve ties via definition order. $\prec_{\text{disp}}$ conservatively approximates semantic specificity: Level 3 $>$ 2 $>$ 1 $>$ 0. Level~2 uses semantic subclassing (Spec-Type); multi-parameter patterns apply Spec-Prefix and Spec-Tail position by position. Level~1 sets fixed-vs-rest precedence (Spec-Fixed).
+Consider:
 \begin{lstlisting}
 (defn classify
-  ([x <integer>]  :any-integer)   ; intended: catch all integers
-  ([x (even?)]    :even))         ; intended: special case for even
-                                  ; numbers
+  ([x <integer>]  :any-integer)   ; catch all
+  ([x (even?)]    :even))         ; special case
 \end{lstlisting}
-FOL reorders this to \texttt{even?} first:
-\begin{lstlisting}
-(cond
-  ((even? x)                    :even)
-  ((typep x (find-class '<integer>)) :any-integer))
-\end{lstlisting}
-Even integers now never reach \texttt{:any-integer}.
-FOL's \texttt{even?} returns \texttt{nil} for non-integers, so the reordered guard is safe; user-defined predicates must maintain this totality discipline.
-The fix is to write clauses matching the fixed ordering:
-\begin{lstlisting}
-(defn classify
-  ([x (even?)]    :even)         ; catches even integers
-  ([x <integer>]  :other-int))   ; catches remaining integers
-\end{lstlisting}
-Shadowed clauses are detected at definition time (\texttt{defn}) or at each method-addition point (\texttt{defgeneric}): when a clause is statically dominated by a more-specific clause under $\prec_{\text{disp}}$, a continuable warning is signaled. This trades theorem-prover exactness for bounded compilation.
+FOL reorders this to \texttt{even?} first, so even integers never reach \texttt{:any-integer}. User-defined predicates must maintain totality. For closed \texttt{defn} groupings, syntactically decidable shadowed clauses trigger a compilation warning.
+Definition-order reliance creates modularity hazards; we are exploring explicit mechanisms like \texttt{prefer-method}.
 
-Definition-order reliance creates modularity hazards at the REPL or across libraries. We are exploring explicit ordering mechanisms, analogous to Clojure's \texttt{prefer-method}.
-
-All method qualifiers (\texttt{:before}/\texttt{:after}/\texttt{:around})
-follow $\prec_{\text{disp}}$; standard CLOS execution semantics
-(most-specific-first for \texttt{:before}, least-specific-first for
-\texttt{:after}) are preserved.
+Method qualifiers execute in CLOS-standard order (e.g., most-specific-first \texttt{:before}),
+but $\prec_{\text{disp}}$ replaces the CPL. This deliberately diverges:
+predicates execute before types, prioritizing behavioral constraints over structural inheritance.
 
 \begin{table}[htbp]
 \centering
@@ -310,13 +263,13 @@ follow $\prec_{\text{disp}}$; standard CLOS execution semantics
 \midrule
 3 & Predicates & \texttt{(x (even?))} \\
 2 & Types & \texttt{(x <integer>)} \\
-1 & Destructuring & \texttt{[x y]} \\
+1 & Destructuring (all-wildcard) & \texttt{[x y]} \\
 0 & Wildcard & \texttt{x} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-For compound predicates, $\mathcal{L}(\texttt{and}~p_1 \dots p_n) = \max_i \mathcal{L}(p_i)$: a conjunction of type predicates is Level~2; a mixed conjunction is Level~3. This is a conservative upper bound (the conjunction may be semantically more specific---see deficiency note below---but never less). Disjunction is excluded: \texttt{(or $p$ $q$)} would be shadowed by separate $p$ and $q$ clauses. Negation is excluded because \texttt{(not $p$)}'s specificity is unrelated to $\mathcal{L}(p)$; ordering it requires knowing the complement domain.
+Conjunction maps to its components' maximum level, providing a conservative upper bound. Disjunction \texttt{(or $p$ $q$)} merges distinct domains, making it semantically less specific than either conjunct; the uniform level calculus cannot express this relationship. Negation is excluded as \texttt{(not $p$)}'s ordering requires knowing the complement domain.
 
 \textbf{Known deficiency --- type-annotated conjunctions.}
 \texttt{(and (<integer>) (prime?))} receives Level~3 ($\max(2,3) = 3$), the same level as the bare
@@ -326,6 +279,9 @@ The syntactic calculus cannot determine this semantic subsumption without a theo
 \subsubsection{Formal Specificity Ordering}
 We formalize the specificity relation $\prec$ using the inference rules summarized in Table~\ref{tab:spec-rules}.
 Let $\mathcal{L}(p) \in \{0, 1, 2, 3\}$ be the specificity level of pattern $p$.
+\textbf{Syntactic form classes}: wildcard ($\mathit{wc}$), type annotation ($\mathit{ty}$, written \texttt{<name>}), predicate ($\mathit{pred}$, written \texttt{(fn args...)}), sequential ($\mathit{seq}$, written \texttt{[...]}), and map ($\mathit{map}$, written \texttt{\{...\}}; sorted canonically via \texttt{string<} on symbol-names, keywords preceding symbols and strings). $p \sim q$ iff $\mathcal{L}(p) = \mathcal{L}(q)$ and $p$, $q$ belong to the same form class.
+For compound sequential and map patterns, $\mathcal{L}([p_1, \dots, p_n]) = \max_i \mathcal{L}(p_i)$ and $\mathcal{L}(\{k_1~p_1, \dots\}) = \max_i \mathcal{L}(p_i)$: the level of a pattern list is the maximum element level, consistent with the conjunction rule.
+Spec-Level therefore applies to compound patterns as a whole: $[x~(even?)]$ (L=3) fires before $[x~\mathtt{<integer>}]$ (L=2) in its entirety. Position-by-position rules (Spec-Prefix, Spec-Tail) apply only when two compound patterns share the same max level (i.e., satisfy $p \sim q$); Spec-Level takes precedence otherwise.
 \textbf{Convention:} $p_1 \prec p_2$ means \emph{$p_1$ fires before $p_2$}---i.e., $p_1$ is more specific. Higher levels are more specific, so Spec-Level concludes $p_1 \prec p_2$ when $\mathcal{L}(p_1) > \mathcal{L}(p_2)$.
 
 \begin{table}[htbp]
@@ -338,44 +294,41 @@ Let $\mathcal{L}(p) \in \{0, 1, 2, 3\}$ be the specificity level of pattern $p$.
 \midrule
 Spec-Level & $\inferrule{ \mathcal{L}(p_1) > \mathcal{L}(p_2) }{ p_1 \prec p_2 }$ \\ \addlinespace
 Spec-Type & $\inferrule{ C_1 \sqsubset C_2 }{ (x~C_1) \prec (x~C_2) }$ \\ \addlinespace
-Spec-Prefix & $\inferrule{ p_1 \prec q_1 }{ [p_1, \dots] \prec [q_1, \dots] }$ \\ \addlinespace
-Spec-Tail & $\inferrule{ \mathcal{L}(p_1) = \mathcal{L}(q_1) \\ [p_2, \dots] \prec [q_2, \dots] }{ [p_1, \dots, p_n] \prec [q_1, \dots, q_n] }$ \\ \addlinespace
-Spec-Length & $\inferrule{ \mathcal{L}(p_i) = \mathcal{L}(q_i) ~ \forall i \in \{1 \dots n\} }{ [p_1, \dots, p_n, p_{n+1}] \prec [q_1, \dots, q_n] }$ \\ \addlinespace
+Spec-Prefix & $\inferrule{ p_1 \prec q_1 \\ \mathcal{L}([p_1,\dots]) = \mathcal{L}([q_1,\dots]) }{ [p_1, \dots] \prec [q_1, \dots] }$ \\ \addlinespace
+Spec-Tail & $\inferrule{ p_1 \sim q_1 \\ [p_2, \dots] \prec [q_2, \dots] }{ [p_1, \dots, p_n] \prec [q_1, \dots, q_n] }$ \\ \addlinespace
 Spec-Fixed & $\inferrule{ \mathcal{L}(p_i) = \mathcal{L}(q_i) ~ \forall i \in \{1 \dots n\} }{ [p_1, \dots, p_n] \prec [q_1, \dots, q_n ~ \texttt{\&} ~ r] }$ \\ \addlinespace
-Spec-Map-Prefix & $\inferrule{ p_1 \prec q_1 }{ \{k_1 ~ p_1, \dots\} \prec \{k_1 ~ q_1, \dots\} }$ \\ \addlinespace
-Spec-Map-Tail & $\inferrule{ p_1 \sim q_1 \\ \{k_2 \dots\} \prec \{k_2 \dots\} }{ \{k_1 ~ p_1, k_2 ~ p_2, \dots\} \prec \{k_1 ~ q_1, k_2 ~ q_2, \dots\} }$ ($\sim$ = same level and same syntactic form) \\ \addlinespace
+Spec-Map-Prefix & $\inferrule{ p_1 \prec q_1 \\ \mathcal{L}(\{k_1~p_1,\dots\}) = \mathcal{L}(\{k_1~q_1,\dots\}) }{ \{k_1 ~ p_1, \dots\} \prec \{k_1 ~ q_1, \dots\} }$ \\ \addlinespace
+Spec-Map-Tail & $\inferrule{ p_1 \sim q_1 \\ \{k_2 \dots\} \prec \{k_2 \dots\} }{ \{k_1 ~ p_1, k_2 ~ p_2, \dots\} \prec \{k_1 ~ q_1, k_2 ~ q_2, \dots\} }$ \\ \addlinespace
 Spec-Keys & $\inferrule{ \text{keys}(q) \subsetneq \text{keys}(p) }{ p \prec q }$ \\
 \bottomrule
 \end{tabularx}
 \end{table}
 
-Spec-Prefix applies when first elements are strictly ordered ($p_1 \prec q_1$); Spec-Tail recurses on the remainder when heads are level-equal; the two rules are disjoint.
-Spec-Type handles within-Level-2 ordering via the class hierarchy DAG; multi-parameter patterns apply the rules lexicographically position by position.
+Rule application priority: Spec-Level takes precedence over all positional rules; within the same level, Spec-Type refines ordering for Level-2 atomic patterns via the class hierarchy DAG ($C_1 \sqsubset C_2$ = transitive subclass relation). When two Level-2 patterns specialize on sibling classes (neither a subclass of the other), Spec-Type does not apply and $\prec_{\text{disp}}$ falls back to $\textit{idx}$; this is a known modularity hazard analogous to the Level-3 case.
+Spec-Prefix applies when first elements are strictly ordered ($p_1 \prec q_1$); Spec-Tail recurses on the remainder when heads are level-equal \emph{and share the same syntactic form} ($p_1 \sim q_1$); the two rules are disjoint.
+Multi-parameter patterns apply the rules lexicographically position by position, after Spec-Level has partitioned patterns by max level.
 
-The operational dispatch order $\prec_{\text{disp}}$ resolves ties using definition order.
+The dispatch sort $\prec_{\text{disp}}$ executes at method-definition time (including during REPL re-evaluation).
 Let $\textit{idx}(p)$ denote the definition index of the method clause containing $p$.
-\[
-  p_1 \prec_{\text{disp}} p_2 \iff p_1 \prec p_2 \lor (\neg(p_2 \prec p_1) \land \textit{idx}(p_1) < \textit{idx}(p_2))
-\]
+FOL defines $\prec_{\text{disp}}$ via a three-level lexicographic sort key: $(\mathcal{L}(p)\text{ descending},\ \prec\text{-rank within level},\ \textit{idx}(p)\allowbreak\text{descending})$. The partial order $\prec$ operates strictly within levels; $\textit{idx}$ breaks any remaining incomparabilities.
 
-Patterns of different arity are incomparable; dispatch selects the arity group first, then applies
-$\prec_{\text{disp}}$, which is total on same-arity patterns (Lemma~1).
+Exact-arity patterns of different lengths are incomparable; dispatch isolates the matching arity group first. For $n$ arguments, this group contains all length-$n$ fixed-arity patterns and length-$\le~n$ rest-accepting patterns. $\prec_{\text{disp}}$ is total over this group (Lemma~1). Spec-Fixed resolves the overlap by ordering the fixed-arity pattern as more specific.
 Definition-order tie-breaking aligns with Lisp's interactive workflow but introduces the modularity hazards discussed in Section~\ref{sec:dispatch-limits}.
 
 \begin{lemma}[Totality]
-$\prec_{\text{disp}}$ is a \textit{strict total order} on same-arity patterns.
+$\prec_{\text{disp}}$ is a \textit{strict total order} on arity-group patterns.
 \end{lemma}
 \begin{proof}
-$\prec$ is irreflexive: every rule requires a strict inequality (level, element position, key set, or subclass) that is false when $p_1 = p_2$.
-Asymmetry of $\prec_{\text{disp}}$ follows from irreflexivity and transitivity: if $p_1 \prec_{\text{disp}} p_2$ and $p_2 \prec_{\text{disp}} p_1$ held simultaneously, transitivity would give $p_1 \prec_{\text{disp}} p_1$, contradicting irreflexivity.
-$\prec$ is transitive: within a level the rules encode a lexicographic comparison on position, arity, and key set (transitivity: base case $|p|=1$ by Spec-Prefix on the sole element; inductive step by Spec-Prefix when heads differ, Spec-Tail when heads are level-equal with the inductive hypothesis on the remainder; Spec-Keys from set-containment). Across levels, irreflexivity ensures at least one strict level inequality along any $p_1 \prec p_2 \prec p_3$ chain, so Spec-Level or within-level rules give $p_1 \prec p_3$.
+$\prec$ is \textit{irreflexive}: every rule requires a strict inequality (level, element position, key set, or subclass) that is false when $p_1 = p_2$.
+$\prec$ is \textit{transitive}: within a level the rules encode a lexicographic comparison on position, arity, and key set. For sequential patterns: Spec-Tail applies only when both sequences have length $\ge 2$; inductive step by Spec-Prefix when heads are strictly ordered, Spec-Tail when heads satisfy $p_1 \sim q_1$ with the inductive hypothesis on the remainder. If sequences are length 1 with $p_1 \sim q_1$, or if heads differ in form, they are incomparable under $\prec$ and resolved by $\textit{idx}$. For map patterns: Spec-Map-Prefix and Spec-Map-Tail follow the same lexicographic argument over key-sorted position; Spec-Keys follows from transitivity of strict set containment ($\subsetneq$). Across levels, irreflexivity ensures at least one strict level inequality along any $p_1 \prec p_2 \prec p_3$ chain, so Spec-Level or within-level rules give $p_1 \prec p_3$.
+$\prec_{\text{disp}}$ is a \textit{strict total order} by construction: it is defined by a sort algorithm and the explicit tiebreaker $\textit{idx}(p)$ ensures no two live clauses compare equal.
 Incomparability under $\prec$ arises when (i)~patterns differ only in variable names, or (ii)~sequential and map patterns share an arity.
-In both cases $\prec_{\text{disp}}$ falls back to $\textit{idx}$, a monotonically increasing counter (re-evaluation increments it), so no two live clauses share an index and $\prec_{\text{disp}}$ is total.
+In both cases, the sort's tiebreaker relies on $\textit{idx}$, a monotonically increasing counter (re-evaluation increments it).
 Case~(ii) is a modularity hazard: sequential and map clauses for the same generic function from different libraries are ordered solely by ASDF load sequence.
 \end{proof}
 
-Predicate dispatch requires an $O(N)$ linear scan per call, partitioned by arity group.
-FOL sorts methods once at load time in $O(N D \log N)$, sacrificing $O(1)$ cached dispatch---which subsumption systems buy with an $O(N^2)$ load-time cost---for syntactic tractability.
+Predicate dispatch requires an $O(N)$ per-call scan.
+FOL sorts methods once at load time in $O(N D \log N)$. Subsumption systems achieve $O(1)$ cached dispatch via expensive load-time prover calls; FOL trades runtime caching for load-time syntactic tractability.
 
 \subsubsection{Dispatch Examples}
 Listing~\ref{lst:transpile} shows a two-clause \texttt{defn} transpiled to a \texttt{defun} with a static \texttt{cond} cascade.
@@ -404,12 +357,13 @@ validated update guard (Listing~\ref{lst:guard});
 predicate dispatch on persistent state (Listing~\ref{lst:predicate-persistent});
 and content routing (Listing~\ref{lst:observable}).
 
-\begin{lstlisting}[caption={Automatic Structural Diff (FOL)}, label={lst:diff}]
+\begin{lstlisting}[caption={Automatic Structural Diff (FOL)}, label={lst:diff}, breaklines=false]
 (defmethod assoc :around [(obj <diffable>) key val]
   (if (= key :_changes)
-      (call-next-method)          ; key=:_changes: breaks cycle -- calls assoc
-                                  ; directly, skipping the branch that emits
-                                  ; (assoc ... :_changes ...) and re-invokes :around
+      (call-next-method)
+        ; key=:_changes: breaks cycle -- calls assoc
+        ; directly, skipping the branch that emits
+        ; (assoc ... :_changes ...) and re-invokes :around
       (bind [old (get obj key)
              new-obj (call-next-method)]
         (if (= old (get new-obj key))
@@ -424,7 +378,7 @@ and content routing (Listing~\ref{lst:observable}).
       obj))  ; discard invalid update; original snapshot unchanged
 \end{lstlisting}
 
-\begin{lstlisting}[caption={Predicate Dispatch on Persistent State (FOL)}, label={lst:predicate-persistent}]
+\begin{lstlisting}[caption={Predicate Dispatch on Persistent State (FOL)}, label={lst:predicate-persistent}, breaklines=false]
 ;; Level-3 predicate (critical?) tests the reading value at dispatch time;
 ;; the body reads persistent slot :alert-history from the persistent sensor
 ;; object without copying.  Both contributions are required: predicate
@@ -442,23 +396,14 @@ and content routing (Listing~\ref{lst:observable}).
   (print "ALERT: Critical Temperature!"))
 \end{lstlisting}
 
-\noindent Predicate arguments are closed over at compile time: \texttt{(>= 100)} produces \texttt{(lambda (temp) (>= temp 100))}.
+\noindent Predicate forms evaluate their arguments dynamically at each dispatch call, responding to live variable updates (e.g., \texttt{*limit*}). However, mutating state inside the predicate closure corrupts dispatch correctness: the static sort relies on stable predicate structures.
 
-FOL's validated guard avoids the explicit wrapper required in Clojure (Listing~\ref{lst:guard-clj}) or the $O(N)$ copy required in standard Common Lisp (Listing~\ref{lst:guard-cl}); \texttt{:around} integrates with the existing class specializer without restructuring the dispatch hierarchy. (Clojure's \texttt{:pre}/\texttt{:post} conditions cannot discriminate by argument type or class---all callers receive the same check---unlike FOL's per-class \texttt{:around}.)
+FOL's validated guard avoids the $O(N)$ copy required in CL (Listing~\ref{lst:guard-cl}). While Clojure can achieve per-type guards using multimethods to emulate \texttt{:around}, doing so forces all clients of standard \texttt{update!} to migrate to the new multimethod; FOL's \texttt{:around} integrates securely beneath the existing \texttt{assoc} generic function without restructuring the hierarchy.
 
-\begin{lstlisting}[caption={Validated Update Guard in Clojure --- callers must use wrapper},
-                   label={lst:guard-clj}]
-;; Guard is in a wrapper; every call site must be changed from
-;; (update! obj key val) to (guarded-update! obj key val):
-(defn guarded-update! [obj key val]
-  (if (valid-update? obj key val)
-    (update! obj key val)
-    obj))
-;; Call sites: (update! ...) -> (guarded-update! ...)  ; manual at each site
-\end{lstlisting}
+
 
 \begin{lstlisting}[caption={Validated Update Guard in Common Lisp --- requires explicit copy},
-                   label={lst:guard-cl}]
+                   label={lst:guard-cl}, breaklines=false]
 (defmethod update-obj :around ((obj guarded) key val)
   ;; No persistent objects: must copy before calling primary to preserve
   ;; original for potential discard.  Cost: O(N) in number of slots.
@@ -477,15 +422,13 @@ FOL's validated guard avoids the explicit wrapper required in Clojure (Listing~\
 
 (1)~The linear scan evaluates all non-matching predicates before a match; Level-3 predicates should be pure.
 (2)~Load-order sensitivity arises for incomparable patterns (mixed Level-3 or structural types); collapse these into single clauses or use explicit \texttt{:around} methods.
-(3)~Open dispatch requires runtime scanning and lacks the reachability analysis possible for closed dispatch. To mitigate load-order sensitivity, the FOL MOP is being extended with a load-time check that warns when two Level-3 predicates are structurally incomparable---i.e., their syntactic forms share no Spec-Prefix, Spec-Tail, or Spec-Keys ordering---at method-definition time.
+(3)~Open dispatch evaluates predicates sequentially; detecting unreachable clauses is future work. The MOP checks and warns of structurally incomparable Level-3 predicates at method definition.
 
 \subsection{Schema Evolution}
 \label{sec:schema-evolution}
-Chain replay (\texttt{:after} on \texttt{update-instance-for-redefined-class}) lazily composes version-chain alias maps and recovers renamed values in a single pass.
-Migration is confluent if no slot name appears as both source and target: this rules out cycles (which would make chain replay non-terminating) and diamond conflicts (two sources aliased to the same target, making the composed map ambiguous). Macro-expansion enforces these checks when the \texttt{defclass} form is processed at load time.
-These checks apply to source-level \texttt{defclass} forms; programmatic construction bypasses them.
+Chain replay lazily composes alias maps, recovering renamed values in one pass. Migration confluence prohibits slot names appearing as both source and target, preventing non-terminating cycles or ambiguous diamond conflicts. Macro-expansion enforces these checks for \texttt{defclass} forms statically.
 
-\begin{lstlisting}[caption={Lazy Schema Migration with Aliasing}, label={lst:lazy-migration}]
+\begin{lstlisting}[caption={Lazy Schema Migration with Aliasing}, label={lst:lazy-migration}, breaklines=false]
 ;; Schema 1
 (defclass <sensor> [] [[id] [reading]])
 ;; Schema 2: rename reading -> val; :reading keyword still routes to val
@@ -494,8 +437,8 @@ These checks apply to source-level \texttt{defclass} forms; programmatic constru
 
 \noindent At first post-redefinition \emph{mutation}, chain replay writes \texttt{:reading}'s value into \texttt{:val}; reads of \texttt{:reading} before that mutation resolve via the alias map without modifying the instance.
 
-\subsubsection{Persistence and Versioning Performance}
-Versioning overhead is $O(H \cdot A)$ ($H$ = redefinitions, $A$ = aliases per hop); measured first-touch cost is 3.6--8.2\,$\mu$s per instance, not growing linearly with hop depth (Tables~\ref{tab:schema-evo-single}--\ref{tab:schema-evo-multi}), paid once. Post-migration \emph{reads} proceed at the standard $1.2$--$2.0{\times}$ rate; post-migration \emph{updates} remain at the general persistent-object overhead (Table~\ref{tab:micro-update}), consistent with the 0.77\,$\mu$s steady-state update shown in Table~\ref{tab:schema-evo-single}.
+\subsubsection{Versioning Performance}
+Versioning theoretically costs $O(H{\cdot}A)$ ($H$=hops, $A$=aliases) constructing the map. The linear $A$ dependence is bounded but unmeasured. Single-pass first-touch folding costs 3.6--8.2\,$\mu$s/instance across 1--3 hops (Tables~\ref{tab:schema-evo-single}--\ref{tab:schema-evo-multi}). Subsequent reads/updates maintain standard $1.2$--$2.0{\times}$ overheads (Table~\ref{tab:micro-update}).
 
 \section{Evaluation}
 \label{sec:evaluation}
@@ -539,8 +482,8 @@ FOL fills a gap between CLOS and Clojure (Table~\ref{tab:specificity-comp}): FOL
 \label{sec:micro-bench}
 
 We measured persistent objects vs.\ mutable CLOS across slot counts.
-\textbf{Construction} (${\approx}183$\,ns) is $5{\times}$ native; \texttt{\%make-persistent} bypasses \texttt{make-instance} keyword-argument dispatch while still routing through \texttt{initialize-instance}, which stamps \texttt{\%schema-version} and enforces the persistence invariant. \textbf{Reads} add 1.2--2.0$\times$ overhead; \textbf{Updates} are 30--248$\times$ slower.
-The modeled update cost (Table~\ref{tab:threshold-update}) shows $T=8$ is optimal at $N=8$ and $N \ge 32$; at $N=24$ it ties with $T=24$ and $T=32$, and yields to higher thresholds at $N=12$--$16$. Because $\approx$80\% of classes have $\le 8$ slots~\cite{Lanza2006}, $T=8$ maximises coverage of the fully-native path; wider classes where larger thresholds help are rare in practice.
+\textbf{Construction} (${\approx}183$\,ns) is $5{\times}$ native; \texttt{\%make-persistent} calls \allowbreak\texttt{allocate-instance} then \texttt{(apply \#'initialize-instance instance initargs)}, bypassing \texttt{make-instance} keyword-argument dispatch while preserving the full \texttt{initialize-instance} protocol, which stamps \texttt{\%schema-version} and enforces the persistence invariant.
+\textbf{Reads} add 1.2--2.0$\times$; \textbf{Updates} are 30--248$\times$ slower. Table~\ref{tab:threshold-update} shows $T=8$ is optimal for coverage of the fully-native path, as wider classes are rare.
 
 \begin{table}[htbp]
 \small
@@ -613,13 +556,12 @@ FOL \texttt{defgeneric} (Open Dispatch) & 64.4\,ns & 1.72$\times$ \\
 \end{tabular}
 \end{table}
 
-FOL's predicate dispatch adds $\approx$1.6$\times$ overhead, matching the manual \texttt{cl:cond} baseline; the 20-clause all-Level-3 setup approximates a worst case. Functions with only Level-2 specializers use CLOS type dispatch directly and incur no predicate scan; this path is not separately benchmarked but is structurally identical to standard CLOS dispatch. Since each predicate evaluation is a function call, overhead scales linearly with $N$; at $N=50$ it would approach ${\approx}4{\times}$ CLOS.
+FOL's predicate dispatch adds $\approx$1.6$\times$ overhead, matching the \texttt{cl:cond} baseline; a 20-clause Level-3 setup approximates a worst case. Because open dispatch maps linearly without a type-indexed cache, even all-Level-2 structures incur this $O(N)$ penalty. Overhead scales linearly with $N$; $N=50$ reaches ${\approx}4{\times}$ CLOS.
 
 \subsubsection{Lazy Evolution Micro-Benchmark}
 \label{sec:evobench}
 
-We measured single-hop and multi-hop migration against a CL baseline with a manual \texttt{update-instance-for-redefined-class} method.
-FOL single-hop first-touch cost is ${\approx}2{\times}$ CL's; multi-hop cost ($3.6$--$8.2\,\mu$s) does not grow linearly with hop depth, as chain-replay composes alias maps in a single pass rather than scanning each version incrementally (Tables~\ref{tab:schema-evo-single}--\ref{tab:schema-evo-multi}).
+We compared migration against a naive $O(A{\cdot}H)$ manual CL handler. FOL's single-hop cost is ${\approx}2{\times}$ CL's. At greater depths (Table~\ref{tab:schema-evo-multi}), SBCL's version-history machinery dominates, confounding the empirical comparison of FOL's automated $O(A)$ fold against the naive CL algorithm; however, FOL remains bounded at $\le 8.2\,\mu$s.
 
 \begin{table}[htbp]
 \small
@@ -648,8 +590,8 @@ Steady-state update & 0.77 & 0.02 & post-migration, repeated use \\
 \textbf{Hop depth} & \textbf{FOL} & \textbf{CL} & \textbf{Notes} \\
 \midrule
 1-hop (v2$\to$v3) & 8.19\tnote{b} & 4.10 & FOL allocates new object; CL mutates in-place \\
-2-hop (v1$\to$v3) & 3.57 & 5.62 & CL plist scan grows $O(A{\cdot}H)$; FOL folds alias maps left-to-right in a single pass---each slot name resolved once---giving $O(A)$ regardless of hop depth \\
-3-hop (v0$\to$v3) & 4.48 & 5.13 & SBCL migration machinery dominates both; FOL retains its $O(A)$ alias-map advantage over CL's $O(A{\cdot}H)$ scan, yielding a small but consistent lead \\
+2-hop (v1$\to$v3) & 3.57 & 5.62 & FOL's single-pass fold maintains $O(A)$ theoretical scaling. \\
+3-hop (v0$\to$v3) & 4.48 & 5.13 & SBCL migration machinery dominates overall time, confounding the algorithmic scaling difference. \\
 \midrule
 Steady-state & 0.69 & 0.01 & post-migration; uniform across all cohorts \\
 \bottomrule
@@ -723,7 +665,7 @@ $N=50{,}000$    & FOL Persistent (assoc) &  148\,ms &  119\,MB & 39$\times$ \\
 \end{tabular}
 \end{table}
 
-Quicksort overhead stems from $3.4M$ path copies; transients cut this from $96{\times}$ to $40{\times}$ ($-97\%$ allocation). BFS improves similarly ($39{\times} \to 6.2{\times}$).
+Quicksort overhead stems from $3.4M$ path copies; transients cut allocation 97\% but time only to 40$\times$ due to dispatch and traversal overhead. BFS improves similarly ($39{\times} \to 6.2{\times}$).
 
 \paragraph{Idiomatic Reformulations}
 Algorithmic restructuring eliminates the translation penalty (Table~\ref{tab:idiomatic-bench}). \textbf{Idiomatic merge sort} uses \texttt{subvec} and \texttt{conj} to minimize copying. \textbf{Lazy BFS} initializes nodes on discovery, bypassing $N$ initial \texttt{assoc} calls.
@@ -753,7 +695,7 @@ $N=50{,}000$    & FOL persistent (lazy dict)      &  103\,ms &  61\,MB   & 29$\t
 \end{threeparttable}
 \end{table}
 
-Merge sort's $1.7M$ trie-node touches (near $O(N \log^2 N)$) make transients counterproductive: the per-\texttt{conj} path is already shallow (depth $\le 5$), so the fixed cost of acquiring and committing a transient handle---thread-local ownership check plus dirty-node finalization---is not recovered at $N=100{,}000$. Lazy BFS eliminates initialization waste; transients help further ($29{\times} \to 14{\times}$).
+Merge sort's $1.7M$ trie-node touches (near $O(N \log^2 N)$) make transients counterproductive: the per-\texttt{conj} path is already shallow (depth $\le 5$), so the fixed cost of acquiring and committing a transient handle---thread-local ownership check plus dirty-node finalization---is not recovered at $N=100{,}000$. Lazy BFS trims initialization waste but its per-edge checks make it slower (14$\times$) than naive pre-allocated transients (6.2$\times$).
 
 \subsection{Abstract Syntax Tree Rewriting Engine}
 \label{sec:ast-bench}
@@ -773,7 +715,7 @@ The CL baseline uses \texttt{defstruct} with \texttt{typecase} on a 9{,}999-node
 
 
 Table~\ref{tab:ast-bench} summarizes results. FOL is $43{\times}$ slower per optimizer pass ($14{\times}$ more memory), driven by dispatch routing, slower field reads, and object construction.
-The build ratio ($78{\times}$) exceeds the optimizer ratio because build requires one \texttt{make-<class>} per node with no amortization; transient builders (Section~\ref{sec:features}) are expected to reduce this.
+The build ratio ($78{\times}$) exceeds both the optimizer ratio and the $5{\times}$ per-object micro-benchmark because: (1)~the CL baseline uses \texttt{defstruct}, which is faster than the \texttt{make-instance} baseline in the micro-benchmark; and (2)~constructing 9{,}999 nodes runs the full \texttt{initialize-instance} MOP protocol per node---stamping \texttt{\%schema-version}, populating the base object, and initializing the overflow trie---with no amortization across the tree, accumulating GC pressure. Transient builders (Section~\ref{sec:features}) are expected to reduce the allocation component.
 
 \begin{table}[htbp]
 \small
@@ -795,12 +737,12 @@ Optimizer  & CL  &  0.240\,ms/pass &  0.125\,MB/pass & 1.0$\times$ \\
 \subsection{Logic Simulation (LSim)}
 \label{sec:simbench}
 LSim is an event-driven digital logic simulator that exercises persistent data structures at scale.
-To isolate the event-queue cost, we hold gate-connectivity constant: the \textbf{CL} baseline uses a mutable destructive leftist heap~\cite{Crane1972} ($O(1)$ allocation per merge); \textbf{FOL} uses a persistent leftist heap~\cite{Okasaki1998} ($O(\log n)$ copies).
+Gate-connectivity is held constant; implementations differ in both event-queue and gate-state storage: the \textbf{CL} baseline uses a mutable destructive leftist heap~\cite{Crane1972} with mutable hash-table gate state; \textbf{FOL} uses a persistent leftist heap~\cite{Okasaki1998} with HAMT gate state. The 2$\times$2 ablation (Table~\ref{tab:lsim-ablation}) isolates the individual contributions of each component.
 Table~\ref{tab:lsim-perf} covers six configurations spanning five orders of magnitude; the largest circuits used a 56\,GB heap (\texttt{--dynamic-space-size~57344}).
 
 \begin{table}[htbp]
 \small
-\caption{LSim PQ Scaling Results (mean CPU time).}
+\caption{LSim PQ Scaling Results (mean wall time).}
 \label{tab:lsim-perf}
 \begin{threeparttable}
 \begin{tabular}{lrrrr}
@@ -812,18 +754,18 @@ Table~\ref{tab:lsim-perf} covers six configurations spanning five orders of magn
 8x32-9000        &       281\,248 &   359\,ms &   1.87\,s & 5.2$\times$ \\
 32x32-3000      &     3\,850\,304 &   7.57\,s &  34.15\,s  & 4.5$\times$ \\
 8x32x32-9000    &    89\,708\,032 &   906\,s  &   983\,s  & 1.1$\times$ \\
-32x32x32-30000  & 1,183,510,528 & 52,050\,s & 13,531\,s & 0.26$\times$\tnote{a} \\
+32x32x32-30000  & 1,183,510,528 & 50,007\,s & 13,201\,s & 0.26$\times$\tnote{a} \\
 \bottomrule
 \end{tabular}
 \begin{tablenotes}
   \footnotesize
-  \item[a] Ratio $<1$ means FOL is faster than CL; 0.26$\times$ = FOL is 3.8$\times$ faster.
-        The largest config was not ablated (Table~\ref{tab:lsim-ablation}); the fragmentation explanation is mechanistic, not derived from the 2$\times$2 breakdown.
+  \item[a] Small-circuit times include shared ${\approx}74$\,ms initialization overhead; ratio $<1$ means FOL is faster.
+        The largest config was ablated (Table~\ref{tab:lsim-ablation}); the fragmentation explanation is supported by the 2$\times$2 breakdown where persistent maps avoid hash-table degradation.
 \end{tablenotes}
 \end{threeparttable}
 \end{table}
 
-At scale, CL mutable heap fragmentation degrades locality; path-copying avoids this, yielding FOL's 3.8$\times$ advantage.
+At scale, CL mutable hash-table allocation scatters entries across the heap, degrading GC locality; persistent HAMTs avoid this by keeping internal nodes short-lived and depth-bounded, yielding FOL's 3.8$\times$ advantage at the largest configuration (averaged over three iterations).
 
 A 2$\times$2 ablation (Table~\ref{tab:lsim-ablation}) breaks down these costs.
 
@@ -839,40 +781,15 @@ A 2$\times$2 ablation (Table~\ref{tab:lsim-ablation}) breaks down these costs.
 8x32-9000    & 359\,ms  & 1.87\,s (5.2$\times$) & 2.25\,s (6.3$\times$) & 1.87\,s (5.2$\times$) \\
 32x32-3000   & 7.57\,s  & 34.1\,s (4.5$\times$) & 42.7\,s (5.6$\times$) & 34.1\,s (4.5$\times$) \\
 8x32x32-9000 & 906\,s   & 983\,s  (1.1$\times$) & 1646\,s (1.8$\times$) & 983\,s  (1.1$\times$) \\
+32x32x32-30000 & 50.0k\,s & 13.2k\,s (0.26$\times$) & 67.5k\,s (1.35$\times$) & 13.2k\,s (0.26$\times$) \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-FOL matches Hybrid-A in all four ablated configurations: state-map (HAMT) allocation dominates the heap budget, so adding a persistent heap incurs negligible additional overhead when maps are already persistent.
-Both persistent-map and persistent-heap overheads peak at mid-scale (5--6$\times$) and fall at the extremes.
-At the unablated 32x32x32-30000 configuration, FOL ran 3.8$\times$ faster; the ablation does not cover this config, so the gain is attributed to heap fragmentation on mechanistic grounds rather than direct decomposition.
-A CL baseline with a slab allocator might narrow this gap but remains outside our scope.
+FOL matches Hybrid-A across ablated runs: HAMT allocation dominates the heap, rendering persistent heap additions negligible.
+Hybrid-A/FOL overhead peaks mid-scale (5--6$\times$) then recovers. Hybrid-B falls from 6.3$\times$ to 1.35$\times$; as scale grows, the CL baseline itself severely degrades from hash-table fragmentation, making Hybrid-B's fixed $O(\log n)$ heap tax look comparatively better.
+At 32x32x32-30000, FOL is 3.8$\times$ faster. This gain stems purely from state maps: SBCL's hash-tables scatter entries, bloating GC scans. HAMTs avoid this: gate-state tables hold $\le 32$ entries, bounding trie depth to $\le 2$ nodes that stay within nursery allocations.
 
-
-
-\subsection{CLOS Adoption Cost: Expression Interpreter}
-\label{sec:interp-bench}
-
-We port an idiomatic CLOS expression interpreter (seven node types, three generic functions: \texttt{eval-expr}, \texttt{pretty}, \texttt{free-vars}) to FOL with minimal structural changes. The CL baseline uses mutable environments; FOL uses \texttt{(assoc env bvar v)}; method bodies are otherwise identical.
-
-A corpus of 50 depth-5 expression trees is evaluated across 1,000 iterations ($150{,}000$ total call sequences).
-
-\subsubsection*{Results}
-
-The 7$\times$ eval ratio (vs.\ $43{\times}$ for the AST optimizer) reflects: a \texttt{make-instance} baseline (${\approx}2{\times}$ construction vs.\ $5{\times}$ for \texttt{defstruct}), 7-clause scans rather than 25, and slot-read-heavy dispatch.
-The port requires no architectural changes; mechanical differences are \texttt{defclass} syntax, slot reads, constructors, environment management, and collection APIs.
-
-\section{Threats to Validity}
-\label{sec:threats}
-
-\textbf{Single implementation}: All measurements use SBCL 2.6.0; results may differ on other CL implementations.
-\textbf{Experimenter bias}: FOL and all baselines share the same author; more aggressive CL tuning might narrow results.
-\textbf{Benchmark coverage}: Smaller LSim configs were run repeatedly, but the largest circuit was run only once per implementation due to its scale (${\approx}$14 hours).
-\textbf{Benchmark selection bias}: Macro-benchmarks may over-represent FOL's advantages; the interpreter and naive-translation benchmarks offer a more conservative view.
-\textbf{Qualitative comparison}: Section~\ref{sec:dispatch} compares code-level conciseness but does not measure programmer productivity.
-\textbf{Interoperability hazard}: CL authors extending FOL classes may encounter runtime mutation errors; these are not signaled at method-definition time.
-\textbf{Non-portability}: The \texttt{persistent-class} metaclass relies on SBCL-specific MOP hooks; portability to other runtimes (e.g., CCL, ECL, ABCL) is untested.
-\textbf{Dispatch scaling}: The predicate dispatch micro-benchmark uses a single $N=20$ configuration; overhead is projected to scale linearly with $N$, but this scaling is not empirically verified across multiple clause counts.
 
 
 \begin{table*}[t]
@@ -889,6 +806,34 @@ Eval (1000 iter $\times$ 50 exprs) & 0.27\,s / 224.5\,MB & 1.88\,s / 1300\,MB & 
 \end{tabular}
 \end{table*}
 
+\subsection{CLOS Adoption Cost: Expression Interpreter}
+\label{sec:interp-bench}
+
+We port an idiomatic CLOS expression interpreter (seven node types, three generic functions: \texttt{eval-expr}, \texttt{pretty}, \texttt{free-vars}) to FOL with minimal structural changes. The CL baseline uses mutable environments; FOL uses \texttt{(assoc env bvar v)}; method bodies are otherwise identical.
+
+A corpus of 50 depth-5 expression trees is evaluated 1,000 times ($150{,}000$ root calls, yielding ${\approx}9.4$M recursive generic function dispatches).
+
+\subsubsection*{Results}
+
+The 7$\times$ eval ratio (vs.\ $43{\times}$ for the AST) reflects: a \texttt{make-instance} baseline, fewer overall clauses per scan (7 vs.\ 25), and crucially, Level-2 type specializers checking classes statically without the expensive function-call evaluation that the AST's Level-3 structural predicates rigidly impose across bypassed targets.
+The port requires no architectural logic shifts; differences lie purely in immutable mappings.
+
+\section{Threats to Validity}
+\label{sec:threats}
+
+\textbf{Single implementation}: All measurements use SBCL 2.6.0; results may differ on other CL implementations.
+\textbf{Experimenter bias}: FOL and all baselines share the same author; more aggressive CL tuning might narrow results.
+\textbf{Benchmark coverage}: Smaller LSim configs were run repeatedly; the largest circuit was run three times per implementation due to its scale (${\approx}$14 hours per run).
+\textbf{Benchmark selection bias}: Macro-benchmarks may over-represent FOL's advantages; the interpreter and naive-translation benchmarks offer a more conservative view.
+\textbf{Qualitative comparison}: Section~\ref{sec:dispatch} compares code-level conciseness but does not measure programmer productivity.
+\textbf{Interoperability hazard}: CL authors extending FOL classes may encounter runtime mutation errors; these are not signaled at method-definition time.
+\textbf{Non-portability}: \allowbreak\texttt{persistent-class} uses standard AMOP hooks (\allowbreak\texttt{allocate-instance}, \allowbreak\texttt{initialize-instance}), but the native slot fast-path reads from SBCL's internal object-header layout directly; portability to other runtimes (e.g., CCL, ECL, ABCL) is untested.
+\textbf{Dispatch scaling}: The predicate dispatch micro-benchmark uses a single $N=20$ configuration; overhead is projected to scale linearly with $N$, but this scaling is not empirically verified across multiple clause counts.
+\textbf{Re-evaluation ordering instability}: Definition index is a monotonically increasing counter; REPL re-evaluation of any clause assigns it the highest current index, silently reordering all incomparable clause pairs that involve the re-evaluated clause. Method ordering can therefore differ between two sessions that load the same files in the same order if interactive re-evaluation occurred in either session.
+
+
+
+
 \section{Related Work}
 \label{sec:related}
 
@@ -900,14 +845,14 @@ Gemstone~\cite{Penney1987} and ENCORE~\cite{Skarra1986} pioneered lazy migration
 
 \paragraph{OOP/FP bridges and pattern dispatch in other languages.}
 Scala's case classes~\cite{Odersky2016} and \texttt{match}~\cite{Emir2007} provide immutable ADTs with structural dispatch, but updates require explicit \texttt{copy} and the class system is not MOP-integrated.
-Racket~\cite{flatt:manifesto} separates \texttt{match} from its class system~\cite{Flatt2006}; Julia~\cite{Bezanson2017} provides multi-parameter type dispatch (FOL's Level~2) but no predicate specializers and mutable objects.
+Racket~\cite{flatt:manifesto} separates \texttt{match} from its class system~\cite{Flatt2006}; Julia~\cite{Bezanson2017} and MultiJava~\cite{Clifton2000} provide multi-parameter type dispatch without predicate specializers.
 
 \paragraph{Expression Problem solutions.}
 Object algebras~\cite{Oliveira2012} and tagless-final style~\cite{Carette2009} solve both dimensions in typed languages with static guarantees. FOL's approach is a multimethod-based solution~\cite{Zenger2005} that trades static safety for CLOS expressibility and open-world extension.
 
 \paragraph{Predicate dispatch.}
-Predicate dispatch~\cite{Chambers1993,Ernst1998} requires theorem-prover subsumption for method ordering; FOL's syntactic level ordering avoids this $O(N^2)$ cost at the price of semantic exactness. JPred~\cite{Millstein2004} uses domain containment checks, fragile in CLOS's open-world model. Our proposed composite level (Section~\ref{sec:dispatch}) recovers ordering for type-annotated predicates without a theorem prover.
-GHC's overlapping instances~\cite{PeytonJones2004} order heads via pragmas but lack a predicate stratum or schema evolution.
+JPred~\cite{Ernst1998,Millstein2004} requires a theorem prover for ordering. Later Cecil work~\cite{Chambers1999} achieves efficient predicate dispatch via aggressive whole-program decision-tree compilation, contrasting with FOL's open-world syntactic ordering without a prover. Our composite level recovers ranking for type constructs statically.
+GHC's overlapping instances~\cite{PeytonJones2004} order heads via pragmas but lack a predicate stratum or evolution.
 Filtered dispatch~\cite{Orleans2002} introduced guard predicates as first-class criteria, motivating FOL's Level-3.
 Dylan's singletons~\cite{Apple1992} and Slate's dispatch~\cite{Salzman2005} are restricted forms.
 Clojure's \texttt{defmulti}~\cite{Hickey2008} dispatches via a user-supplied function with \texttt{prefer-method} for ambiguity; \textit{protocols}~\cite{Hickey2010protocols} dispatch on the first argument's class only.
@@ -920,14 +865,14 @@ Self's~\cite{Ungar1987} ``slots as map entries'' model influences FOL's object r
 We presented two contributions to the design of Lisp object systems, supporting open extension and addressing the new-operations dimension of the Expression Problem within a dynamically typed setting.
 First, a \textbf{persistent metaclass system} built on the CLOS MOP: hybrid native/trie storage keeps ${\approx}80\%$
 of classes on the $1.2$--$2.0{\times}$ read-overhead native path; lazy alias-based migration delivers
-transparent instance evolution; and \texttt{\%make-persistent} reduces object creation to $5{\times}$ over mutable
-\texttt{make-instance}.
-Second, a \textbf{specificity-ordered predicate dispatch} whose load-time-decidable $\prec_{\text{disp}}$ orders all structurally or type-differentiated patterns, confining load-order sensitivity to incomparable Level-3 predicates.
+transparent instance evolution; and \texttt{\%make-persistent} reduces per-object construction cost to $5{\times}$ over mutable
+\texttt{make-instance} (micro-benchmark; build-phase ratios are lower when traversal dominates).
+Second, a \textbf{specificity-ordered predicate dispatch} whose load-time-decidable $\prec_{\text{disp}}$ orders structurally differentiated patterns, confining load-order sensitivity to incomparable Level-3 predicates, sibling-class Level-2 types, and structural ties.
 
 Slot updates cost $30$--$248{\times}$ in isolation; FOL is thus a scale-out solution for complex, versioned architectures rather than a latency-optimized replacement for mutable slots. Its advantage emerges at scale: at 1.18 billion gate evaluations, FOL is $3.8\times$ faster than CL as the mutable heap degrades.
 The AST optimizer pass is $43\times$ slower; speculative rollback is $O(1)$ by construction---discarding an \texttt{assoc} result returns the original snapshot without copying---but is not separately benchmarked.
 
-Open problems include: native compilation to replace the $O(N)$ predicate scan; static clause analysis to detect unreachable patterns at load time; and coordinated value transitions across agent networks with snapshot consistency.
+Open problems include: caching techniques to mitigate the $O(N)$ predicate scan without a theorem prover; static analysis to detect unreachable patterns; and coordinated transitions across agent networks.
 
 FOL's implementation is available at\\
 \url{https://github.com/frankadrian314159/fol}.
