@@ -18,12 +18,11 @@ We also kept many features of Common Lisp. The numeric tower is made of unwrappe
 
 We added a few bells and whistles found in neither Clojure or Common Lisp - all items, including primitives, have classes. There are new functions like Clojure's pmap: pfilter, pmapcat, etc. One can define generic functions taking multiple argument list patterns. Functions and methods, rather than being limited to dispatch on type and EQL values, can also be dispatched on arbitrary functions (this is described in our paper to be delivered at the 2026 European Lisp Symposium). In FOL, types are of the form <type-name> and type predicates are of the form <type-name>?. These are used to distinguish type predicates from the arbitrary predicates used for dispatch. Doing this allows us to order the checks in the transpiled functions in a manner that is deterministic, decidable, and relatively performant (again, this is described in the ELS 2026 paper). Multi-dimensional arrays are supported, but we will be defining functions ala APL/J/K to manipulate these.
 
-All of these features have allowed us to find coding patterns which can be used to define functions that are not easily implemented in either Clojure or Common Lisp.
+These features have allowed us to find coding patterns which can be used to define functions that are not easily implemented in either Clojure or Common Lisp.
 
 The implementation comes with an early interpreted version of the language, the transpiler, full documentation, ~3000 test cases comprising ~4500 checks, and a set of benchmarks. There is also a VSCode plugin for FOL implementing syntax checking and a REPL evaluator. It is licensed under the MIT license.
 
 FOL can be found at https://www.github.com/frankadrian314159/fol. PRs and issue reports are welcome, as are monetary contributions. Assistance with testing and implementation are needed - especially checking the transpiler on Common Lisp implementations other than SBCL and on platforms other than Windows.
 
-Note that we were assisted in writing FOL by Google Gemini (Pro and Flash) and Anthropic's Claude Sonnet 4.6. We described the architecture and checked the code. The LLMs did most of the coding. We estimated that using the LLMs decreased development time by a factor of ~10x.
-
+Note that we were assisted in writing FOL by Google Gemini (Pro and Flash) and Anthropic's Claude Sonnet 4.6. We described the architecture and checked the code. The LLMs did most of the coding. We estimated that using the LLMs decreased development time by a factor of 10.
 Thanks for your attention.
