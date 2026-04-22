@@ -207,7 +207,7 @@ FOL transpiles to Common Lisp (compiled by SBCL) via four phases: \textbf{reader
 \subsection{Space Complexity}
 FOL collections and identity types (Atoms, Refs, Agents) hold only the current value; old snapshots are GC-eligible as soon as no live reference remains.\footnote{User-managed versioning is available: callers may hold any prior \texttt{assoc} root; structural sharing ensures retained versions cost only $O(\log_{32} N)$ extra nodes.}
 Each \texttt{assoc} copies one root-to-leaf path---$O(\log_{32} N)$ new nodes, not $O(N)$.
-Short-lived intermediates are reclaimed in SBCL's nursery, keeping FOL GC overhead at 1.5\% at the scale of our largest ablated benchmark (vs.\ 0.4\% for the mutable CL baseline).
+Short-lived intermediates are reclaimed in SBCL's nursery, keeping GC overhead at 1.5\% in the LSim benchmark; the $14{\times}$ peak allocation in the AST benchmark (Section~\ref{sec:ast-bench}) reflects this path-copying volume but remains bounded by the trie depth.
 
 \section{Features}
 \label{sec:features}
@@ -407,7 +407,7 @@ and content routing (Listing~\ref{lst:observable}).
 \begin{lstlisting}[caption={Automatic Structural Diff (FOL)}, label={lst:diff}]
 (defmethod assoc :around [(obj <diffable>) key val]
   (if (= key :_changes)
-      (call-next-method)          ; key=:_changes: breaks cycle — calls assoc
+      (call-next-method)          ; key=:_changes: breaks cycle -- calls assoc
                                   ; directly, skipping the branch that emits
                                   ; (assoc ... :_changes ...) and re-invokes :around
       (bind [old (get obj key)
@@ -848,19 +848,7 @@ Both persistent-map and persistent-heap overheads peak at mid-scale (5--6$\times
 At the unablated 32x32x32-30000 configuration, FOL ran 3.8$\times$ faster; the ablation does not cover this config, so the gain is attributed to heap fragmentation on mechanistic grounds rather than direct decomposition.
 A CL baseline with a slab allocator might narrow this gap but remains outside our scope.
 
-\begin{table*}[tp]
-\small
-\caption{Expression Interpreter Benchmark (SBCL 2.6.0, AMD Ryzen 9 5900X).}
-\label{tab:interp-perf}
-\begin{tabular}{lrrrr}
-\toprule
-\textbf{Phase} & \textbf{CL} & \textbf{FOL} & \textbf{Time ratio} & \textbf{Mem ratio} \\
-\midrule
-Build (50 trees, depth 5) & 9.6\,ms / 3.8\,MB & 19.9\,ms / 8.9\,MB & 2.1$\times$ & 2.3$\times$ \\
-Eval (1000 iter $\times$ 50 exprs) & 0.27\,s / 224.5\,MB & 1.88\,s / 1300\,MB & 7.0$\times$ & 5.8$\times$ \\
-\bottomrule
-\end{tabular}
-\end{table*}
+
 
 \subsection{CLOS Adoption Cost: Expression Interpreter}
 \label{sec:interp-bench}
@@ -885,6 +873,21 @@ The port requires no architectural changes; mechanical differences are \texttt{d
 \textbf{Interoperability hazard}: CL authors extending FOL classes may encounter runtime mutation errors; these are not signaled at method-definition time.
 \textbf{Non-portability}: The \texttt{persistent-class} metaclass relies on SBCL-specific MOP hooks; portability to other runtimes (e.g., CCL, ECL, ABCL) is untested.
 \textbf{Dispatch scaling}: The predicate dispatch micro-benchmark uses a single $N=20$ configuration; overhead is projected to scale linearly with $N$, but this scaling is not empirically verified across multiple clause counts.
+
+
+\begin{table*}[t]
+\small
+\caption{Expression Interpreter Benchmark (SBCL 2.6.0, AMD Ryzen 9 5900X).}
+\label{tab:interp-perf}
+\begin{tabular}{lrrrr}
+\toprule
+\textbf{Phase} & \textbf{CL} & \textbf{FOL} & \textbf{Time ratio} & \textbf{Mem ratio} \\
+\midrule
+Build (50 trees, depth 5) & 9.6\,ms / 3.8\,MB & 19.9\,ms / 8.9\,MB & 2.1$\times$ & 2.3$\times$ \\
+Eval (1000 iter $\times$ 50 exprs) & 0.27\,s / 224.5\,MB & 1.88\,s / 1300\,MB & 7.0$\times$ & 5.8$\times$ \\
+\bottomrule
+\end{tabular}
+\end{table*}
 
 \section{Related Work}
 \label{sec:related}
@@ -921,8 +924,8 @@ transparent instance evolution; and \texttt{\%make-persistent} reduces object cr
 \texttt{make-instance}.
 Second, a \textbf{specificity-ordered predicate dispatch} whose load-time-decidable $\prec_{\text{disp}}$ orders all structurally or type-differentiated patterns, confining load-order sensitivity to incomparable Level-3 predicates.
 
-Slot updates cost $30$--$248{\times}$ in isolation; at 1.18 billion gate evaluations, FOL is $3.8\times$ faster as the CL heap degrades.
-The AST optimizer pass is $43\times$ slower; speculative rollback is $O(1)$ by construction---discarding an \texttt{assoc} result returns the original snapshot without copying; the speculative \texttt{assoc} itself costs $O(\log n)$---but is not separately benchmarked.
+Slot updates cost $30$--$248{\times}$ in isolation; FOL is thus a scale-out solution for complex, versioned architectures rather than a latency-optimized replacement for mutable slots. Its advantage emerges at scale: at 1.18 billion gate evaluations, FOL is $3.8\times$ faster than CL as the mutable heap degrades.
+The AST optimizer pass is $43\times$ slower; speculative rollback is $O(1)$ by construction---discarding an \texttt{assoc} result returns the original snapshot without copying---but is not separately benchmarked.
 
 Open problems include: native compilation to replace the $O(N)$ predicate scan; static clause analysis to detect unreachable patterns at load time; and coordinated value transitions across agent networks with snapshot consistency.
 

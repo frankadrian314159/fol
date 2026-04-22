@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.2.2)  21 APR 2026 20:32
+This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.2.2)  21 APR 2026 20:43
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1208,21 +1208,6 @@ eT-TLF/m/n/9 (-20) load-time cost---for syn-tac-tic tractabil-
 
 Package hyperref Info: bookmark level for unknown lstlisting defaults to 0 on i
 nput line 383.
-
-! LaTeX Error: Invalid UTF-8 byte sequence (â\lst@EC€\lst@EC”).
-
-See the LaTeX manual or LaTeX Companion for explanation.
-Type  H <return>  for immediate help.
- ...                                              
-                                                  
-l.410 ...       ; key=:_changes: breaks cycle â€” 
-                                                  calls assoc
-The document does not appear to be in UTF-8 encoding.
-Try adding \UseRawInputEncoding as the first line of the file
-or specify an encoding such as \usepackage [latin1]{inputenc}
-in the document preamble.
-Alternatively, save the file in UTF-8 using your editor or another tool
-
 [4.4{C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/libertine/lbt
 n_ncsllp.enc}]
 Overfull \hbox (7.57104pt too wide) in paragraph at lines 484--487
@@ -1295,7 +1280,7 @@ Overfull \hbox (5.69897pt too wide) in paragraph at lines 834--844
  []
 
 [7.7]
-Underfull \vbox (badness 10000) has occurred while \output is active []
+Underfull \vbox (badness 2970) has occurred while \output is active []
 
  [8.8]
 (els2.bbl
@@ -1342,11 +1327,11 @@ Package rerunfilecheck Info: File `els2.out' has not changed.
 (rerunfilecheck)             Checksum: 5D5374F15DAD3EA7E50183A2EFDF01EF;3498.
  ) 
 Here is how much of TeX's memory you used:
- 23979 strings out of 467871
- 390544 string characters out of 5418377
- 1240733 words of memory out of 5000000
- 51380 multiletter control sequences out of 15000+600000
- 872540 words of font info for 608 fonts, out of 8000000 for 9000
+ 23984 strings out of 467871
+ 390677 string characters out of 5418377
+ 1240903 words of memory out of 5000000
+ 51379 multiletter control sequences out of 15000+600000
+ 873086 words of font info for 612 fonts, out of 8000000 for 9000
  1302 hyphenation exceptions out of 8191
  90i,21n,131p,1003b,1333s stack positions out of 10000i,1000n,20000p,200000b,200000s
 <C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/inconsolata/
@@ -1368,9 +1353,9 @@ TXMI.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/newtx
 newtx/txmiaX.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/publ
 ic/newtx/txsym.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/pu
 blic/newtx/txsys.pfb>
-Output written on els2.pdf (9 pages, 632339 bytes).
+Output written on els2.pdf (9 pages, 632721 bytes).
 PDF statistics:
- 567 PDF objects out of 1000 (max. 8388607)
+ 568 PDF objects out of 1000 (max. 8388607)
  227 named destinations out of 1000 (max. 500000)
  129721 words of extra memory for PDF output out of 154059 (max. 10000000)
 
