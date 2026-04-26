@@ -22,7 +22,7 @@ Two tree shapes are measured to bound the performance envelope.
 * Only `op-add` appears as an internal node → the `walk` dispatch always matches the **first** clause (`<op-add>`), minimizing scan depth.
 * Every `op-add` has `right = op-lit(0)` → the identity rule `(x + 0 → x)` fires on **every** node, returning the existing left subtree without allocating a new `op-add`. This greatly reduces per-pass allocation.
 
-### Results
+### Results (from earlier run)
 
 | Implementation | Time | Alloc | vs. CL |
 |---|---|---|---|
@@ -49,31 +49,25 @@ Two tree shapes are measured to bound the performance envelope.
 
 | Phase | CL | FOL | Ratio |
 |---|---|---|---|
-| **Build** | 0.67 ms / 0.16 MB | 51.9 ms / 12.7 MB | **77×** time, **81×** mem |
-| **Optimizer (per pass)** | 0.527 ms / 0.125 MB | 24.76 ms / 1.749 MB | **47×** time, **14×** mem |
-| Per-node (optimizer) | 52.7 ns | 2,476 ns | — |
+| **Build** | 0.516 ms / 0.16 MB | 60.062 ms / 23.95 MB | **116x** time, **153x** mem |
+| **Optimizer (per pass)** | 0.357 ms / 0.125 MB | 72.103 ms / 17.911 MB | **202x** time, **144x** mem |
+| Per-node (optimizer) | 35.7 ns | 7,211 ns | — |
 
-GC cycles: CL 1 per 100-pass run; FOL 4 per 100-pass run.
+GC cycles: CL 1 per 100-pass run; FOL 35 per 100-pass run.
 
 ### Analysis
 
-The balanced-tree ratio (**47×**) is substantially higher than the chain ratio (**19.2×**) for three compounding reasons:
+The three primary drivers of overhead on the balanced tree are:
 
-1. **Dispatch scan depth.** FOL's `defgeneric` performs an O(N) linear scan over 25 clauses. The chain always matches clause 1 (`<op-add>`); the balanced tree on average scans ≈12 clauses before finding the match for a uniformly distributed operator set. This alone accounts for a ~6× per-dispatch increase.
+1. **Dispatch scan depth.** FOL's `defgeneric` performs an O(N) linear scan over 25 clauses. The balanced tree on average scans ≈12 clauses before finding the match for a uniformly distributed operator set, whereas the chain (below) always matches clause 1.
 
-2. **Identity rule short-circuit rate.** In the chain every `op-add` has `right = op-lit(0)`, triggering the identity rule and returning the existing left subtree without allocating a new node. In the balanced tree, most internal nodes have subtrees (not literals) as direct children, so the identity rule rarely fires and nearly all 9,999 nodes are reconstructed each pass.
+2. **Identity rule short-circuit rate.** Most internal nodes have subtrees (not literals) as direct children, so the identity rule rarely fires and nearly all 9,999 nodes are reconstructed each pass — each requiring a new HAMT path copy.
 
-3. **Cache pressure.** The 9,999-node FOL tree consists of 9,999 HAMT-backed persistent objects scattered across heap. Each `get` slot read follows an indirection through the HAMT into cache-cold nodes. The 29-node chain fits largely in L2 cache.
+3. **Cache pressure.** The 9,999-node FOL tree consists of 9,999 HAMT-backed persistent objects scattered across heap. Each `get` slot read follows an indirection through the HAMT into cache-cold nodes. The 202× optimizer ratio also reflects GC pressure: 35 collection cycles vs. 1 for CL over the same 100-pass run.
 
 ### Practical interpretation
 
-The two tree shapes bound the realistic overhead:
-
-| AST profile | Approx. ratio |
-|---|---|
-| Single dominant operator type (e.g., purely `op-add`) | ≈ 19× |
-| Uniformly distributed 23-operator tree | ≈ 47× |
-| Typical mixed code AST | between these bounds |
+The balanced-tree ratio (**202×** optimizer, **116×** build) represents the worst-case profile for FOL: uniformly distributed operators, low identity-rule rate, and full HAMT path copies for nearly every node per pass.  Real code ASTs are dominated by a small number of operator types and have higher literal rates, which reduce the effective ratio.
 
 For workloads where speculative rollback is valuable (rewrite-rule passes that may fail), the `O(1)` rollback benefit — discarding a modified root pointer — is available regardless of operator distribution.
 
@@ -81,8 +75,8 @@ For workloads where speculative rollback is valuable (rewrite-rule passes that m
 
 ## Build cost
 
-FOL build cost (77×) is higher than optimizer cost (47×). Building requires:
-* One `make-<class>` call per node (≈183 ns vs ≈37 ns for mutable `make-instance`)
+FOL build cost (116×) exceeds optimizer cost per pass (202×/pass) on an absolute per-node basis only because build is one-time and passes are amortized over it. Building requires:
+* One `make-<class>` call per node (~7 µs vs ~0.05 µs for `make-instance`)
 * HAMT construction for each persistent object's slot map
 
 Build is a one-time cost in practice; optimizer passes are amortized over it.

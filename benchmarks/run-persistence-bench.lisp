@@ -7,7 +7,7 @@
       (load quicklisp-init)
       (format t "Quicklisp not found.~%")))
 
-(dolist (dep '(:fset :sycamore :closer-mop :uuid :bordeaux-threads :usocket :cl-ppcre))
+(dolist (dep '(:fset :sycamore :closer-mop :uuid :bordeaux-threads :usocket :cl-ppcre :fiveam))
   (if (find-package :ql)
       (uiop:symbol-call :ql :quickload dep)
       (asdf:load-system dep)))

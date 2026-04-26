@@ -99,8 +99,8 @@ FOL provides automatically must be hand-wired at every level.
 
 | Implementation | Time (500K iters) | Avg Time/op | Bytes Consed | Ratio |
 | :--- | ---: | ---: | ---: | ---: |
-| **Common Lisp** (explicit before-snapshot) | 0.049 s | 0.10 µs | 30.50 MB | 1.0× |
-| **FOL** (`:around assoc` auto-diff) | 5.540 s | 11.08 µs | 1685.44 MB | 113.7× |
+| **Common Lisp** (explicit before-snapshot) | 0.073 s | 0.15 µs | 30.50 MB | 1.0× |
+| **FOL** (`:around assoc` auto-diff) | 6.489 s | 12.98 µs | 1769.71 MB | 89.1× |
 
 Each "op" is one complete 5-slot update iteration.
 
@@ -108,7 +108,7 @@ Each "op" is one complete 5-slot update iteration.
 
 ## 4. Analysis
 
-### Time Overhead (114×)
+### Time Overhead (89×)
 
 Each iteration makes 6 `assoc` calls (1 reset + 5 slot updates).  Each
 `assoc` call:
@@ -120,13 +120,13 @@ Each iteration makes 6 `assoc` calls (1 reset + 5 slot updates).  Each
    `_changes`).
 
 The CL baseline performs one struct allocation per iteration with inline slot
-comparisons — the minimum possible work.  The 114× ratio reflects the
+comparisons — the minimum possible work.  The 89× ratio reflects the
 compounding of CLOS dispatch overhead, HAMT path-copy allocation, and the
 extra recursive `assoc` call per changed slot.
 
-### Memory Overhead (55×)
+### Memory Overhead (58×)
 
-FOL allocates ~1,685 MB vs 30 MB over 500K iterations (≈3,370 bytes vs 61
+FOL allocates ~1,770 MB vs 30 MB over 500K iterations (≈3,539 bytes vs 61
 bytes per iteration).  Each of the 6 `assoc` calls in the FOL path allocates a
 new HAMT path (1–3 nodes × ~40 bytes), and the change-detection branches
 trigger additional allocations for the `_changes` increment.  The CL struct
@@ -139,8 +139,8 @@ copy allocates one fixed-size record (~61 bytes) per iteration.
 | Change-counting code | In every update function | Single `<diffable>` declaration |
 | New-slot maintenance | Must update snapshot + compare | Automatic |
 | Snapshots coexist | No — requires explicit copy | Yes — persistent semantics |
-| Runtime cost (5 slots) | 0.10 µs | 11.08 µs |
-| Memory per iteration | ~61 B | ~3,370 B |
+| Runtime cost (5 slots) | 0.15 µs | 12.98 µs |
+| Memory per iteration | ~61 B | ~3,539 B |
 
 The FOL approach shines when the diff logic is cross-cutting (many classes,
 many update paths) and when the snapshot semantics are already valued for

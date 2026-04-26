@@ -1,0 +1,7 @@
+(require :asdf)
+(pushnew #p"c:/Users/frank/Projects/FOL/fol/src/" asdf:*central-registry*)
+(asdf:load-system :fol-compiler)
+(format t "MAKE fbound: ~A~%" (fboundp 'fol.core:make))
+(format t "MAKE bound: ~A~%" (boundp 'fol.core:make))
+(format t "MAKE value: ~A~%" (if (boundp 'fol.core:make) (symbol-value 'fol.core:make) "unbound"))
+(sb-ext:exit)

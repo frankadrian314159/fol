@@ -425,3 +425,31 @@
 ;;; ---------------------------------------------------------------------------
 
 ;; flatten-form is already defined in test-destructure.lisp
+
+;;; ---------------------------------------------------------------------------
+;;; prefer-method tests
+;;; ---------------------------------------------------------------------------
+
+(test prefer-method-simple
+  "prefer-method establishes preference and maintains DAG"
+  (let ((gf-name 'test-gf))
+    (remhash gf-name fol.compiler::*method-preferences*)
+    (fol.compiler:prefer-method gf-name :a :b)
+    (fol.compiler:prefer-method gf-name :b :c)
+    (let ((prefs (gethash gf-name fol.compiler::*method-preferences*)))
+      (is (not (null prefs)))
+      (is (member :a (gethash :b prefs)))
+      (is (member :b (gethash :c prefs)))
+      (is (null (gethash :a prefs))))))
+
+(test prefer-method-cycle-detection
+  "prefer-method signals program-error on circular preference"
+  (let ((gf-name 'test-gf-cycle))
+    (remhash gf-name fol.compiler::*method-preferences*)
+    (fol.compiler:prefer-method gf-name :a :b)
+    (fol.compiler:prefer-method gf-name :b :c)
+    (let ((errored-p nil))
+      (handler-case
+          (fol.compiler:prefer-method gf-name :c :a) ; C prefers A -> wait, args are (gf preferred subservient)
+        (program-error () (setf errored-p t)))
+      (is (eq t errored-p) "Cyclic preference should signal program-error"))))

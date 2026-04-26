@@ -58,14 +58,14 @@ warm the cache:
 
 | Implementation | Time (1K adds + 1M reads) | Avg Time/write | Bytes Consed | Ratio |
 | :--- | ---: | ---: | ---: | ---: |
-| **Common Lisp** (manual invalidation) | 0.019 s | 18.9 µs | 0.09 MB | 1.0× |
-| **FOL** (`:around assoc`) | 0.372 s | 372 µs | 85.35 MB | 19.7× |
+| **Common Lisp** (manual invalidation) | 0.013 s | 12.7 µs | 0.09 MB | 1.0× |
+| **FOL** (`:around assoc`) | 0.330 s | 330 µs | 85.54 MB | 26.0× |
 
 **Correctness**: both return 166,666,500,000 (sum of all cached totals).
 
 ## 4. Analysis
 
-### Time Overhead (20×)
+### Time Overhead (26×)
 
 Each `add-item` call in FOL performs three `assoc` operations instead of one:
 
@@ -81,14 +81,14 @@ both implementations: `fol.core:reduce` over a small persistent vector vs
 `cl:reduce` over a CL cons list.  The dominant overhead is the extra `assoc`
 calls.
 
-### Memory Overhead (900×)
+### Memory Overhead (913×)
 
-FOL allocates ~85 MB vs ~0.09 MB for CL.  Each of the three `assoc` calls per
+FOL allocates ~85.5 MB vs ~0.09 MB for CL.  Each of the three `assoc` calls per
 round allocates a new persistent object (HAMT path copy) plus a new
 persistent vector node for the growing `:items` trie.  The CL version uses
 structs (one allocation per add) and cons cells (one per item).
 
-The high ratio (900×) reflects both the HAMT path-copy overhead and the
+The high ratio (913×) reflects both the HAMT path-copy overhead and the
 structural sharing nodes for the growing persistent vector.  Both are expected
 and are the price of full value semantics with structural sharing.
 
@@ -106,9 +106,9 @@ ratio (1:1000 writes to reads).
 | :--- | :--- | :--- |
 | Invalidation site | Every mutating function | Single `:around` declaration |
 | Omission risk | Silent stale-cache bug | Structurally impossible |
-| Write overhead | ~19 µs (1 struct alloc) | ~372 µs (3 assoc calls) |
+| Write overhead | ~12.7 µs (1 struct alloc) | ~330 µs (3 assoc calls) |
 | Read overhead (warm) | Direct slot read | HAMT traversal (~same) |
-| Memory per write | ~93 B/op | ~88 KB/op (persistent nodes) |
+| Memory per write | ~90 B/op | ~85.5 KB/op (persistent nodes) |
 
 The pattern is most appropriate when:
 - Many code paths can modify the upstream dependency

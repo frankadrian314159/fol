@@ -307,6 +307,10 @@
    %build-vec-f64-from-list
    %build-vec-f32-from-list
    %build-vec-fix64-from-list
+   %build-vec-t-from-vector
+   %build-vec-f64-from-vector
+   %build-vec-f32-from-vector
+   %build-vec-fix64-from-vector
    ;; HAMT & BTree utilities
    %vec-t-push %vec-t-iterator
    hamt-get hamt-assoc hamt-dissoc do-hamt hamt-to-list hamt-count hamt-root
@@ -796,6 +800,7 @@
    definline
    letfn
    quote
+   prefer-method
    if
  do
    bind

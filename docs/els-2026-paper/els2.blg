@@ -28,50 +28,49 @@ Warning--empty address in Odersky2016
 Warning--empty address in Okasaki1998
 Warning--empty address in Oliveira2012
 Warning--empty address in Penney1987
-Warning--empty address in Salzman2005
 Warning--empty address in Skarra1986
 Warning--empty publisher in Zenger2005
 Warning--empty address in Zenger2005
 Warning--page numbers missing in both pages and numpages fields in Zenger2005
-You've used 32 entries,
+You've used 30 entries,
             6273 wiz_defined-function locations,
-            1733 strings with 23504 characters,
-and the built_in function-call counts, 32473 in all, are:
-= -- 3779
-> -- 832
+            1718 strings with 23093 characters,
+and the built_in function-call counts, 30046 in all, are:
+= -- 3451
+> -- 772
 < -- 2
-+ -- 270
-- -- 320
-* -- 2045
-:= -- 3149
-add.period$ -- 165
-call.type$ -- 32
-change.case$ -- 190
-chr.to.int$ -- 31
-cite$ -- 51
-duplicate$ -- 3186
-empty$ -- 2230
-format.name$ -- 392
-if$ -- 7736
-int.to.chr$ -- 3
++ -- 247
+- -- 293
+* -- 1892
+:= -- 2919
+add.period$ -- 152
+call.type$ -- 30
+change.case$ -- 178
+chr.to.int$ -- 30
+cite$ -- 48
+duplicate$ -- 2956
+empty$ -- 2069
+format.name$ -- 357
+if$ -- 7118
+int.to.chr$ -- 2
 int.to.str$ -- 1
-missing$ -- 105
-newline$ -- 298
-num.names$ -- 223
-pop$ -- 1269
+missing$ -- 94
+newline$ -- 288
+num.names$ -- 210
+pop$ -- 1177
 preamble$ -- 1
-purify$ -- 444
+purify$ -- 418
 quote$ -- 0
-skip$ -- 1206
+skip$ -- 1133
 stack$ -- 0
-substring$ -- 2474
-swap$ -- 309
+substring$ -- 2277
+swap$ -- 282
 text.length$ -- 2
 text.prefix$ -- 0
 top$ -- 0
-type$ -- 809
-warning$ -- 19
-while$ -- 241
+type$ -- 784
+warning$ -- 18
+while$ -- 222
 width$ -- 0
-write$ -- 659
-(There were 19 warnings)
+write$ -- 623
+(There were 18 warnings)

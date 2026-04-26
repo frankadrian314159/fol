@@ -235,8 +235,7 @@ Used to locate the correct starting point in the class version chain during mult
                      (persistent-class-overflow-indices class))
 
             ;; 3. Freeze the data into the bit-partitioned trie in strict O(N) time
-            (let* ((frozen-storage (fol.compiler.collection-primitives::%build-vec-t-from-list
-                                    (coerce temp-arr 'list)))
+            (let* ((frozen-storage (fol.compiler.collection-primitives::%build-vec-t-from-vector temp-arr))
                    (persistent-vec (make-instance 'fol.compiler.collections:<vector> :storage frozen-storage)))
 
               ;; 4. Bind to the instance
@@ -340,8 +339,7 @@ Used to locate the correct starting point in the class version chain during mult
                       ;; Freeze into the trie
                       (setf (%persistent-vector instance)
                         (make-instance 'fol.compiler.collections:<vector>
-                          :storage (fol.compiler.collection-primitives::%build-vec-t-from-list
-                                    (coerce temp-arr 'list)))))))))
+                          :storage (fol.compiler.collection-primitives::%build-vec-t-from-vector temp-arr))))))))
 
     ;; Stamp the migrated instance with the current version so any further
     ;; redefinitions start from the correct point in the chain.

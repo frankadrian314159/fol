@@ -39,7 +39,7 @@
      {:status :manual-review :reason "Trade value exceeds $1M limit"})
     ((penny-stock-buy? trd)
      {:status :warning :reason "High risk penny stock purchase" :trade trd})
-    (:else {:status :approved :id (gensym "TRD")}))
+    (:else {:status :approved :id (gensym "TRD")}) ))
 
 ;;; =============================================================================
 ;;; Test Module

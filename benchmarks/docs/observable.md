@@ -10,8 +10,8 @@ The benchmark executed **1,000,000 iterations** of a sensor update loop. Each it
 
 | Metric | Common Lisp (Optimized) | FOL (Transpiled) | Ratio (FOL/CL) |
 | :--- | :--- | :--- | :--- |
-| **Real Time** | 1.020 seconds | 6.829 seconds | **~6.69x** |
-| **Bytes Consed** | 372.98 MB | 2,356.73 MB | **~6.32x** |
+| **Real Time** | 0.820 seconds | 3.838 seconds | **~4.68x** |
+| **Bytes Consed** | 372.96 MB | 2,403.79 MB | **~6.45x** |
 
 ### Performance Analysis
 - **Structural Sharing vs. Mutation**: The FOL implementation uses persistent data structures (HAMT-based dicts for change events, Sycamore hash-maps for persistent objects). The CL version uses mutable CLOS objects and structs, which are significantly faster for simple field updates.
@@ -102,4 +102,4 @@ without touching the original definition.
 ---
 
 ## 4. Conclusion
-The Observable benchmark highlights the cost of **Full Immutability**. While FOL is roughly 7x slower than native CL/CLOS in this specific update-heavy workload, it provides **structural integrity** and **time-travel debugging** capabilities by default. For monitoring systems where audit trails and event sourcing are required, the performance trade-off is often acceptable in exchange for the safety of persistent state.
+The Observable benchmark highlights the cost of **Full Immutability**. While FOL is roughly 4.7x slower than native CL/CLOS in this specific update-heavy workload, it provides **structural integrity** and **time-travel debugging** capabilities by default. For monitoring systems where audit trails and event sourcing are required, the performance trade-off is often acceptable in exchange for the safety of persistent state.

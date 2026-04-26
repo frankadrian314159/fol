@@ -4,157 +4,214 @@
 (DEFPACKAGE "GUARDS"
   (:USE "FOL.CORE" "CL")
   (:SHADOWING-IMPORT-FROM :FOL.CORE
-                          "*"
-                          "TIME"
                           "BIT-NAND"
-                          "UNION"
-                          "MAX"
+                          "LCM"
                           "GCD"
-                          "SOME"
-                          "DEFCLASS"
-                          "SORT"
-                          ">"
-                          "BUTLAST"
-                          "<="
-                          "DOTIMES"
-                          "EXPT"
-                          "ASINH"
-                          ">="
-                          "POP"
-                          "SUBSEQ"
-                          "NTH"
                           "COS"
-                          "NOT"
                           "DENOMINATOR"
-                          "IDENTITY"
-                          "THIRD"
                           "ABS"
-                          "AND"
-                          "REPLACE"
-                          "<"
-                          "MERGE"
                           "NUMERATOR"
                           "BIT-NOR"
-                          "DEFMACRO"
-                          "READ"
                           "BIT-ANDC2"
-                          "PUSH"
                           "BIT-ANDC1"
-                          "/="
                           "TANH"
-                          "/"
-                          "READ-LINE"
-                          "INTERSECTION"
+                          "ASINH"
                           "GENSYM"
-                          "VECTOR"
-                          "="
-                          "CLOSE"
-                          "DEFGENERIC"
-                          "DELETE-FILE"
-                          "ASSOC"
-                          "KEYWORD"
-                          "FORMAT"
+                          "EXPT"
                           "SIN"
                           "SINH"
-                          "COMPLEMENT"
-                          "REDUCE"
-                          "APPLY"
-                          "REMOVE"
-                          "MAP"
                           "BIT-ORC1"
-                          "PPRINT"
-                          "LCM"
                           "TAN"
-                          "INTERN"
-                          "EVERY"
-                          "FIRST"
                           "ARRAY-DIMENSION"
-                          "REVERSE"
-                          "LOOP"
-                          "+"
-                          "REST"
-                          "QUOTE"
-                          "COMPILE-FILE"
-                          "-"
-                          "OR"
-                          "CONS"
                           "ATAN"
                           "ASIN"
                           "SQRT"
                           "ACOSH"
                           "BIT-ORC2"
                           "ACOS"
-                          "FIND"
-                          "COND"
-                          "MIN"
                           "COSH"
-                          "MACROEXPAND-1"
-                          "WHEN"
-                          "IF"
-                          "CHAR"
-                          "MACROEXPAND"
-                          "LIST"
-                          "CONSTANTLY"
                           "SEQUENCE"
-                          "CASE"
-                          "SECOND"
                           "RATIONALIZE"
-                          "ASSERT"
                           "ATANH"
-                          "SET"
-                          "DEFMETHOD"
-                          "DO"
-                          "PRINT"
-                          "GET"
-                          "COUNT"
-                          "LAST"
+                          "+"
+                          "-"
+                          "*"
+                          "/"
+                          "<"
+                          ">"
+                          "<="
+                          ">="
+                          "="
+                          "/="
+                          "MIN"
+                          "MAX"
+                          "NOT"
+                          "AND"
+                          "OR"
+                          "IDENTITY"
+                          "CONSTANTLY"
+                          "COMPLEMENT"
+                          "APPLY"
+                          "REPLACE"
+                          "FIRST"
+                          "REST"
+                          "NTH"
+                          "PUSH"
+                          "POP"
+                          "FIND"
+                          "SUBSEQ"
+                          "UNION"
+                          "INTERSECTION"
+                          "SORT"
+                          "REVERSE"
+                          "LIST"
                           "LIST*"
+                          "VECTOR"
+                          "MAP"
+                          "REDUCE"
+                          "REMOVE"
+                          "SOME"
+                          "EVERY"
+                          "THIRD"
+                          "SECOND"
+                          "LAST"
+                          "BUTLAST"
+                          "INTERN"
+                          "CHAR"
+                          "FORMAT"
+                          "COMPILE-FILE"
+                          "MACROEXPAND-1"
+                          "MACROEXPAND"
+                          "DEFMACRO"
+                          "DEFCLASS"
+                          "DEFGENERIC"
+                          "DEFMETHOD"
+                          "LOOP"
+                          "QUOTE"
+                          "IF"
+                          "DO"
+                          "COND"
+                          "CASE"
+                          "WHEN"
+                          "DOTIMES"
+                          "TIME"
+                          "ASSERT"
+                          "ASSOC"
+                          "DISSOC"
+                          "CONJ"
+                          "UPDATE"
+                          "COUNT"
+                          "MERGE"
+                          "GET"
+                          "PRINT"
+                          "PPRINT"
+                          "READ"
+                          "READ-LINE"
+                          "CLOSE"
+                          "DELETE-FILE"
                           "ATOM"
+                          "MAKE"
+                          "NIL?"
+                          "INC"
+                          "DEC"
+                          "RANGE"
+                          "REPEAT"
+                          "REPEATEDLY"
+                          "ITERATE"
+                          "ITERATION"
+                          "INTERLEAVE"
+                          "INTERPOSE"
+                          "CYCLE"
+                          "CONS"
+                          "CONCAT"
+                          "INTO"
+                          "FILTER"
+                          "FILTERV"
+                          "MAPV"
+                          "PMAP"
+                          "MAPCAT"
+                          "TAKE"
+                          "DROP"
+                          "TAKE-WHILE"
+                          "DROP-WHILE"
+                          "PARTITION"
+                          "PARTITION-BY"
+                          "GROUP-BY"
+                          "DISTINCT"
+                          "DEDUPE"
+                          "FLATTEN"
+                          "ZIPMAP"
+                          "REDUCTIONS"
+                          "REALIZED?"
+                          "DORUN"
+                          "DOALL"
+                          "RUN!"
+                          "RAND-NTH"
+                          "VEC"
+                          "SEQ"
+                          "STR"
+                          "SUBS"
+                          "SPLIT"
+                          "JOIN"
+                          "TRIM"
+                          "UPPER-CASE"
+                          "LOWER-CASE"
+                          "CAPITALIZE"
+                          "CONTAINS?"
+                          "EMPTY?"
+                          "EVERY?"
+                          "DISTINCT?"
+                          "NOT-EVERY?"
+                          "NOT-ANY?"
+                          "PERSISTENT-CLASS"
+                          "<PERSISTENT-OBJECT>"
+                          "TRUTHY?"
+                          "PRINTLN"
+                          "DICT"
+                          "SET"
                           "EXP"
-                          "SYMBOL")
+                          "SYMBOL"
+                          "KEYWORD")
   (:EXPORT <ACCOUNT> DEPOSIT WITHDRAW RUN-BENCH))
 
 (IN-PACKAGE "GUARDS")
 
 (DEFCLASS <ACCOUNT> (<PERSISTENT-OBJECT>)
-          ((OWNER :INITARG :OWNER)
-           (BALANCE :INITARG :BALANCE :INITFORM 0))
+          ((OWNER :INITARG :OWNER) (BALANCE :INITARG :BALANCE :INITFORM 0))
           (:METACLASS PERSISTENT-CLASS))
 
-(DEFUN FOL.CORE::MAKE-<ACCOUNT> (&KEY OWNER BALANCE)
-  (MAKE-INSTANCE '<ACCOUNT> :OWNER OWNER :BALANCE BALANCE))
+(DEFUN FOL.CORE::MAKE-<ACCOUNT> (&REST . #1=(FOL.COMPILER::%CTOR-ARGS))
+  (COMMON-LISP:APPLY #'%MAKE-PERSISTENT
+                     (LOAD-TIME-VALUE (FIND-CLASS '<ACCOUNT>)) . #1#))
 
 '<ACCOUNT>
 
-;;; Cross-cutting invariant guard: every (assoc <account> ...) call
-;;; passes through this method.  No equivalent in plain CL -- each
-;;; update function must repeat the (when (< new-balance 0) ...) check.
-(DEFMETHOD ASSOC :AROUND ((ACC <ACCOUNT>) SLOT VAL &REST KVPS)
-  (DECLARE (SPECIAL ACC SLOT VAL KVPS) (IGNORE KVPS))
+(DEFMETHOD ASSOC :AROUND ((ACC <ACCOUNT>) SLOT VAL &REST FOL.COMPILER::KVPS)
+  (DECLARE (SPECIAL ACC SLOT VAL FOL.COMPILER::KVPS)
+           (IGNORE FOL.COMPILER::KVPS))
   (LET ((RESULT (CALL-NEXT-METHOD)))
-    (WHEN (< (GET RESULT :BALANCE) 0)
-      (CL:ERROR "~A: balance cannot go negative" (GET ACC :OWNER)))
-    RESULT))
+    (PROGN
+     (IF (TRUTHY? (< (GET RESULT :BALANCE) 0))
+         (PROGN (ERROR "~A: balance cannot go negative" (GET ACC :OWNER)))
+         NIL)
+     RESULT)))
 
-(DEFUN DEPOSIT (ACC AMOUNT)
-  (DECLARE (SPECIAL ACC AMOUNT))
-  (ASSOC ACC :BALANCE (+ (GET ACC :BALANCE) AMOUNT)))
+(DEFUN DEPOSIT (ACC AMOUNT) (ASSOC ACC :BALANCE (+ (GET ACC :BALANCE) AMOUNT)))
 
-(DEFUN WITHDRAW (ACC AMOUNT)
-  (DECLARE (SPECIAL ACC AMOUNT))
-  (ASSOC ACC :BALANCE (- (GET ACC :BALANCE) AMOUNT)))
+(DEFUN WITHDRAW (ACC AMOUNT) (ASSOC ACC :BALANCE (- (GET ACC :BALANCE) AMOUNT)))
 
 (DEFUN RUN-BENCH (ITERATIONS)
-  (DECLARE (SPECIAL ITERATIONS))
   (LET ((ACC (MAKE '<ACCOUNT> :OWNER "Alice" :BALANCE 0)))
-    (BLOCK LOOP-BLOCK-1
+    (BLOCK LOOP-BLOCK-6
       (LET ((I 0) (A ACC))
         (TAGBODY
-         LOOP-1
-          (LET ((RESULT-1
-                 (IF (TRUTHY? (< I ITERATIONS))
-                     (PROGN
-                      (PSETQ I (INC I) A (DEPOSIT A 1))
-                      (GO LOOP-1))
-                     (GET A :BALANCE))))
-            (RETURN-FROM LOOP-BLOCK-1 RESULT-1)))))))
+         LOOP-6
+          (LET ((RESULT-6
+                 (PROGN
+                  (IF (TRUTHY? (< I ITERATIONS))
+                      (PROGN
+                       (PSETQ I (INC I)
+                              A (DEPOSIT A 1))
+                       (GO LOOP-6))
+                      (GET A :BALANCE)))))
+            (RETURN-FROM LOOP-BLOCK-6 RESULT-6)))))))

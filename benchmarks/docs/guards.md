@@ -49,16 +49,16 @@ so the rollback is free — no undo logic required.
 
 | Implementation | Time (1M ops) | Avg Time/op | Bytes Consed | Ratio |
 | :--- | ---: | ---: | ---: | ---: |
-| **Common Lisp** (manual guard per fn) | 0.065 s | 0.07 µs | 30.56 MB | 1.0× |
-| **FOL** (`:around assoc`) | 1.507 s | 1.51 µs | 244.07 MB | 23.2× |
+| **Common Lisp** (manual guard per fn) | 0.051 s | 0.05 µs | 30.59 MB | 1.0× |
+| **FOL** (`:around assoc`) | 1.313 s | 1.31 µs | 274.58 MB | 25.8× |
 
 **Correctness**: both implementations return 1,000,000 (the final balance).
 
 ## 4. Analysis
 
-### Time Overhead (23×)
+### Time Overhead (26×)
 
-The 23× slowdown on the happy path comes from several cumulative costs:
+The 26× slowdown on the happy path comes from several cumulative costs:
 
 1. **Generic dispatch** — `fol.core:assoc` is a CLOS generic function.  Every
    call dispatches through the SBCL PCL discriminating function.
@@ -71,9 +71,9 @@ The 23× slowdown on the happy path comes from several cumulative costs:
 The CL baseline creates a raw `defstruct` instance with two slots and performs
 one inline comparison — the minimal possible work.
 
-### Memory Overhead (8×)
+### Memory Overhead (9×)
 
-FOL allocates ~244 MB vs 30 MB for CL over 1M operations (≈244 bytes vs 31 bytes
+FOL allocates ~275 MB vs 31 MB for CL over 1M operations (≈275 bytes vs 31 bytes
 per update).  The persistent-object update copies the HAMT path for the
 modified slot (typically 1–3 nodes at ~40 bytes each).  The CL struct copies two
 pointer-sized slots into a fresh allocation (~32 bytes for the header + 2 slots).
@@ -85,8 +85,8 @@ pointer-sized slots into a fresh allocation (~32 bytes for the header + 2 slots)
 | Guard coverage | Per-function — can be omitted | Every update — structurally enforced |
 | Code duplication | Repeats in every update fn | Single declaration |
 | Rollback complexity | Must manually restore state | Free — original is immutable |
-| Runtime cost (valid path) | 0.07 µs | 1.51 µs |
-| Memory per update | ~31 B | ~244 B |
+| Runtime cost (valid path) | 0.05 µs | 1.31 µs |
+| Memory per update | ~31 B | ~275 B |
 
 The overhead is justified when the invariant is cross-cutting (applies to many
 update paths) and when correctness matters more than raw throughput.  For a

@@ -137,27 +137,27 @@ combination, not multi-method dispatch.
 
 | Implementation | Time (1M ops) | Avg Time/op | Bytes Consed | Ratio |
 | :--- | ---: | ---: | ---: | ---: |
-| **Common Lisp** (all constraints in one flat function) | 0.054 s | 0.05 µs | 45.77 MB | 1.0× |
-| **FOL** (three `:around` methods via `call-next-method`) | 1.257 s | 1.26 µs | 411.81 MB | 23.4× |
+| **Common Lisp** (all constraints in one flat function) | 0.082 s | 0.08 µs | 45.77 MB | 1.0× |
+| **FOL** (three `:around` methods via `call-next-method`) | 1.725 s | 1.72 µs | 427.10 MB | 21.0× |
 
 **Correctness**: both implementations return 1,000,000 (the final balance).
 
 ## 4. Analysis
 
-### Time Overhead (23×)
+### Time Overhead (21×)
 
 Each `deposit` call invokes the `assoc` generic function once.  In the FOL
 path, SBCL PCL dispatches through three `:around` methods and one primary
 method before performing the actual HAMT path copy.  In the CL path, `deposit`
 calls `%try-update-balance` directly — one function call with three integer
-comparisons and one struct copy.  The 23× ratio is consistent with the guards
-benchmark (also ~23×), which performs a single `:around` method; the three
+comparisons and one struct copy.  The 21× ratio is consistent with the guards
+benchmark (~26×), which performs a single `:around` method; the three
 levels here impose no additional multiplicative cost because SBCL's effective
 method is compiled once and cached.
 
 ### Memory Overhead (9×)
 
-FOL allocates ~412 MB vs 46 MB over 1M deposits (≈412 bytes vs 46 bytes per
+FOL allocates ~427 MB vs 46 MB over 1M deposits (≈427 bytes vs 46 bytes per
 update).  The persistent-object update allocates a HAMT path copy (1–3 nodes
 ×~40 bytes each) plus the CLOS frame overhead for each `:around` invocation.
 The CL struct copy allocates one fixed-size record per deposit (~46 bytes
@@ -165,10 +165,10 @@ including the struct header and four slots).
 
 ### Comparison with Guards Benchmark
 
-The guards benchmark (single `:around`) shows the same ~23× time overhead.
+The guards benchmark (single `:around`) shows a comparable ~26× time overhead.
 This confirms that the dominant cost is persistent-object HAMT update, not the
-method-combination chain itself.  The memory ratio here (9×) is lower than
-guards (8×), a slight variation within measurement noise.
+method-combination chain itself.  The three-level chain imposes no additional
+multiplicative cost because SBCL compiles and caches the effective method.
 
 ### Engineering Trade-off
 
@@ -178,8 +178,8 @@ guards (8×), a slight variation within measurement noise.
 | Adding a new level | Modify existing function + all callers | New subclass only |
 | Rejection cost | Struct copy or alias risk | Free — original is immutable |
 | Open/closed principle | Violated | Respected |
-| Runtime cost (valid path) | 0.05 µs | 1.26 µs |
-| Memory per update | ~46 B | ~412 B |
+| Runtime cost (valid path) | 0.08 µs | 1.72 µs |
+| Memory per update | ~46 B | ~427 B |
 
 The pattern is most valuable when the constraint hierarchy is open to extension,
 when levels are independently reusable across different classes, or when the

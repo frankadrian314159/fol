@@ -9,13 +9,13 @@ The performance test executed **1,000,000 validation checks** on a randomized se
 
 | Metric | Common Lisp (Optimized) | FOL (Transpiled) | Ratio (FOL/CL) |
 | :--- | :--- | :--- | :--- |
-| **Real Time** | 0.173 seconds | 1.201 seconds | **~6.94x** |
-| **Bytes Consed** | 134.15 MB | 1,358.70 MB | **~10.13x** |
+| **Real Time** | 0.338 seconds | 1.960 seconds | **~5.81x** |
+| **Bytes Consed** | 134.21 MB | 1,281.71 MB | **~9.55x** |
 
 ### Performance Analysis
-- **Execution Overhead**: The ~6.94x slowdown reflects the use of persistent data structures (HAMT-based dicts for validation results, persistent objects for trade instances). Each validation produces an immutable map result via HAMT allocation.
-- **Memory Allocation**: The 10x memory overhead is due to FOL's immutable persistent objects and HAMT-based collection construction for each validation result.
-- **Dispatch Efficiency**: Despite the overhead, validating 1,000,000 trades in ~1.2 seconds shows that the system is suitable for complex business logic processing.
+- **Execution Overhead**: The ~5.81x slowdown reflects the use of persistent data structures (HAMT-based dicts for validation results, persistent objects for trade instances). Each validation produces an immutable map result via HAMT allocation.
+- **Memory Allocation**: The ~9.6x memory overhead is due to FOL's immutable persistent objects and HAMT-based collection construction for each validation result.
+- **Dispatch Efficiency**: Despite the overhead, validating 1,000,000 trades in ~2 seconds shows that the system is suitable for complex business logic processing.
 
 ---
 
@@ -43,4 +43,4 @@ The FOL implementation is **26% more concise** in terms of functional logic (SLO
 ## 3. Conclusion
 The FOL implementation represents a standard trade-off in modern language design: **Developer Productivity vs. Absolute Performance**.
 
-By accepting a **~7x performance penalty**, the developer gains a **26% more maintainable codebase** with built-in immutability and a powerful dispatch system that is natively resilient to complex business rule changes.
+By accepting a **~6x performance penalty**, the developer gains a **26% more maintainable codebase** with built-in immutability and a powerful dispatch system that is natively resilient to complex business rule changes.

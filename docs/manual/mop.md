@@ -379,6 +379,32 @@ Multi-pattern generic functions store pattern information on the function symbol
 
 ---
 
+## Method Preference Registry: `prefer-method`                       *[function]*
+
+The `prefer-method` function establishes a priority relationship between two method clauses for a generic function. This is used to resolve dispatch ambiguity when two or more clauses are equally specific.
+
+### Syntax
+
+```fol
+(prefer-method gf-name preferred-qualifier subservient-qualifier)
+```
+
+### Details
+
+The compiler maintains a **Directed Acyclic Graph (DAG)** of method preferences for each generic function. 
+
+*   **Ambiguity Resolution**: When multiple method clauses are equally specific (e.g., in predicate dispatch), the registry is consulted to determine which should have priority.
+*   **Cycle Detection**: If a preference definition would create a cycle (e.g., `A > B > C > A`), the function raises a `PROGRAM-ERROR` at load time.
+
+### Example
+
+```fol
+;; Resolve ambiguity between two overlapping predicate methods
+(prefer-method 'assess-risk :low-confidence :high-volatility)
+```
+
+---
+
 ## Runtime Evaluation Functions                                   *[functions]*
 
 For dynamic definition at runtime, the following functions are available:

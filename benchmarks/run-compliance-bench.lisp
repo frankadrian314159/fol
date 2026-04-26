@@ -19,6 +19,17 @@
 ;; Load Transpiled FOL version
 (load "benchmarks/transpiled-fol-code/compliance.lisp")
 
+;; Ensure Lisp-1 style bindings are available for TEST-COMPLIANCE
+(cl:shadowing-import '(fol.compiler.primitives:make
+                       fol.compiler.io:println
+                       fol.compiler.string-functions:str)
+                      :test-compliance)
+(cl:dolist (s '(test-compliance::make
+                test-compliance::println
+                test-compliance::str))
+  (cl:when (cl:fboundp s)
+    (cl:setf (cl:symbol-value s) (cl:symbol-function s))))
+
 (in-package :cl-user)
 
 (defun run-benchmarks ()

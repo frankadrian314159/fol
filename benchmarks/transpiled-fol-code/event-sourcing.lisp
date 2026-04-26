@@ -4,124 +4,186 @@
 (DEFPACKAGE "EVENT-SOURCING"
   (:USE "FOL.CORE" "CL")
   (:SHADOWING-IMPORT-FROM :FOL.CORE
-                          "*"
-                          "TIME"
                           "BIT-NAND"
-                          "UNION"
-                          "MAX"
+                          "LCM"
                           "GCD"
-                          "SOME"
-                          "DEFCLASS"
-                          "SORT"
-                          ">"
-                          "BUTLAST"
-                          "<="
-                          "DOTIMES"
-                          "EXPT"
-                          "ASINH"
-                          ">="
-                          "POP"
-                          "SUBSEQ"
-                          "NTH"
                           "COS"
-                          "NOT"
                           "DENOMINATOR"
-                          "IDENTITY"
-                          "THIRD"
                           "ABS"
-                          "AND"
-                          "REPLACE"
-                          "<"
-                          "MERGE"
                           "NUMERATOR"
                           "BIT-NOR"
-                          "DEFMACRO"
-                          "READ"
                           "BIT-ANDC2"
-                          "PUSH"
                           "BIT-ANDC1"
-                          "/="
                           "TANH"
-                          "/"
-                          "READ-LINE"
-                          "INTERSECTION"
+                          "ASINH"
                           "GENSYM"
-                          "VECTOR"
-                          "="
-                          "CLOSE"
-                          "DEFGENERIC"
-                          "DELETE-FILE"
-                          "ASSOC"
-                          "KEYWORD"
-                          "FORMAT"
+                          "EXPT"
                           "SIN"
                           "SINH"
-                          "COMPLEMENT"
-                          "REDUCE"
-                          "APPLY"
-                          "REMOVE"
-                          "MAP"
                           "BIT-ORC1"
-                          "PPRINT"
-                          "LCM"
                           "TAN"
-                          "INTERN"
-                          "EVERY"
-                          "FIRST"
                           "ARRAY-DIMENSION"
-                          "REVERSE"
-                          "LOOP"
-                          "+"
-                          "REST"
-                          "QUOTE"
-                          "COMPILE-FILE"
-                          "-"
-                          "OR"
-                          "CONS"
                           "ATAN"
                           "ASIN"
                           "SQRT"
                           "ACOSH"
                           "BIT-ORC2"
                           "ACOS"
-                          "FIND"
-                          "COND"
-                          "MIN"
                           "COSH"
-                          "MACROEXPAND-1"
-                          "WHEN"
-                          "IF"
-                          "CHAR"
-                          "MACROEXPAND"
-                          "LIST"
-                          "CONSTANTLY"
                           "SEQUENCE"
-                          "CASE"
-                          "SECOND"
                           "RATIONALIZE"
-                          "ASSERT"
                           "ATANH"
-                          "SET"
-                          "DEFMETHOD"
-                          "DO"
-                          "PRINT"
-                          "GET"
-                          "COUNT"
-                          "LAST"
+                          "+"
+                          "-"
+                          "*"
+                          "/"
+                          "<"
+                          ">"
+                          "<="
+                          ">="
+                          "="
+                          "/="
+                          "MIN"
+                          "MAX"
+                          "NOT"
+                          "AND"
+                          "OR"
+                          "IDENTITY"
+                          "CONSTANTLY"
+                          "COMPLEMENT"
+                          "APPLY"
+                          "REPLACE"
+                          "FIRST"
+                          "REST"
+                          "NTH"
+                          "PUSH"
+                          "POP"
+                          "FIND"
+                          "SUBSEQ"
+                          "UNION"
+                          "INTERSECTION"
+                          "SORT"
+                          "REVERSE"
+                          "LIST"
                           "LIST*"
+                          "VECTOR"
+                          "MAP"
+                          "REDUCE"
+                          "REMOVE"
+                          "SOME"
+                          "EVERY"
+                          "THIRD"
+                          "SECOND"
+                          "LAST"
+                          "BUTLAST"
+                          "INTERN"
+                          "CHAR"
+                          "FORMAT"
+                          "COMPILE-FILE"
+                          "MACROEXPAND-1"
+                          "MACROEXPAND"
+                          "DEFMACRO"
+                          "DEFCLASS"
+                          "DEFGENERIC"
+                          "DEFMETHOD"
+                          "LOOP"
+                          "QUOTE"
+                          "IF"
+                          "DO"
+                          "COND"
+                          "CASE"
+                          "WHEN"
+                          "DOTIMES"
+                          "TIME"
+                          "ASSERT"
+                          "ASSOC"
+                          "DISSOC"
+                          "CONJ"
+                          "UPDATE"
+                          "COUNT"
+                          "MERGE"
+                          "GET"
+                          "PRINT"
+                          "PPRINT"
+                          "READ"
+                          "READ-LINE"
+                          "CLOSE"
+                          "DELETE-FILE"
                           "ATOM"
+                          "MAKE"
+                          "NIL?"
+                          "INC"
+                          "DEC"
+                          "RANGE"
+                          "REPEAT"
+                          "REPEATEDLY"
+                          "ITERATE"
+                          "ITERATION"
+                          "INTERLEAVE"
+                          "INTERPOSE"
+                          "CYCLE"
+                          "CONS"
+                          "CONCAT"
+                          "INTO"
+                          "FILTER"
+                          "FILTERV"
+                          "MAPV"
+                          "PMAP"
+                          "MAPCAT"
+                          "TAKE"
+                          "DROP"
+                          "TAKE-WHILE"
+                          "DROP-WHILE"
+                          "PARTITION"
+                          "PARTITION-BY"
+                          "GROUP-BY"
+                          "DISTINCT"
+                          "DEDUPE"
+                          "FLATTEN"
+                          "ZIPMAP"
+                          "REDUCTIONS"
+                          "REALIZED?"
+                          "DORUN"
+                          "DOALL"
+                          "RUN!"
+                          "RAND-NTH"
+                          "VEC"
+                          "SEQ"
+                          "STR"
+                          "SUBS"
+                          "SPLIT"
+                          "JOIN"
+                          "TRIM"
+                          "UPPER-CASE"
+                          "LOWER-CASE"
+                          "CAPITALIZE"
+                          "CONTAINS?"
+                          "EMPTY?"
+                          "EVERY?"
+                          "DISTINCT?"
+                          "NOT-EVERY?"
+                          "NOT-ANY?"
+                          "PERSISTENT-CLASS"
+                          "<PERSISTENT-OBJECT>"
+                          "TRUTHY?"
+                          "PRINTLN"
+                          "DICT"
+                          "SET"
                           "EXP"
-                          "SYMBOL")
+                          "SYMBOL"
+                          "KEYWORD")
   (:EXPORT <ACCOUNT> APPLY-COMMAND REPLAY-TO RUN-BENCH))
 
 (IN-PACKAGE "EVENT-SOURCING")
 
 (DEFCLASS <ACCOUNT> (<PERSISTENT-OBJECT>)
-          ((BALANCE :INITFORM 0) (EVENTS :INITFORM (VECTOR)))
+          ((BALANCE :INITFORM 0 :INITARG :BALANCE)
+           (EVENTS :INITFORM (VECTOR) :INITARG :EVENTS))
           (:METACLASS PERSISTENT-CLASS))
 
-(DEFUN FOL.CORE::MAKE-<ACCOUNT> (&KEY BALANCE EVENTS)
-  (MAKE-INSTANCE '<ACCOUNT> :BALANCE BALANCE :EVENTS EVENTS))
+(DEFUN FOL.CORE::MAKE-<ACCOUNT> (&REST . #1=(FOL.COMPILER::%CTOR-ARGS))
+  (COMMON-LISP:APPLY #'%MAKE-PERSISTENT
+                     (LOAD-TIME-VALUE (FIND-CLASS '<ACCOUNT>)) . #1#))
 
 '<ACCOUNT>
 
@@ -131,18 +193,9 @@
     (AGG CMD))
 
 (DEFMETHOD APPLY-COMMAND :AROUND (AGG CMD)
-  (DECLARE (SPECIAL CMD NOW))
+  (DECLARE (SPECIAL CMD))
   (LET ((RESULT (CALL-NEXT-METHOD)))
-    (LET ((EVENT
-           (DICT :TIMESTAMP
-                 (IF (FBOUNDP 'NOW)
-                     (NOW)
-                     (LET ((#1=#:VAL271 NOW))
-                       (COND ((FUNCTIONP #1#) (FUNCALL #1#))
-                             (T
-                              (ERROR "~S is not a function or collection"
-                                     'NOW)))))
-                 :COMMAND CMD)))
+    (LET ((EVENT (DICT :COMMAND CMD :TIMESTAMP (NOW))))
       (ASSOC RESULT :EVENTS (CONJ (GET RESULT :EVENTS) EVENT)))))
 
 (DEFUN DEPOSIT? (CMD) (= (GET CMD :TYPE) :DEPOSIT))
@@ -163,24 +216,13 @@
 (DEFUN REPLAY-TO (AGGREGATE EVENTS) (REDUCE #'APPLY-COMMAND AGGREGATE EVENTS))
 
 (DEFUN RUN-BENCH (ITERATIONS)
-  (DECLARE (SPECIAL REPLAY-TO))
   (LET ((ACC (MAKE '<ACCOUNT>)))
     (LET ((CMDS
            (MAP
             (LAMBDA (I)
-              (DICT :TYPE
+              (DICT :AMOUNT 10 :TYPE
                     (IF (TRUTHY? (= (MOD I 2) 0))
                         :DEPOSIT
-                        :WITHDRAW)
-                    :AMOUNT 10))
+                        :WITHDRAW)))
             (RANGE ITERATIONS))))
-      (IF (FBOUNDP 'REPLAY-TO)
-          (REPLAY-TO . #1=(ACC CMDS))
-          (LET ((#2=#:VAL272 REPLAY-TO))
-            (COND ((FUNCTIONP #2#) (FUNCALL #2# . #1#))
-                  ((TYPEP #2# '<DICT>) (GET #2# . #1#))
-                  ((TYPEP #2# '<VECTOR>) (NTH #2# . #1#))
-                  ((TYPEP #2# '<SET>) (GET #2# . #1#))
-                  (T
-                   (ERROR "~S is not a function or collection"
-                          'REPLAY-TO))))))))
+      (REPLAY-TO ACC CMDS))))

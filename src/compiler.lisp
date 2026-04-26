@@ -18,6 +18,28 @@
 ;;; Compilation Result
 ;;; ---------------------------------------------------------------------------
 
+(defvar +standard-fol-functions+
+  '("+" "-" "*" "/" "<" ">" "<=" ">=" "=" "/=" "MIN" "MAX"
+    "NOT" "AND" "OR" "IDENTITY" "CONSTANTLY" "COMPLEMENT" "APPLY"
+    "REPLACE" "FIRST" "REST" "NTH" "PUSH" "POP" "FIND" "SUBSEQ"
+    "UNION" "INTERSECTION" "SORT" "REVERSE" "LIST" "LIST*" "VECTOR"
+    "MAP" "REDUCE" "REMOVE" "SOME" "EVERY" "THIRD" "SECOND" "LAST" "BUTLAST"
+    "INTERN" "CHAR" "FORMAT" "COMPILE-FILE" "MACROEXPAND-1" "MACROEXPAND"
+    "DEFMACRO" "DEFCLASS" "DEFGENERIC" "DEFMETHOD" "LOOP" "QUOTE" "IF" "DO"
+    "COND" "CASE" "WHEN" "DOTIMES" "TIME" "ASSERT" "ASSOC" "DISSOC" "CONJ"
+    "UPDATE" "COUNT" "MERGE" "GET" "PRINT" "PPRINT" "READ" "READ-LINE" "CLOSE" 
+    "DELETE-FILE" "ATOM" "MAKE" "NIL?" "INC" "DEC"
+    "RANGE" "REPEAT" "REPEATEDLY" "ITERATE" "ITERATION" "INTERLEAVE" "INTERPOSE"
+    "CYCLE" "CONS" "CONCAT" "INTO" "FILTER" "FILTERV" "MAPV" "PMAP" "MAPCAT"
+    "TAKE" "DROP" "TAKE-WHILE" "DROP-WHILE" "PARTITION" "PARTITION-BY" "GROUP-BY"
+    "DISTINCT" "DEDUPE" "FLATTEN" "ZIPMAP" "REDUCTIONS" "REALIZED?" "DORUN" 
+    "DOALL" "RUN!" "RAND-NTH" "VEC" "SEQ"
+    "STR" "SUBS" "SPLIT" "JOIN" "TRIM" "UPPER-CASE" "LOWER-CASE" "CAPITALIZE"
+    "CONTAINS?" "EMPTY?" "EVERY?" "DISTINCT?" "NOT-EVERY?" "NOT-ANY?"
+    "PERSISTENT-CLASS" "<PERSISTENT-OBJECT>" "TRUTHY?" "PRINTLN"
+    "DICT" "SET" "EXP" "SYMBOL" "KEYWORD")
+  "List of standard FOL function names (strings).")
+
 (defstruct compilation-result
   "Result of compiling a FOL form."
   (code nil) ; the generated Common Lisp form
@@ -1213,22 +1235,25 @@
    For symbols known to be function definitions (defn/defgeneric) in the
    current compilation unit, emits (cl:function name) for Lisp-1 compatibility."
   (let ((name (fol.compiler.ast:symbol-ref-node-name node)))
+    (format t "DEBUG: emit-symbol-ref ~S (pkg: ~A)~%" name (when (symbolp name) (symbol-package name)))
     (cond
      ;; Lexical variables: always in value namespace
      ((cl:member name *lexical-vars*)
-       ;; (cl:format cl:t ";; DEBUG: Found lexical var ~S (~S) in ~S~%" name (cl:symbol-package name) *lexical-vars*)
        name)
      ;; Constants (T, NIL, keywords, etc.): self-evaluating
      ((cl:constantp name) name)
-     ;; CL package symbols: use as-is
-     ((cl:eq (cl:symbol-package name) (cl:find-package :cl))
-       name)
      ;; Known function def in current file: emit #'name for Lisp-1 compatibility
      ((cl:member name *file-function-defs* :test #'cl:string=)
+       `(cl:function ,name))
+     ;; Standard FOL functions (even if not currently loaded/fboundp)
+     ((cl:member (cl:symbol-name name) +standard-fol-functions+ :test #'string-equal)
        `(cl:function ,name))
      ;; Globally defined function (from another module): emit #'name for Lisp-1 compatibility
      ((cl:fboundp name)
        `(cl:function ,name))
+     ;; CL package symbols: use as-is
+     ((cl:eq (cl:symbol-package name) (cl:find-package :cl))
+       name)
      ;; Default: emit bare symbol (dynamic variable), track for SPECIAL declaration
      (t
        (pushnew name *extra-special-vars*)
@@ -1299,6 +1324,7 @@
              (emitted-args (mapcar #'emit-node args)))
          (if (or (cl:member sym *file-function-defs* :test #'cl:string=)
                  (fboundp sym)
+                 (cl:member (cl:symbol-name sym) +standard-fol-functions+ :test #'string-equal)
                  (eq (symbol-package sym) (find-package :cl)))
              `(,sym ,@emitted-args)
              (let ((gval (gensym "VAL")))
@@ -2043,13 +2069,42 @@
                 (length args) ',name))))
        ',name)))
 
-(defun compile-defmethod-clauses (name clauses)
-  "Compile defmethod clauses into a dispatched defun.
+(defvar *method-preferences* (make-hash-table :test 'eq))
+
+(defun creates-cycle-p (gf-name sub pref)
+  (let* ((prefs-for-gf (gethash gf-name *method-preferences*))
+         (visited (make-hash-table :test 'eq)))
+    (labels ((visit (node)
+               (when (eq node sub)
+                 (return-from creates-cycle-p t))
+               (unless (gethash node visited)
+                 (setf (gethash node visited) t)
+                 (when prefs-for-gf
+                   (dolist (parent (gethash node prefs-for-gf))
+                     (visit parent))))))
+      (when prefs-for-gf
+        (dolist (parent (gethash pref prefs-for-gf))
+          (visit parent)))
+      nil)))
+
+(defun prefer-method (gf-name pref-qualifier sub-qualifier)
+  "Establish a preference between two method clauses for a generic function.
+   Raises a program-error at load time if creating this preference creates a cycle."
+  (when (creates-cycle-p gf-name sub-qualifier pref-qualifier)
+    (error 'program-error :format-control "Circular preference: ~A prefers ~A over ~A, which creates a cycle." :format-arguments (list gf-name pref-qualifier sub-qualifier)))
+  (let ((prefs-for-gf (or (gethash gf-name *method-preferences*)
+                          (setf (gethash gf-name *method-preferences*) (make-hash-table :test 'eq)))))
+    (pushnew pref-qualifier (gethash sub-qualifier prefs-for-gf))
+    gf-name))
+
+(defun compile-defmethod-clauses (name clauses &optional qualifier)
+  "Compile defmethod clauses into a dispatched defmethod.
    Uses the same arity+specificity ordering as compile-fn-multi-clause.
    When all clauses share the same arity and none have rest params,
-   emits a fixed-arity defun to avoid &rest consing overhead.
+   emits a fixed-arity defmethod to avoid &rest consing overhead.
    Uses consistent parameter names across clauses when possible to avoid
-   unnecessary gensyms and LET bindings (Bug #4 fix)."
+   unnecessary gensyms and LET bindings (Bug #4 fix).
+   QUALIFIER (:around/:before/:after) is forwarded to the emitted defmethod."
   (let* ((*extra-special-vars* nil)
          (analyzed
           (loop for clause in clauses
@@ -2127,13 +2182,19 @@
                                  ,@(if bindings
                                        `((cl:let* ,bindings ,@emitted-body))
                                        emitted-body)))))
-          `(cl:defmethod ,name ,param-syms
-             ,@(when *extra-special-vars*
-                     `((cl:declare (cl:special ,@(remove-duplicates *extra-special-vars*)))))
-             (cl:cond
-               ,@cond-clauses
-               (t (cl:error "No matching method clause for ~A with arguments: ~S"
-                    ',name (cl:list ,@param-syms))))))
+          (let* ((variadic-p (member (symbol-name name) '("ASSOC" "DISSOC" "CONJ" "MERGE" "LIST" "LIST*" "VECTOR" "DICT" "SET") :test #'string-equal))
+                 (rest-sym (when variadic-p (cl:gensym "REST")))
+                 (final-lambda-list (if variadic-p (append param-syms (list '&rest rest-sym)) param-syms)))
+            `(cl:defmethod ,name ,@(when qualifier (list qualifier)) ,final-lambda-list
+               ,@(when variadic-p `((cl:declare (cl:ignore ,rest-sym))))
+               ,@(when *extra-special-vars*
+                       `((cl:declare (cl:special ,@(remove-duplicates *extra-special-vars*)))))
+               (cl:cond
+                 ,@cond-clauses
+                 ,@(if (member qualifier '(:around :before :after))
+                       `((t (cl:call-next-method)))
+                       `((t (cl:error "No matching method clause for ~A with arguments: ~S"
+                              ',name (cl:list ,@param-syms)))))))))
         ;; &rest path for mixed arities
         (let* ((args-sym (cl:gensym "ARGS"))
                (cond-clauses
@@ -2162,13 +2223,15 @@
                       collect `(,check
                                  (cl:let* ,bindings
                                    ,@emitted-body)))))
-          `(cl:defmethod ,name (&rest ,args-sym)
+          `(cl:defmethod ,name ,@(when qualifier (list qualifier)) (&rest ,args-sym)
              ,@(when *extra-special-vars*
                      `((cl:declare (cl:special ,@(remove-duplicates *extra-special-vars*)))))
              (cl:cond
                ,@cond-clauses
-               (t (cl:error "No matching method clause for ~A with ~D arguments: ~S"
-                    ',name (cl:length ,args-sym) ,args-sym))))))))
+               ,@(if (member qualifier '(:around :before :after))
+                     `((t (cl:apply #'cl:call-next-method ,args-sym)))
+                     `((t (cl:error "No matching method clause for ~A with ~D arguments: ~S"
+                            ',name (cl:length ,args-sym) ,args-sym))))))))))
 
 (defun emit-defmethod (node)
   "Emit a defmethod node as CL code.
@@ -2179,6 +2242,7 @@
         (qualifier (fol.compiler.ast:defmethod-node-qualifier node))
         (clauses (fol.compiler.ast:defmethod-node-clauses node))
         (docstring (fol.compiler.ast:defmethod-node-docstring node)))
+    (format t "DEBUG: emit-defmethod ~S~%" name)
     (let ((*extra-special-vars* nil))
       ;; Compute the defmethod form once
       (let ((method-form
@@ -2192,7 +2256,8 @@
                                                   (or (listp p)
                                                       (typep p 'fol.compiler.collections:<dict>)
                                                       (typep p 'fol.compiler.collections:<vector>)))
-                                              param-list)))
+                                              param-list))
+                        (_ (format t "DEBUG: has-specializers ~S for ~S with params ~S~%" has-specializers name param-list)))
                    (if (and has-specializers
                             ;; Only emit CLOS defmethod if all parameters are simple symbols 
                             ;; or (symbol type) specializers.
@@ -2218,7 +2283,8 @@
                                (mapcar (lambda (p)
                                          (if (listp p) (first p) p))
                                    param-list))
-                              (emitted-body (mapcar #'emit-node body-nodes))
+                              (emitted-body (let ((*lexical-vars* (append param-names *lexical-vars*)))
+                                              (mapcar #'emit-node body-nodes)))
                               ;; Declare only the actual method params special.
                               ;; *extra-special-vars* may contain function-name symbols
                               ;; added by collection-as-function dispatch (e.g. NUMBER?)
@@ -2234,25 +2300,33 @@
                                 ,@emitted-body)))
                        ;; Has predicate specializers or no specializers
                        (if has-specializers
-                           (compile-defmethod-clauses name clauses)
+                           (compile-defmethod-clauses name clauses qualifier)
                            ;; No specializers: emit simple CL defmethod
                            (multiple-value-bind (regular-params rest-param)
                                (fol.compiler.destructure:parse-params param-list)
-                             (let* ((lambda-list (if rest-param
-                                                     (append regular-params (list '&rest rest-param))
+                             (let* ((variadic-p (member (symbol-name name) '("ASSOC" "DISSOC" "CONJ" "MERGE" "LIST" "LIST*" "VECTOR" "DICT" "SET") :test #'string-equal))
+                                    (_ (format t "DEBUG: variadic-p ~S for ~S~%" variadic-p name))
+                                    (final-rest-param (or rest-param (when variadic-p (gensym "REST"))))
+                                    (lambda-list (if final-rest-param
+                                                     (append regular-params (list '&rest final-rest-param))
                                                      regular-params))
-                                    (emitted-body (mapcar #'emit-node body-nodes)))
+                                    (emitted-body (let ((*lexical-vars* (append regular-params
+                                                                                (when final-rest-param (list final-rest-param))
+                                                                                *lexical-vars*)))
+                                                    (mapcar #'emit-node body-nodes))))
                                (if qualifier
                                    `(defmethod ,name ,qualifier ,lambda-list
+                                      ,@(when (and variadic-p (not rest-param)) `((declare (ignore ,final-rest-param))))
                                       ,@(when *extra-special-vars*
                                               `((declare (special ,@(remove-duplicates *extra-special-vars*)))))
                                       ,@emitted-body)
                                    `(defmethod ,name ,lambda-list
+                                      ,@(when (and variadic-p (not rest-param)) `((declare (ignore ,final-rest-param))))
                                       ,@(when *extra-special-vars*
                                               `((declare (special ,@(remove-duplicates *extra-special-vars*)))))
                                       ,@emitted-body)))))))
-                 ;; Multi-clause: emit dispatched defun
-                 (compile-defmethod-clauses name clauses))))
+                 ;; Multi-clause: emit dispatched defmethod
+                 (compile-defmethod-clauses name clauses qualifier))))
         ;; Wrap with metadata assignment if docstring is present
         (if docstring
             (let ((metadata-form
@@ -2600,10 +2674,14 @@
                                (remove-duplicates
                                    (append use-list '("FOL.CORE" "CL"))
                                  :test #'string-equal)))
-           ;; Calculate conflicts between FOL.CORE and CL to auto-shadow
-           (conflicts (loop for s being the external-symbols of (find-package :fol.core)
+           ;; Calculate conflicts
+           (conflicts (remove-duplicates
+                       (append
+                        (loop for s being the external-symbols of (find-package :fol.core)
                               when (find-symbol (symbol-name s) :common-lisp)
-                            collect (symbol-name s)))
+                              collect (symbol-name s))
+                        +standard-fol-functions+)
+                       :test #'string-equal))
            (auto-shadow `(:shadowing-import-from :fol.core ,@conflicts))
            (final-options (append (list new-use-list auto-shadow) other-opts))
            (pkg-def `(cl:defpackage ,name ,@final-options))
@@ -2635,9 +2713,13 @@
                                (remove-duplicates
                                    (append use-list '("FOL.CORE" "CL"))
                                  :test #'string-equal)))
-           (conflicts (loop for s being the external-symbols of (find-package :fol.core)
+           (conflicts (remove-duplicates
+                       (append
+                        (loop for s being the external-symbols of (find-package :fol.core)
                               when (find-symbol (symbol-name s) :common-lisp)
-                            collect (symbol-name s)))
+                              collect (symbol-name s))
+                        +standard-fol-functions+)
+                       :test #'string-equal))
            (auto-shadow `(:shadowing-import-from :fol.core ,@conflicts))
            (final-options (append (list new-use-list auto-shadow) other-opts))
            (pkg-def `(cl:defpackage ,name ,@final-options)))
