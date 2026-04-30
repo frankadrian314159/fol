@@ -268,9 +268,9 @@ predicates execute before types, prioritizing behavioral constraints over struct
 \end{tabular}
 \end{table}
 
-Conjunction maps to its components' maximum level, providing a conservative upper bound \emph{across levels only}: two Level-3 patterns---e.g., \texttt{(and (even?) (prime?))} and \texttt{(even?)}---both sit at Level~3 and are incomparable under $\prec$; semantic containment between same-level conjunctions is not captured syntactically and falls to the preference registry or $\textit{idx}$.
-Disjunction \texttt{(or $p$ $q$)} merges distinct domains, making it semantically less specific than either conjunct; the uniform level calculus cannot express this relationship, so \texttt{or} patterns are treated as atomic Level-3 predicates and ordered by the tiebreaker when paired against other Level-3 patterns.
-Negation is excluded: \texttt{(not $p$)}'s ordering requires knowing the complement domain, which is undecidable in the general case; \texttt{not} patterns likewise fall to the tiebreaker.
+Conjunction takes the max level of its components; two Level-3 patterns like \texttt{(and (even?) (prime?))} and \texttt{(even?)} are incomparable and ordered by preference registry or definition index.
+Disjunction merges domains (less specific than either conjunct), so \texttt{or} patterns are atomic Level-3 and ordered by tiebreaker.
+Negation is excluded: \texttt{(not $p$)} ordering is undecidable, so negations fall to the tiebreaker.
 
 \textbf{Type-Annotated Conjunctions: Path to Resolution.}
 \texttt{(and (<integer>) (prime?))} receives Level~3 ($\max(2,3) = 3$), the same level as the bare
@@ -305,9 +305,8 @@ Spec-Keys & $\inferrule{ \text{keys}(q) \subsetneq \text{keys}(p) }{ p \prec q }
 \end{tabularx}
 \end{table}
 
-Rule application priority: Spec-Level takes precedence over all positional rules; within the same level, Spec-Type refines ordering for Level-2 atomic patterns via the class hierarchy DAG ($C_1 \sqsubset C_2$ = transitive subclass relation). When two Level-2 patterns specialize on sibling classes (neither a subclass of the other), Spec-Type does not apply and $\prec_{\text{disp}}$ falls back to the preference registry or $\textit{idx}$; this is a known modularity hazard analogous to the Level-3 case.
-Spec-Prefix applies when first elements are strictly ordered ($p_1 \prec q_1$); Spec-Tail recurses on the remainder when heads are level-equal \emph{and share the same syntactic form} ($p_1 \sim q_1$); the two rules are disjoint.
-Multi-parameter patterns apply the rules lexicographically position by position, after Spec-Level has partitioned patterns by max level.
+Rule priority: Spec-Level takes precedence. Within a level, Spec-Type refines Level-2 patterns via class hierarchy; sibling classes fall back to preference registry or definition index.
+Spec-Prefix and Spec-Tail apply lexicographically after Spec-Level partitions by max level.
 
 For \texttt{defmethod}, the dispatch sort $\prec_{\text{disp}}$ re-sorts at each method-definition event, including REPL re-evaluation; for \texttt{defn}, the ordering is fixed at compile time.
 Let $\textit{idx}(p)$ denote the definition index of the method clause containing $p$.
@@ -478,9 +477,7 @@ FOL fills a gap between CLOS and Clojure (Table~\ref{tab:specificity-comp}), pro
 \subsection{Micro-Benchmarks}
 \label{sec:micro-bench}
 
-We measured persistent objects vs.\ mutable CLOS across slot counts.
-\textbf{Construction} (${\approx}183$\,ns, SBCL) is $5{\times}$ native; \texttt{\%make-persistent} invokes \allowbreak \texttt{allocate-instance} \allowbreak and \allowbreak \texttt{initialize-instance} directly, bypassing keyword dispatch while enforcing persistence and stamping \texttt{\%schema-version}.
-\textbf{Reads} add 1.4--2.2$\times$ (native slots); \textbf{Updates} are 40--250$\times$ slower. Table~\ref{tab:threshold-update} shows modeled update costs at candidate thresholds. The current implementation uses $T=32$ (26 user-defined slots plus 6 reserved for the trie pointer and schema metadata): ${\approx}97\%$ of classes (1--26 user-defined slots) incur no overflow, reserving trie allocation only for objects with more than 26 user-defined slots.
+Persistent objects vs.\ mutable CLOS: \textbf{Construction} is $5{\times}$ native via direct \texttt{allocate-instance}/\texttt{initialize-instance}. \textbf{Reads} add 1.4--2.2$\times$; \textbf{Updates} are 40--250$\times$ slower. At $T=32$, $\approx$97\% of classes fit in native slots; overflow uses tries only when needed.
 
 \begin{table}[htbp]
 \small

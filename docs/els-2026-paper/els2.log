@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.2.2)  30 APR 2026 14:49
+This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.2.2)  30 APR 2026 15:02
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1177,148 +1177,152 @@ LaTeX Font Info:    Font shape `T1/LinuxBiolinumT-TLF/m/it' will be
 LaTeX Font Info:    Font shape `T1/zi4/m/n' will be
 (Font)              scaled to size 6.6pt on input line 285.
 
+LaTeX Warning: Reference `sec:dispatch-limits' on page 2 undefined on input lin
+e 316.
+
+
 Underfull \vbox (badness 2073) has occurred while \output is active []
 
 LaTeX Font Info:    Font shape `T1/LinuxBiolinumT-TLF/m/n' will be
-(Font)              scaled to size 7.0pt on input line 311.
+(Font)              scaled to size 7.0pt on input line 317.
  [2.2]
-Underfull \vbox (badness 1590) has occurred while \output is active []
-
- [3.3]
-
-LaTeX Warning: Reference `sec:dispatch-limits' on page 4 undefined on input lin
-e 317.
-
 LaTeX Font Info:    Font shape `T1/LinuxLibertineT-TLF/m/sc' will be
-(Font)              scaled to size 9.0pt on input line 319.
+(Font)              scaled to size 9.0pt on input line 318.
 LaTeX Font Info:    Font shape `T1/LinuxLibertineT-TLF/m/sc' will be
-(Font)              scaled to size 6.6pt on input line 319.
+(Font)              scaled to size 6.6pt on input line 318.
 LaTeX Font Info:    Font shape `T1/LinuxLibertineT-TLF/m/sc' will be
-(Font)              scaled to size 5.5pt on input line 319.
+(Font)              scaled to size 5.5pt on input line 318.
+
+[3.3{C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/libertine/lbt
+n_ncsllp.enc}]
 Package hyperref Info: bookmark level for unknown lstlisting defaults to 0 on i
-nput line 339.
+nput line 338.
 LaTeX Font Info:    Trying to load font information for TS1+zi4 on input line 3
-49.
+48.
+
 (C:\Users\frank\AppData\Local\Programs\MiKTeX\tex/latex/inconsolata\ts1zi4.fd
 File: ts1zi4.fd 2018/01/14 TS1/zi4 (Inconsolata)
 )
 LaTeX Font Info:    Font shape `TS1/zi4/m/n' will be
-(Font)              scaled to size 7.0pt on input line 349.
+(Font)              scaled to size 7.0pt on input line 348.
 Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             `zi4' (encoding: TS1).
 (microtype)             For optimal results, create family-specific settings.
 (microtype)             See the microtype manual for details.
 
-[4.4{C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/libertine/lbt
-n_ncsllp.enc}{C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/inco
-nsolata/i4-ts1.enc}]
-Overfull \hbox (10.85251pt too wide) in paragraph at lines 413--414
+[4.4{C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/inconsolata/i
+4-ts1.enc}]
+Overfull \hbox (10.85251pt too wide) in paragraph at lines 412--413
 [][][][][][][][][][][][][][][][][][][][][][][][][][][] 
  []
 
 
-Overfull \hbox (10.85251pt too wide) in paragraph at lines 434--435
+Overfull \hbox (10.85251pt too wide) in paragraph at lines 433--434
 [][][][][][][][][][][][][][][][][][][][][][][][][][][][][][] 
  []
 
 LaTeX Font Info:    Font shape `T1/zi4/m/n' will be
-(Font)              scaled to size 7.3pt on input line 468.
+(Font)              scaled to size 7.3pt on input line 467.
 
-Underfull \hbox (badness 10000) in paragraph at lines 468--469
+Underfull \hbox (badness 10000) in paragraph at lines 467--468
 []\T1/zi4/m/n/7 defmulti \T1/LinuxLibertineT-TLF/m/n/7 (+20) dis-patches via a 
 user-supplied func-tion;
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 468--469
+Underfull \hbox (badness 10000) in paragraph at lines 467--468
 \T1/zi4/m/n/7 prefer-method\T1/LinuxLibertineT-TLF/m/n/7 (+20) /\T1/zi4/m/n/7 d
 erive \T1/LinuxLibertineT-TLF/m/n/7 (+20) al-low man-ual over-rides but
  []
 
 LaTeX Font Info:    Font shape `T1/LinuxLibertineT-TLF/m/it' will be
-(Font)              scaled to size 7.0pt on input line 470.
+(Font)              scaled to size 7.0pt on input line 469.
 
-Underfull \hbox (badness 10000) in paragraph at lines 471--472
+Underfull \hbox (badness 10000) in paragraph at lines 470--471
 []\T1/LinuxLibertineT-TLF/m/n/7 (+20) Slot stor-age backed by im-mutable HAMTs;
  \T1/zi4/m/n/7 (setf
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 472--473
+Underfull \hbox (badness 10000) in paragraph at lines 471--472
 []\T1/LinuxLibertineT-TLF/m/n/7 (+20) Renamed slots re-cov-ered au-to-mat-i-cal
 ly at first post-
  []
 
 [5.5]
-Underfull \hbox (badness 4913) in paragraph at lines 612--612
+Underfull \hbox (badness 4913) in paragraph at lines 609--609
 []|\T1/LinuxLibertineT-TLF/m/n/8 (+20) FOL's single-pass fold main-tains
  []
 
 
-Underfull \hbox (badness 1776) in paragraph at lines 612--612
+Underfull \hbox (badness 1776) in paragraph at lines 609--609
 []|\T1/LinuxLibertineT-TLF/m/n/8 (+20) SBCL mi-gra-tion ma-chin-ery dom-i-
  []
 
 
-Overfull \hbox (6.79216pt too wide) in paragraph at lines 670--679
+Overfull \hbox (6.79216pt too wide) in paragraph at lines 667--676
  [][] 
  []
 
 
-Overfull \hbox (7.39363pt too wide) in paragraph at lines 695--698
+Overfull \hbox (7.39363pt too wide) in paragraph at lines 692--695
 \T1/zi4/m/it/9 defstruct \T1/LinuxLibertineT-TLF/m/n/9 (-20) with \T1/zi4/m/it/
 9 typecase \T1/LinuxLibertineT-TLF/m/n/9 (-20) on a 9,999-node bal-anced tree--
 -\T1/zi4/m/it/9 defstruct
  []
 
 
-Overfull \hbox (38.43787pt too wide) in paragraph at lines 699--700
+Overfull \hbox (38.43787pt too wide) in paragraph at lines 696--697
 \T1/LinuxLibertineT-TLF/m/n/9 (-20) build ra-tio ex-ceeds micro-benchmarks due 
 to per-node \T1/zi4/m/it/9 initialize-instance
  []
 
 
-Overfull \hbox (12.7836pt too wide) in paragraph at lines 705--716
+Overfull \hbox (12.7836pt too wide) in paragraph at lines 702--713
  [][] 
  []
 
 
-Overfull \hbox (6.69574pt too wide) in paragraph at lines 729--747
+Overfull \hbox (6.69574pt too wide) in paragraph at lines 726--744
  [] 
  []
 
-[6.6]
-Overfull \hbox (22.90697pt too wide) in paragraph at lines 758--769
+
+Overfull \hbox (22.90697pt too wide) in paragraph at lines 755--766
  [][] 
  []
 
+
+Underfull \vbox (badness 1158) has occurred while \output is active []
+
+ [6.6]
 [7.7]
-Underfull \hbox (badness 10000) in paragraph at lines 813--814
+Underfull \hbox (badness 10000) in paragraph at lines 810--811
  []\T1/LinuxLibertineT-TLF/m/it/9 (+20) Benchmark se-lec-tion bias.[] \T1/Linux
 LibertineT-TLF/m/n/9 (+20) Macro-benchmarks may over-
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 817--818
+Underfull \hbox (badness 10000) in paragraph at lines 814--815
  []\T1/LinuxLibertineT-TLF/m/it/9 (+20) Non-portability.[] \T1/zi4/m/it/9 persi
 stent-class \T1/LinuxLibertineT-TLF/m/n/9 (+20) uses AMOP hooks
  []
 
 
-Underfull \hbox (badness 1215) in paragraph at lines 817--818
+Underfull \hbox (badness 1215) in paragraph at lines 814--815
 \T1/LinuxLibertineT-TLF/m/n/9 (+20) (\T1/zi4/m/it/9 allocate-instance\T1/LinuxL
 ibertineT-TLF/m/n/9 (+20) , \T1/zi4/m/it/9 initialize-instance\T1/LinuxLibertin
 eT-TLF/m/n/9 (+20) ) but reads SBCL
  []
 
 
-Underfull \hbox (badness 1502) in paragraph at lines 819--820
+Underfull \hbox (badness 1502) in paragraph at lines 816--817
 \T1/LinuxLibertineT-TLF/m/n/9 (+20) re-orders in-com-pa-ra-ble clauses; or-der-
 ing may dif-fer be-tween
  []
 
 
-Overfull \hbox (5.14056pt too wide) in paragraph at lines 851--852
+Overfull \hbox (5.14056pt too wide) in paragraph at lines 848--849
 \T1/LinuxLibertineT-TLF/m/n/9 (-20) FOL con-tributes a per-sis-tent meta-class 
 sys-tem and specificity-ordered
  []
@@ -1330,12 +1334,12 @@ TLF/m/it/7 (+20) FOL: Func-tional Ob-ject Lisp\T1/LinuxLibertineT-TLF/m/n/7 (+2
 0) .   []$https : / / github . com /
  []
 
+LaTeX Info: Redefining \tempurl on input line 90.
 
 Package balance Warning: You have called \balance in second column
 (balance)                Columns might not be balanced.
 
 [8.8]
-LaTeX Info: Redefining \tempurl on input line 90.
 LaTeX Info: Redefining \tempurl on input line 138.
 LaTeX Info: Redefining \tempurl on input line 188.
 LaTeX Info: Redefining \tempurl on input line 235.
@@ -1363,7 +1367,7 @@ rtant steps when creating your papers will ensure that the widest possible audi
 ence can ingest your work..
 
 
-Overfull \vbox (1.319pt too high) has occurred while \output is active []
+Overfull \vbox (1.333pt too high) has occurred while \output is active []
 
 
 (C:\Users\frank\AppData\Local\Programs\MiKTeX\tex/generic/stringenc\se-pdfdoc.d
@@ -1384,17 +1388,20 @@ LaTeX Font Warning: Some font shapes were not available, defaults substituted.
 
 LaTeX Warning: There were undefined references.
 
+
+LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right.
+
 Package rerunfilecheck Info: File `els2.out' has not changed.
 (rerunfilecheck)             Checksum: 39CD6ED2B0A8FB7ACD1A21F853C94E8C;3150.
  ) 
 Here is how much of TeX's memory you used:
- 23928 strings out of 467871
- 389716 string characters out of 5418377
- 1086326 words of memory out of 5000000
+ 23927 strings out of 467871
+ 389688 string characters out of 5418377
+ 1080796 words of memory out of 5000000
  51374 multiletter control sequences out of 15000+600000
- 879953 words of font info for 603 fonts, out of 8000000 for 9000
+ 879838 words of font info for 602 fonts, out of 8000000 for 9000
  1302 hyphenation exceptions out of 8191
- 90i,21n,131p,1003b,2082s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 90i,21n,131p,1003b,2096s stack positions out of 10000i,1000n,20000p,200000b,200000s
 <C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/inconsolata/
 Inconsolata-zi4b.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/
 public/inconsolata/Inconsolata-zi4r.pfb><C:/Users/frank/AppData/Local/Programs/
@@ -1414,9 +1421,9 @@ TXMI.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/newtx
 newtx/txmiaX.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/publ
 ic/newtx/txsym.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/pu
 blic/newtx/txsys.pfb>
-Output written on els2.pdf (9 pages, 622634 bytes).
+Output written on els2.pdf (9 pages, 620638 bytes).
 PDF statistics:
- 502 PDF objects out of 1000 (max. 8388607)
+ 501 PDF objects out of 1000 (max. 8388607)
  191 named destinations out of 1000 (max. 500000)
  135849 words of extra memory for PDF output out of 154059 (max. 10000000)
 
