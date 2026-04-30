@@ -53,7 +53,7 @@
 
 \begin{document}
 \pdfgentounicode=0
-\pagestyle{plain}
+% \pagestyle{plain}
 
 \title{FOL: Bridging Object-Oriented and Functional Programming via the Metaobject Protocol}
 
@@ -149,7 +149,7 @@ Contributions:
 
 Slot storage uses a hybrid layout: each persistent object has $T=32$ native positions, 6 reserved for system overhead (trie pointer, schema version, metadata), leaving 26 for user slots. Most classes ($\le$26 slots) fit this layout~\cite{Lanza2006}; we confirmed this via a survey of 295 Quicklisp definitions where 97\% of classes fell within this limit. Redefinitions are lazy: renames resolve via alias maps; new slots acquire initforms at first mutation. Redefinitions exceeding 26 slots trigger trie conversion.
 
-\texttt{persistent-class} ensures immutability. By dropping \texttt{change-class} and \texttt{(setf slot-value)}, FOL replaces state-machine identity with functional projection, borrowing CLOS syntax and MOP mechanics. \texttt{assoc} returns a fresh instance sharing nodes via path copying.
+\texttt{persistent-class} enforces immutability via two-level mutation blocking: FOL's transpiler rejects \texttt{(setf slot-value)} at compile time as a syntax error for FOL code; direct CL code calling \texttt{(setf (slot-value ...))} is caught at runtime via an MOP override that signals an error. By dropping \texttt{change-class}, FOL replaces state-machine identity with functional projection, borrowing CLOS syntax and MOP mechanics. \texttt{assoc} returns a fresh instance sharing nodes via path copying.
 
 \subsection{Collections and Runtime}
 FOL implements persistent collections via 32-way tries~\cite{Okasaki1998,Bagwell2000}.
@@ -164,7 +164,7 @@ FOL transpiles to Common Lisp via a two-stage pipeline: (1)~the \textit{Pattern 
 \textbf{Protocol} & \textbf{Status} & \textbf{Rationale} \\
 \midrule
 \texttt{slot-value-using-class} & Redirected & Reads from base object or overflow trie \\
-\texttt{(setf slot-value-using-class)} & Guarded & Blocks post-init writes \\
+\texttt{(setf slot-value-using-class)} & Guarded & Rejects mutation at compile time for FOL code (transpiler error); runtime error for direct CL calls via MOP override \\
 \texttt{slot-boundp-using-class} & Redirected & Checks object slot membership \\
 \texttt{slot-makunbound-using-class} & Blocked & Immutability invariant --- use \texttt{dissoc} to unbind slots \\
 \texttt{validate-superclass} & Extended & Cross-metaclass mixing \\
@@ -185,19 +185,16 @@ Identity types hold current values; unreferenced snapshots are GC-eligible.
 Each \texttt{assoc} copies one root-to-leaf path ($O(\log_{32} N)$ nodes), bounding allocation by depth rather than size.
 SBCL nursery reclamation keeps GC overhead at ${\approx}$1.5\% in the LSim benchmark (profiled at the 32x32x32-30000 configuration via \texttt{sb-sprof}).
 
-\section{Features}
+\section{Features and Dispatch Model}
 \label{sec:features}
 
-FOL adopts Clojure's literal syntax and sequence APIs.
-To ensure interoperability while maintaining functional semantics, FOL shadows \texttt{cl:assoc} with a generic function; within the \texttt{fol} package, \texttt{assoc} dispatches to persistent structures, while remaining accessible to standard lists via a fallback method.
-\textbf{Transducers}, \textbf{Lazy sequences}, \textbf{Atoms}, \textbf{Refs}, and \textbf{Agents} provide Clojure-parity in a Common Lisp setting; these are direct ports of Clojure's semantics and are verified via Clojure's original test suites.
-\textbf{Transient builders} reduce bulk update overhead.
-\textbf{Macros} follow Clojure-style expansion.
-Generic functions dispatch by arity, then specificity (Section \ref{sec:dispatch}).
-\textbf{Closed dispatch} (\texttt{defn}) emits a static \texttt{cond} cascade;
-\textbf{open dispatch} (\texttt{defmethod}) supports CLOS method combinations and extensibility.
-Table~\ref{tab:defn-vs-defmethod} summarises the criteria.
-The two forms are mutually exclusive per function name: \texttt{defn} emits \texttt{defun} and \texttt{defmethod} emits \texttt{defgeneric}.
+FOL adopts Clojure's literal syntax and sequence APIs. To ensure interoperability, FOL shadows \texttt{cl:assoc} with a generic function; within the \texttt{fol} package, \texttt{assoc} dispatches to persistent structures, while remaining accessible to standard lists via a fallback method.
+
+\textbf{Concurrency and State Management.}
+FOL provides transactional refs, atoms with compare-and-swap, and asynchronous agents as direct ports of Clojure's concurrency model. These are verified against Clojure's original test suites and inherit their semantics. Transducers and lazy sequences are similarly ported; transient builders reduce bulk allocation overhead by amortizing copy costs during construction.
+
+\textbf{Dispatch and Method Combination.}
+Generic functions dispatch by arity, then specificity (Section \ref{sec:dispatch}). \textbf{Closed dispatch} (\texttt{defn}) emits a static \texttt{cond} cascade; \textbf{open dispatch} (\texttt{defmethod}) supports CLOS method combinations (\texttt{:before}, \texttt{:after}, \texttt{:around}) and extensibility via \texttt{call-next-method}. Table~\ref{tab:defn-vs-defmethod} summarises the criteria. The two forms are mutually exclusive per function name: \texttt{defn} emits \texttt{defun} and \texttt{defmethod} emits \texttt{defgeneric}.
 
 \begin{table}[htbp]
 \centering
@@ -275,15 +272,15 @@ Conjunction maps to its components' maximum level, providing a conservative uppe
 Disjunction \texttt{(or $p$ $q$)} merges distinct domains, making it semantically less specific than either conjunct; the uniform level calculus cannot express this relationship, so \texttt{or} patterns are treated as atomic Level-3 predicates and ordered by the tiebreaker when paired against other Level-3 patterns.
 Negation is excluded: \texttt{(not $p$)}'s ordering requires knowing the complement domain, which is undecidable in the general case; \texttt{not} patterns likewise fall to the tiebreaker.
 
-\textbf{Known deficiency --- type-annotated conjunctions.}
+\textbf{Type-Annotated Conjunctions: Path to Resolution.}
 \texttt{(and (<integer>) (prime?))} receives Level~3 ($\max(2,3) = 3$), the same level as the bare
 predicate \texttt{(prime?)} alone, even though the conjunction is strictly more constrained.
-The syntactic calculus cannot determine this semantic subsumption natively. The only mitigation currently is definition order, which introduces a modularity hazard. However, even without a theorem prover, simple structural subsumption (if pattern $A$ structurally contains type $T$ and predicate $P$, and pattern $B$ only contains predicate $P$, then $A \prec B$) could be trivially implemented at load-time to solve this cleanly. A future composite level (e.g., \texttt{(x <integer> (prime?))}) could enforce this structural subsumption statically.
+The current syntactic calculus cannot determine this semantic subsumption natively, requiring definition order as a modularity hazard. However, a straightforward compile-time enhancement---a \emph{composite level} (e.g., Level 2.5)---recovers structural subsumption with minimal overhead. At load time, a linear scan partitions conjuncts by their constituent levels; conjunctions combining a type (Level 2) with a predicate (Level 3) are assigned to the composite level, ordering them before bare predicates. This requires no runtime cost: only a single pass across the pattern's conjuncts at method-definition time. This approach is implementable and planned for a near-term release, eliminating the deficiency while preserving the current level system's simplicity.
 
 \subsubsection{Formal Specificity Ordering}
 We formalize the specificity relation $\prec$ using the inference rules summarized in Table~\ref{tab:spec-rules}.
 Let $\mathcal{L}(p) \in \{0, 1, 2, 3\}$ be the specificity level of pattern $p$.
-\textbf{Syntactic form classes}: wildcard ($\mathit{wc}$), type annotation ($\mathit{ty}$, written \texttt{<name>}), predicate ($\mathit{pred}$, written \texttt{(fn args...)}), sequential ($\mathit{seq}$, written \texttt{[...]}), and map ($\mathit{map}$, written \texttt{\{...\}}; sorted canonically via \texttt{string<} on symbol-names, keywords preceding symbols and strings). $p \sim q$ iff $\mathcal{L}(p) = \mathcal{L}(q)$ and $p$, $q$ belong to the same form class.
+\textbf{Syntactic form classes}: wildcard (\texttt{x}, \texttt{y}), type annotation (\texttt{<integer>}, \texttt{<string>}), predicate (\texttt{(even?)}, \texttt{(> 10)}), sequential (\texttt{[x y]}, \texttt{[x (> y 5)]}), and map (\texttt{\{:key x\}}, \texttt{\{:a (number?)\}}). Maps are sorted canonically via \texttt{string<} on symbol-names. $p \sim q$ iff both have the same level and form class.
 For compound patterns, $\mathcal{L}([p_1, \dots, p_n]) = \max_i \mathcal{L}(p_i)$ and $\mathcal{L}(\{k_1~p_1, \dots\}) = \max_i \mathcal{L}(p_i)$: the level is the max element level.
 Spec-Level applies to compound patterns globally: $[x~(even?)]$ (L=3) fires before $[x~\mathtt{\mbox{<integer>}}]$ (L=2). Positional rules (Spec-Prefix, Spec-Tail) apply only when compound patterns share the max level ($p \sim q$); Spec-Level takes precedence otherwise.
 \textbf{Convention:} $p_1 \prec p_2$ means \emph{$p_1$ fires before $p_2$}---i.e., $p_1$ is more specific. Higher levels are more specific, so Spec-Level concludes $p_1 \prec p_2$ when $\mathcal{L}(p_1) > \mathcal{L}(p_2)$.
@@ -686,7 +683,7 @@ Lazy BFS trims initialization waste but its per-edge checks make it slower (18.5
 \subsection{Abstract Syntax Tree Rewriting Engine}
 \label{sec:ast-bench}
 
-To evaluate both contributions together, we implemented an AST optimization engine: 25 node classes, a single multi-clause \texttt{defmethod} encoding 54 algebraic rewrite rules via predicate dispatch (including nested structural patterns such as the identity-element rule below), and a 25-clause \texttt{walk} driving recursive descent.
+We implemented an AST optimization engine (25 node classes, 54 rewrite rules via predicate dispatch with nested patterns, 25-clause \texttt{walk}) to evaluate both contributions together.
 
 \begin{lstlisting}
 (defmethod ast-optimize
@@ -699,7 +696,7 @@ To evaluate both contributions together, we implemented an AST optimization engi
 The CL baseline uses \texttt{defstruct} with \texttt{typecase} on a 9{,}999-node balanced tree---\texttt{defstruct} is the fastest idiomatic CL baseline, giving the \emph{worst-case} overhead estimate for FOL.
 Practitioners migrating \texttt{defclass}-based code should consult Section~\ref{sec:interp-bench} for the 5.5$\times$ adoption-cost estimate under the realistic \texttt{defclass}/\texttt{defmethod} baseline.
 
-Table~\ref{tab:ast-bench} shows results. FOL is $202{\times}$ slower per pass ($144{\times}$ more memory) due to dispatch, reads, and severe GC pressure (35 cycles vs.\ 1 for CL). The build ratio ($116{\times}$) exceeds the micro-benchmark because constructing 9{,}999 nodes runs the full \texttt{initialize-instance} MOP protocol per node---stamping versions and initializing overflow tries---with no amortization. Transient Builders (Section~\ref{sec:features}) mitigate this by allowing mutable construction before freezing into persistent instances.
+FOL is $202{\times}$ slower per pass (35 GC cycles vs.\ 1 for CL); the $116{\times}$ build ratio exceeds micro-benchmarks due to per-node \texttt{initialize-instance} overhead. Transient Builders mitigate this via mutable construction before freezing.
 
 \begin{table}[htbp]
 \small
@@ -771,12 +768,6 @@ A 2$\times$2 ablation (Table~\ref{tab:lsim-ablation}) breaks down these costs.
 \end{tabular}
 \end{table}
 
-FOL matches Hybrid-A at 32x32x32-30000: wall-times ranged from 51.8k--52.3k\,s for CL, and 13.4k--13.6k\,s for FOL.
-Differences are within ±110s noise. Hybrid-B falls from 6.3$\times$ to 1.35$\times$; as scale grows, the CL baseline itself severely degrades from hash-table fragmentation,
-making Hybrid-B's fixed $O(\log n)$ heap tax look comparatively better. The 3.8$\times$ advantage stems from HAMTs avoiding heap fragmentation.
-
-
-
 \begin{table*}[t]
 \small
 \caption{Expression Interpreter Benchmark (SBCL 2.6.0, AMD Ryzen 9 5900X).}
@@ -790,6 +781,10 @@ Eval (1000 iter $\times$ 50 exprs) & 0.50\,s / 224.5\,MB & 2.76\,s / 1300\,MB & 
 \bottomrule
 \end{tabular}
 \end{table*}
+
+FOL matches Hybrid-A at 32x32x32-30000: wall-times ranged from 51.8k--52.3k\,s for CL, and 13.4k--13.6k\,s for FOL.
+Differences are within ±110s noise. Hybrid-B falls from 6.3$\times$ to 1.35$\times$; as scale grows, the CL baseline itself severely degrades from hash-table fragmentation,
+making Hybrid-B's fixed $O(\log n)$ heap tax look comparatively better. The 3.8$\times$ advantage stems from HAMTs avoiding heap fragmentation.
 
 \subsection{CLOS Adoption Cost: Expression Interpreter}
 \label{sec:interp-bench}
@@ -817,11 +812,11 @@ The port requires no architectural logic shifts; differences lie purely in immut
 
 \paragraph{Benchmark selection bias.} Macro-benchmarks may over-represent FOL's advantages; the interpreter and naive-translation benchmarks offer a more conservative view.
 
-\paragraph{Interoperability hazard.} CL authors extending FOL classes may encounter runtime mutation errors; these are not signaled at method-definition time.
+\paragraph{Interoperability hazard.} CL code extending FOL classes may encounter runtime mutation errors unsignaled at definition time.
 
 \paragraph{Non-portability.} \texttt{persistent-class} uses AMOP hooks (\texttt{allocate-instance}, \allowbreak \texttt{initialize-instance}) but reads SBCL internals. Micro-benchmarks show 1.6$\times$ speedup (16.2 vs.\ 25.7\,ns) over portable \texttt{slot-value-using-class}.
 
-\paragraph{Re-evaluation.} Interactive re-evaluation reorders incomparable clauses; ordering may differ between sessions if interactive changes occurred.
+\paragraph{Re-evaluation and Preference Resolution.} Interactive re-evaluation reorders incomparable clauses; ordering may differ between sessions. \texttt{prefer-method} (Section~\ref{sec:dispatch}) is not yet implemented; when available, it will eliminate load-order dependence. Current workarounds require careful clause ordering or restructuring; implementation is planned for near-term release.
 
 \paragraph{All-Level-2.} Type-only \texttt{defmethod} is expected to incur the same $O(N)$ scan as predicate dispatch, but this is not empirically verified.
 \end{sloppypar}
