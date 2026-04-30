@@ -1,29 +1,23 @@
-;;; run-pq-lsim-bench.lisp
+;;; run-lsim-all.lisp
 ;;;
-;;; Benchmark: CL mutable leftist-heap lsim vs FOL persistent leftist-heap lsim.
-;;;
-;;; Circuits and run counts:
+;;; Full LSim main benchmark:
 ;;;   8bit-100       20 runs, individual output
 ;;;   32bit-300      20 runs, individual output
 ;;;   8x32-900       20 runs, individual output
 ;;;   32x32-3000      3 runs averaged
 ;;;   8x32x32-9000    3 runs averaged
-;;;   32x32x32-30000  1 run
+;;;   32x32x32-30000  3 runs averaged
 ;;;
-;;; Run from the fol/ project root:
-;;;   sbcl --noinform --non-interactive --load benchmarks/run-pq-lsim-bench.lisp
+;;; Run with 56 GB heap from the fol/ project root:
+;;;   sbcl --dynamic-space-size 57344 --noinform --non-interactive \
+;;;        --load benchmarks/run-lsim-all.lisp
 
 (require :asdf)
 (pushnew (truename "src/") asdf:*central-registry*)
 (asdf:load-asd (merge-pathnames "src/fol-compiler.asd" (truename ".")))
 
-;;; Load the full FOL compiler + fol-core (makes MAKE :external in fol.core).
 (handler-bind ((warning #'muffle-warning))
   (asdf:load-system :fol-compiler/core :verbose nil))
-
-;;; ---------------------------------------------------------------------------
-;;; FOL file loader (same pattern as run-32x32x32-fol.lisp)
-;;; ---------------------------------------------------------------------------
 
 (defun cl-user::load-fol-file (path)
   (with-open-file (in path)
@@ -34,16 +28,11 @@
                       (code (fol.compiler:compilation-result-code compiled)))
                  (cl:eval code))))))
 
-;;; ---------------------------------------------------------------------------
-;;; Timing helpers — defined in CL-USER before any package switching
-;;; ---------------------------------------------------------------------------
-
 (defun cl-user::now-ms ()
   (* 1000.0d0
      (/ (cl:get-internal-real-time)
         (cl:float cl:internal-time-units-per-second 1.0d0))))
 
-;;; Run FN once; return (wall-ms bytes-consed gc-ms netlist-ms sim-ms gate-evals).
 (defun cl-user::bench-fol-run (run-fn)
   (sb-ext:gc :full t)
   (let ((t0   (cl-user::now-ms))
@@ -99,19 +88,18 @@
                label engine wall-ms gc-pct net-ms sim-ms evals)
     (cl:force-output)))
 
-;;; Average a list of run results. Returns (avg-wall sum-bytes avg-gc avg-net avg-sim avg-evals).
 (defun cl-user::avg-runs (runs)
   (let ((n (cl:length runs)))
     (cl:mapcar (cl:lambda (i)
-                 (if (cl:= i 1)  ; bytes: sum (not per-run avg)
+                 (if (cl:= i 1)
                      (cl:reduce #'cl:+ runs :key (cl:lambda (r) (cl:nth i r)))
                      (cl:/ (cl:reduce #'cl:+ runs :key (cl:lambda (r) (cl:nth i r)))
                            (cl:float n))))
                '(0 1 2 3 4 5))))
 
-;;; Load a circuit's CL and FOL files, warmup, run N times, return (cl-results fol-results).
 (defun cl-user::run-circuit (label cl-path fol-path n-runs)
   (cl:format cl:t "~%=== ~A (x~D) ===~%" label n-runs)
+  (cl:force-output)
   (cl:load cl-path)
   (cl-user::load-fol-file fol-path)
   (in-package :cl-user)
@@ -124,6 +112,7 @@
     (let ((cl-results  '())
           (fol-results '()))
       (cl:dotimes (i n-runs)
+        (cl:format cl:t "  Run ~D/~D...~%" (cl:1+ i) n-runs) (cl:force-output)
         (let ((cr (cl-user::bench-cl-run  (cl:lambda () (cl:funcall cl-fn))))
               (fr (cl-user::bench-fol-run (cl:lambda () (cl:funcall fol-fn)))))
           (cl:push cr cl-results)
@@ -148,27 +137,15 @@
                               (cl:fourth fr) (cl:fifth fr) (cl:sixth fr))))
       (cl:list (cl:nreverse cl-results) (cl:nreverse fol-results)))))
 
-;;; ---------------------------------------------------------------------------
-;;; Load simulation engines
-;;; (These switch the current package — all helpers above are already defined)
-;;; ---------------------------------------------------------------------------
-
-;;; CL engine — pure CL mutable leftist heap, package LSIM-CL
+;;; Load engines
 (load "benchmarks/lisp-code/lsim-pq.lisp")
-
-;;; FOL engine — persistent leftist heap, package LSIM
 (cl-user::load-fol-file "benchmarks/fol-code/lsim-pq.fol")
-
-;;; Switch back to cl-user so the main body is read in the right package
 (in-package :cl-user)
 
-;;; ---------------------------------------------------------------------------
-;;; Main benchmark
-;;; ---------------------------------------------------------------------------
-
+;;; Main
 (handler-case
     (progn
-      (format t "~%FOL PQ-LSim Benchmark~%")
+      (format t "~%FOL LSim Main Benchmark (56 GB heap)~%")
       (format t "Engine CL-PQ : mutable destructive leftist heap (pure CL)~%")
       (format t "Engine FOL-PQ: persistent leftist heap (FOL persistent collections)~%")
       (cl-user::print-run-header)
@@ -231,7 +208,7 @@
                   (first fa) (cl-user::mb (second fa)) (third fa) (fourth fa) (fifth fa) (round (sixth fa)))))
 
       (format t "~%~72A~%" (make-string 72 :initial-element #\=))
-      (format t "Benchmark complete.~%"))
+      (format t "Main benchmark complete.~%"))
 
   (error (e)
     (format t "~%FATAL ERROR: ~A~%" e)

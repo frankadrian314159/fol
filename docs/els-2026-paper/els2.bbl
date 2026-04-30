@@ -2,7 +2,7 @@
 %%% Do NOT edit. File created by BibTeX with style
 %%% ACM-Reference-Format-Journals [18-Jan-2012].
 
-\begin{thebibliography}{30}
+\begin{thebibliography}{27}
 
 %%% ====================================================================
 %%% NOTE TO THE USER: you can override these defaults by providing
@@ -92,19 +92,6 @@
 \tempurl}
 
 
-\bibitem[Carette et~al\mbox{.}(2009)]%
-        {Carette2009}
-\bibfield{author}{\bibinfo{person}{Jacques Carette}, \bibinfo{person}{Oleg
-  Kiselyov}, {and} \bibinfo{person}{Chung-chieh Shan}.}
-  \bibinfo{year}{2009}\natexlab{}.
-\newblock \showarticletitle{Finally Tagless, Partially Evaluated: Tagless
-  Staged Interpreters for Simpler Typed Languages}.
-\newblock \bibinfo{journal}{\emph{Journal of Functional Programming}}
-  \bibinfo{volume}{19}, \bibinfo{number}{5} (\bibinfo{year}{2009}),
-  \bibinfo{pages}{509--543}.
-\newblock
-
-
 \bibitem[Chambers and Chen(1999)]%
         {Chambers1999}
 \bibfield{author}{\bibinfo{person}{Craig Chambers} {and}
@@ -183,7 +170,7 @@
   Kaplan}, {and} \bibinfo{person}{Craig Chambers}.}
   \bibinfo{year}{1998}\natexlab{}.
 \newblock \showarticletitle{Predicate Dispatching: A Unified Theory of
-  Dispatch}. In \bibinfo{booktitle}{\emph{ECOOP'98—Object-Oriented
+  Dispatch}. In \bibinfo{booktitle}{\emph{ECOOP'98--Object-Oriented
   Programming}}. \bibinfo{publisher}{Springer}, \bibinfo{address}{Berlin,
   Heidelberg}, \bibinfo{pages}{186--211}.
 \newblock
@@ -312,17 +299,6 @@
 \newblock
 
 
-\bibitem[Oliveira and Cook(2012)]%
-        {Oliveira2012}
-\bibfield{author}{\bibinfo{person}{Bruno C. d.~S. Oliveira} {and}
-  \bibinfo{person}{William~R. Cook}.} \bibinfo{year}{2012}\natexlab{}.
-\newblock \showarticletitle{Extensibility for the Masses: Practical
-  Extensibility with Object Algebras}. In \bibinfo{booktitle}{\emph{Proceedings
-  of the 26th European Conference on Object-Oriented Programming (ECOOP)}}.
-  \bibinfo{publisher}{Springer}, \bibinfo{pages}{2--27}.
-\newblock
-
-
 \bibitem[Orleans(2002)]%
         {Orleans2002}
 \bibfield{author}{\bibinfo{person}{Doug Orleans}.}
@@ -365,16 +341,6 @@
   \bibinfo{booktitle}{\emph{Programming Concepts and Methods}}.
   \bibinfo{publisher}{North-Holland}, \bibinfo{address}{Amsterdam,
   Netherlands}, \bibinfo{pages}{347--359}.
-\newblock
-
-
-\bibitem[Zenger and Odersky(2005)]%
-        {Zenger2005}
-\bibfield{author}{\bibinfo{person}{Matthias Zenger} {and}
-  \bibinfo{person}{Martin Odersky}.} \bibinfo{year}{2005}\natexlab{}.
-\newblock \showarticletitle{Independently Extensible Solutions to the
-  Expression Problem}. In \bibinfo{booktitle}{\emph{Proceedings of the 12th
-  International Workshop on Foundations of Object-Oriented Languages (FOOL)}}.
 \newblock
 
 

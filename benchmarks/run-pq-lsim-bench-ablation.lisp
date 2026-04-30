@@ -267,7 +267,22 @@
           (cl-user::print-ablation-avg "8x32x32-9000" "Hybrid-B" hba)
           (cl-user::print-ablation-avg "8x32x32-9000" "FOL"      fa)))
 
-      (format t "~%~80A~%" (make-string 80 :initial-element #\=))
+      ;; 32x32x32-30000 — 3 averaged runs
+      (destructuring-bind (cl-rs ha-rs hb-rs fol-rs)
+          (cl-user::run-ablation-circuit "32x32x32-30000"
+                                         "benchmarks/lisp-code/32x32x32-30000.lisp"
+                                         "benchmarks/fol-code/32x32x32-30000.fol"
+                                         3 "TOP32X32X32" 30000)
+        (let ((ca  (cl-user::avg-runs cl-rs))
+              (haa (cl-user::avg-runs ha-rs))
+              (hba (cl-user::avg-runs hb-rs))
+              (fa  (cl-user::avg-runs fol-rs)))
+          (cl-user::print-ablation-avg "32x32x32-30000" "CL"       ca)
+          (cl-user::print-ablation-avg "32x32x32-30000" "Hybrid-A" haa)
+          (cl-user::print-ablation-avg "32x32x32-30000" "Hybrid-B" hba)
+          (cl-user::print-ablation-avg "32x32x32-30000" "FOL"      fa)))
+
+       (format t "~%~80A~%" (make-string 80 :initial-element #\=))
       (format t "Ablation benchmark complete.~%"))
 
   (error (e)

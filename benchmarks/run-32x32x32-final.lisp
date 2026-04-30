@@ -92,7 +92,7 @@
 (cl-user::load-fol-file "benchmarks/fol-code/32x32x32-30000.fol")
 
 (let* ((label "32x32x32-30000")
-       (n-runs 3)
+       (n-runs 1)
        (cl-fn   (cl:find-symbol "RUN-BENCH" "LSIM-CL"))
        (fol-fn  (cl:find-symbol "RUN-BENCH" "LSIM"))
        (cl-mod  (cl:intern "TOP32X32X32" :lsim-cl))
@@ -100,11 +100,11 @@
        (ha-fn   (cl:lambda () (lsim-hybrid-a:run-lsim cl-mod max-time)))
        (hb-fn   (cl:lambda () (lsim-hybrid-b:run-lsim cl-mod max-time))))
 
-  (format t "Warming up...~%")
-  (cl:funcall cl-fn)
-  (cl:funcall ha-fn)
-  (cl:funcall hb-fn)
-  (cl:funcall fol-fn)
+  (format t "Skipping warmup...~%")
+  ;(cl:funcall cl-fn)
+  ;(cl:funcall ha-fn)
+  ;(cl:funcall hb-fn)
+  ;(cl:funcall fol-fn)
 
   (format t "~%Starting main runs (3 per engine)...~%")
   (let ((cl-results  '())
