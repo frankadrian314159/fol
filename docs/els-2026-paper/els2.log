@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.2.2)  30 APR 2026 14:32
+This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.2.2)  30 APR 2026 14:49
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1179,6 +1179,8 @@ LaTeX Font Info:    Font shape `T1/zi4/m/n' will be
 
 Underfull \vbox (badness 2073) has occurred while \output is active []
 
+LaTeX Font Info:    Font shape `T1/LinuxBiolinumT-TLF/m/n' will be
+(Font)              scaled to size 7.0pt on input line 311.
  [2.2]
 Underfull \vbox (badness 1590) has occurred while \output is active []
 
@@ -1386,13 +1388,13 @@ Package rerunfilecheck Info: File `els2.out' has not changed.
 (rerunfilecheck)             Checksum: 39CD6ED2B0A8FB7ACD1A21F853C94E8C;3150.
  ) 
 Here is how much of TeX's memory you used:
- 23916 strings out of 467871
- 389412 string characters out of 5418377
- 1085190 words of memory out of 5000000
- 51372 multiletter control sequences out of 15000+600000
- 874128 words of font info for 597 fonts, out of 8000000 for 9000
+ 23928 strings out of 467871
+ 389716 string characters out of 5418377
+ 1086326 words of memory out of 5000000
+ 51374 multiletter control sequences out of 15000+600000
+ 879953 words of font info for 603 fonts, out of 8000000 for 9000
  1302 hyphenation exceptions out of 8191
- 90i,21n,131p,1003b,2080s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 90i,21n,131p,1003b,2082s stack positions out of 10000i,1000n,20000p,200000b,200000s
 <C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/inconsolata/
 Inconsolata-zi4b.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/
 public/inconsolata/Inconsolata-zi4r.pfb><C:/Users/frank/AppData/Local/Programs/
@@ -1400,20 +1402,21 @@ MiKTeX/fonts/type1/public/newtx/LibertineMathMI.pfb><C:/Users/frank/AppData/Loc
 al/Programs/MiKTeX/fonts/type1/public/newtx/LibertineMathMI5.pfb><C:/Users/fran
 k/AppData/Local/Programs/MiKTeX/fonts/type1/public/newtx/LibertineMathMI7.pfb><
 C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/libertine/LinBi
-olinumTB.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/l
-ibertine/LinBiolinumTI.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/
-type1/public/libertine/LinLibertineT.pfb><C:/Users/frank/AppData/Local/Programs
-/MiKTeX/fonts/type1/public/libertine/LinLibertineTB.pfb><C:/Users/frank/AppData
-/Local/Programs/MiKTeX/fonts/type1/public/libertine/LinLibertineTI.pfb><C:/User
-s/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/newtx/NewTXMI.pfb><C:/
-Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/newtx/NewTXMI7.pfb
-><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/newtx/txmiaX.
-pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/newtx/txsy
-m.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/newtx/tx
-sys.pfb>
-Output written on els2.pdf (9 pages, 582781 bytes).
+olinumT.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/li
+bertine/LinBiolinumTB.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/t
+ype1/public/libertine/LinBiolinumTI.pfb><C:/Users/frank/AppData/Local/Programs/
+MiKTeX/fonts/type1/public/libertine/LinLibertineT.pfb><C:/Users/frank/AppData/L
+ocal/Programs/MiKTeX/fonts/type1/public/libertine/LinLibertineTB.pfb><C:/Users/
+frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/libertine/LinLibertineTI
+.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/newtx/New
+TXMI.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/newtx
+/NewTXMI7.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/
+newtx/txmiaX.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/publ
+ic/newtx/txsym.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/pu
+blic/newtx/txsys.pfb>
+Output written on els2.pdf (9 pages, 622634 bytes).
 PDF statistics:
- 498 PDF objects out of 1000 (max. 8388607)
+ 502 PDF objects out of 1000 (max. 8388607)
  191 named destinations out of 1000 (max. 500000)
- 131753 words of extra memory for PDF output out of 154059 (max. 10000000)
+ 135849 words of extra memory for PDF output out of 154059 (max. 10000000)
 
