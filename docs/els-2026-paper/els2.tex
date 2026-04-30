@@ -247,7 +247,7 @@ Consider:
   ([x <integer>]  :any-integer)   ; catch all
   ([x (even?)]    :even))         ; special case
 \end{lstlisting}
-FOL reorders this to \texttt{even?} first, so even integers never reach \texttt{:any-integer}. User-defined predicates must be pure and total over all possible argument types; the dispatch scan provides no condition-handler boundary, so a condition signalled inside a predicate propagates directly to the caller. For closed \texttt{defn} groupings, syntactically decidable shadowed clauses trigger a compilation warning.
+FOL reorders this to \texttt{even?} first, so even integers never reach \texttt{:any-integer}. User-defined predicates must be pure and total; since the dispatch scan has no condition-handler boundary, conditions signaled inside a predicate propagate directly to the caller. Closed \texttt{defn} groupings trigger compilation warnings for shadowed clauses.
 Definition-order reliance creates modularity hazards; we use explicit mechanisms like \texttt{prefer-method} to mitigate this issue.
 
 Method qualifiers execute in CLOS-standard order (e.g., most-specific-first \texttt{:before}),
@@ -751,7 +751,7 @@ Table~\ref{tab:lsim-perf} covers six configurations; the largest circuits used a
 
 At scale, the CL baseline allocates one \texttt{make-hash-table} per gate (32,768 tables at 32$\times$32$\times$32); as the simulation runs, these objects scatter across the heap and degrade GC scan locality, causing CL's $4.5{\times}$ per-gate-eval slowdown between the 8$\times$32$\times$32 and 32$\times$32$\times$32 configurations.
 FOL's HAMT gate-state entries are depth-bounded nursery allocations collected before reaching the old generation; this GC-locality property---not persistence per se---drives the 3.8$\times$ advantage.
-This advantage is specific to the per-gate hash-table allocation pattern: a CL baseline using a single shared hash table keyed by \texttt{(gate, slot)} pairs would not exhibit the same fragmentation.
+This advantage is specific to the per-gate hash-table allocation pattern: a CL baseline using a single shared hash table keyed by \texttt{(gate, slot)} pairs might not exhibit the same fragmentation.
 A 2$\times$2 ablation (Table~\ref{tab:lsim-ablation}) breaks down these costs.
 
 \begin{table}[htbp]
@@ -771,7 +771,9 @@ A 2$\times$2 ablation (Table~\ref{tab:lsim-ablation}) breaks down these costs.
 \end{tabular}
 \end{table}
 
-FOL matches Hybrid-A at 32x32x32-30000: wall-times ranged from 51.8k--52.3k\,s for CL, and 13.4k--13.6k\,s for FOL. Differences are within ±110s noise. Hybrid-B falls from 6.3$\times$ to 1.35$\times$; as scale grows, the CL baseline itself severely degrades from hash-table fragmentation, making Hybrid-B's fixed $O(\log n)$ heap tax look comparatively better. The 3.8$\times$ advantage stems from HAMTs avoiding heap fragmentation.
+FOL matches Hybrid-A at 32x32x32-30000: wall-times ranged from 51.8k--52.3k\,s for CL, and 13.4k--13.6k\,s for FOL.
+Differences are within ±110s noise. Hybrid-B falls from 6.3$\times$ to 1.35$\times$; as scale grows, the CL baseline itself severely degrades from hash-table fragmentation,
+making Hybrid-B's fixed $O(\log n)$ heap tax look comparatively better. The 3.8$\times$ advantage stems from HAMTs avoiding heap fragmentation.
 
 
 
@@ -807,21 +809,21 @@ The port requires no architectural logic shifts; differences lie purely in immut
 \label{sec:threats}
 
 \begin{sloppypar}
-\textbf{Single implementation}: All measurements use SBCL 2.6.0; results may differ on other CL implementations.
+\paragraph{Single implementation.} All measurements use SBCL 2.6.0; results may differ on other CL implementations.
 
-\textbf{Experimenter bias}: FOL and all baselines share the same author; more aggressive CL tuning might narrow results.
+\paragraph{Experimenter bias.} FOL and all baselines share the same author; more aggressive CL tuning might narrow results.
 
-\textbf{Benchmark coverage}: Smaller LSim configs were run repeatedly; the largest circuit was run three times per implementation due to its scale (${\approx}$14 hours per run).
+\paragraph{Benchmark coverage.} Smaller LSim configs were run repeatedly; the largest circuit was run three times per implementation due to its scale (${\approx}$14 hours per run).
 
-\textbf{Benchmark selection bias}: Macro-benchmarks may over-represent FOL's advantages; the interpreter and naive-translation benchmarks offer a more conservative view.
+\paragraph{Benchmark selection bias.} Macro-benchmarks may over-represent FOL's advantages; the interpreter and naive-translation benchmarks offer a more conservative view.
 
-\textbf{Interoperability hazard}: CL authors extending FOL classes may encounter runtime mutation errors; these are not signaled at method-definition time.
+\paragraph{Interoperability hazard.} CL authors extending FOL classes may encounter runtime mutation errors; these are not signaled at method-definition time.
 
-\textbf{Non-portability}: \texttt{persistent-class} uses AMOP hooks (\texttt{allocate-instance}, \allowbreak \texttt{initialize-instance}) but reads SBCL internals. Micro-benchmarks show 1.6$\times$ speedup (16.2 vs.\ 25.7\,ns) over portable \texttt{slot-value-using-class}.
+\paragraph{Non-portability.} \texttt{persistent-class} uses AMOP hooks (\texttt{allocate-instance}, \allowbreak \texttt{initialize-instance}) but reads SBCL internals. Micro-benchmarks show 1.6$\times$ speedup (16.2 vs.\ 25.7\,ns) over portable \texttt{slot-value-using-class}.
 
-\textbf{Re-evaluation}: interactive re-evaluation reorders incomparable clauses; ordering may differ between sessions if interactive changes occurred.
+\paragraph{Re-evaluation.} Interactive re-evaluation reorders incomparable clauses; ordering may differ between sessions if interactive changes occurred.
 
-\textbf{All-Level-2}: type-only \texttt{defmethod} is expected to incur the same $O(N)$ scan as predicate dispatch, but this is not empirically verified.
+\paragraph{All-Level-2.} Type-only \texttt{defmethod} is expected to incur the same $O(N)$ scan as predicate dispatch, but this is not empirically verified.
 \end{sloppypar}
 
 
@@ -844,7 +846,7 @@ Racket~\cite{flatt:manifesto} separates \texttt{match} from its class system~\ci
 JPred~\cite{Ernst1998} requires a theorem prover for ordering. Millstein~\cite{Millstein2004} achieves decidability by restricting predicates to linear arithmetic; FOL instead admits arbitrary predicates via syntactic leveling, trading decidable subsumption for an open language. Later Cecil work~\cite{Chambers1999} achieves efficient dispatch via offline decision-tree compilation. Our composite level recovers ranking for type-annotated predicates statically.
 GHC's overlapping instances~\cite{PeytonJones2004} order heads via pragmas but lack a predicate stratum or evolution.
 Filtered dispatch~\cite{Orleans2002} introduced guard predicates.
-Racket's \texttt{match} with guards~\cite{flatt:manifesto} provides structural pattern matching with predicates but is decoupled from its class system. In the Common Lisp ecosystem, libraries like \texttt{trivia} offer powerful pattern matching but target \texttt{typecase}-like control flow rather than open generic dispatch.
+Racket's \texttt{match}~\cite{flatt:manifesto} provides structural matching but is decoupled from its class system. CL libraries like \texttt{trivia} offer pattern matching but target control flow rather than open generic dispatch.
 Clojure's \texttt{defmulti}~\cite{Hickey2008} uses user-supplied functions and \texttt{prefer-method}; \textit{protocols}~\cite{Hickey2010protocols} dispatch on the first argument's class.
 FOL's \texttt{defmethod} occupies \texttt{defmulti}'s niche but adds predicate specializers and CLOS method combinations, trading an $O(N)$ scan for expressivity.
 
@@ -853,7 +855,7 @@ FOL's \texttt{defmethod} occupies \texttt{defmulti}'s niche but adds predicate s
 
 FOL contributes a persistent metaclass system and specificity-ordered predicate dispatch. Hybrid storage ($T=32$) keeps reads fast while lazy migration enables transparent evolution. Specificity ordering handles structurally differentiated patterns, confining load-order sensitivity to structural ties.
 
-Slot updates cost $40$--$250{\times}$ slower; FOL is a scale-out solution for complex, versioned architectures rather than a latency-optimized replacement for mutable slots. The dichotomy between the logic simulator's scale advantage and the AST rewrites' $202{\times}$ penalty provides a concrete heuristic: persistent MOP objects excel for "macro" objects (large state maps, sparse graphs) but are structurally inappropriate for fine-grained pointer structures (like ASTs) due to GC pressure. Future work includes dispatch caching for $O(1)$ amortized cost and static analysis for unreachable clause detection.
+Slot updates cost $40$--$250{\times}$ slower; FOL is a scale-out solution for complex architectures rather than a latency-optimized replacement for mutable slots. The dichotomy between the logic simulator's scale advantage and the AST rewrites' penalty provides a heuristic: persistent objects excel for "macro" structures (large maps, sparse graphs) but are inappropriate for fine-grained pointer structures due to GC pressure. Future work includes dispatch caching and static analysis for unreachable clause detection.
 
 FOL is publicly available~\cite{fol2026}.
 

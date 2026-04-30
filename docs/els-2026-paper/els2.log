@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.2.2)  30 APR 2026 09:45
+This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.2.2)  30 APR 2026 10:04
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1210,10 +1210,14 @@ LaTeX Font Info:    Font shape `T1/LinuxLibertineT-TLF/m/sc' will be
 (Font)              scaled to size 6.6pt on input line 322.
 LaTeX Font Info:    Font shape `T1/LinuxLibertineT-TLF/m/sc' will be
 (Font)              scaled to size 5.5pt on input line 322.
+
+Underfull \vbox (badness 1796) has occurred while \output is active []
+
 Package hyperref Info: bookmark level for unknown lstlisting defaults to 0 on i
 nput line 342.
 LaTeX Font Info:    Trying to load font information for TS1+zi4 on input line 3
 52.
+
 (C:\Users\frank\AppData\Local\Programs\MiKTeX\tex/latex/inconsolata\ts1zi4.fd
 File: ts1zi4.fd 2018/01/14 TS1/zi4 (Inconsolata)
 )
@@ -1316,14 +1320,26 @@ Overfull \hbox (22.90697pt too wide) in paragraph at lines 761--772
  []
 
 [6.6] [7.7]
-Underfull \hbox (badness 6842) in paragraph at lines 820--821
-[]\T1/LinuxLibertineT-TLF/b/n/9 (+20) Non-portability\T1/LinuxLibertineT-TLF/m/
-n/9 (+20) : \T1/zi4/m/it/9 persistent-class \T1/LinuxLibertineT-TLF/m/n/9 (+20)
- uses AMOP hooks
+Underfull \hbox (badness 10000) in paragraph at lines 818--819
+ []\T1/LinuxLibertineT-TLF/m/it/9 (+20) Benchmark se-lec-tion bias.[] \T1/Linux
+LibertineT-TLF/m/n/9 (+20) Macro-benchmarks may over-
  []
 
 
-Overfull \hbox (5.14056pt too wide) in paragraph at lines 854--855
+Underfull \hbox (badness 10000) in paragraph at lines 822--823
+ []\T1/LinuxLibertineT-TLF/m/it/9 (+20) Non-portability.[] \T1/zi4/m/it/9 persi
+stent-class \T1/LinuxLibertineT-TLF/m/n/9 (+20) uses AMOP hooks
+ []
+
+
+Underfull \hbox (badness 1215) in paragraph at lines 822--823
+\T1/LinuxLibertineT-TLF/m/n/9 (+20) (\T1/zi4/m/it/9 allocate-instance\T1/LinuxL
+ibertineT-TLF/m/n/9 (+20) , \T1/zi4/m/it/9 initialize-instance\T1/LinuxLibertin
+eT-TLF/m/n/9 (+20) ) but reads SBCL
+ []
+
+
+Overfull \hbox (5.14056pt too wide) in paragraph at lines 856--857
 \T1/LinuxLibertineT-TLF/m/n/9 (-20) FOL con-tributes a per-sis-tent meta-class 
 sys-tem and specificity-ordered
  []
@@ -1334,10 +1350,6 @@ Underfull \hbox (badness 1062) in paragraph at lines 41--49
 TLF/m/it/7 (+20) FOL: Func-tional Ob-ject Lisp\T1/LinuxLibertineT-TLF/m/n/7 (+2
 0) .   []$https : / / github . com /
  []
-
-
-Underfull \vbox (badness 3128) has occurred while \output is active []
-
 
 
 Package balance Warning: You have called \balance in second column
@@ -1391,14 +1403,14 @@ LaTeX Font Warning: Some font shapes were not available, defaults substituted.
 LaTeX Warning: There were undefined references.
 
 Package rerunfilecheck Info: File `els2.out' has not changed.
-(rerunfilecheck)             Checksum: 28DD4BB8E1108F1F5733DFCD66355465;3046.
+(rerunfilecheck)             Checksum: 818E6CF1771A8DDE8337ACA13B7C5DF8;3046.
  ) 
 Here is how much of TeX's memory you used:
- 23978 strings out of 467871
- 391224 string characters out of 5418377
- 1083490 words of memory out of 5000000
+ 23995 strings out of 467871
+ 391540 string characters out of 5418377
+ 1083488 words of memory out of 5000000
  51390 multiletter control sequences out of 15000+600000
- 891355 words of font info for 627 fonts, out of 8000000 for 9000
+ 892574 words of font info for 633 fonts, out of 8000000 for 9000
  1302 hyphenation exceptions out of 8191
  90i,21n,131p,1003b,2094s stack positions out of 10000i,1000n,20000p,200000b,200000s
 <C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/inconsolata/
@@ -1419,9 +1431,9 @@ Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/newtx/NewTXMI7.pfb
 pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/newtx/txsy
 m.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/newtx/tx
 sys.pfb>
-Output written on els2.pdf (9 pages, 583139 bytes).
+Output written on els2.pdf (9 pages, 583529 bytes).
 PDF statistics:
- 493 PDF objects out of 1000 (max. 8388607)
- 183 named destinations out of 1000 (max. 500000)
+ 502 PDF objects out of 1000 (max. 8388607)
+ 191 named destinations out of 1000 (max. 500000)
  152233 words of extra memory for PDF output out of 154059 (max. 10000000)
 
