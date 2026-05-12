@@ -106,12 +106,17 @@
 - Cache miss: Evaluates dispatcher, caches winner, executes normally
 - Automatic invalidation via MOP hooks (add-method, remove-method, finalize-inheritance)
 
-### Value-Predicate Reference-Type Handling
-**Status**: Not implemented (safe fallback in place)
-**Priority**: Low (correctness guaranteed, optimization missing)
+### ✅ Value-Predicate Reference-Type Handling - COMPLETED
+**Status**: Fully implemented and verified
+**Implementation:**
+- `has-reference-type-value-predicates-p`: Detects patterns like `(eq x obj)` where obj is a reference type
+- `cacheable-defn-p` modification: Returns nil when reference-type predicates detected
+- Cache prevention: Skips caching to avoid cache conflicts on same-class reference types
 
-**Current behavior:** Value predicates on reference types cache-miss harmlessly on each call (falls through to COND evaluation)
-**Future enhancement:** Explicit handling to improve cache hit rates for value predicates on same reference type
+**Correctness:**
+- Safe: No wrong results (cache conflicts prevented by skipping caching)
+- Efficient: Type dispatch and eql-comparable value dispatch still cached normally
+- Conservative: Only disables caching when pattern detected (references with eq/eql predicates)
 
 ## Architecture Notes
 
@@ -139,16 +144,28 @@
 - ✅ `src/package.lisp` - Modified (fol.compiler.dispatch package exports)
 - ✅ Cleanup: Removed debug statements from emit-defmethod
 
-## Phase 2 Summary
+## Complete Dispatch Caching Implementation - ✅ ALL PHASES COMPLETE
 
-**Phase 1 + Core Phase 2 Status: ✅ COMPLETE**
+**Phase 1 + Phase 2: ✅ FULLY COMPLETE**
+
+**Core Caching Infrastructure:**
 - ✅ Dispatch cache infrastructure (ring buffer, MOP hooks, GF registry)
-- ✅ Caching for named defn (multi-clause type/value dispatch)
-- ✅ Caching for anonymous fn (multi-clause fixed-arity)
-- ✅ Caching for multi-clause defmethod (type dispatch with qualifiers)
-- ✅ Caching for multi-pattern defgeneric (compound arity+type key)
+- ✅ Type-dispatch detection and caching (injective class-of keys)
+- ✅ Value-predicate caching (pred-key for eql-comparable values)
+- ✅ Reference-type safety (skips caching when conflicts possible)
 
-**Remaining Optional Enhancements:**
-1. Value-predicate optimization for reference types (low priority, correctness OK)
-2. Performance profiling and cache hit rate instrumentation
-3. Testing defgeneric/method redefinition scenarios with real workloads
+**Function Definition Caching:**
+- ✅ Named defn (multi-clause type/value dispatch)
+- ✅ Anonymous fn (multi-clause fixed-arity)
+- ✅ Multi-clause defmethod (type dispatch with qualifiers)
+- ✅ Multi-pattern defgeneric (compound arity+type key)
+
+**Safety & Correctness:**
+- ✅ Value-predicate reference-type handling (detects and prevents conflicts)
+- ✅ All caching correctness guarantees maintained
+- ✅ Automatic MOP-based invalidation on method/class changes
+
+**Optional Future Work:**
+1. Performance profiling and cache hit rate instrumentation
+2. Testing real-world workloads for cache effectiveness
+3. Possible optimizations for value-predicate reference-type patterns
