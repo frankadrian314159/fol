@@ -2420,6 +2420,90 @@
                                                     (fol.compiler.collection-functions:merge m ,metadata-dict)
                                                     ,metadata-dict))))))
 
+;;; Dispatch Caching Helpers
+
+(defconstant +dispatch-cache-threshold+ 4)
+
+(defparameter *fol-type-predicates*
+  '(integer? float? string? vector? dict? set? boolean? char? keyword? symbol?
+    fn? map? list? seq? coll? nil? some? map-entry?))
+
+(defun type-dispatch-cond-p (cond-form params)
+  (let ((non-fallback (butlast (rest cond-form))))
+    (and non-fallback
+         (loop for clause in non-fallback
+               for check = (first clause)
+               always
+               (or (and (consp check) (eq (first check) 'cl:typep) (member (second check) params))
+                   (and (consp check) (= (length check) 2) (member (second check) params)
+                        (let ((pred (first check)))
+                          (or (member pred *fol-type-predicates*)
+                              (member (symbol-name pred) (mapcar #'symbol-name *fol-type-predicates*) :test #'string=)))))))))
+
+(defun predicate-dispatch-cond-p (cond-form)
+  (and (consp cond-form) (eq (first cond-form) 'cl:cond)
+       (>= (- (length (rest cond-form)) 1) +dispatch-cache-threshold+)))
+
+(defun value-key-expr (params)
+  `(cl:list ,@(mapcar (lambda (p) `(fol.compiler.dispatch:pred-key ,p)) params)))
+
+(defun cacheable-defn-p (lambda-form)
+  (let* ((params (second lambda-form)) (fixed-arity-p (not (member '&rest params)))
+         (raw-body (cddr lambda-form)) (first-body (first raw-body))
+         (has-declare (and (consp first-body) (eq (first first-body) 'cl:declare)))
+         (cond-form (if has-declare (second raw-body) first-body)))
+    (when (and fixed-arity-p (consp cond-form) (eq (first cond-form) 'cl:cond))
+      (cond ((type-dispatch-cond-p cond-form params) :type)
+            ((predicate-dispatch-cond-p cond-form) :value)))))
+
+(defun make-cached-defn (name lambda-form dispatch-mode)
+  (let* ((params (second lambda-form)) (raw-body (cddr lambda-form))
+         (first-body (first raw-body)) (has-declare (and (consp first-body) (eq (first first-body) 'cl:declare)))
+         (declare-form (when has-declare first-body)) (cond-form (if has-declare (second raw-body) first-body))
+         (all-clauses (rest cond-form)) (fallback (car (last all-clauses))) (clauses (butlast all-clauses))
+         (n (length clauses)) (pkg (or (symbol-package name) *package*))
+         (helper-names (loop for i below n collect (intern (format nil "%-~A-CLAUSE-~D" (symbol-name name) i) pkg)))
+         (cache-name (intern (format nil "%-~A-DISPATCH-CACHE" (symbol-name name)) pkg))
+         (key-sym (gensym "KEY")) (hit-sym (gensym "HIT"))
+         (key-expr (ecase dispatch-mode
+                     (:type `(cl:list ,@(mapcar (lambda (p) `(cl:class-of ,p)) params)))
+                     (:value (value-key-expr params)))))
+    `(cl:progn
+       ,@(loop for clause in clauses for hname in helper-names
+               collect `(cl:defun ,hname ,params ,@(when declare-form (list declare-form)) ,(second clause)))
+       (cl:defparameter ,cache-name (fol.compiler.dispatch:make-dispatch-cache))
+       (cl:defun ,name ,params ,@(when declare-form (list declare-form))
+         (cl:let* ((,key-sym ,key-expr) (,hit-sym (fol.compiler.dispatch:cache-lookup ,cache-name ,key-sym)))
+           (cl:if ,hit-sym (cl:funcall ,hit-sym ,@params)
+               (cl:cond ,@(loop for clause in clauses for hname in helper-names
+                               collect `(,(first clause)
+                                        (fol.compiler.dispatch:cache-insert! ,cache-name ,key-sym #',hname)
+                                        (,hname ,@params)))
+                        ,fallback)))))))
+
+(defun make-cached-fn (lambda-form dispatch-mode)
+  (let* ((params (second lambda-form)) (raw-body (cddr lambda-form))
+         (first-body (first raw-body)) (has-declare (and (consp first-body) (eq (first first-body) 'cl:declare)))
+         (declare-form (when has-declare first-body)) (cond-form (if has-declare (second raw-body) first-body))
+         (all-clauses (rest cond-form)) (fallback (car (last all-clauses))) (clauses (butlast all-clauses))
+         (cache-sym (gensym "FOL-FN-CACHE-")) (helper-syms (loop for i below (length clauses) collect (gensym (format nil "FOL-FN-CLAUSE-~D-" i))))
+         (key-sym (gensym "KEY")) (hit-sym (gensym "HIT"))
+         (key-expr (ecase dispatch-mode
+                     (:type `(cl:list ,@(mapcar (lambda (p) `(cl:class-of ,p)) params)))
+                     (:value (value-key-expr params)))))
+    `(cl:progn
+       ,@(loop for clause in clauses for hname in helper-syms
+               collect `(cl:defun ,hname ,params ,@(when declare-form (list declare-form)) ,(second clause)))
+       (cl:defvar ,cache-sym (fol.compiler.dispatch:make-dispatch-cache))
+       (cl:lambda ,params ,@(when declare-form (list declare-form))
+         (cl:let* ((,key-sym ,key-expr) (,hit-sym (fol.compiler.dispatch:cache-lookup ,cache-sym ,key-sym)))
+           (cl:if ,hit-sym (cl:funcall ,hit-sym ,@params)
+               (cl:cond ,@(loop for clause in clauses for hname in helper-syms
+                               collect `(,(first clause)
+                                        (fol.compiler.dispatch:cache-insert! ,cache-sym ,key-sym #',hname)
+                                        (,hname ,@params)))
+                        ,fallback)))))))
+
 (defun emit-defn (node)
   "Emit a defn node as (defun name ...).
    Puts the function in the function slot, not the value slot.
