@@ -1611,17 +1611,22 @@
 
 (defun emit-fn (node)
   "Emit a fn node as CL lambda.
-   For named fns, wraps in labels for self-recursion."
+   For named fns, wraps in labels for self-recursion.
+   For unnamed multi-clause fns with fixed arity, applies dispatch caching."
   (let* ((name (fol.compiler.ast:fn-node-name node))
          (clauses (fol.compiler.ast:fn-node-clauses node))
-         (lambda-form (compile-fn clauses)))
+         (lambda-form (compile-fn clauses))
+         (cache-mode (cacheable-defn-p lambda-form)))
     (if name
         ;; Named fn: wrap in labels for self-reference
         (let ((params (second lambda-form))
               (body (cddr lambda-form)))
           `(cl:labels ((,name ,params ,@body))
              #',name))
-        lambda-form)))
+        ;; Unnamed fn: apply caching if possible
+        (if cache-mode
+            (make-cached-fn lambda-form cache-mode)
+            lambda-form))))
 
 (defun emit-thread-first (node)
   "Emit a thread-first node by expanding into nested function calls.
