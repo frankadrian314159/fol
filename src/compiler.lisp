@@ -2513,7 +2513,7 @@
   "Emit a defn node as (defun name ...).
    Puts the function in the function slot, not the value slot.
    For single-clause: (defun name (params) body...)
-   For multi-clause: (defun name (&rest args) (cond ...))
+   For multi-clause: (defun name (&rest args) (cond ...)) with optional caching
    Also emits metadata setting code if docstring is present."
   (let* ((name (fol.compiler.ast:defn-node-name node))
          (clauses (fol.compiler.ast:defn-node-clauses node))
@@ -2523,14 +2523,17 @@
     (when *file-function-defs*
           (pushnew name *file-function-defs* :test #'string=))
     ;; lambda-form is (lambda params body...)
-    ;; Extract params and body to create defun
-    (let ((params (second lambda-form))
-          (body (cddr lambda-form)))
-      (let ((defun-form `(cl:defun ,name ,params ,@body))
-            (metadata-form (emit-metadata-assignment name docstring clauses)))
-        (if metadata-form
-            `(cl:progn ,defun-form ,metadata-form)
-            defun-form)))))
+    ;; Check if dispatch caching applies
+    (let* ((cache-mode (cacheable-defn-p lambda-form))
+           (base-form (if cache-mode
+                          (make-cached-defn name lambda-form cache-mode)
+                          (let ((params (second lambda-form))
+                                (body (cddr lambda-form)))
+                            `(cl:defun ,name ,params ,@body))))
+           (metadata-form (emit-metadata-assignment name docstring clauses)))
+      (if metadata-form
+          `(cl:progn ,base-form ,metadata-form)
+          base-form))))
 
 (defun emit-letfn (node)
   "Emit a letfn node as CL labels.
