@@ -2001,6 +2001,99 @@
           `(cl:progn ,defgeneric-form ,metadata-form)
           defgeneric-form))))
 
+;;; Defgeneric Multi-Pattern Caching Helpers
+
+(defun cacheable-defgeneric-p (lambda-lists)
+  "Return T if the defgeneric has enough distinct patterns to warrant caching.
+   Gate: ≥4 distinct (arity, type-pattern) combinations."
+  (and lambda-lists
+       (>= (length lambda-lists) +dispatch-cache-threshold+)))
+
+(defun make-cached-defgeneric-dispatcher (name patterns-by-arity dispatcher-cases)
+  "Wrap the dispatcher with cache logic using compound (arity . class-tuple) keys.
+   Returns a modified dispatcher form that caches dispatch decisions."
+  (let ((cache-name (intern (format nil "%-~A-GF-DISPATCH-CACHE" (symbol-name name))
+                            (symbol-package name)))
+        (key-sym (gensym "KEY"))
+        (hit-sym (gensym "HIT"))
+        (args-sym 'args))
+    `(cl:progn
+       ;; Create and register the cache
+       (cl:defparameter ,cache-name (fol.compiler.dispatch:make-dispatch-cache))
+       (fol.compiler.dispatch:register-gf-cache! ',name ,cache-name)
+       ;; Modified dispatcher with cache lookup
+       (cl:defun ,name (&rest ,args-sym)
+         (cl:let* ((,key-sym (cl:cons (cl:length ,args-sym)
+                                      (cl:mapcar #'cl:class-of ,args-sym)))
+                   (,hit-sym (fol.compiler.dispatch:cache-lookup ,cache-name ,key-sym)))
+           (cl:if ,hit-sym
+               ;; Cache hit: apply cached function directly
+               (cl:apply ,hit-sym ,args-sym)
+               ;; Cache miss: dispatch normally and cache result
+               ,(wrap-dispatcher-with-cache dispatcher-cases cache-name key-sym args-sym)))))))
+
+(defun wrap-dispatcher-with-cache (dispatcher-cases cache-name key-sym args-sym)
+  "Wrap the original dispatcher case/cond to insert cache on each matched path.
+   Returns modified dispatcher that caches the winning generic on miss."
+  (let ((new-cases
+         (loop for case-item in dispatcher-cases
+               for arity = (first case-item)
+               for body = (rest case-item)
+               collect
+               (if (= (length body) 1)
+                   ;; Single form in body
+                   (let* ((original-form (first body))
+                          (wrapped (wrap-form-with-cache original-form cache-name key-sym args-sym)))
+                     `(,arity ,wrapped))
+                   ;; Multiple forms in body
+                   (let* ((init-forms (butlast body))
+                          (final-form (car (last body)))
+                          (wrapped-final (wrap-form-with-cache final-form cache-name key-sym args-sym)))
+                     `(,arity ,@init-forms ,wrapped-final))))))
+    `(cl:case (cl:length ,args-sym)
+       ,@new-cases)))
+
+(defun wrap-form-with-cache (form cache-name key-sym args-sym)
+  "Wrap a single form with cache insertion if it's an apply.
+   Returns the wrapped or original form."
+  (if (and (consp form)
+           (eq (first form) 'apply)
+           (consp (second form))
+           (eq (first (second form)) 'cl:quote))
+      ;; Form is (apply #'FUNCNAME args) - cache the function
+      (let ((fn-name (second (second form))))
+        `(cl:progn
+           (fol.compiler.dispatch:cache-insert! ,cache-name ,key-sym #',fn-name)
+           ,form))
+      ;; Form is something else (maybe COND) - wrap if COND
+      (if (and (consp form) (eq (first form) 'cond))
+          (wrap-cond-for-generic-cache form cache-name key-sym args-sym)
+          form)))
+
+(defun wrap-cond-for-generic-cache (cond-form cache-name key-sym args-sym)
+  "Wrap COND clauses to cache the winning internal generic on dispatch match."
+  (let* ((clauses (rest cond-form))
+         (fallback (car (last clauses)))
+         (non-fallback (butlast clauses)))
+    `(cl:cond
+       ,@(loop for clause in non-fallback
+               collect
+               (let ((condition (first clause))
+                     (body (rest clause)))
+                 `(,condition
+                   ;; Extract function from (apply #'FUNCNAME args) and cache it
+                   ,(if (and (= (length body) 1)
+                             (consp (first body))
+                             (eq (first (first body)) 'apply)
+                             (consp (second (first body)))
+                             (eq (first (second (first body))) 'cl:quote))
+                        (let ((fn-name (second (second (first body)))))
+                          `(cl:progn
+                             (fol.compiler.dispatch:cache-insert! ,cache-name ,key-sym #',fn-name)
+                             ,(first body)))
+                        (first body)))))
+       ,fallback)))
+
 (defun emit-defgeneric-multi-pattern (name lambda-lists options)
   "Emit CL code for a multi-pattern defgeneric.
    Creates internal generic functions for each pattern and a dispatcher
@@ -2065,14 +2158,24 @@
                                   ,@cond-clauses
                                   (t (error "No matching pattern for ~A with args ~S"
                                        ',name args)))))))))
-    `(cl:progn
-       ,@generic-defs
-       (cl:defun ,name (&rest args)
-         (cl:case (length args)
-           ,@dispatcher-cases
-           (t (error "No matching arity ~A for ~A"
-                (length args) ',name))))
-       ',name)))
+    ;; Apply caching if enough distinct patterns
+    (let ((base-dispatcher
+           `(cl:progn
+              ,@generic-defs
+              (cl:defun ,name (&rest args)
+                (cl:case (length args)
+                  ,@dispatcher-cases
+                  (t (error "No matching arity ~A for ~A"
+                       (length args) ',name))))
+              ',name)))
+      (if (cacheable-defgeneric-p lambda-lists)
+          ;; Wrap with caching
+          `(cl:progn
+             ,@generic-defs
+             ,(make-cached-defgeneric-dispatcher name patterns-by-arity dispatcher-cases)
+             ',name)
+          ;; No caching
+          base-dispatcher))))
 
 (defvar *method-preferences* (make-hash-table :test 'eq))
 
