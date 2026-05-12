@@ -2247,7 +2247,6 @@
         (qualifier (fol.compiler.ast:defmethod-node-qualifier node))
         (clauses (fol.compiler.ast:defmethod-node-clauses node))
         (docstring (fol.compiler.ast:defmethod-node-docstring node)))
-    (format t "DEBUG: emit-defmethod ~S~%" name)
     (let ((*extra-special-vars* nil))
       ;; Compute the defmethod form once
       (let ((method-form
@@ -2261,8 +2260,7 @@
                                                   (or (listp p)
                                                       (typep p 'fol.compiler.collections:<dict>)
                                                       (typep p 'fol.compiler.collections:<vector>)))
-                                              param-list))
-                        (_ (format t "DEBUG: has-specializers ~S for ~S with params ~S~%" has-specializers name param-list)))
+                                              param-list)))
                    (if (and has-specializers
                             ;; Only emit CLOS defmethod if all parameters are simple symbols 
                             ;; or (symbol type) specializers.
@@ -2310,7 +2308,6 @@
                            (multiple-value-bind (regular-params rest-param)
                                (fol.compiler.destructure:parse-params param-list)
                              (let* ((variadic-p (member (symbol-name name) '("ASSOC" "DISSOC" "CONJ" "MERGE" "LIST" "LIST*" "VECTOR" "DICT" "SET") :test #'string-equal))
-                                    (_ (format t "DEBUG: variadic-p ~S for ~S~%" variadic-p name))
                                     (final-rest-param (or rest-param (when variadic-p (gensym "REST"))))
                                     (lambda-list (if final-rest-param
                                                      (append regular-params (list '&rest final-rest-param))
