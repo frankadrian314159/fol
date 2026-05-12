@@ -2646,17 +2646,45 @@
   (and (consp cond-form) (eq (first cond-form) 'cl:cond)
        (>= (- (length (rest cond-form)) 1) +dispatch-cache-threshold+)))
 
+(defun has-reference-type-value-predicates-p (cond-form params)
+  "Return T if COND has value predicates on reference types (not eql-comparable).
+   Detects patterns like (eq x obj) or (eql x symbol-ref) where obj/symbol-ref
+   could be a reference type that multiple values share (same class).
+   If detected, caching should be skipped to avoid cache conflicts."
+  (let ((non-fallback (butlast (rest cond-form))))
+    (loop for clause in non-fallback
+          for check = (first clause)
+          thereis
+          ;; Pattern: (eq/eql param symbol-or-var) or similar value predicate
+          (and (consp check)
+               (member (first check) '(cl:eq cl:eql eq eql equal) :test #'eq)
+               (= (length check) 3)
+               ;; One arg is a parameter, one is potentially a reference
+               (let ((arg1 (second check))
+                     (arg2 (third check)))
+                 (and (or (member arg1 params) (member arg2 params))
+                      (or (and (member arg1 params) (symbolp arg2))
+                          (and (member arg2 params) (symbolp arg1)))))))))
+
 (defun value-key-expr (params)
   `(cl:list ,@(mapcar (lambda (p) `(fol.compiler.dispatch:pred-key ,p)) params)))
 
 (defun cacheable-defn-p (lambda-form)
+  "Return :type, :value, or nil for cache mode.
+   Returns nil if reference-type value predicates detected (would cause cache conflicts)."
   (let* ((params (second lambda-form)) (fixed-arity-p (not (member '&rest params)))
          (raw-body (cddr lambda-form)) (first-body (first raw-body))
          (has-declare (and (consp first-body) (eq (first first-body) 'cl:declare)))
          (cond-form (if has-declare (second raw-body) first-body)))
     (when (and fixed-arity-p (consp cond-form) (eq (first cond-form) 'cl:cond))
+      ;; Check for type dispatch (always safe to cache)
       (cond ((type-dispatch-cond-p cond-form params) :type)
-            ((predicate-dispatch-cond-p cond-form) :value)))))
+            ;; Check for value predicate dispatch, but exclude reference-type cases
+            ((and (predicate-dispatch-cond-p cond-form)
+                  (not (has-reference-type-value-predicates-p cond-form params)))
+             :value)
+            ;; All other cases: not cacheable (including ref-type value predicates)
+            (t nil)))))
 
 (defun make-cached-defn (name lambda-form dispatch-mode)
   (let* ((params (second lambda-form)) (raw-body (cddr lambda-form))
