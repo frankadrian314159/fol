@@ -2238,6 +2238,102 @@
                      `((t (cl:error "No matching method clause for ~A with ~D arguments: ~S"
                             ',name (cl:length ,args-sym) ,args-sym))))))))))
 
+;;; Dispatch Cache Constant (needed by method caching helpers)
+
+(defconstant +dispatch-cache-threshold+ 4)
+
+;;; Method Caching Helpers
+
+(defvar *method-cache-counter* 0
+  "Monotonically increasing counter for unique defmethod cache variable naming.")
+
+(defun cacheable-method-p (method-form)
+  "Return T if METHOD-FORM is a defmethod with fixed-arity and cacheable COND body.
+   Checks for: (defmethod name [qualifier] params (cond ...)) structure
+   with pure type dispatch (no &rest params, enough clauses)."
+  (and (consp method-form)
+       (member (first method-form) '(cl:defmethod defmethod) :test #'eq)
+       (let* ((rest (cddr method-form))
+              ;; Skip optional qualifier
+              (has-qualifier (keywordp (first rest)))
+              (rest (if has-qualifier (cdr rest) rest))
+              (ll (first rest))
+              (body (cdr rest)))
+         ;; Check for fixed arity (no &rest)
+         (and (listp ll)
+              (not (member '&rest ll))
+              ;; Find COND form in body
+              (let ((cond-form (find-if (lambda (f) (and (consp f) (eq (first f) 'cl:cond)))
+                                        body)))
+                (and cond-form
+                     ;; Enough clauses to be worth caching
+                     (>= (- (length (rest cond-form)) 1) +dispatch-cache-threshold+)))))))
+
+(defun make-cached-method (name method-form)
+  "Transform a defmethod form with COND body into a cached dispatcher.
+   Extracts COND, wraps it with cache lookup/insert, returns modified defmethod."
+  (let* ((rest (cddr method-form))
+         (has-qualifier (keywordp (first rest)))
+         (qualifier (when has-qualifier (first rest)))
+         (rest (if has-qualifier (cdr rest) rest))
+         (ll (first rest))
+         (body (cdr rest))
+         ;; Extract COND and preceding declarations
+         (declares (loop while (and body (consp (first body))
+                                    (eq (first (first body)) 'cl:declare))
+                         collect (pop body)))
+         (cond-form (first body))
+         ;; Get parameter names (excluding &rest which we verified doesn't exist)
+         (params (remove-if-not #'symbolp ll))
+         ;; Cache naming
+         (suffix (incf *method-cache-counter*))
+         (pkg (or (symbol-package name) *package*))
+         (cache-name (intern (format nil "%-~A-METHOD-CACHE-~D" (symbol-name name) suffix) pkg))
+         ;; Build cache key expression
+         (key-sym (gensym "KEY"))
+         (hit-sym (gensym "HIT"))
+         (key-expr `(cl:list ,@(mapcar (lambda (p) `(cl:class-of ,p)) params))))
+    ;; Return modified method form with caching wrapper
+    `(cl:progn
+       ;; Create and register the cache
+       (cl:defparameter ,cache-name (fol.compiler.dispatch:make-dispatch-cache))
+       (fol.compiler.dispatch:register-gf-cache! ',name ,cache-name)
+       ;; Modified defmethod with cache check before COND
+       (cl:defmethod ,name ,@(when qualifier (list qualifier)) ,ll
+         ,@declares
+         (cl:let* ((,key-sym ,key-expr)
+                   (,hit-sym (fol.compiler.dispatch:cache-lookup ,cache-name ,key-sym)))
+           (cl:if ,hit-sym
+               ;; Cache hit: call cached function
+               (cl:funcall ,hit-sym ,@params)
+               ;; Cache miss: evaluate COND and cache winner
+               ,(wrap-cond-with-cache cond-form cache-name key-sym params)))))))
+
+(defun wrap-cond-with-cache (cond-form cache-name key-sym params)
+  "Wrap a COND form to cache the winning clause's behavior.
+   Returns a modified COND where each non-fallback clause inserts itself into cache."
+  (let* ((clauses (rest cond-form))
+         (fallback (car (last clauses)))
+         (non-fallback (butlast clauses)))
+    ;; Map each clause to wrap its body with cache insertion
+    (let ((cached-clauses
+           (loop for clause in non-fallback
+                 collect
+                 (let ((condition (first clause))
+                       (body (rest clause)))
+                   ;; Build wrapper: cache self, then execute
+                   ;; Cache the entire clause body result by wrapping in a lambda
+                   `(,condition
+                     ;; Register winning clause as lambda in cache
+                     (fol.compiler.dispatch:cache-insert! ,cache-name ,key-sym
+                                                         (lambda () (progn ,@body)))
+                     ;; Execute the body
+                     ,@body)))))
+      ;; Return modified COND with cached clauses + fallback
+      `(cl:cond
+         ,@cached-clauses
+         ,fallback))))
+
 (defun emit-defmethod (node)
   "Emit a defmethod node as CL code.
    Single-clause with type specializers: CL defmethod.
@@ -2327,8 +2423,11 @@
                                       ,@(when *extra-special-vars*
                                               `((declare (special ,@(remove-duplicates *extra-special-vars*)))))
                                       ,@emitted-body)))))))
-                 ;; Multi-clause: emit dispatched defmethod
-                 (compile-defmethod-clauses name clauses qualifier))))
+                 ;; Multi-clause: emit dispatched defmethod, optionally cached
+                 (let ((raw-form (compile-defmethod-clauses name clauses qualifier)))
+                   (if (cacheable-method-p raw-form)
+                       (make-cached-method name raw-form)
+                       raw-form)))))
         ;; Wrap with metadata assignment if docstring is present
         (if docstring
             (let ((metadata-form
@@ -2423,8 +2522,6 @@
                                                     ,metadata-dict))))))
 
 ;;; Dispatch Caching Helpers
-
-(defconstant +dispatch-cache-threshold+ 4)
 
 (defparameter *fol-type-predicates*
   '(integer? float? string? vector? dict? set? boolean? char? keyword? symbol?

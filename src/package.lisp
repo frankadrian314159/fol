@@ -201,6 +201,23 @@
    ;; Hooks
    *emit-predicate-hook*))
 
+(defpackage fol.compiler.dispatch
+  (:use cl)
+  (:export
+   ;; Cache structure
+   dispatch-cache
+   make-dispatch-cache
+   ;; Cache operations
+   cache-lookup
+   cache-insert!
+   cache-flush!
+   pred-key
+   ;; GF-level cache management
+   *gf-cache-registry*
+   register-gf-cache!
+   flush-gf-caches!
+   flush-all-caches!))
+
 (defpackage fol.compiler.mutable
   (:use cl)
   (:shadow atom)
