@@ -7,7 +7,8 @@
 (define +cache-size+ 8)
 
 (define-struct dispatch-cache
-  (entries next))
+  (entries next)
+  #:mutable)
 
 (define (create-dispatch-cache)
   (make-dispatch-cache (make-vector +cache-size+ #f) 0))
