@@ -9,8 +9,10 @@
 (define +cache-size+ 8)
 
 (define-struct dispatch-cache
-  ([entries (make-vector +cache-size+ #f)]
-   [next 0]))
+  (entries next))
+
+(define (create-dispatch-cache)
+  (make-dispatch-cache (make-vector +cache-size+ #f) 0))
 
 (define (cache-lookup cache key)
   (let loop ([i 0])
@@ -36,7 +38,7 @@
 (define (%-clause-other x) (list 'other x))
 
 ;; Cache variable
-(define %-hetero-cache (make-dispatch-cache))
+(define %-hetero-cache (create-dispatch-cache))
 (define %-cache-hits 0)
 (define %-cache-misses 0)
 
