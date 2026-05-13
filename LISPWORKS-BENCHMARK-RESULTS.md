@@ -80,15 +80,17 @@ Test: 200,000 calls through CLOS dispatch with 6 methods
 
 | Run | Time (seconds) | Per-call (µs) |
 |-----|----------------|---------------|
-| 1   | TBD            | TBD           |
-| 2   | TBD            | TBD           |
-| 3   | TBD            | TBD           |
-| **Average** | **TBD** | **TBD** |
+| 1   | 21.532         | 107.66        |
+| 2   | 21.250         | 106.25        |
+| 3   | 21.406         | 107.03        |
+| **Average** | **21.396** | **106.98** |
 
 #### Analysis
 
-- **Baseline dispatch cost**: TBD µs
-- **Comparison with COND**: TBD (faster / slower than heterogeneous COND)
+- **Baseline CLOS dispatch cost**: 106.98 µs per call
+- **Comparison with COND**: Nearly identical (106.98 vs 105.7 µs for heterogeneous COND)
+- **CLOS overhead**: ~1.2 µs more than COND (~1.1% slower)
+- **Notable**: CLOS dispatch shows almost no overhead vs COND in LispWorks
 
 ---
 
@@ -157,6 +159,34 @@ For LispWorks (baseline ~105 µs):
 | **Difference** | **+0.06 s** | **+0.078 s** | **~0% variance** |
 
 **Key Finding**: Unlike SBCL (where homogeneous shows 1.9× speedup due to branch prediction), LispWorks shows **nearly identical slowdown** whether types are uniform or mixed. This proves that **allocation cost, not dispatch complexity, is the bottleneck** in LispWorks.
+
+---
+
+## Complete LispWorks Results Summary
+
+### All Three Benchmarks (Uncached Baseline)
+
+| Benchmark | Baseline (s) | Per-call (µs) | Type Variance |
+|---|---|---|---|
+| Heterogeneous COND | 21.138 | 105.69 | 5-type cycle |
+| Homogeneous COND | 21.198 | 105.99 | Fixnum only |
+| CLOS defmethod | 21.396 | 106.98 | 5-type cycle |
+| **Variance** | **+0.26 s** | **+1.29 µs** | **~1% variance** |
+
+### All Three Benchmarks (Cached)
+
+| Benchmark | Time (s) | Per-call (µs) | Slowdown |
+|---|---|---|---|
+| Heterogeneous COND | 25.412 | 127.06 | 1.202× |
+| Homogeneous COND | 25.490 | 127.45 | 1.203× |
+| CLOS defmethod | N/A | N/A | N/A (no caching applied) |
+
+### Key Observations
+
+1. **COND vs CLOS**: CLOS dispatch is only ~1.2 µs slower than COND (1.1% overhead)
+2. **Type variance irrelevant**: All three show ~106 µs baseline ±1.3%
+3. **Caching effect uniform**: Both COND variants show ~20% slowdown
+4. **Allocation is the limiting factor**: Type complexity and dispatch mechanism don't matter; allocation cost dominates
 
 ---
 
