@@ -98,7 +98,7 @@
         times
         (let* ([start (current-process-milliseconds)]
                [result 0])
-          (dotimes i (length *test-data*)
+          (for ([i (length *test-data*)])
             (set! result (+ result (if (dispatch-homo-uncached (list-ref *test-data* i)) 1 0))))
           (let ([elapsed (- (current-process-milliseconds) start)])
             (printf "  Run ~D: ~A seconds\n" (+ run 1) (/ elapsed 1000.0))
@@ -113,7 +113,7 @@
                [result 0])
           (set! %-cache-hits 0)
           (set! %-cache-misses 0)
-          (dotimes i (length *test-data*)
+          (for ([i (length *test-data*)])
             (set! result (+ result (if (dispatch-homo-cached (list-ref *test-data* i)) 1 0))))
           (let ([elapsed (- (current-process-milliseconds) start)])
             (printf "  Run ~D: ~A seconds\n" (+ run 1) (/ elapsed 1000.0))
@@ -128,16 +128,12 @@
   (printf "Test data: 200,000 fixnum-only calls~%~%")
 
   (printf "Warming up JIT compiler (10,000 calls)...~%")
-  (let loop ([i 0])
-    (when (< i 10000)
-      (dispatch-homo-uncached (list-ref *test-data* (modulo i (length *test-data*))))
-      (loop (+ i 1))))
-  (let loop ([i 0])
-    (when (< i 10000)
-      (set! %-cache-hits 0)
-      (set! %-cache-misses 0)
-      (dispatch-homo-cached (list-ref *test-data* (modulo i (length *test-data*))))
-      (loop (+ i 1))))
+  (for ([i 10000])
+    (dispatch-homo-uncached (list-ref *test-data* (modulo i (length *test-data*)))))
+  (for ([i 10000])
+    (set! %-cache-hits 0)
+    (set! %-cache-misses 0)
+    (dispatch-homo-cached (list-ref *test-data* (modulo i (length *test-data*)))))
   (printf "Warmup complete.~%~%")
 
   (printf "=== Uncached COND Dispatch (3 iterations) ===~%")
@@ -154,15 +150,6 @@
   (printf "~&================================~%")
   (printf "Benchmark Complete~%")
   (printf "================================~%"))
-
-;; Helper macro
-(define-syntax dotimes
-  (syntax-rules ()
-    [(dotimes (var count) body ...)
-     (let loop ([var 0])
-       (when (< var count)
-         body ...
-         (loop (+ var 1))))]))
 
 ;; Run benchmarks
 (run-all-benchmarks)
