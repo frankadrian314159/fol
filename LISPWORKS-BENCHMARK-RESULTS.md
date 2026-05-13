@@ -50,24 +50,25 @@ Test: All 200,000 calls with fixnum only
 
 | Run | Time (seconds) | Per-call (µs) |
 |-----|----------------|---------------|
-| 1   | TBD            | TBD           |
-| 2   | TBD            | TBD           |
-| 3   | TBD            | TBD           |
-| **Average** | **TBD** | **TBD** |
+| 1   | 21.218         | 106.09        |
+| 2   | 21.329         | 106.64        |
+| 3   | 21.046         | 105.23        |
+| **Average** | **21.198** | **105.99** |
 
 #### Cached Dispatch
 
 | Run | Time (seconds) | Per-call (µs) | Cache Hits |
 |-----|----------------|---------------|-----------|
-| 1   | TBD            | TBD           | TBD       |
-| 2   | TBD            | TBD           | TBD       |
-| 3   | TBD            | TBD           | TBD       |
-| **Average** | **TBD** | **TBD** | **200,000** |
+| 1   | 25.266         | 126.33        |
+| 2   | 25.875         | 129.38        |
+| 3   | 25.328         | 126.64        |
+| **Average** | **25.490** | **127.45** | **200,000** |
 
 #### Analysis
 
-- **Caching Ratio**: TBD× (cached time / uncached time)
-- **Branch prediction effect**: TBD (vs SBCL 1.9× faster with caching)
+- **Caching Ratio**: 1.203× SLOWER with caching (20.3% slowdown)
+- **Branch prediction effect**: None observable (vs SBCL 1.9× faster with caching)
+- **Key finding**: Homogeneous vs heterogeneous make almost no difference (1.202× vs 1.203×). Allocation cost dominates regardless of type variance.
 
 ---
 
@@ -146,6 +147,16 @@ For LispWorks (baseline ~105 µs):
 - Type test in COND (~10-20 µs) is cheap compared to baseline
 - Savings from avoiding COND (<1% of baseline) don't offset allocation cost
 - Result: Caching fails due to memory pressure, not dispatch speed
+
+### Homogeneous vs Heterogeneous Comparison
+
+| Benchmark | Uncached (s) | Cached (s) | Ratio |
+|---|---|---|---|
+| Heterogeneous | 21.138 | 25.412 | 1.202× slower |
+| Homogeneous   | 21.198 | 25.490 | 1.203× slower |
+| **Difference** | **+0.06 s** | **+0.078 s** | **~0% variance** |
+
+**Key Finding**: Unlike SBCL (where homogeneous shows 1.9× speedup due to branch prediction), LispWorks shows **nearly identical slowdown** whether types are uniform or mixed. This proves that **allocation cost, not dispatch complexity, is the bottleneck** in LispWorks.
 
 ---
 

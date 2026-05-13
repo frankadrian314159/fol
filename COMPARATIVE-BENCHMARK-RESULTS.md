@@ -153,7 +153,30 @@ ABCL (149.4 µs baseline):
   - Caching overhead: ~1.1 µs (0.007× baseline)
   - Result: ~1.0× NEUTRAL
   - Why: JVM GC pressure masks both paths equally
+
+LispWorks (105.7 µs baseline):
+  - Caching overhead: ~21.4 µs (20.2× baseline!)
+  - Result: 1.20× SLOWDOWN
+  - Why: Memory allocation explosion (6.9× more per call)
 ```
+
+### Type Variance Doesn't Matter in LispWorks
+
+Homogeneous vs heterogeneous dispatch in LispWorks:
+
+```
+Heterogeneous (5-type cycle):  1.202× slower with caching
+Homogeneous (fixnum only):     1.203× slower with caching
+Difference:                    ~0% (negligible)
+```
+
+**Contrast with SBCL**:
+```
+SBCL Heterogeneous:  5.3× slower
+SBCL Homogeneous:    1.9× FASTER (branch prediction helps!)
+```
+
+**Interpretation**: In SBCL, branch prediction and type variance matter greatly. In LispWorks, **allocation cost is so dominant that type complexity is irrelevant**. This confirms allocation, not dispatch, is the bottleneck.
 
 ### Why Implementations Differ
 
