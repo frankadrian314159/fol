@@ -62,29 +62,46 @@
           (for ([i (length *test-data*)])
             (set! result (+ result (if (dispatch-racket-impl (list-ref *test-data* i)) 1 0))))
           (let ([elapsed (- (current-process-milliseconds) start)])
-            (printf "  Run ~D: ~A seconds\n" (+ run 1) (/ elapsed 1000.0))
+            (printf "  Run %d: %s seconds\n" (+ run 1) (/ elapsed 1000.0))
             (loop (+ run 1) (cons result times)))))))
 
 (define (run-all-benchmarks)
   "Run all benchmarks"
-  (printf "~&================================~%")
-  (printf "Racket Method Dispatch Micro-Benchmark~%")
-  (printf "================================~%")
-  (printf "Implementation: ~A~%" (version))
-  (printf "Test data: 200,000 calls over repeating 5-type cycle~%")
-  (printf "  Type cycle: fixnum -> string -> list -> vector -> symbol~%~%")
+  (printf "
+================================
+")
+  (printf "Racket Method Dispatch Micro-Benchmark
+")
+  (printf "================================
+")
+  (printf "Implementation: %s
+" (version))
+  (printf "Test data: 200,000 calls over repeating 5-type cycle
+")
+  (printf "  Type cycle: fixnum -> string -> list -> vector -> symbol
 
-  (printf "Warming up JIT compiler (10,000 calls)...~%")
+")
+
+  (printf "Warming up JIT compiler (10,000 calls)...
+")
   (for ([i 10000])
     (dispatch-racket-impl (list-ref *test-data* (modulo i (length *test-data*)))))
-  (printf "Warmup complete.~%~%")
+  (printf "Warmup complete.
 
-  (printf "Running generic function dispatch benchmark (3 iterations):~%")
+")
+
+  (printf "Running generic function dispatch benchmark (3 iterations):
+")
   (benchmark-dispatch 3)
 
-  (printf "~&================================~%")
-  (printf "Benchmark Complete~%")
-  (printf "================================~%"))
+  (printf "
+================================
+")
+  (printf "Benchmark Complete
+")
+  (printf "================================
+"))
 
 ;; Run benchmarks
 (run-all-benchmarks)
+

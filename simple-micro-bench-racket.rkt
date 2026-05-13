@@ -101,7 +101,7 @@
           (for ([i (length *test-data*)])
             (set! result (+ result (if (dispatch-homo-uncached (list-ref *test-data* i)) 1 0))))
           (let ([elapsed (- (current-process-milliseconds) start)])
-            (printf "  Run ~D: ~A seconds\n" (+ run 1) (/ elapsed 1000.0))
+            (printf "  Run %d: %s seconds\n" (+ run 1) (/ elapsed 1000.0))
             (loop (+ run 1) (cons result times)))))))
 
 (define (benchmark-cached [iterations 3])
@@ -116,40 +116,63 @@
           (for ([i (length *test-data*)])
             (set! result (+ result (if (dispatch-homo-cached (list-ref *test-data* i)) 1 0))))
           (let ([elapsed (- (current-process-milliseconds) start)])
-            (printf "  Run ~D: ~A seconds\n" (+ run 1) (/ elapsed 1000.0))
+            (printf "  Run %d: %s seconds\n" (+ run 1) (/ elapsed 1000.0))
             (loop (+ run 1) (cons result times)))))))
 
 (define (run-all-benchmarks)
   "Run all benchmarks"
-  (printf "~&================================~%")
-  (printf "Racket Homogeneous Dispatch Caching Micro-Benchmark~%")
-  (printf "================================~%")
-  (printf "Implementation: ~A~%" (version))
-  (printf "Test data: 200,000 fixnum-only calls~%~%")
+  (printf "
+================================
+")
+  (printf "Racket Homogeneous Dispatch Caching Micro-Benchmark
+")
+  (printf "================================
+")
+  (printf "Implementation: %s
+" (version))
+  (printf "Test data: 200,000 fixnum-only calls
 
-  (printf "Warming up JIT compiler (10,000 calls)...~%")
+")
+
+  (printf "Warming up JIT compiler (10,000 calls)...
+")
   (for ([i 10000])
     (dispatch-homo-uncached (list-ref *test-data* (modulo i (length *test-data*)))))
   (for ([i 10000])
     (set! %-cache-hits 0)
     (set! %-cache-misses 0)
     (dispatch-homo-cached (list-ref *test-data* (modulo i (length *test-data*)))))
-  (printf "Warmup complete.~%~%")
+  (printf "Warmup complete.
 
-  (printf "=== Uncached COND Dispatch (3 iterations) ===~%")
+")
+
+  (printf "=== Uncached COND Dispatch (3 iterations) ===
+")
   (benchmark-uncached 3)
 
-  (printf "~%=== Cached Dispatch (3 iterations) ===~%")
+  (printf "
+=== Cached Dispatch (3 iterations) ===
+")
   (benchmark-cached 3)
 
-  (printf "~&Cached Dispatch Stats:~%")
-  (printf "  Cache hits: ~D~%" %-cache-hits)
-  (printf "  Cache misses: ~D~%" %-cache-misses)
-  (printf "  Hit rate: ~,4F%~%" (* 100.0 (/ %-cache-hits (+ %-cache-hits %-cache-misses))))
+  (printf "
+Cached Dispatch Stats:
+")
+  (printf "  Cache hits: %d
+" %-cache-hits)
+  (printf "  Cache misses: %d
+" %-cache-misses)
+  (printf "  Hit rate: %.4f%
+" (* 100.0 (/ %-cache-hits (+ %-cache-hits %-cache-misses))))
 
-  (printf "~&================================~%")
-  (printf "Benchmark Complete~%")
-  (printf "================================~%"))
+  (printf "
+================================
+")
+  (printf "Benchmark Complete
+")
+  (printf "================================
+"))
 
 ;; Run benchmarks
 (run-all-benchmarks)
+
