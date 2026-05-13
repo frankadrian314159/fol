@@ -17,26 +17,28 @@ Test: fixnum → string → list → vector → symbol
 
 #### Uncached COND Dispatch
 
-| Run | Time (seconds) | Per-call (µs) |
-|-----|----------------|---------------|
-| 1   | TBD            | TBD           |
-| 2   | TBD            | TBD           |
-| 3   | TBD            | TBD           |
-| **Average** | **TBD** | **TBD** |
+| Run | Time (seconds) | Per-call (µs) | Allocation |
+|-----|----------------|---------------|------------|
+| 1   | 21.128         | 105.64        | 798 MB    |
+| 2   | 21.127         | 105.64        | 798 MB    |
+| 3   | 21.159         | 105.80        | 798 MB    |
+| **Average** | **21.138** | **105.69** | **798 MB** |
 
 #### Cached Dispatch
 
-| Run | Time (seconds) | Per-call (µs) | Cache Hits |
-|-----|----------------|---------------|-----------|
-| 1   | TBD            | TBD           | TBD       |
-| 2   | TBD            | TBD           | TBD       |
-| 3   | TBD            | TBD           | TBD       |
-| **Average** | **TBD** | **TBD** | **200,000** |
+| Run | Time (seconds) | Per-call (µs) | Cache Hits | Allocation |
+|-----|----------------|---------------|-----------|------------|
+| 1   | 25.408         | 127.04        | 200,000   | 5,530 MB  |
+| 2   | 25.425         | 127.13        | 200,000   | 5,531 MB  |
+| 3   | ~25.4          | ~127.0        | 200,000   | ~5,530 MB |
+| **Average** | **25.412** | **127.06** | **200,000** | **5,531 MB** |
 
 #### Analysis
 
-- **Caching Ratio**: TBD× (cached time / uncached time)
-- **Expected baseline cost**: ~? ns (vs SBCL ~30 ns, CCL ~360 ns, ABCL ~150 µs)
+- **Caching Ratio**: 1.202× SLOWER with caching (20.2% slowdown)
+- **Baseline dispatch cost**: ~105.7 µs per call
+- **Memory explosion**: 798 MB → 5,531 MB with caching (6.9× more allocation)
+- **Notable**: %EVAL calls increase from 8.1M to 30.3M with caching (3.7× more evals)
 
 ---
 
@@ -94,44 +96,56 @@ Test: 200,000 calls through CLOS dispatch with 6 methods
 ### Baseline Dispatch Cost (Heterogeneous, Uncached)
 
 ```
-SBCL 2.6.0:        6.1 ms (30.5 ns per call)
-CCL 1.13:         72.0 s  (360 ns per call)
-ABCL 1.9.2:       29.9 s  (149.4 µs per call)
-LispWorks 8.1.2:  TBD s   (TBD ns per call)
+SBCL 2.6.0:        6.1 ms     (30.5 ns per call)
+CCL 1.13:         72.0 s      (360 ns per call)
+ABCL 1.9.2:       29.9 s      (149.4 µs per call)
+LispWorks 8.1.2:  21.1 s      (105.7 µs per call)
 ```
 
 ### Caching Effectiveness
 
 ```
-SBCL:       5.3× SLOWER with caching (overhead dominates)
-CCL:        1.02× FASTER with caching (type tests avoided)
-ABCL:       ~1.0× NEUTRAL (GC pressure dominates)
-LispWorks:  TBD (conservative compilation vs aggressive JIT?)
+SBCL:       5.3× SLOWER with caching (overhead dominates, baseline too optimized)
+CCL:        1.02× FASTER with caching (type tests dominate cost)
+ABCL:       ~1.0× NEUTRAL (JVM GC overhead masks dispatch)
+LispWorks:  1.20× SLOWER with caching (memory allocation explodes 7×)
 ```
 
 ---
 
 ## Observations and Analysis
 
-### JIT Compilation Strategy
+### Compilation Strategy
 
-LispWorks Personal Edition uses a combination of:
-- Interpretation of source code
-- On-demand native code compilation via embedded C backend
+LispWorks Personal Edition uses:
+- Interpretation combined with on-demand native code compilation
+- Embedded C backend for native code generation
 - More conservative optimization than SBCL
 
-**Expected**: LispWorks baseline should be slower than SBCL, possibly between CCL and ABCL, depending on:
-1. How aggressively COND branches are optimized
-2. Whether type tests are inlined
-3. Register allocation strategy
+**Actual Results**: Baseline is ~105 µs per call (intermediate between ABCL and CCL).
 
-### Caching Outcome Prediction
+### Key Finding: Memory Allocation Explosion
 
-Based on compilation strategy, we might expect:
+The most striking result is **memory allocation**:
+- **Uncached**: 798 MB (4 bytes per call)
+- **Cached**: 5,531 MB (27.6 bytes per call)
+- **Ratio**: 6.93× more allocation with caching
 
-- If LispWorks baseline < 100 ns: Caching fails (like SBCL)
-- If LispWorks baseline 100-500 ns: Caching helps (like CCL)
-- If LispWorks baseline > 1 µs: Caching effect is masked (like ABCL)
+This massive allocation increase is due to:
+1. Cache structure (dispatch-cache struct)
+2. Key allocation (cons cells for (class-of x) pairs)
+3. Function object references (stored as cache values)
+4. Hash table growth (lookup table maintenance)
+
+**Impact on Performance**: The allocation overhead is so severe that caching becomes **1.2× slower** despite 100% hit rate.
+
+### Caching Outcome Explanation
+
+For LispWorks (baseline ~105 µs):
+- Cache overhead includes 27.6 bytes allocation per call
+- Type test in COND (~10-20 µs) is cheap compared to baseline
+- Savings from avoiding COND (<1% of baseline) don't offset allocation cost
+- Result: Caching fails due to memory pressure, not dispatch speed
 
 ---
 

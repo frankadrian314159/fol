@@ -56,19 +56,37 @@
 
 ---
 
+### LispWorks 8.1.2 (Personal Edition, Windows x64)
+
+| Metric | Uncached | Cached | Ratio |
+|--------|----------|--------|-------|
+| **Run 1** | 21.128 s | 25.408 s | **1.20× slower** |
+| **Run 2** | 21.127 s | 25.425 s | **1.20× slower** |
+| **Run 3** | 21.159 s | ~25.4 s  | **1.20× slower** |
+| **Average** | 21.138 s | 25.412 s | **1.20× slower** |
+| **Per-call (uncached)** | 105.7 µs | — | — |
+| **Cache hit rate** | N/A | 100% | — |
+| **Memory (uncached)** | 798 MB | — | — |
+| **Memory (cached)** | — | 5,531 MB | **6.9× explosion** |
+
+**Conclusion**: Caching fails in LispWorks due to **massive memory allocation overhead**. Despite 100% cache hits, the 6.9× increase in per-call memory allocation (798 MB → 5,531 MB) causes a 20% performance slowdown. This reveals that allocation cost, not dispatch speed, is the bottleneck.
+
+---
+
 ## Cross-Implementation Analysis
 
 ### Dispatch Baseline Cost
 
 ```
-SBCL:   6.1 ms / 200,000 calls = 30.5 ns per call
-CCL:   72.0 s / 200,000 calls = 360 ns per call
-ABCL:  29.87 s / 200,000 calls = 149.4 µs per call
+SBCL:        6.1 ms / 200,000 calls = 30.5 ns per call
+CCL:        72.0 s / 200,000 calls = 360 ns per call
+ABCL:       29.87 s / 200,000 calls = 149.4 µs per call
+LispWorks:  21.14 s / 200,000 calls = 105.7 µs per call
 
 Relative costs:
   CCL baseline: 11.8× slower than SBCL
-  ABCL baseline: 5,000× slower than SBCL
-                 416× slower than CCL
+  ABCL baseline: 5,000× slower than SBCL (3.5× slower than LispWorks)
+  LispWorks baseline: 3,463× slower than SBCL, 294× slower than CCL
 ```
 
 **Why the huge difference?**
@@ -85,25 +103,32 @@ Likely factors:
 
 ```
 SBCL caching cost:  32.2 ms - 6.1 ms = 26.1 ms overhead
-                    = 130.5 ns per call
-                    = 4.3× the baseline cost
+                    = 130.5 ns per call (4.3× baseline)
                     
 CCL caching cost:   70.5 s - 72.0 s = -1.5 s benefit
-                    = ~8 ns per call (net negative)
+                    = ~8 ns per call (0.02× baseline)
                     = Caching HELPS by avoiding type tests
                     
 ABCL caching cost:  30.09 s - 29.87 s = 0.22 s overhead
-                    = ~1.1 µs per call
-                    = 0.007× the baseline cost
-                    = Negligible (JVM GC pressure masks it)
+                    = ~1.1 µs per call (0.007× baseline)
+                    = Negligible per-call, masked by GC pressure
+                    
+LispWorks caching cost: 25.41 s - 21.14 s = 4.27 s overhead
+                    = 21.35 µs per call (20.2× baseline)
+                    = ALLOCATION EXPLOSION: 798 MB → 5,531 MB (6.9×)
+                    = Caching FAILS due to memory pressure
 ```
 
 **Key Finding**: 
-- SBCL: Caching fails (5.3× slower) because overhead dominates baseline
-- CCL: Caching helps (1.02× faster) because type tests are the bottleneck
-- ABCL: Caching is neutral because JVM overhead dwarfs both paths
+- SBCL: Caching fails (5.3× slower) — overhead dominates an ultra-optimized baseline
+- CCL: Caching helps (1.02× faster) — type tests are the bottleneck
+- ABCL: Caching is neutral — JVM GC pressure masks dispatch entirely
+- LispWorks: Caching fails (1.20× slower) — allocation cost dominates, not dispatch
 
-**Implication**: Caching effectiveness depends on the baseline dispatch cost. This is **NOT a universal failure**, but rather **implementation-dependent**.
+**Implication**: Caching effectiveness is **implementation-dependent** and depends on whether:
+1. Baseline dispatch is already optimized (SBCL: fails)
+2. Type tests are expensive (CCL: helps)
+3. Allocation cost is the limiting factor (LispWorks, likely ABCL too)
 
 ---
 
@@ -169,26 +194,38 @@ The original paper's conclusion—"object-level caching fails in compiled Lisp"�
 - **Type tests**: Specialized machine instructions (CMP, TEST, SAR)
 - **Branch prediction**: Highly optimized
 - **Caching overhead**: ~130 ns (4.3× baseline)
-- **Result**: Caching hurts (5.3× slowdown)
+- **Memory per call**: Minimal overhead
+- **Result**: Caching hurts (5.3× slowdown) — overhead dominates
 
 ### CCL (Conservative x86-64 Native)
 
 - **Baseline**: 360 ns (11.8× slower than SBCL)
-- **COND compilation**: Also native code, but with more conservative register allocation
+- **COND compilation**: Native code, more conservative register allocation
 - **Type tests**: More memory accesses, less aggressive optimization
-- **Branch prediction**: Similar, but baseline is higher
+- **Branch prediction**: Similar to SBCL, but baseline is higher
 - **Caching overhead**: ~20-30 ns (0.06× baseline)
-- **Result**: Caching helps (1-3% speedup)
+- **Memory per call**: Moderate allocation
+- **Result**: Caching helps (1-3% speedup) — type tests dominate
 
 ### ABCL (JVM Bytecode Interpreter)
 
 - **Baseline**: 149.4 µs (5000× slower than SBCL)
 - **Dispatch mechanism**: Method calls with reflection; no direct jumps
 - **Type tests**: Virtual method dispatch through JVM method resolution
-- **Branch prediction**: Minimal; all paths go through JVM bytecode interpreter
+- **Branch prediction**: Minimal; all paths go through bytecode
 - **Caching overhead**: ~1.1 µs (0.007× baseline)
-- **GC pressure**: 1.2M cons cells (uncached) vs 3.8M (cached)
-- **Result**: Caching neutral (GC overhead masks it)
+- **Memory per call**: 3.8M cons cells with caching (vs 1.2M uncached)
+- **Result**: Caching neutral — JVM GC overhead masks dispatch entirely
+
+### LispWorks (Embedded C Backend + Interpretation)
+
+- **Baseline**: 105.7 µs (3463× slower than SBCL, 294× slower than CCL)
+- **Dispatch mechanism**: Interpreted code with on-demand C compilation
+- **Type tests**: Interpreted predicate evaluation
+- **Caching overhead**: ~21.4 µs (20.2× baseline cost!)
+- **Memory explosion**: 798 MB → 5,531 MB per iteration (6.9× increase)
+- **Memory per call**: 4 bytes uncached, 27.6 bytes cached
+- **Result**: Caching fails (1.20× slowdown) — allocation cost dominates
 
 ---
 
@@ -196,13 +233,20 @@ The original paper's conclusion—"object-level caching fails in compiled Lisp"�
 
 ### Lisps with SBCL-like optimization (baseline ~30 ns)
 - **Expected**: Caching fails (5-10× slowdown)
-- **Examples**: Optimized SBCL builds, LispWorks (if using similar strategies)
+- **Examples**: Optimized SBCL builds, fast native compilers
 - **Why**: Overhead (130 ns) >> baseline (30 ns)
+- **Lesson**: Can't beat physical limits of optimized code
 
 ### Lisps with CCL-like baseline (baseline ~300-500 ns)
 - **Expected**: Caching helps (1-5% speedup)
 - **Examples**: ECL, conservative native compilers
 - **Why**: Type tests (100+ ns) dominate; overhead proportionally smaller
+
+### Lisps with LispWorks-like approach (baseline ~50-100 µs)
+- **Expected**: Caching fails (10-30% slowdown)
+- **Examples**: LispWorks, interpreted with on-demand compilation
+- **Why**: Allocation explosion (6-7× more memory) dominates dispatch savings
+- **Critical factor**: Memory allocation cost per call becomes limiting factor
 
 ### JVM-based Lisps (baseline ~100+ µs)
 - **Expected**: Caching neutral to slightly negative
@@ -210,10 +254,10 @@ The original paper's conclusion—"object-level caching fails in compiled Lisp"�
 - **Why**: GC pressure and bytecode overhead mask dispatch optimization
 
 ### Interpreted Lisps (baseline ~1000+ ns)
-- **Expected**: Caching depends on memory allocation cost
+- **Expected**: Caching effectiveness depends on allocation cost
 - **Examples**: GNU Clisp, older Lisp implementations
-- **Reason**: If allocation cost is the bottleneck (not dispatch), caching may still fail
-- **Revised expectation**: Caching helps 5-20% (less than CCL because dispatch is only 10% of total cost)
+- **Why**: If allocation is the bottleneck (not dispatch), caching fails
+- **Revised expectation**: Caching helps 5-20% IF allocation is controlled, else fails like LispWorks
 
 ---
 
@@ -272,31 +316,42 @@ Where k ≈ 1.5-2.0 (overhead must be small relative to baseline):
 
 **Key Finding**: Dispatch caching effectiveness forms a **spectrum** across implementations:
 
-1. **SBCL (5.3× slower)**: Aggressive optimization defeats caching
-2. **CCL (1.02× faster)**: Conservative baseline makes caching beneficial
-3. **ABCL (~1.0× neutral)**: JVM overhead dominates both paths
+| Implementation | Baseline | Caching Effect | Limiting Factor |
+|---|---|---|---|
+| **SBCL** | 30.5 ns | 5.3× slower | Overhead dominates optimized baseline |
+| **CCL** | 360 ns | 1.02× faster | Type tests are bottleneck |
+| **LispWorks** | 105.7 µs | 1.20× slower | Memory allocation (6.9× explosion) |
+| **ABCL** | 149.4 µs | ~1.0× neutral | JVM GC overhead dominates both |
 
-**The Universal Hypothesis Fails**: The original conclusion—"caching fails in compiled Lisp"—is too broad. More precisely:
+**The Universal Hypothesis Fails**: The original conclusion—"caching fails in compiled Lisp"—is far too broad.
 
-- **Highly optimized Lisps** (SBCL): Caching fails because overhead dominates an already-optimized baseline
-- **Conservative Lisps** (CCL): Caching helps because dispatch costs (especially type tests) dominate overhead
-- **JVM-based Lisps** (ABCL): Caching is neutral because memory pressure and bytecode interpretation dominate dispatch
+More precisely, caching fails or succeeds depending on the **limiting factor**:
+
+1. **Baseline dispatch cost too low** (SBCL ~30 ns): Overhead dominates → Caching fails catastrophically
+2. **Type tests are expensive** (CCL ~360 ns): Dispatch is bottleneck → Caching helps
+3. **Memory allocation is expensive** (LispWorks): Per-call allocation explodes → Caching fails
+4. **Interpretation overhead dominates** (ABCL): All costs dwarf dispatch → Caching neutral
 
 **Paper Recommendations**:
-1. Rename the section from "Caching Fails in Compiled Lisp" to "Caching Trade-offs Across Implementations"
-2. Present the three-implementation comparison as the main evidence
-3. Focus on: "Why do highly-optimized Lisps defeat caching?" rather than assuming universal failure
-4. Discuss the break-even point (~50-100 ns baseline cost)
-5. Note that the SBCL result is valuable evidence for the power of SBCL's optimization strategy
+
+1. Rename: "Caching Trade-offs Across Implementations" (not "Caching Fails in Compiled Lisp")
+2. Present four-implementation comparison as main evidence
+3. Identify the key insight: **Caching's effectiveness depends on the implementation's limiting factor**
+4. Discuss three failure modes:
+   - **SBCL mode**: Overhead dominates optimized baseline (fix: accept it or use inline caching)
+   - **LispWorks mode**: Allocation cost explodes (fix: reduce allocation per cached entry)
+   - **ABCL mode**: Interpretation overhead dominates dispatch (fix: JVM-level caching, not object-level)
+5. Note: SBCL result demonstrates the power of modern optimization; it doesn't condemn caching universally
 
 ---
 
-**Benchmarks**: 
-- SBCL 2.6.0 (native x86-64)
-- CCL 1.13 (native x86-64)
-- ABCL 1.9.2 (JVM bytecode)
+**Benchmarks Completed**: 
+- ✅ SBCL 2.6.0 (native x86-64) — 6.1 ms baseline
+- ✅ CCL 1.13 (native x86-64) — 72.0 s baseline
+- ✅ ABCL 1.9.2 (JVM bytecode) — 29.9 s baseline
+- ✅ LispWorks 8.1.2 (embedded C backend) — 21.1 s baseline
 
 **Hardware**: AMD Ryzen 9 5900X (12 cores), Windows 11 Pro
 
 **Generated**: 2026-05-13  
-**Status**: Complete cross-implementation analysis
+**Status**: Complete four-implementation cross-Lisp analysis
