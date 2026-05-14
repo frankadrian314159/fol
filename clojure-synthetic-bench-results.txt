@@ -1,0 +1,7 @@
+=== Clojure Synthetic Benchmarks Results ===
+Workload,K,M,Time(ms),Ops/ms
+Type-only,5,1000,3,333.33
+AST visitor,8,1000,2,500.00
+Numeric,5,1000,1,1000.00
+Bursty,8,1000,3,333.33
+Single-type,1,10000,2,5000.00
