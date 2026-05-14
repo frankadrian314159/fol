@@ -89,27 +89,29 @@
 
 ---
 
-## CLOS Generic Function Dispatch Results
+## CLOS/Generic Function Dispatch Results
 
-### Baseline Dispatch Cost (CLOS defmethod, 5-type cycle)
+### Baseline Dispatch Cost (CLOS defmethod / define-generics, 5-type cycle)
 
 ```
 SBCL 2.6.0:        ~6.1 ms     (comparable to COND)
 CCL 1.13:          ~72.0 s     (comparable to COND)
 ABCL 1.9.2:        ~27.7 s     (slightly faster than COND)
 LispWorks 8.1.2:   21.4 s      (106.98 µs per call)
+Racket 9.1:        46.0 s      (230.04 µs per call, define-generics)
 ```
 
-### COND vs CLOS Overhead
+### Generic Dispatch vs COND Overhead
 
 ```
 SBCL:       COND: 6.1 ms      CLOS: ~6.1 ms       (~0% difference)
 CCL:        COND: 72.0 s      CLOS: ~72.0 s       (~0% difference)
 ABCL:       COND: 29.9 s      CLOS: 27.7 s        (7.4% faster with CLOS)
 LispWorks:  COND: 21.1 s      CLOS: 21.4 s        (1.4% slower with CLOS)
+Racket:     COND: 45.5 s      Gen:  46.0 s        (1.1% slower with define-generics)
 ```
 
-**Observation**: CLOS dispatch is roughly equivalent to COND dispatch across all implementations, with LispWorks showing the smallest overhead (1.4% slower). This suggests CLOS implementations are well-optimized to avoid unnecessary overhead.
+**Observation**: Generic dispatch overhead is negligible across implementations. SBCL, CCL, and Racket show ~0-1% difference. ABCL slightly favors CLOS. LispWorks shows 1.4% overhead. This suggests that dispatch mechanism (COND vs CLOS/define-generics) is not the bottleneck; rather, the language's type-checking approach dominates the baseline cost.
 
 ---
 
