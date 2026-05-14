@@ -1,7 +1,7 @@
-;;; Phase 2 Dispatch Caching Validation - Full Validation Tests
-;;; Tests that caching infrastructure generates correct code for all function types
+;;;; Phase 2 Dispatch Caching Validation
+;;;; Tests that all dispatch patterns are correctly caching after the recent fixes
 
-(push (truename "src/") asdf:*central-registry*)
+(push (uiop:getcwd) asdf:*central-registry*)
 (asdf:load-system :fol-compiler)
 
 (defun fol-form (form)

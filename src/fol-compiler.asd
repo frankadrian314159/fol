@@ -89,6 +89,7 @@
                                   (:file "test-seq-functions" :depends-on ("compiler-tests-package"))
                                   (:file "test-io" :depends-on ("compiler-tests-package"))
                                   (:file "test-misc-functions" :depends-on ("compiler-tests-package"))
+                                  (:file "test-dispatch-caching" :depends-on ("compiler-tests-package"))
                                   (:file "fol-tests" :depends-on ("compiler-tests-package")))))
            :perform (test-op (o s) (symbol-call :fol.compiler.tests :run-compiler-tests)))
 
