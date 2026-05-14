@@ -79,16 +79,17 @@ Test: 200,000 calls through generic function dispatch
 
 | Run | Time (seconds) | Per-call (µs) |
 |-----|----------------|---------------|
-| 1   | 46.406         | 232.0         |
-| 2   | 46.219         | 231.1         |
-| 3   | 46.797         | 234.0         |
-| **Average** | **46.474** | **232.3** |
+| 1   | 45.391         | 226.96        |
+| 2   | 45.937         | 229.69        |
+| 3   | 46.688         | 233.44        |
+| **Average** | **46.005** | **230.04** |
 
 #### Analysis
 
-- **Generic dispatch cost**: ~232 µs per call
-- **Comparison with heterogeneous COND**: ~2.2× SLOWER than cached heterogeneous dispatch (105 vs 232 µs)
-- **Scheme-specific dispatch**: Racket's generic function dispatch (using `define-generics`) is much slower than simple COND-based dispatch, similar to performance characteristics seen in SBCL and LispWorks
+- **Generic dispatch cost**: ~230 µs per call (virtually identical to heterogeneous COND uncached at 227.5 µs)
+- **Comparison with heterogeneous COND**: Generic dispatch (230 µs) is ~1.01× SLOWER than heterogeneous COND uncached (227.5 µs)
+- **Key insight**: Racket's `define-generics` dispatch overhead is negligible; the high cost is dominated by baseline type predicate evaluation, not by generic function mechanism overhead
+- **Contrast with SBCL/LispWorks**: In those systems, CLOS/generic dispatch adds measurable overhead. Racket shows that generic dispatch and COND dispatch have equivalent performance, suggesting the language's type system is the bottleneck.
 
 ---
 
