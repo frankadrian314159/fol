@@ -54,6 +54,11 @@
   "Check if X is a FOL <vector> instance (from the reader's [...] syntax)."
   (typep x 'fol.compiler.collections:<vector>))
 
+(defun param-vector-p (x)
+  "Check if X is a valid parameter vector: either FOL <vector> or CL vector.
+   Accepts both [...] (FOL syntax) and #(...) (CL syntax)."
+  (or (fol-vector-p x) (cl:vectorp x)))
+
 (defun sequence-p (x)
   "Check if X is a sequence (CL list or FOL <vector>)."
   (or (cl:listp x) (fol-vector-p x)))
@@ -553,11 +558,11 @@
                              (and (>= (length forms) 1)
                                   (listp (first forms))
                                   (not (null (first forms)))
-                                  (fol-vector-p (first (first forms))))))
+                                  (param-vector-p (first (first forms))))))
       (cond
        ;; Single clause: (defn name [params] body ...) or (defn name "doc" [params] body ...)
        ((and (>= (length args) 1)
-             (fol-vector-p (first args)))
+             (param-vector-p (first args)))
          (fol.compiler.ast:make-defn-node
           :name name
           :clauses (list (cons (first args) (mapcar #'parse-form (rest args))))
@@ -565,7 +570,7 @@
        ;; Single clause with docstring: (defn name "doc" [params] body ...)
        ((and (>= (length args) 2)
              (stringp (first args))
-             (fol-vector-p (second args)))
+             (param-vector-p (second args)))
          (fol.compiler.ast:make-defn-node
           :name name
           :clauses (list (cons (second args) (mapcar #'parse-form (cddr args))))
@@ -600,7 +605,7 @@
                              (and (>= (length forms) 1)
                                   (listp (first forms))
                                   (not (null (first forms)))
-                                  (fol-vector-p (first (first forms))))))
+                                  (param-vector-p (first (first forms))))))
       (cond
        ((and (>= (length args) 1)
              (fol-vector-p (first args)))
@@ -643,7 +648,7 @@
                              (and (>= (length forms) 1)
                                   (listp (first forms))
                                   (not (null (first forms)))
-                                  (fol-vector-p (first (first forms))))))
+                                  (param-vector-p (first (first forms))))))
       (cond
        ((and (>= (length args) 1)
              (fol-vector-p (first args)))
