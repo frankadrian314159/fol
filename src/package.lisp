@@ -204,9 +204,11 @@
 (defpackage fol.compiler.dispatch
   (:use cl)
   (:export
-   ;; Cache structure
+   ;; Cache structure and accessors
    dispatch-cache
    make-dispatch-cache
+   dispatch-cache-table
+   dispatch-cache-generation
    ;; Cache operations
    cache-lookup
    cache-insert!

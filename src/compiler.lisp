@@ -2025,7 +2025,7 @@
        (cl:defun ,name (&rest ,args-sym)
          (cl:let* ((,key-sym (cl:cons (cl:length ,args-sym)
                                       (cl:mapcar #'cl:class-of ,args-sym)))
-                   (,hit-sym (fol.compiler.dispatch:cache-lookup ,cache-name ,key-sym)))
+                   (,hit-sym (gethash ,key-sym (fol.compiler.dispatch:dispatch-cache-table ,cache-name))))
            (cl:if ,hit-sym
                ;; Cache hit: apply cached function directly
                (cl:apply ,hit-sym ,args-sym)
@@ -2063,7 +2063,7 @@
       ;; Form is (apply #'FUNCNAME args) - cache the function
       (let ((fn-name (second (second form))))
         `(cl:progn
-           (fol.compiler.dispatch:cache-insert! ,cache-name ,key-sym #',fn-name)
+           (setf (gethash ,key-sym (fol.compiler.dispatch:dispatch-cache-table ,cache-name)) #',fn-name)
            ,form))
       ;; Form is something else (maybe COND) - wrap if COND
       (if (and (consp form) (eq (first form) 'cond))
@@ -2089,7 +2089,7 @@
                              (eq (first (second (first body))) 'cl:quote))
                         (let ((fn-name (second (second (first body)))))
                           `(cl:progn
-                             (fol.compiler.dispatch:cache-insert! ,cache-name ,key-sym #',fn-name)
+                             (setf (gethash ,key-sym (fol.compiler.dispatch:dispatch-cache-table ,cache-name)) #',fn-name)
                              ,(first body)))
                         (first body)))))
        ,fallback)))
@@ -2405,7 +2405,7 @@
        (cl:defmethod ,name ,@(when qualifier (list qualifier)) ,ll
          ,@declares
          (cl:let* ((,key-sym ,key-expr)
-                   (,hit-sym (fol.compiler.dispatch:cache-lookup ,cache-name ,key-sym)))
+                   (,hit-sym (gethash ,key-sym (fol.compiler.dispatch:dispatch-cache-table ,cache-name))))
            (cl:if ,hit-sym
                ;; Cache hit: call cached function
                (cl:funcall ,hit-sym ,@params)
@@ -2428,8 +2428,8 @@
                    ;; Cache the entire clause body result by wrapping in a lambda
                    `(,condition
                      ;; Register winning clause as lambda in cache
-                     (fol.compiler.dispatch:cache-insert! ,cache-name ,key-sym
-                                                         (lambda () (progn ,@body)))
+                     (setf (gethash ,key-sym (fol.compiler.dispatch:dispatch-cache-table ,cache-name))
+                           (lambda () (progn ,@body)))
                      ;; Execute the body
                      ,@body)))))
       ;; Return modified COND with cached clauses + fallback
@@ -2703,11 +2703,11 @@
                collect `(cl:defun ,hname ,params ,@(when declare-form (list declare-form)) ,(second clause)))
        (cl:defparameter ,cache-name (fol.compiler.dispatch:make-dispatch-cache))
        (cl:defun ,name ,params ,@(when declare-form (list declare-form))
-         (cl:let* ((,key-sym ,key-expr) (,hit-sym (fol.compiler.dispatch:cache-lookup ,cache-name ,key-sym)))
+         (cl:let* ((,key-sym ,key-expr) (,hit-sym (gethash ,key-sym (fol.compiler.dispatch:dispatch-cache-table ,cache-name))))
            (cl:if ,hit-sym (cl:funcall ,hit-sym ,@params)
                (cl:cond ,@(loop for clause in clauses for hname in helper-names
                                collect `(,(first clause)
-                                        (fol.compiler.dispatch:cache-insert! ,cache-name ,key-sym #',hname)
+                                        (setf (gethash ,key-sym (fol.compiler.dispatch:dispatch-cache-table ,cache-name)) #',hname)
                                         (,hname ,@params)))
                         ,fallback)))))))
 
@@ -2726,11 +2726,11 @@
                collect `(cl:defun ,hname ,params ,@(when declare-form (list declare-form)) ,(second clause)))
        (cl:defvar ,cache-sym (fol.compiler.dispatch:make-dispatch-cache))
        (cl:lambda ,params ,@(when declare-form (list declare-form))
-         (cl:let* ((,key-sym ,key-expr) (,hit-sym (fol.compiler.dispatch:cache-lookup ,cache-sym ,key-sym)))
+         (cl:let* ((,key-sym ,key-expr) (,hit-sym (gethash ,key-sym (fol.compiler.dispatch:dispatch-cache-table ,cache-sym))))
            (cl:if ,hit-sym (cl:funcall ,hit-sym ,@params)
                (cl:cond ,@(loop for clause in clauses for hname in helper-syms
                                collect `(,(first clause)
-                                        (fol.compiler.dispatch:cache-insert! ,cache-sym ,key-sym #',hname)
+                                        (setf (gethash ,key-sym (fol.compiler.dispatch:dispatch-cache-table ,cache-sym)) #',hname)
                                         (,hname ,@params)))
                         ,fallback)))))))
 
