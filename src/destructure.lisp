@@ -199,12 +199,66 @@
 ;;; Specificity comparison  (compile-time)
 ;;; ---------------------------------------------------------------------------
 
+(defun is-type-predicate-form-p (form)
+  "Check if FORM is a type predicate like (<integer>) or (integer?).
+   Returns T if it's a single-element list with a type predicate, or a type-predicate call."
+  (cond
+    ((and (listp form) (= (length form) 1) (symbolp (first form)))
+     (type-predicate-p (first form)))
+    ((and (listp form) (symbolp (first form)))
+     (type-predicate-p (first form)))
+    (t nil)))
+
+(defun detect-composite-level (pred-form)
+  "Detect if a predicate form is a conjunction of type check + other predicate.
+   Returns:
+     - 2.5 if the form is (and <type-pred> <other-pred>) or equivalent
+     - nil otherwise
+
+   Example: (and (<integer>) (prime?)) -> 2.5 (between type:2 and pred:3)"
+  (when (and (listp pred-form)
+             (symbolp (first pred-form))
+             (string= (symbol-name (first pred-form)) "AND")
+             (>= (length pred-form) 3)) ; (and pred1 pred2 ...)
+    (let ((conjuncts (rest pred-form))
+          (has-type-pred nil)
+          (has-other-pred nil))
+      (dolist (conj conjuncts)
+        (cond
+          ((is-type-predicate-form-p conj)
+           (setf has-type-pred t))
+          ((and (listp conj) (symbolp (first conj)))
+           (setf has-other-pred t))))
+      (when (and has-type-pred has-other-pred)
+        2.5)))) ; Composite level: between type (2) and pure pred (3)
+
 (defun pattern-specificity-level (sig)
   "Return numeric specificity level for a single signature spec.
    Higher numbers are more specific.
-   :pred (3) > :type/:type-pred (2) > :seq (1) > :any (0)"
+   Levels (in ascending specificity):
+     0: wildcard (:any)
+     1: sequence destructuring (:seq)
+     2: bare types (:type, :type-pred)
+     3: type-annotated predicates (composite: :and with type + predicate)
+     4: pure predicates (:pred without type annotation)
+
+   Type-annotated conjunctions like (and (<integer>) (prime?)) are Level 3,
+   making them more specific than bare types (2) but less specific than
+   pure predicates (4) that lack the type constraint. This resolves the
+   semantic issue where both (prime?) and (and (<integer>) (prime?))
+   would otherwise receive the same level."
   (case (first sig)
-    (:pred 3)
+    (:pred
+     ;; Check if this predicate is a type-annotated conjunction
+     (let ((fn (second sig))
+           (args (rest (rest sig))))
+       ;; Reconstruct the predicate form for composite-level detection
+       (if (and (string= (symbol-name fn) "AND") args)
+           (let ((composite (detect-composite-level (cons fn args))))
+             ;; Composite (type + predicate) is Level 3
+             ;; Pure predicate is Level 4
+             (if composite 3 4))
+           4))) ; Pure predicate: Level 4
     (:type 2)
     (:type-pred 2)
     (:seq 1)
@@ -214,13 +268,15 @@
 
 (defun pattern-more-specific-p (sig1 sig2)
   "Return T if signature SIG1 is more specific than SIG2.
-   Implements lexicographical ordering: compares elements by level,
-   then handles nested sequence length and variadicness."
+   Implements lexicographical ordering: compares elements by level (including
+   composite levels like 2.5 for type-annotated conjunctions), then handles
+   nested sequence length and variadicness."
   (loop for s1 in sig1
         for s2 in sig2
         for level1 = (pattern-specificity-level s1)
         for level2 = (pattern-specificity-level s2)
         do (cond
+            ;; Use numeric comparison for all levels (integers and composites)
             ((> level1 level2)
               (return-from pattern-more-specific-p t))
             ((< level1 level2)

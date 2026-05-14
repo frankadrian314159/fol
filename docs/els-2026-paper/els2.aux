@@ -51,55 +51,59 @@
 \@writefile{lol}{\contentsline {lstlisting}{\numberline {5}{\ignorespaces Value-Based Alerting (FOL)}}{5}{lstlisting.5}\protected@file@percent }
 \newlabel{lst:guard-cl}{{6}{5}{Validated Update Guard in Common Lisp --- requires explicit copy}{lstlisting.6}{}}
 \@writefile{lol}{\contentsline {lstlisting}{\numberline {6}{\ignorespaces Validated Update Guard in Common Lisp --- requires explicit copy}}{5}{lstlisting.6}\protected@file@percent }
+\newlabel{sec:dispatch-caching}{{4.1.4}{5}{Dispatch Caching}{subsubsection.4.1.4}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.1.4}Dispatch Caching}{5}{subsubsection.4.1.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Cache Mechanism.}{5}{section*.11}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Invalidation.}{5}{section*.12}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Known Limitation: Closure Capture.}{5}{section*.13}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Observability.}{5}{section*.14}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Schema Evolution}{5}{subsection.4.2}\protected@file@percent }
 \newlabel{sec:schema-evolution}{{4.2}{5}{Schema Evolution}{subsection.4.2}{}}
 \newlabel{lst:lazy-migration}{{7}{5}{Lazy Schema Migration with Aliasing}{lstlisting.7}{}}
 \@writefile{lol}{\contentsline {lstlisting}{\numberline {7}{\ignorespaces Lazy Schema Migration with Aliasing}}{5}{lstlisting.7}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {5}Evaluation}{5}{section.5}\protected@file@percent }
 \newlabel{sec:evaluation}{{5}{5}{Evaluation}{section.5}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Built-in Feature Comparison}}{5}{table.caption.11}\protected@file@percent }
-\newlabel{tab:specificity-comp}{{5}{5}{Built-in Feature Comparison}{table.caption.11}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Micro-Benchmarks}{5}{subsection.5.1}\protected@file@percent }
 \newlabel{sec:micro-bench}{{5.1}{5}{Micro-Benchmarks}{subsection.5.1}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces Actual slot update overhead ($\mu $s/op) vs.\ native CLOS}}{5}{table.caption.13}\protected@file@percent }
-\newlabel{tab:micro-update}{{6}{5}{Actual slot update overhead ($\mu $s/op) vs.\ native CLOS}{table.caption.13}{}}
 \newlabel{sec:predbench}{{5.1.1}{5}{Predicate Dispatch Micro-benchmark}{subsubsection.5.1.1}{}}
 \@writefile{toc}{\contentsline {subsubsection}{\numberline {5.1.1}Predicate Dispatch Micro-benchmark}{5}{subsubsection.5.1.1}\protected@file@percent }
-\citation{Crane1972}
-\citation{Okasaki1998}
-\@writefile{lot}{\contentsline {table}{\numberline {7}{\ignorespaces Modeled update cost ($\mu $s/op) at candidate thresholds $T$}}{6}{table.caption.15}\protected@file@percent }
-\newlabel{tab:threshold-update}{{7}{6}{Modeled update cost ($\mu $s/op) at candidate thresholds $T$}{table.caption.15}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {8}{\ignorespaces Predicate Dispatch Performance ($N=20$, 5 trials $\times $ 1\,M iterations).}}{6}{table.caption.17}\protected@file@percent }
-\newlabel{tab:dispatch-perf}{{8}{6}{Predicate Dispatch Performance ($N=20$, 5 trials $\times $ 1\,M iterations)}{table.caption.17}{}}
-\newlabel{lst:naive-bfs}{{8}{6}{Naive Persistent BFS Step}{lstlisting.8}{}}
-\@writefile{lol}{\contentsline {lstlisting}{\numberline {8}{\ignorespaces Naive Persistent BFS Step}}{6}{lstlisting.8}\protected@file@percent }
-\newlabel{sec:evobench}{{5.1.2}{6}{Evolution Micro-Benchmark}{subsubsection.5.1.2}{}}
-\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.1.2}Evolution Micro-Benchmark}{6}{subsubsection.5.1.2}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Built-in Feature Comparison}}{6}{table.caption.15}\protected@file@percent }
+\newlabel{tab:specificity-comp}{{5}{6}{Built-in Feature Comparison}{table.caption.15}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces Actual slot update overhead ($\mu $s/op) vs.\ native CLOS}}{6}{table.caption.17}\protected@file@percent }
+\newlabel{tab:micro-update}{{6}{6}{Actual slot update overhead ($\mu $s/op) vs.\ native CLOS}{table.caption.17}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {7}{\ignorespaces Modeled update cost ($\mu $s/op) at candidate thresholds $T$}}{6}{table.caption.19}\protected@file@percent }
+\newlabel{tab:threshold-update}{{7}{6}{Modeled update cost ($\mu $s/op) at candidate thresholds $T$}{table.caption.19}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {8}{\ignorespaces Predicate Dispatch Performance ($N=20$, 5 trials $\times $ 1\,M iterations).}}{6}{table.caption.21}\protected@file@percent }
+\newlabel{tab:dispatch-perf}{{8}{6}{Predicate Dispatch Performance ($N=20$, 5 trials $\times $ 1\,M iterations)}{table.caption.21}{}}
+\newlabel{sec:cache-bench}{{5.1.2}{6}{Dispatch Caching Micro-benchmark}{subsubsection.5.1.2}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.1.2}Dispatch Caching Micro-benchmark}{6}{subsubsection.5.1.2}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {9}{\ignorespaces Dispatch Cache Performance (5-clause type dispatch, 1M calls vs.\ 10K with flush).}}{6}{table.caption.22}\protected@file@percent }
+\newlabel{tab:cache-perf}{{9}{6}{Dispatch Cache Performance (5-clause type dispatch, 1M calls vs.\ 10K with flush)}{table.caption.22}{}}
+\newlabel{sec:evobench}{{5.1.3}{6}{Evolution Micro-Benchmark}{subsubsection.5.1.3}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.1.3}Evolution Micro-Benchmark}{6}{subsubsection.5.1.3}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Naive-Translation Workloads}{6}{subsection.5.2}\protected@file@percent }
 \newlabel{sec:naive-translation}{{5.2}{6}{Naive-Translation Workloads}{subsection.5.2}{}}
-\@writefile{toc}{\contentsline {paragraph}{Idiomatic Reformulations}{6}{section*.24}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Idiomatic Reformulations}{6}{section*.29}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Abstract Syntax Tree Rewriting Engine}{6}{subsection.5.3}\protected@file@percent }
 \newlabel{sec:ast-bench}{{5.3}{6}{Abstract Syntax Tree Rewriting Engine}{subsection.5.3}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {5.4}Logic Simulation (LSim)}{6}{subsection.5.4}\protected@file@percent }
-\newlabel{sec:simbench}{{5.4}{6}{Logic Simulation (LSim)}{subsection.5.4}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {5.5}CLOS Adoption Cost: Expression Interpreter}{6}{subsection.5.5}\protected@file@percent }
-\newlabel{sec:interp-bench}{{5.5}{6}{CLOS Adoption Cost: Expression Interpreter}{subsection.5.5}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {9}{\ignorespaces Dispatch Scaling: mean time/op (ns) at $N$ clauses (5 trials $\times $ 1\,M iterations). Ratios vs.\ CLOS. CLOS is $O(1)$ (type-indexed cache); predicate scan methods are $O(N)$.}}{7}{table.caption.18}\protected@file@percent }
-\newlabel{tab:dispatch-scaling}{{9}{7}{Dispatch Scaling: mean time/op (ns) at $N$ clauses (5 trials $\times $ 1\,M iterations). Ratios vs.\ CLOS. CLOS is $O(1)$ (type-indexed cache); predicate scan methods are $O(N)$}{table.caption.18}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {10}{\ignorespaces Single-hop lazy migration: FOL vs.\ CL ($\mu $s/op, 10K instances)}}{7}{table.caption.19}\protected@file@percent }
-\newlabel{tab:schema-evo-single}{{10}{7}{Single-hop lazy migration: FOL vs.\ CL ($\mu $s/op, 10K instances)}{table.caption.19}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {11}{\ignorespaces Multi-hop lazy migration first-touch cost ($\mu $s/op, 5K instances per cohort)}}{7}{table.caption.20}\protected@file@percent }
-\newlabel{tab:schema-evo-multi}{{11}{7}{Multi-hop lazy migration first-touch cost ($\mu $s/op, 5K instances per cohort)}{table.caption.20}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {12}{\ignorespaces Naive-Translation Workload Results}}{7}{table.caption.23}\protected@file@percent }
-\newlabel{tab:naive-bench}{{12}{7}{Naive-Translation Workload Results}{table.caption.23}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {13}{\ignorespaces Idiomatic Algorithm Results: persistent and transient FOL vs.\ native CL}}{7}{table.caption.25}\protected@file@percent }
-\newlabel{tab:idiomatic-bench}{{13}{7}{Idiomatic Algorithm Results: persistent and transient FOL vs.\ native CL}{table.caption.25}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {14}{\ignorespaces AST Optimizer: FOL vs.\ CL ($N=100$ passes, 9{,}999-node balanced tree).}}{7}{table.caption.26}\protected@file@percent }
-\newlabel{tab:ast-bench}{{14}{7}{AST Optimizer: FOL vs.\ CL ($N=100$ passes, 9{,}999-node balanced tree)}{table.caption.26}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {15}{\ignorespaces LSim PQ Scaling Results (mean wall time).}}{7}{table.caption.27}\protected@file@percent }
-\newlabel{tab:lsim-perf}{{15}{7}{LSim PQ Scaling Results (mean wall time)}{table.caption.27}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {16}{\ignorespaces 2$\times $2 Ablation: Mutable vs.\ Persistent Heap $\times $ State Maps (mean wall time; ratios relative to CL baseline). Hybrid-A = persistent maps + mutable heap; Hybrid-B = mutable maps + persistent heap; FOL = both persistent.}}{7}{table.caption.29}\protected@file@percent }
-\newlabel{tab:lsim-ablation}{{16}{7}{2$\times $2 Ablation: Mutable vs.\ Persistent Heap $\times $ State Maps (mean wall time; ratios relative to CL baseline). Hybrid-A = persistent maps + mutable heap; Hybrid-B = mutable maps + persistent heap; FOL = both persistent}{table.caption.29}{}}
+\citation{Crane1972}
+\citation{Okasaki1998}
+\@writefile{lot}{\contentsline {table}{\numberline {10}{\ignorespaces Dispatch Scaling: mean time/op (ns) at $N$ clauses (5 trials $\times $ 1\,M iterations). Ratios vs.\ CLOS. CLOS is $O(1)$ (type-indexed cache); predicate scan methods are $O(N)$.}}{7}{table.caption.23}\protected@file@percent }
+\newlabel{tab:dispatch-scaling}{{10}{7}{Dispatch Scaling: mean time/op (ns) at $N$ clauses (5 trials $\times $ 1\,M iterations). Ratios vs.\ CLOS. CLOS is $O(1)$ (type-indexed cache); predicate scan methods are $O(N)$}{table.caption.23}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {11}{\ignorespaces Single-hop lazy migration: FOL vs.\ CL ($\mu $s/op, 10K instances)}}{7}{table.caption.24}\protected@file@percent }
+\newlabel{tab:schema-evo-single}{{11}{7}{Single-hop lazy migration: FOL vs.\ CL ($\mu $s/op, 10K instances)}{table.caption.24}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {12}{\ignorespaces Multi-hop lazy migration first-touch cost ($\mu $s/op, 5K instances per cohort)}}{7}{table.caption.25}\protected@file@percent }
+\newlabel{tab:schema-evo-multi}{{12}{7}{Multi-hop lazy migration first-touch cost ($\mu $s/op, 5K instances per cohort)}{table.caption.25}{}}
+\newlabel{lst:naive-bfs}{{8}{7}{Naive Persistent BFS Step}{lstlisting.8}{}}
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {8}{\ignorespaces Naive Persistent BFS Step}}{7}{lstlisting.8}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {13}{\ignorespaces Naive-Translation Workload Results}}{7}{table.caption.28}\protected@file@percent }
+\newlabel{tab:naive-bench}{{13}{7}{Naive-Translation Workload Results}{table.caption.28}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {14}{\ignorespaces Idiomatic Algorithm Results: persistent and transient FOL vs.\ native CL}}{7}{table.caption.30}\protected@file@percent }
+\newlabel{tab:idiomatic-bench}{{14}{7}{Idiomatic Algorithm Results: persistent and transient FOL vs.\ native CL}{table.caption.30}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {15}{\ignorespaces AST Optimizer: FOL vs.\ CL ($N=100$ passes, 9{,}999-node balanced tree).}}{7}{table.caption.31}\protected@file@percent }
+\newlabel{tab:ast-bench}{{15}{7}{AST Optimizer: FOL vs.\ CL ($N=100$ passes, 9{,}999-node balanced tree)}{table.caption.31}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.4}Logic Simulation (LSim)}{7}{subsection.5.4}\protected@file@percent }
+\newlabel{sec:simbench}{{5.4}{7}{Logic Simulation (LSim)}{subsection.5.4}{}}
 \citation{Bagwell2000}
 \citation{Hickey2008}
 \citation{Driscoll1989}
@@ -113,6 +117,26 @@
 \citation{Flatt2006}
 \citation{Bezanson2017}
 \citation{Clifton2000}
+\@writefile{lot}{\contentsline {table}{\numberline {16}{\ignorespaces LSim PQ Scaling Results (mean wall time).}}{8}{table.caption.32}\protected@file@percent }
+\newlabel{tab:lsim-perf}{{16}{8}{LSim PQ Scaling Results (mean wall time)}{table.caption.32}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {17}{\ignorespaces 2$\times $2 Ablation: Mutable vs.\ Persistent Heap $\times $ State Maps (mean wall time; ratios relative to CL baseline). Hybrid-A = persistent maps + mutable heap; Hybrid-B = mutable maps + persistent heap; FOL = both persistent.}}{8}{table.caption.34}\protected@file@percent }
+\newlabel{tab:lsim-ablation}{{17}{8}{2$\times $2 Ablation: Mutable vs.\ Persistent Heap $\times $ State Maps (mean wall time; ratios relative to CL baseline). Hybrid-A = persistent maps + mutable heap; Hybrid-B = mutable maps + persistent heap; FOL = both persistent}{table.caption.34}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.5}CLOS Adoption Cost: Expression Interpreter}{8}{subsection.5.5}\protected@file@percent }
+\newlabel{sec:interp-bench}{{5.5}{8}{CLOS Adoption Cost: Expression Interpreter}{subsection.5.5}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {6}Threats to Validity}{8}{section.6}\protected@file@percent }
+\newlabel{sec:threats}{{6}{8}{Threats to Validity}{section.6}{}}
+\@writefile{toc}{\contentsline {paragraph}{Single implementation.}{8}{section*.37}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Experimenter bias.}{8}{section*.38}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Benchmark coverage.}{8}{section*.39}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Benchmark selection bias.}{8}{section*.40}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Interoperability hazard.}{8}{section*.41}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Non-portability.}{8}{section*.42}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Re-evaluation and Preference Resolution.}{8}{section*.43}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{All-Level-2.}{8}{section*.44}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {7}Related Work}{8}{section.7}\protected@file@percent }
+\newlabel{sec:related}{{7}{8}{Related Work}{section.7}{}}
+\@writefile{toc}{\contentsline {paragraph}{Persistent data structures.}{8}{section*.45}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Schema evolution.}{8}{section*.46}\protected@file@percent }
 \citation{Ernst1998}
 \citation{Millstein2004}
 \citation{Chambers1999}
@@ -131,27 +155,6 @@
 \bibcite{Burke2007}{{5}{2007}{{Burke}}{{}}}
 \bibcite{Chambers1999}{{6}{1999}{{Chambers and Chen}}{{}}}
 \bibcite{Clifton2000}{{7}{2000}{{Clifton et~al\mbox  {.}}}{{}}}
-\@writefile{lot}{\contentsline {table}{\numberline {17}{\ignorespaces Expression Interpreter Benchmark (SBCL 2.6.0, AMD Ryzen 9 5900X).}}{8}{table.caption.30}\protected@file@percent }
-\newlabel{tab:interp-perf}{{17}{8}{Expression Interpreter Benchmark (SBCL 2.6.0, AMD Ryzen 9 5900X)}{table.caption.30}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {6}Threats to Validity}{8}{section.6}\protected@file@percent }
-\newlabel{sec:threats}{{6}{8}{Threats to Validity}{section.6}{}}
-\@writefile{toc}{\contentsline {paragraph}{Single implementation.}{8}{section*.32}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Experimenter bias.}{8}{section*.33}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Benchmark coverage.}{8}{section*.34}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Benchmark selection bias.}{8}{section*.35}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Interoperability hazard.}{8}{section*.36}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Non-portability.}{8}{section*.37}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Re-evaluation and Preference Resolution.}{8}{section*.38}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{All-Level-2.}{8}{section*.39}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {7}Related Work}{8}{section.7}\protected@file@percent }
-\newlabel{sec:related}{{7}{8}{Related Work}{section.7}{}}
-\@writefile{toc}{\contentsline {paragraph}{Persistent data structures.}{8}{section*.40}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Schema evolution.}{8}{section*.41}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{OOP/FP bridges and pattern dispatch in other languages.}{8}{section*.42}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Predicate dispatch.}{8}{section*.43}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {8}Conclusion}{8}{section.8}\protected@file@percent }
-\newlabel{sec:conclusion}{{8}{8}{Conclusion}{section.8}{}}
-\@writefile{toc}{\contentsline {section}{References}{8}{section*.45}\protected@file@percent }
 \bibcite{Crane1972}{{8}{1972}{{Crane}}{{}}}
 \bibcite{Dantam2013}{{9}{2013}{{Dantam}}{{}}}
 \bibcite{Driscoll1989}{{10}{1989}{{Driscoll et~al\mbox  {.}}}{{}}}
@@ -179,5 +182,12 @@
 \newlabel{tocindent3}{18.198pt}
 \newlabel{tocindent4}{0pt}
 \newlabel{tocindent5}{0pt}
+\@writefile{lot}{\contentsline {table}{\numberline {18}{\ignorespaces Expression Interpreter Benchmark (SBCL 2.6.0, AMD Ryzen 9 5900X).}}{9}{table.caption.35}\protected@file@percent }
+\newlabel{tab:interp-perf}{{18}{9}{Expression Interpreter Benchmark (SBCL 2.6.0, AMD Ryzen 9 5900X)}{table.caption.35}{}}
+\@writefile{toc}{\contentsline {paragraph}{OOP/FP bridges and pattern dispatch in other languages.}{9}{section*.47}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Predicate dispatch.}{9}{section*.48}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {8}Conclusion}{9}{section.8}\protected@file@percent }
+\newlabel{sec:conclusion}{{8}{9}{Conclusion}{section.8}{}}
+\@writefile{toc}{\contentsline {section}{References}{9}{section*.50}\protected@file@percent }
 \newlabel{TotPages}{{9}{9}{}{page.9}{}}
 \gdef \@abspage@last{9}

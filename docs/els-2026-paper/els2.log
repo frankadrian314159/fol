@@ -1,6 +1,6 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.2.2)  10 MAY 2026 08:48
+This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.2.2)  14 MAY 2026 09:13
 entering extended mode
- restricted \write18 enabled.
+ \write18 enabled.
  %&-line parsing enabled.
 **./els2.tex
 (els2.tex
@@ -1217,115 +1217,153 @@ Overfull \hbox (10.85251pt too wide) in paragraph at lines 460--461
  []
 
 
-Overfull \hbox (10.85251pt too wide) in paragraph at lines 486--487
+Overfull \hbox (10.92972pt too wide) in paragraph at lines 495--496
+[]\T1/LinuxLibertineT-TLF/b/n/9 (-20) Redefinition\T1/LinuxLibertineT-TLF/m/n/9
+ (-20) : \T1/zi4/m/it/9 defn \T1/LinuxLibertineT-TLF/m/n/9 (-20) cre-ates a fre
+sh cache on each re-evaluation
+ []
+
+
+Overfull \hbox (4.08772pt too wide) in paragraph at lines 496--497
+[]\T1/LinuxLibertineT-TLF/b/n/9 (-20) Method changes\T1/LinuxLibertineT-TLF/m/n
+/9 (-20) : \T1/zi4/m/it/9 add-method\T1/LinuxLibertineT-TLF/m/n/9 (-20) /\T1/zi
+4/m/it/9 remove-method \T1/LinuxLibertineT-TLF/m/n/9 (-20) hooks flush
+ []
+
+! Misplaced alignment tab character &.
+l.503 ...ing caching for specific functions (via &
+                                                  rest parameters).
+I can't figure out why you would want to use a tab mark
+here. If you just want an ampersand, the remedy is
+simple: Just type `I\&' now. But if some right brace
+up above has ended a previous alignment prematurely,
+you're probably due for more error messages, and you
+might try typing `S' now just to see what is salvageable.
+
+
+Overfull \hbox (2.46463pt too wide) in paragraph at lines 506--507
+\T1/LinuxLibertineT-TLF/m/n/9 (-20) cache sta-tis-tics via \T1/zi4/m/it/9 (insp
+ect-fn-cache 'name) \T1/LinuxLibertineT-TLF/m/n/9 (-20) and \T1/zi4/m/it/9 (cac
+he-stats
+ []
+
+
+Overfull \hbox (10.85251pt too wide) in paragraph at lines 517--518
 [][][][][][][][][][][][][][][][][][][][][][][][][][][][][][] 
  []
 
 LaTeX Font Info:    Font shape `T1/zi4/m/n' will be
-(Font)              scaled to size 7.3pt on input line 520.
+(Font)              scaled to size 7.3pt on input line 551.
 
-Underfull \hbox (badness 10000) in paragraph at lines 520--521
+Underfull \hbox (badness 10000) in paragraph at lines 551--552
 []\T1/zi4/m/n/7 defmulti \T1/LinuxLibertineT-TLF/m/n/7 (+20) dis-patches via a 
 user-supplied func-tion;
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 520--521
+Underfull \hbox (badness 10000) in paragraph at lines 551--552
 \T1/zi4/m/n/7 prefer-method\T1/LinuxLibertineT-TLF/m/n/7 (+20) /\T1/zi4/m/n/7 d
 erive \T1/LinuxLibertineT-TLF/m/n/7 (+20) al-low man-ual over-rides but
  []
 
 LaTeX Font Info:    Font shape `T1/LinuxLibertineT-TLF/m/it' will be
-(Font)              scaled to size 7.0pt on input line 522.
+(Font)              scaled to size 7.0pt on input line 553.
 
-Underfull \hbox (badness 10000) in paragraph at lines 523--524
+Underfull \hbox (badness 10000) in paragraph at lines 554--555
 []\T1/LinuxLibertineT-TLF/m/n/7 (+20) Slot stor-age backed by im-mutable HAMTs;
  \T1/zi4/m/n/7 (setf
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 524--525
+Underfull \hbox (badness 10000) in paragraph at lines 555--556
 []\T1/LinuxLibertineT-TLF/m/n/7 (+20) Renamed slots re-cov-ered au-to-mat-i-cal
 ly at first post-
  []
 
 [5.5]
-Underfull \hbox (badness 4913) in paragraph at lines 669--669
+LaTeX Font Info:    Font shape `TS1/LinuxLibertineT-TLF/m/n' will be
+(Font)              scaled to size 8.0pt on input line 660.
+
+Underfull \hbox (badness 4913) in paragraph at lines 726--726
 []|\T1/LinuxLibertineT-TLF/m/n/8 (+20) FOL's single-pass fold main-tains
  []
 
 
-Underfull \hbox (badness 1776) in paragraph at lines 669--669
+Underfull \hbox (badness 1776) in paragraph at lines 726--726
 []|\T1/LinuxLibertineT-TLF/m/n/8 (+20) SBCL mi-gra-tion ma-chin-ery dom-i-
  []
 
 
-Overfull \hbox (6.79216pt too wide) in paragraph at lines 729--738
+Overfull \hbox (6.79216pt too wide) in paragraph at lines 786--795
  [][] 
  []
 
-
-Overfull \hbox (7.39363pt too wide) in paragraph at lines 754--757
+[6.6]
+Overfull \hbox (7.39363pt too wide) in paragraph at lines 811--814
 \T1/zi4/m/it/9 defstruct \T1/LinuxLibertineT-TLF/m/n/9 (-20) with \T1/zi4/m/it/
 9 typecase \T1/LinuxLibertineT-TLF/m/n/9 (-20) on a 9,999-node bal-anced tree--
 -\T1/zi4/m/it/9 defstruct
  []
 
 
-Overfull \hbox (38.43787pt too wide) in paragraph at lines 758--760
+Overfull \hbox (38.43787pt too wide) in paragraph at lines 815--817
 \T1/LinuxLibertineT-TLF/m/n/9 (-20) build ra-tio ex-ceeds micro-benchmarks due 
 to per-node \T1/zi4/m/it/9 initialize-instance
  []
 
 
-Overfull \hbox (12.7836pt too wide) in paragraph at lines 765--776
+Overfull \hbox (12.7836pt too wide) in paragraph at lines 822--833
  [][] 
  []
 
-
-Overfull \hbox (6.69574pt too wide) in paragraph at lines 790--808
+[7.7]
+Overfull \hbox (6.69574pt too wide) in paragraph at lines 847--865
  [] 
  []
 
 
-Overfull \hbox (22.90697pt too wide) in paragraph at lines 820--831
+Overfull \hbox (22.90697pt too wide) in paragraph at lines 877--888
  [][] 
  []
 
 
-Underfull \vbox (badness 1158) has occurred while \output is active []
-
- [6.6]
-[7.7]
-Underfull \hbox (badness 10000) in paragraph at lines 876--877
+Underfull \hbox (badness 10000) in paragraph at lines 933--934
  []\T1/LinuxLibertineT-TLF/m/it/9 (+20) Benchmark se-lec-tion bias.[] \T1/Linux
 LibertineT-TLF/m/n/9 (+20) Macro-benchmarks may over-
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 880--882
+Underfull \hbox (badness 10000) in paragraph at lines 937--939
  []\T1/LinuxLibertineT-TLF/m/it/9 (+20) Non-portability.[] \T1/zi4/m/it/9 persi
 stent-class \T1/LinuxLibertineT-TLF/m/n/9 (+20) uses AMOP hooks
  []
 
 
-Underfull \hbox (badness 1215) in paragraph at lines 880--882
+Underfull \hbox (badness 1215) in paragraph at lines 937--939
 \T1/LinuxLibertineT-TLF/m/n/9 (+20) (\T1/zi4/m/it/9 allocate-instance\T1/LinuxL
 ibertineT-TLF/m/n/9 (+20) , \T1/zi4/m/it/9 initialize-instance\T1/LinuxLibertin
 eT-TLF/m/n/9 (+20) ) but reads SBCL
  []
 
 
-Underfull \hbox (badness 1502) in paragraph at lines 883--886
+Underfull \hbox (badness 1502) in paragraph at lines 940--943
 \T1/LinuxLibertineT-TLF/m/n/9 (+20) re-orders in-com-pa-ra-ble clauses; or-der-
 ing may dif-fer be-tween
  []
 
-
-Overfull \hbox (5.14056pt too wide) in paragraph at lines 921--924
+[8.8]
+Overfull \hbox (5.14056pt too wide) in paragraph at lines 978--981
 \T1/LinuxLibertineT-TLF/m/n/9 (-20) FOL con-tributes a per-sis-tent meta-class 
 sys-tem and specificity-ordered
  []
+
+
+LaTeX Warning: Reference `sec:dispatch-caching' on page 9 undefined on input li
+ne 984.
+
+
+LaTeX Warning: Reference `sec:cache-bench' on page 9 undefined on input line 98
+4.
 
 (els2.bbl
 Underfull \hbox (badness 1062) in paragraph at lines 41--49
@@ -1335,11 +1373,6 @@ TLF/m/it/7 (+20) FOL: Func-tional Ob-ject Lisp\T1/LinuxLibertineT-TLF/m/n/7 (+2
  []
 
 LaTeX Info: Redefining \tempurl on input line 90.
-
-Package balance Warning: You have called \balance in second column
-(balance)                Columns might not be balanced.
-
-[8.8]
 LaTeX Info: Redefining \tempurl on input line 138.
 LaTeX Info: Redefining \tempurl on input line 188.
 LaTeX Info: Redefining \tempurl on input line 235.
@@ -1385,39 +1418,64 @@ LaTeX Font Warning: Some font shapes were not available, defaults substituted.
 
 LaTeX Warning: There were undefined references.
 
-Package rerunfilecheck Info: File `els2.out' has not changed.
-(rerunfilecheck)             Checksum: 39CD6ED2B0A8FB7ACD1A21F853C94E8C;3150.
+
+LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right.
+
+
+Package rerunfilecheck Warning: File `els2.out' has changed.
+(rerunfilecheck)                Rerun to get outlines right
+(rerunfilecheck)                or use package `bookmark'.
+
+Package rerunfilecheck Info: Checksums for `els2.out':
+(rerunfilecheck)             Before: 39CD6ED2B0A8FB7ACD1A21F853C94E8C;3150
+(rerunfilecheck)             After:  5BD4BE3DFC96628F6A3A1F5F3B246C02;3150.
  ) 
 Here is how much of TeX's memory you used:
- 23930 strings out of 467871
- 389766 string characters out of 5418377
- 1080940 words of memory out of 5000000
- 51374 multiletter control sequences out of 15000+600000
- 880013 words of font info for 604 fonts, out of 8000000 for 9000
+ 23976 strings out of 467871
+ 390822 string characters out of 5418377
+ 1158719 words of memory out of 5000000
+ 51382 multiletter control sequences out of 15000+600000
+ 882553 words of font info for 622 fonts, out of 8000000 for 9000
  1302 hyphenation exceptions out of 8191
  90i,21n,131p,1003b,2096s stack positions out of 10000i,1000n,20000p,200000b,200000s
-<C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/inconsolata/
-Inconsolata-zi4b.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/
-public/inconsolata/Inconsolata-zi4r.pfb><C:/Users/frank/AppData/Local/Programs/
-MiKTeX/fonts/type1/public/newtx/LibertineMathMI.pfb><C:/Users/frank/AppData/Loc
-al/Programs/MiKTeX/fonts/type1/public/newtx/LibertineMathMI5.pfb><C:/Users/fran
-k/AppData/Local/Programs/MiKTeX/fonts/type1/public/newtx/LibertineMathMI7.pfb><
-C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/libertine/LinBi
-olinumT.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/li
-bertine/LinBiolinumTB.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/t
-ype1/public/libertine/LinBiolinumTI.pfb><C:/Users/frank/AppData/Local/Programs/
-MiKTeX/fonts/type1/public/libertine/LinLibertineT.pfb><C:/Users/frank/AppData/L
-ocal/Programs/MiKTeX/fonts/type1/public/libertine/LinLibertineTB.pfb><C:/Users/
-frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/libertine/LinLibertineTI
-.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/newtx/New
-TXMI.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/newtx
-/NewTXMI7.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/
-newtx/txmiaX.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/publ
-ic/newtx/txsym.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/pu
-blic/newtx/txsys.pfb>
-Output written on els2.pdf (9 pages, 620602 bytes).
+
+pdfTeX warning (dest): name{table.caption.27} has been referenced but does not 
+exist, replaced by a fixed one
+
+
+pdfTeX warning (dest): name{table.caption.29} has been referenced but does not 
+exist, replaced by a fixed one
+
+
+pdfTeX warning (dest): name{table.caption.13} has been referenced but does not 
+exist, replaced by a fixed one
+
+
+pdfTeX warning (dest): name{table.caption.11} has been referenced but does not 
+exist, replaced by a fixed one
+
+<C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/inconsolata/In
+consolata-zi4b.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/pu
+blic/inconsolata/Inconsolata-zi4r.pfb><C:/Users/frank/AppData/Local/Programs/Mi
+KTeX/fonts/type1/public/newtx/LibertineMathMI.pfb><C:/Users/frank/AppData/Local
+/Programs/MiKTeX/fonts/type1/public/newtx/LibertineMathMI5.pfb><C:/Users/frank/
+AppData/Local/Programs/MiKTeX/fonts/type1/public/newtx/LibertineMathMI7.pfb><C:
+/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/libertine/LinBiol
+inumT.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/libe
+rtine/LinBiolinumTB.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/typ
+e1/public/libertine/LinBiolinumTI.pfb><C:/Users/frank/AppData/Local/Programs/Mi
+KTeX/fonts/type1/public/libertine/LinLibertineT.pfb><C:/Users/frank/AppData/Loc
+al/Programs/MiKTeX/fonts/type1/public/libertine/LinLibertineTB.pfb><C:/Users/fr
+ank/AppData/Local/Programs/MiKTeX/fonts/type1/public/libertine/LinLibertineTI.p
+fb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/newtx/NewTX
+MI.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/newtx/N
+ewTXMI7.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public/ne
+wtx/txmiaX.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/public
+/newtx/txsym.pfb><C:/Users/frank/AppData/Local/Programs/MiKTeX/fonts/type1/publ
+ic/newtx/txsys.pfb>
+Output written on els2.pdf (9 pages, 627160 bytes).
 PDF statistics:
- 500 PDF objects out of 1000 (max. 8388607)
- 191 named destinations out of 1000 (max. 500000)
- 135849 words of extra memory for PDF output out of 154059 (max. 10000000)
+ 514 PDF objects out of 1000 (max. 8388607)
+ 202 named destinations out of 1000 (max. 500000)
+ 139945 words of extra memory for PDF output out of 154059 (max. 10000000)
 
