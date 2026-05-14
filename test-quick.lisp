@@ -1,0 +1,5 @@
+(push (uiop:getcwd) asdf:*central-registry*)
+(asdf:load-system :fol-compiler)
+(print "Compiler loaded successfully!")
+(print (fboundp 'fol.compiler.dispatch:cache-lookup))
+(print (fboundp 'fol.compiler.dispatch:inspect-fn-cache))

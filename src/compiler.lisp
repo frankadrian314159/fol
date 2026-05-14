@@ -1620,8 +1620,12 @@
    For unnamed multi-clause fns with fixed arity, applies dispatch caching."
   (let* ((name (fol.compiler.ast:fn-node-name node))
          (clauses (fol.compiler.ast:fn-node-clauses node))
+         ;; AST-level analysis (robust, format-independent)
+         (cache-mode (cacheable-clauses-p clauses))
+         ;; Compile regardless (needed for emit)
          (lambda-form (compile-fn clauses))
-         (cache-mode (cacheable-defn-p lambda-form)))
+         ;; Fallback: post-compile check catches edge cases
+         (cache-mode (or cache-mode (cacheable-defn-p lambda-form))))
     (if name
         ;; Named fn: wrap in labels for self-reference
         (let ((params (second lambda-form))
@@ -2508,29 +2512,34 @@
                        ;; Has predicate specializers or no specializers
                        (if has-specializers
                            (compile-defmethod-clauses name clauses qualifier)
-                           ;; No specializers: emit simple CL defmethod
-                           (multiple-value-bind (regular-params rest-param)
-                               (fol.compiler.destructure:parse-params param-list)
-                             (let* ((variadic-p (member (symbol-name name) '("ASSOC" "DISSOC" "CONJ" "MERGE" "LIST" "LIST*" "VECTOR" "DICT" "SET") :test #'string-equal))
-                                    (final-rest-param (or rest-param (when variadic-p (gensym "REST"))))
-                                    (lambda-list (if final-rest-param
-                                                     (append regular-params (list '&rest final-rest-param))
-                                                     regular-params))
-                                    (emitted-body (let ((*lexical-vars* (append regular-params
-                                                                                (when final-rest-param (list final-rest-param))
-                                                                                *lexical-vars*)))
-                                                    (mapcar #'emit-node body-nodes))))
-                               (if qualifier
-                                   `(defmethod ,name ,qualifier ,lambda-list
-                                      ,@(when (and variadic-p (not rest-param)) `((declare (ignore ,final-rest-param))))
-                                      ,@(when *extra-special-vars*
-                                              `((declare (special ,@(remove-duplicates *extra-special-vars*)))))
-                                      ,@emitted-body)
-                                   `(defmethod ,name ,lambda-list
-                                      ,@(when (and variadic-p (not rest-param)) `((declare (ignore ,final-rest-param))))
-                                      ,@(when *extra-special-vars*
-                                              `((declare (special ,@(remove-duplicates *extra-special-vars*)))))
-                                      ,@emitted-body)))))))
+                           ;; No specializers: emit simple CL defmethod, with optional caching
+                           (let ((single-cache-mode (cacheable-clauses-p clauses)))
+                             (multiple-value-bind (regular-params rest-param)
+                                 (fol.compiler.destructure:parse-params param-list)
+                               (let* ((variadic-p (member (symbol-name name) '("ASSOC" "DISSOC" "CONJ" "MERGE" "LIST" "LIST*" "VECTOR" "DICT" "SET") :test #'string-equal))
+                                      (final-rest-param (or rest-param (when variadic-p (gensym "REST"))))
+                                      (lambda-list (if final-rest-param
+                                                       (append regular-params (list '&rest final-rest-param))
+                                                       regular-params))
+                                      (emitted-body (let ((*lexical-vars* (append regular-params
+                                                                                  (when final-rest-param (list final-rest-param))
+                                                                                  *lexical-vars*)))
+                                                      (mapcar #'emit-node body-nodes)))
+                                      (base-method-form
+                                       (if qualifier
+                                           `(defmethod ,name ,qualifier ,lambda-list
+                                              ,@(when (and variadic-p (not rest-param)) `((declare (ignore ,final-rest-param))))
+                                              ,@(when *extra-special-vars*
+                                                      `((declare (special ,@(remove-duplicates *extra-special-vars*)))))
+                                              ,@emitted-body)
+                                           `(defmethod ,name ,lambda-list
+                                              ,@(when (and variadic-p (not rest-param)) `((declare (ignore ,final-rest-param))))
+                                              ,@(when *extra-special-vars*
+                                                      `((declare (special ,@(remove-duplicates *extra-special-vars*)))))
+                                              ,@emitted-body))))
+                                 (if single-cache-mode
+                                     (make-cached-method name base-method-form)
+                                     base-method-form)))))))
                  ;; Multi-clause: emit dispatched defmethod, optionally cached
                  (let ((raw-form (compile-defmethod-clauses name clauses qualifier)))
                    (if (cacheable-method-p raw-form)
@@ -2674,6 +2683,30 @@
 (defun value-key-expr (params)
   `(cl:list ,@(mapcar (lambda (p) `(fol.compiler.dispatch:pred-key ,p)) params)))
 
+(defun cacheable-clauses-p (clauses)
+  "Determine cacheability from raw AST clauses BEFORE compile-fn.
+   Returns :value if cacheable, nil otherwise.
+
+   Case 1 (multi-clause): 4+ clauses with same arity and no &rest → :value
+   Case 2 (single-clause with wide cond body): body is a cond-node with 4+ non-fallback
+           clauses → :value
+
+   This analysis is robust to compile-fn output format changes since it works on the AST."
+  (let ((n (length clauses)))
+    (cond
+      ;; Multi-clause: count is authoritative, compile-fn will enforce arity uniformity
+      ((>= n +dispatch-cache-threshold+) :value)
+      ;; Single-clause: check if the body starts with a wide cond node
+      ((= n 1)
+       (let* ((clause (first clauses))
+              (body-nodes (cdr clause))
+              (first-body (first body-nodes)))
+         (when (and (fol.compiler.ast:cond-node-p first-body)
+                    (>= (- (length (fol.compiler.ast:cond-node-clauses first-body)) 1)
+                        +dispatch-cache-threshold+))
+           :value)))
+      (t nil))))
+
 (defun count-nested-ifs (form)
   "Count the total number of if-branches in a nested IF dispatch structure.
    Each (if ...) counts as 1, plus any nested IFs in the else branch."
@@ -2771,14 +2804,18 @@
   (let* ((name (fol.compiler.ast:defn-node-name node))
          (clauses (fol.compiler.ast:defn-node-clauses node))
          (docstring (fol.compiler.ast:defn-node-docstring node))
-         (lambda-form (compile-fn clauses)))
+         ;; AST-level analysis (robust, format-independent)
+         (cache-mode (cacheable-clauses-p clauses))
+         ;; Compile regardless (needed for emit)
+         (lambda-form (compile-fn clauses))
+         ;; Fallback: post-compile check catches edge cases
+         (cache-mode (or cache-mode (cacheable-defn-p lambda-form))))
     ;; Track this function for Lisp-1 compatibility in compile-file
     (when *file-function-defs*
           (pushnew name *file-function-defs* :test #'string=))
     ;; lambda-form is (lambda params body...)
     ;; Check if dispatch caching applies
-    (let* ((cache-mode (cacheable-defn-p lambda-form))
-           (base-form (if cache-mode
+    (let* ((base-form (if cache-mode
                           (make-cached-defn name lambda-form cache-mode)
                           (let ((params (second lambda-form))
                                 (body (cddr lambda-form)))

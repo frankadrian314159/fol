@@ -209,10 +209,14 @@
    make-dispatch-cache
    dispatch-cache-table
    dispatch-cache-generation
+   dispatch-cache-hits
+   dispatch-cache-misses
    ;; Cache operations
    cache-lookup
    cache-insert!
    cache-flush!
+   cache-stats
+   inspect-fn-cache
    pred-key
    ;; GF-level cache management
    *gf-cache-registry*

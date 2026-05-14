@@ -9,18 +9,27 @@
 
 (defstruct (dispatch-cache (:constructor make-dispatch-cache ()) (:copier nil))
   "Hash-table cache for polymorphic inline caching.
-   table: hash table (key → function) where key is a list of class objects
-   generation: incremented on flush, used to invalidate outer scopes"
-  (table      (make-hash-table :test 'equal) :type hash-table)
-  (generation 0 :type fixnum))
+   table: hash table (key → function) where key is a list of class objects.
+           synchronized for thread-safe concurrent access.
+   generation: incremented on flush, used to invalidate outer scopes.
+   hits: count of cache lookups that found an entry (atomic updates).
+   misses: count of cache lookups that missed (atomic updates)."
+  (table      (make-hash-table :test 'equal :synchronized t) :type hash-table)
+  (generation 0 :type (unsigned-byte 64))
+  (hits       0 :type (unsigned-byte 64))
+  (misses     0 :type (unsigned-byte 64)))
 
 ;;; Cache Operations
 
 (defun cache-lookup (cache key)
   "Lookup KEY in the cache and return the cached function, or NIL if not found.
-   KEY should be comparable by EQUAL (list of classes or mixed atoms)."
+   KEY should be comparable by EQUAL (list of classes or mixed atoms).
+   Atomically increments hits/misses counters for cache statistics."
   (declare (type dispatch-cache cache) (optimize (speed 3) (safety 0)))
-  (gethash key (dispatch-cache-table cache)))
+  (let ((hit (gethash key (dispatch-cache-table cache))))
+    (if hit
+        (progn (sb-ext:atomic-incf (dispatch-cache-hits cache)) hit)
+        (progn (sb-ext:atomic-incf (dispatch-cache-misses cache)) nil))))
 
 (defun cache-insert! (cache key fn)
   "Insert KEY → FN into the cache."
@@ -28,10 +37,18 @@
   (setf (gethash key (dispatch-cache-table cache)) fn))
 
 (defun cache-flush! (cache)
-  "Clear all cached entries and bump the generation counter."
+  "Clear all cached entries and bump the generation counter.
+   Also resets hit/miss counters to zero.
+
+   Note: clrhash is not atomic with concurrent cache-lookup calls in other threads.
+   A lookup racing with clrhash may miss the cache (harmless; falls through to COND).
+   Correctness is preserved: individual gethash operations are atomic per-entry,
+   and generation increments are atomic, preventing stale-entry re-entries."
   (declare (type dispatch-cache cache))
   (clrhash (dispatch-cache-table cache))
-  (incf (dispatch-cache-generation cache)))
+  (setf (dispatch-cache-hits cache) 0
+        (dispatch-cache-misses cache) 0)
+  (sb-ext:atomic-incf (dispatch-cache-generation cache)))
 
 ;;; Generic Function Cache Registry and Invalidation
 
@@ -69,6 +86,29 @@
     (character x)
     (symbol    x)
     (t         (cl:class-of x))))
+
+;;; Cache Statistics and Observability
+
+(defun cache-stats (cache)
+  "Return (values hits misses generation table-size) for a dispatch-cache.
+   Useful for profiling and validating cache behavior."
+  (declare (type dispatch-cache cache))
+  (values (dispatch-cache-hits cache)
+          (dispatch-cache-misses cache)
+          (dispatch-cache-generation cache)
+          (hash-table-count (dispatch-cache-table cache))))
+
+(defun inspect-fn-cache (fn-name)
+  "Return (values hits misses generation table-size) for FN-NAME's dispatch cache.
+   Returns NIL if FN-NAME is not a cached function.
+
+   FN-NAME must be the exact symbol used in the defn/fn form (case-sensitive).
+   Example: (inspect-fn-cache 'my-type-dispatch-fn)"
+  (declare (type symbol fn-name))
+  (let* ((pkg (or (symbol-package fn-name) *package*))
+         (cache-sym (intern (format nil "%-~A-DISPATCH-CACHE" (symbol-name fn-name)) pkg)))
+    (when (boundp cache-sym)
+      (cache-stats (symbol-value cache-sym)))))
 
 ;;; MOP Hooks for Automatic Cache Invalidation
 
