@@ -25,17 +25,16 @@
   (dispatch-val dispatchable))
 
 (define-values (dispatch-racket-impl dispatch-racket-impl?)
-  (let ([v (vector-length)])
-    (values
-      (lambda (x)
-        (cond
-          [(fixnum? x) (list 'fixnum x)]
-          [(string? x) (list 'string (string-length x))]
-          [(list? x) (list 'list (length x))]
-          [(vector? x) (list 'vector (vector-length x))]
-          [(symbol? x) (list 'symbol x)]
-          [else (list 'other x)]))
-      (lambda (x) #t))))
+  (values
+    (lambda (x)
+      (cond
+        [(fixnum? x) (list 'fixnum x)]
+        [(string? x) (list 'string (string-length x))]
+        [(list? x) (list 'list (length x))]
+        [(vector? x) (list 'vector (vector-length x))]
+        [(symbol? x) (list 'symbol x)]
+        [else (list 'other x)]))
+    (lambda (x) #t)))
 
 ;; Test data: 200,000 calls with 5-type repeating cycle
 (define *test-data*
@@ -62,45 +61,29 @@
           (for ([i (length *test-data*)])
             (set! result (+ result (if (dispatch-racket-impl (list-ref *test-data* i)) 1 0))))
           (let ([elapsed (- (current-process-milliseconds) start)])
-            (printf "  Run %d: %s seconds\n" (+ run 1) (/ elapsed 1000.0))
+            (displayln (format "  Run ~a: ~a seconds" (+ run 1) (/ elapsed 1000.0)))
             (loop (+ run 1) (cons result times)))))))
 
 (define (run-all-benchmarks)
   "Run all benchmarks"
-  (printf "
-================================
-")
-  (printf "Racket Method Dispatch Micro-Benchmark
-")
-  (printf "================================
-")
-  (printf "Implementation: %s
-" (version))
-  (printf "Test data: 200,000 calls over repeating 5-type cycle
-")
-  (printf "  Type cycle: fixnum -> string -> list -> vector -> symbol
+  (displayln "\n================================")
+  (displayln "Racket Method Dispatch Micro-Benchmark")
+  (displayln "================================")
+  (displayln (format "Implementation: ~a" (version)))
+  (displayln "Test data: 200,000 calls over repeating 5-type cycle")
+  (displayln "  Type cycle: fixnum -> string -> list -> vector -> symbol\n")
 
-")
-
-  (printf "Warming up JIT compiler (10,000 calls)...
-")
+  (displayln "Warming up JIT compiler (10,000 calls)...")
   (for ([i 10000])
     (dispatch-racket-impl (list-ref *test-data* (modulo i (length *test-data*)))))
-  (printf "Warmup complete.
+  (displayln "Warmup complete.\n")
 
-")
-
-  (printf "Running generic function dispatch benchmark (3 iterations):
-")
+  (displayln "Running generic function dispatch benchmark (3 iterations):")
   (benchmark-dispatch 3)
 
-  (printf "
-================================
-")
-  (printf "Benchmark Complete
-")
-  (printf "================================
-"))
+  (displayln "\n================================")
+  (displayln "Benchmark Complete")
+  (displayln "================================"))
 
 ;; Run benchmarks
 (run-all-benchmarks)
