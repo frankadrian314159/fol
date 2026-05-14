@@ -78,14 +78,14 @@
 
 | Metric | Uncached | Cached | Ratio |
 |--------|----------|--------|-------|
-| **Run 1** | 20.906 s | 21.797 s | **1.042× slower** |
-| **Run 2** | 20.969 s | 21.828 s | **1.041× slower** |
-| **Run 3** | 21.14 s | 21.766 s | **1.030× slower** |
-| **Average** | 21.005 s | 21.797 s | **1.038× slower** |
-| **Per-call (uncached)** | 105.0 µs | — | — |
+| **Run 1** | 45.156 s | 47.5 s | **1.052× slower** |
+| **Run 2** | 45.406 s | 47.328 s | **1.042× slower** |
+| **Run 3** | 45.938 s | 47.203 s | **1.027× slower** |
+| **Average** | 45.500 s | 47.344 s | **1.041× slower** |
+| **Per-call (uncached)** | 227.5 µs | — | — |
 | **Cache hit rate** | N/A | 100% | — |
 
-**Conclusion**: Caching fails in Racket (1.038× slower). Despite JIT compilation and 100% cache hits, baseline dispatch cost (~105 µs) is so high that caching overhead (~4 µs per call) is still detrimental. Racket's performance characteristics mirror LispWorks more closely than SBCL, suggesting that Scheme-based JIT (Racket) and C-based mixed compilation (LispWorks) have similar overhead profiles.
+**Conclusion**: Caching fails in Racket (1.041× slower). Racket's heterogeneous dispatch baseline (~227.5 µs per call) is significantly SLOWER than LispWorks (105.7 µs), ABCL (149.4 µs), and all other implementations tested. This suggests Racket's type predicates (`fixnum?`, `string?`, etc.) have high per-call overhead even with JIT compilation. Caching overhead (~9 µs per call) remains detrimental despite the high baseline, confirming that absolute overhead cost (not ratio) determines caching effectiveness.
 
 ---
 
@@ -122,13 +122,15 @@ SBCL:        6.1 ms / 200,000 calls = 30.5 ns per call
 CCL:        72.0 s / 200,000 calls = 360 ns per call
 ABCL:       29.87 s / 200,000 calls = 149.4 µs per call
 LispWorks:  21.14 s / 200,000 calls = 105.7 µs per call
-Racket:     21.005 s / 200,000 calls = 105.0 µs per call
+Racket:     45.5 s / 200,000 calls = 227.5 µs per call
 
 Relative costs:
   CCL baseline: 11.8× slower than SBCL
-  ABCL baseline: 5,000× slower than SBCL (3.5× slower than LispWorks)
+  ABCL baseline: 5,000× slower than SBCL (1.5× slower than LispWorks)
   LispWorks baseline: 3,463× slower than SBCL, 294× slower than CCL
-  Racket baseline: 3,443× slower than SBCL, ~1.0× with LispWorks (virtually identical)
+  Racket baseline: 7,458× slower than SBCL, 2.15× slower than LispWorks, 1.52× slower than ABCL
+  
+  KEY: Racket is SLOWEST of all implementations tested
 ```
 
 **Why the huge difference?**
@@ -160,10 +162,11 @@ LispWorks caching cost: 25.41 s - 21.14 s = 4.27 s overhead
                     = ALLOCATION EXPLOSION: 798 MB → 5,531 MB (6.9×)
                     = Caching FAILS due to memory pressure
 
-Racket caching cost: 21.797 s - 21.005 s = 0.792 s overhead
-                    = 3.96 µs per call (3.8× baseline)
+Racket caching cost: 47.344 s - 45.5 s = 1.844 s overhead
+                    = 9.22 µs per call (4.05× baseline)
                     = Caching FAILS despite proportionally smaller overhead
-                    = Baseline cost is high enough that even small overhead matters
+                    = Even with 4× baseline overhead, absolute cost still dominates
+                    = Highest baseline cost of all implementations (227.5 µs) worsens caching benefit
 ```
 
 **Key Finding**: 
@@ -256,9 +259,9 @@ SBCL Homogeneous:    1.9× FASTER (branch prediction helps!)
 
 ### Revised Thesis
 
-The original paper's conclusion—"object-level caching fails in compiled Lisp"—**should be refined to account for implementation variety**:
+The original paper's conclusion—"object-level caching fails in compiled Lisp"—**should be revised to account for implementation diversity and absolute overhead costs**:
 
-> **Object-level caching effectiveness depends on absolute per-call overhead cost, NOT relative overhead ratio. Caching fails when overhead exceeds savings: (overhead cost × 200,000 calls) > (dispatch savings × 200,000 calls). SBCL fails because overhead (130 ns) > dispatch cost (30 ns). CCL succeeds because type tests (100+ ns) > overhead (8 ns). LispWorks fails due to allocation overhead (21.4 µs). Racket fails because absolute overhead (~4 µs) exceeds dispatch savings despite being proportionally smaller. The break-even appears to be around 50-100 ns absolute overhead: below that, overhead is too large relative to achievable dispatch savings.**
+> **Object-level caching effectiveness depends critically on baseline dispatch cost and absolute per-call overhead. Caching fails when overhead cost (not ratio) exceeds dispatch savings. Break-even is approximately 1.5-2.0× the absolute overhead cost. SBCL (30 ns baseline) fails: overhead (130 ns) >> baseline. CCL (360 ns) succeeds: type tests (100+ ns) >> overhead (8 ns). ABCL (150 µs) neutral: GC dominates. LispWorks (106 µs) fails: allocation overhead (21 µs). Racket (228 µs, SLOWEST) fails: overhead (9 µs) still dominates dispatch savings. Racket demonstrates that JIT compilation of Scheme-style type checking yields worse performance than imperative approaches, suggesting dispatch caching's fundamental limitation may apply to any implementation with baseline cost exceeding ~100 µs.**
 
 ---
 
@@ -306,13 +309,13 @@ The original paper's conclusion—"object-level caching fails in compiled Lisp"�
 
 ### Racket 9.1 (Scheme JIT to native x86-64)
 
-- **Baseline**: 105.0 µs (3443× slower than SBCL, ~equal to LispWorks)
-- **Dispatch mechanism**: JIT-compiled COND with type predicates
-- **Type tests**: Machine instructions (`fixnum?`, `string?`, etc.) with high per-call overhead
-- **Caching overhead**: ~4.0 µs (3.8× baseline)
+- **Baseline**: 227.5 µs (7458× slower than SBCL, 2.15× SLOWER than LispWorks!)
+- **Dispatch mechanism**: JIT-compiled COND with Scheme type predicates
+- **Type tests**: Scheme-based type checks (`fixnum?`, `string?`, etc.) with very high per-call cost
+- **Caching overhead**: ~9.22 µs (4.05× baseline)
 - **Memory per call**: Minimal allocation overhead (no explosion like LispWorks)
-- **Result**: Caching fails (1.038× slowdown) — despite 3.8× overhead ratio, still detrimental
-- **Key insight**: Even with proportionally smaller overhead than LispWorks, Racket's high baseline cost means overhead percentage is not the limiting factor; absolute overhead cost (~4 µs) still exceeds dispatch savings
+- **Result**: Caching fails (1.041× slowdown)
+- **Key insight**: Racket shows the SLOWEST baseline of all five implementations. Despite JIT compilation, type predicate evaluation costs ~2.15× more than LispWorks and ~1.52× more than ABCL. This suggests Racket's approach to type checking (likely through Scheme's optional type system) adds significant overhead compared to imperative approaches.
 
 ---
 
@@ -346,12 +349,12 @@ The original paper's conclusion—"object-level caching fails in compiled Lisp"�
 - **Why**: If allocation is the bottleneck (not dispatch), caching fails
 - **Revised expectation**: Caching helps 5-20% IF allocation is controlled, else fails like LispWorks
 
-### Scheme JIT-to-native (Racket-like, baseline ~100 µs)
-- **Expected**: Caching fails (~1-5% slowdown)
-- **Examples**: Racket 9.1, Chez Scheme with JIT
-- **Why**: JIT compilation adds overhead even to type predicates; baseline cost is high like LispWorks, but without memory explosion
-- **Key difference from LispWorks**: Racket's overhead is smaller (3.8× baseline) but absolute overhead (~4 µs) still exceeds dispatch savings
-- **Implication**: Scheme-based JIT and Lisp-based bytecode have similar limitations for caching
+### Scheme JIT-to-native (Racket-like, baseline ~220+ µs)
+- **Actual behavior**: Caching fails (~1-5% slowdown)
+- **Examples**: Racket 9.1 (228 µs baseline — slowest tested!)
+- **Why**: JIT compilation of Scheme-style type predicates has high per-call cost; baseline is 2.15× LispWorks and 1.5× ABCL
+- **Racket specifically**: Type predicate overhead dominates despite JIT; Scheme's optional type system appears more expensive than explicit type checks in Lisp
+- **Implication**: Scheme-based dispatch may be fundamentally slower than imperative approaches, making caching even less beneficial. Racket results suggest that language design (Scheme vs Lisp) significantly impacts dispatch baseline performance.
 
 ---
 
@@ -373,9 +376,9 @@ Where k ≈ 1.5-2.0 (overhead must be small relative to baseline):
 |---|---|---|---|---|
 | SBCL | 30.5 ns | 130.5 ns | 0.23 | ✗ Fails |
 | CCL | 360 ns | ~20 ns | 18 | ✓ Helps |
-| ABCL | 149.4 µs | ~1.1 µs | 136 | ≈ Neutral (other factors dominate) |
+| ABCL | 149.4 µs | ~1.1 µs | 136 | ≈ Neutral (GC-dominated) |
 | LispWorks | 105.7 µs | ~21.4 µs | 4.9 | ✗ Fails (allocation explosion) |
-| Racket | 105.0 µs | ~4.0 µs | 26 | ✗ Fails (overhead > dispatch savings) |
+| Racket | 227.5 µs | ~9.2 µs | 25 | ✗ Fails (slowest baseline) |
 
 ---
 

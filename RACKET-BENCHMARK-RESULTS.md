@@ -19,25 +19,25 @@ Test: fixnum → string → list → vector → symbol
 
 | Run | Time (seconds) | Per-call (µs) |
 |-----|----------------|---------------|
-| 1   | 20.906         | 104.5         |
-| 2   | 20.969         | 104.8         |
-| 3   | 21.14          | 105.7         |
-| **Average** | **21.005** | **105.0** |
+| 1   | 45.156         | 225.8         |
+| 2   | 45.406         | 227.0         |
+| 3   | 45.938         | 229.7         |
+| **Average** | **45.500** | **227.5** |
 
 #### Cached Dispatch
 
 | Run | Time (seconds) | Per-call (µs) | Cache Hits |
 |-----|----------------|---------------|-----------|
-| 1   | 21.797         | 109.0         | 200,000   |
-| 2   | 21.828         | 109.1         | 200,000   |
-| 3   | 21.766         | 108.8         | 200,000   |
-| **Average** | **21.797** | **109.0** | **200,000** |
+| 1   | 47.5           | 237.5         | 200,000   |
+| 2   | 47.328         | 236.6         | 200,000   |
+| 3   | 47.203         | 236.0         | 200,000   |
+| **Average** | **47.344** | **236.7** | **200,000** |
 
 #### Analysis
 
-- **Caching Ratio**: 1.038× SLOWER (cached / uncached)
-- **Baseline dispatch cost**: ~105 µs per call (vs SBCL ~30 ns, CCL ~360 ns, ABCL ~150 µs, LispWorks ~105 µs)
-- **Interpretation**: Racket's JIT compilation is slower than SBCL for this tight loop, resulting in significant per-call overhead (~100× higher than SBCL). Caching overhead (key allocation + cache lookup + funcall) dominates, making caching slightly detrimental (~4% slower).
+- **Caching Ratio**: 1.041× SLOWER (cached / uncached)
+- **Baseline dispatch cost**: ~227.5 µs per call (vs SBCL ~30 ns, CCL ~360 ns, ABCL ~150 µs, LispWorks ~105 µs)
+- **Interpretation**: Racket's heterogeneous dispatch cost (~227 µs per call) is significantly higher than LispWorks (105 µs), suggesting slower type predicate evaluation. Caching overhead (~9 µs per call) is proportionally smaller but still detrimental (4.1% slower). The high baseline indicates Racket's Scheme-based type checking is less optimized than LispWorks' compiled approach.
 
 ---
 
