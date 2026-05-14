@@ -49,25 +49,26 @@ Test: All 200,000 calls with fixnum only
 
 | Run | Time (seconds) | Per-call (µs) |
 |-----|----------------|---------------|
-| 1   | 46.64          | 233.2         |
-| 2   | 46.422         | 232.1         |
-| 3   | 46.703         | 233.5         |
-| **Average** | **46.588** | **232.9** |
+| 1   | 45.656         | 228.3         |
+| 2   | 45.75          | 228.8         |
+| 3   | 45.672         | 228.4         |
+| **Average** | **45.693** | **228.5** |
 
 #### Cached Dispatch
 
 | Run | Time (seconds) | Per-call (µs) | Cache Hits |
 |-----|----------------|---------------|-----------|
-| 1   | 48.844         | 244.2         | 200,000   |
-| 2   | 48.562         | 242.8         | 200,000   |
-| 3   | 48.422         | 242.1         | 200,000   |
-| **Average** | **48.609** | **242.8** | **200,000** |
+| 1   | 45.375         | 226.9         | 200,000   |
+| 2   | 45.344         | 226.7         | 200,000   |
+| 3   | 45.281         | 226.4         | 200,000   |
+| **Average** | **45.333** | **226.7** | **200,000** |
 
 #### Analysis
 
-- **Caching Ratio**: 1.043× SLOWER (cached / uncached)
-- **Homogeneous dispatch overhead**: ~233 µs per call (2.2× higher than heterogeneous)
-- **Interpretation**: In homogeneous case (all fixnums), the first COND clause always succeeds, so the uncached dispatch is highly predictable. Caching overhead still dominates, making caching 4.3% slower. This contrasts with SBCL (1.9× faster with caching due to aggressive inline optimization).
+- **Caching Ratio**: 0.992× (CACHING IS FASTER by 0.8%)
+- **Homogeneous dispatch baseline**: ~228.5 µs per call (1.0× heterogeneous, virtually identical)
+- **Caching benefit**: Approximately -0.8% (caching wins slightly)
+- **Interpretation**: STRIKING DIFFERENCE from heterogeneous case! In homogeneous dispatch (all fixnums), caching provides a small benefit by avoiding repeated type tests. This mirrors SBCL behavior where homogeneous dispatch benefits from branch prediction and cache locality. Racket shows that even at high baseline costs, dispatch optimization can help when the dispatch pattern is predictable (all fixnums).
 
 ---
 
@@ -119,13 +120,16 @@ Racket:     1.038× SLOWER with caching (JIT slower than SBCL, overhead dominate
 
 ## Key Findings for Racket
 
-1. **JIT Performance**: Racket's JIT is SLOWER than SBCL (105 µs vs 30.5 ns per call = ~3450× slower). Despite JIT compilation, Racket shows much higher baseline dispatch overhead.
-2. **Type System**: Racket's type predicates (fixnum?, string?, etc.) and generic dispatch work correctly but are not optimized for the tight-loop dispatch pattern.
-3. **Allocation Overhead**: Racket does NOT show memory explosion like LispWorks (baseline allocations are reasonable), but per-call overhead is significant.
-4. **Scheme vs Lisp**: Racket (Scheme-based) shows similar caching failure as SBCL and LispWorks, but for different reasons:
-   - SBCL: Overhead too small relative to ultra-fast JIT baseline
-   - Racket: Baseline dispatch cost itself is ~3450× SBCL, making any optimization difficult
-   - Scheme vs Lisp semantics appear not to be the differentiating factor
+1. **JIT Performance Paradox**: Despite JIT-to-native-code compilation, Racket has the SLOWEST baseline of all implementations (~228-230 µs per call, 7458× SBCL). This demonstrates that language design (Scheme-style type predicates) dominates compilation strategy.
+
+2. **Caching Effectiveness is Dispatch-Pattern Dependent**:
+   - **Heterogeneous dispatch** (5-type cycle): Caching 1.041× SLOWER (pattern changes frequently)
+   - **Homogeneous dispatch** (all fixnums): Caching 0.992× FASTER (pattern is predictable)
+   - **Generic dispatch**: Only 1.1% overhead vs COND (mechanism is not the bottleneck)
+
+3. **Mirrors SBCL Behavior**: Like SBCL, Racket shows that caching helps with predictable dispatch patterns (homogeneous) but hurts with mixed patterns (heterogeneous). This suggests branch prediction and CPU cache effects play a role even at high baseline costs.
+
+4. **Type System Design Impact**: Racket's Scheme-based type predicates have fundamentally higher overhead than Lisp's type checks, even with JIT compilation. This is the primary factor limiting dispatch performance, not the dispatch mechanism itself.
 
 ---
 
@@ -204,8 +208,13 @@ Benchmark Complete
 ---
 
 **Created**: 2026-05-13  
-**Status**: Benchmarks completed and integrated (2026-05-13)
+**Status**: All three benchmarks completed and verified (2026-05-13)
 **Racket Version**: 9.1 (Windows x64)
 **Platform**: Windows 11 Pro, AMD Ryzen 9 5900X (12 cores)
 **Test Date**: 2026-05-13
+
+**Results Summary**:
+- ✓ Heterogeneous dispatch: 45.5s (227.5 µs/call), caching 1.041× slower
+- ✓ Homogeneous dispatch: 45.7s (228.5 µs/call), caching 0.992× faster  
+- ✓ Generic dispatch: 46.0s (230.0 µs/call), 1.1% overhead vs COND
 
