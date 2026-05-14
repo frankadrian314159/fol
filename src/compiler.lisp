@@ -2674,22 +2674,45 @@
 (defun value-key-expr (params)
   `(cl:list ,@(mapcar (lambda (p) `(fol.compiler.dispatch:pred-key ,p)) params)))
 
+(defun count-nested-ifs (form)
+  "Count the total number of if-branches in a nested IF dispatch structure.
+   Each (if ...) counts as 1, plus any nested IFs in the else branch."
+  (when (and (consp form) (eq (first form) 'cl:if) (= (length form) 4))
+    (let ((else-branch (fourth form)))
+      (+ 1 (or (count-nested-ifs else-branch) 0)))))
+
+(defun has-nested-dispatch-p (form)
+  "Check if FORM is an IF/COND dispatch structure (possibly nested).
+   Returns the total branching factor if it looks like a dispatch, nil otherwise."
+  (when (consp form)
+    (cond
+      ;; COND dispatch: (cond (test body) ... )
+      ((and (eq (first form) 'cl:cond) (>= (length form) 2))
+       (- (length (rest form)) 1))  ; number of clauses (excluding fallback)
+      ;; IF dispatch: (if test true-branch false-branch)
+      ((and (eq (first form) 'cl:if) (= (length form) 4))
+       (count-nested-ifs form))
+      (t nil))))
+
 (defun cacheable-defn-p (lambda-form)
-  "Return :type, :value, or nil for cache mode.
-   Returns nil if reference-type value predicates detected (would cause cache conflicts)."
-  (let* ((params (second lambda-form)) (fixed-arity-p (not (member '&rest params)))
-         (raw-body (cddr lambda-form)) (first-body (first raw-body))
+  "Return :value for cache mode, or nil if not cacheable.
+
+   Enables caching for any fixed-arity lambda with IF/COND dispatch structure.
+   The cache infrastructure (pred-key) handles all dispatch types safely:
+   - Type predicates: class-of key works correctly
+   - Value predicates on eql-comparable types: each value gets own cache slot
+   - Value predicates on reference types: cache misses harmlessly fall through"
+  (let* ((params (second lambda-form))
+         (fixed-arity-p (not (member '&rest params)))
+         (raw-body (cddr lambda-form))
+         (first-body (first raw-body))
          (has-declare (and (consp first-body) (eq (first first-body) 'cl:declare)))
-         (cond-form (if has-declare (second raw-body) first-body)))
-    (when (and fixed-arity-p (consp cond-form) (eq (first cond-form) 'cl:cond))
-      ;; Check for type dispatch (always safe to cache)
-      (cond ((type-dispatch-cond-p cond-form params) :type)
-            ;; Check for value predicate dispatch, but exclude reference-type cases
-            ((and (predicate-dispatch-cond-p cond-form)
-                  (not (has-reference-type-value-predicates-p cond-form params)))
-             :value)
-            ;; All other cases: not cacheable (including ref-type value predicates)
-            (t nil)))))
+         (dispatch-form (if has-declare (second raw-body) first-body))
+         (dispatch-depth (has-nested-dispatch-p dispatch-form)))
+    (when (and fixed-arity-p
+               dispatch-depth
+               (>= dispatch-depth +dispatch-cache-threshold+))
+      :value)))
 
 (defun make-cached-defn (name lambda-form dispatch-mode)
   (let* ((params (second lambda-form)) (raw-body (cddr lambda-form))
