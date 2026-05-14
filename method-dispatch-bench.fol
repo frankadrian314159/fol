@@ -1,0 +1,52 @@
+;; FOL type checking dispatch performance benchmark
+;; Note: This creates test data at benchmark time rather than compile time
+
+;; Simple polymorphic dispatch using type checks
+(defn dispatch-fol [x]
+  "FOL dispatch using type predicates"
+  (if (integer? x)
+    (list :integer x)
+    (if (string? x)
+      (list :string (size x))
+      (if (list? x)
+        (list :list (size x))
+        (if (vector? x)
+          (list :vector (size x))
+          (if (symbol? x)
+            (list :symbol x)
+            (list :other x)))))))
+
+;; Create test data dynamically
+(defn make-test-data []
+  (let [data (atom [])]
+    (dotimes [i 200000]
+      (swap! data conj
+        (case (mod i 5)
+          0 (rand-int 1000000)      ; integer
+          1 "test string"             ; string
+          2 (list 'a 'b 'c 'd 'e)    ; list
+          3 [1 2 3 4 5]              ; vector
+          4 'symbol)))               ; symbol
+    @data))
+
+;; Benchmark function
+(defn benchmark-fol-dispatch [test-data iterations]
+  (dotimes [run iterations]
+    (time
+      (dotimes [i (size test-data)]
+        (dispatch-fol (get test-data i))))))
+
+;; Print results and run benchmark
+(do
+  (println "=== FOL Type Dispatch Benchmark ===")
+  (println "Test data: 200,000 calls over repeating 5-type cycle")
+  (println "  Type cycle: integer -> string -> list -> vector -> symbol")
+  (println "")
+  (println "Creating test data...")
+  (let [test-data (make-test-data)]
+    (println "Warming up JIT compiler...")
+    (dotimes [i 10000]
+      (dispatch-fol (get test-data (mod i (size test-data)))))
+    (println "")
+    (println "Running FOL dispatch benchmark (3 iterations):")
+    (benchmark-fol-dispatch test-data 3)))

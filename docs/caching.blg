@@ -1,0 +1,80 @@
+This is BibTeX, Version 0.99e
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: caching.aux
+Reallocating 'name_of_file' (item size: 1) to 21 items.
+The style file: ACM-Reference-Format.bst
+Illegal, another \bibstyle command---line 83 of file caching.aux
+ : \bibstyle
+ :          {ACM-Reference-Format}
+I'm skipping whatever remains of this command
+Reallocating 'name_of_file' (item size: 1) to 8 items.
+Reallocating 'singl_function' (item size: 4) to 100 items.
+Reallocating 'singl_function' (item size: 4) to 100 items.
+Reallocating 'wiz_functions' (item size: 4) to 6000 items.
+Database file #1: caching.bib
+Warning--I didn't find a database entry for "kotzmann2005escape"
+Reallocating 'singl_function' (item size: 4) to 100 items.
+Reallocating 'wiz_functions' (item size: 4) to 9000 items.
+Reallocating 'glb_str_end' (item size: 4) to 20 items.
+Reallocating 'glb_str_ptr' (item size: 4) to 20 items.
+Reallocating 'global_strs' (item size: 1) to 4000000 items.
+Reallocating 'singl_function' (item size: 4) to 100 items.
+Warning--empty publisher in ahn2014fast
+Warning--empty address in ahn2014fast
+Warning--empty publisher in bak2010v8
+Warning--empty address in bak2010v8
+Warning--empty publisher in campbell1992array
+Warning--empty address in campbell1992array
+Warning--no number and no volume in hoelzle1994adaptive
+Warning--page numbers missing in both pages and numpages fields in hoelzle1994adaptive
+Warning--no number and no volume in hoelzle1991optimizing
+Warning--empty booktitle in steele1990lisp
+Warning--empty address in steele1990lisp
+Warning--page numbers missing in both pages and numpages fields in steele1990lisp
+Warning--no number and no volume in tobin2017performance
+Warning--page numbers missing in both pages and numpages fields in tobin2017performance
+Warning--empty publisher in graalvm
+Warning--empty address in graalvm
+Warning--page numbers missing in both pages and numpages fields in graalvm
+You've used 9 entries,
+            6273 wiz_defined-function locations,
+            1568 strings with 19684 characters,
+and the built_in function-call counts, 9621 in all, are:
+= -- 1184
+> -- 259
+< -- 0
++ -- 88
+- -- 95
+* -- 602
+:= -- 897
+add.period$ -- 45
+call.type$ -- 9
+change.case$ -- 57
+chr.to.int$ -- 9
+cite$ -- 26
+duplicate$ -- 913
+empty$ -- 644
+format.name$ -- 123
+if$ -- 2364
+int.to.chr$ -- 2
+int.to.str$ -- 1
+missing$ -- 37
+newline$ -- 107
+num.names$ -- 63
+pop$ -- 404
+preamble$ -- 1
+purify$ -- 129
+quote$ -- 0
+skip$ -- 328
+stack$ -- 0
+substring$ -- 657
+swap$ -- 70
+text.length$ -- 0
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 228
+warning$ -- 17
+while$ -- 59
+width$ -- 0
+write$ -- 203
+(There was 1 error message)

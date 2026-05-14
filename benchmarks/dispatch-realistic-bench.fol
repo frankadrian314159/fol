@@ -1,0 +1,33 @@
+;; Realistic benchmark: data processing with polymorphic dispatch
+;; Processes a large dataset with different numeric values using dispatch
+
+(defn process-value
+  "6-clause dispatcher: different processing based on value ranges"
+  [x]
+  (< x -1000) (- (- x))
+  (< x 0) (- x)
+  (= x 0) 0
+  (< x 1000) (inc x)
+  (< x 100000) (+ x 10)
+  (* x 2))
+
+(defn run-realistic-bench
+  "Process 1M values with dispatch"
+  []
+  (loop [i 0 sum 0]
+    (if (< i 1000000)
+      (recur (inc i) (+ sum (process-value (- i 500000))))
+      sum)))
+
+(defn main
+  []
+  (println "FOL Realistic Benchmark: Data Processing")
+  (println "========================================")
+  (let [start (System/currentTimeMillis)
+        result (run-realistic-bench)
+        elapsed (- (System/currentTimeMillis) start)]
+    (println (str "Iterations: 1M values"))
+    (println (str "Result: " result))
+    (println (str "Time: " elapsed " ms"))))
+
+(main)

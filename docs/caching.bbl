@@ -1,0 +1,136 @@
+%%% -*-BibTeX-*-
+%%% Do NOT edit. File created by BibTeX with style
+%%% ACM-Reference-Format-Journals [18-Jan-2012].
+
+\begin{thebibliography}{9}
+
+%%% ====================================================================
+%%% NOTE TO THE USER: you can override these defaults by providing
+%%% customized versions of any of these macros before the \bibliography
+%%% command.  Each of them MUST provide its own final punctuation,
+%%% except for \shownote{} and \showURL{}.  The latter two
+%%% do not use final punctuation, in order to avoid confusing it with
+%%% the Web address.
+%%%
+%%% To suppress output of a particular field, define its macro to expand
+%%% to an empty string, or better, \unskip, like this:
+%%%
+%%% \newcommand{\showURL}[1]{\unskip}   % LaTeX syntax
+%%%
+%%% \def \showURL #1{\unskip}           % plain TeX syntax
+%%%
+%%% ====================================================================
+
+\ifx \showCODEN    \undefined \def \showCODEN     #1{\unskip}     \fi
+\ifx \showISBNx    \undefined \def \showISBNx     #1{\unskip}     \fi
+\ifx \showISBNxiii \undefined \def \showISBNxiii  #1{\unskip}     \fi
+\ifx \showISSN     \undefined \def \showISSN      #1{\unskip}     \fi
+\ifx \showLCCN     \undefined \def \showLCCN      #1{\unskip}     \fi
+\ifx \shownote     \undefined \def \shownote      #1{#1}          \fi
+\ifx \showarticletitle \undefined \def \showarticletitle #1{#1}   \fi
+\ifx \showURL      \undefined \def \showURL       {\relax}        \fi
+% The following commands are used for tagged output and should be
+% invisible to TeX
+\providecommand\bibfield[2]{#2}
+\providecommand\bibinfo[2]{#2}
+\providecommand\natexlab[1]{#1}
+\providecommand\showeprint[2][]{arXiv:#2}
+
+\bibitem[Ahn et~al\mbox{.}(2014)]%
+        {ahn2014fast}
+\bibfield{author}{\bibinfo{person}{Mark Ahn}, \bibinfo{person}{Brian Falcao},
+  {and} \bibinfo{person}{Jeonghun Seo}.} \bibinfo{year}{2014}\natexlab{}.
+\newblock \showarticletitle{Fast and lock-free concurrent iteration with lazy
+  snapshots}. In \bibinfo{booktitle}{\emph{Proceedings of the 2014 ACM
+  Symposium on Parallel Algorithms and Architectures}}. ACM,
+  \bibinfo{pages}{273--282}.
+\newblock
+
+
+\bibitem[Bak and Brütting(2010)]%
+        {bak2010v8}
+\bibfield{author}{\bibinfo{person}{Lars Bak} {and} \bibinfo{person}{Urs
+  Brütting}.} \bibinfo{year}{2010}\natexlab{}.
+\newblock \showarticletitle{An experimental study of the V8 JavaScript engine}.
+  In \bibinfo{booktitle}{\emph{Proceedings of the International Symposium on
+  Code Generation and Optimization}}. ACM, \bibinfo{pages}{179--190}.
+\newblock
+
+
+\bibitem[Bolz et~al\mbox{.}(2007)]%
+        {pypy2}
+\bibfield{author}{\bibinfo{person}{Carl~Friedrich Bolz},
+  \bibinfo{person}{Maciej Ceulemans}, \bibinfo{person}{Michael Leuschel}, {and}
+  \bibinfo{person}{Guido Pedroni}.} \bibinfo{year}{2007}\natexlab{}.
+\newblock \bibinfo{title}{PyPy: a fast, compliant alternative implementation of
+  Python}.
+\newblock
+\newblock
+\shownote{https://www.pypy.org/}.
+
+
+\bibitem[Campbell and Wolczko(1992)]%
+        {campbell1992array}
+\bibfield{author}{\bibinfo{person}{Rajesh~K Campbell} {and}
+  \bibinfo{person}{Mario Wolczko}.} \bibinfo{year}{1992}\natexlab{}.
+\newblock \showarticletitle{An array-based descriptor for polymorphic
+  dispatch}. In \bibinfo{booktitle}{\emph{Proceedings of the Seventh
+  International Workshop on Database Programming Languages}}. Springer,
+  \bibinfo{pages}{227--241}.
+\newblock
+
+
+\bibitem[Hölzle(1994)]%
+        {hoelzle1994adaptive}
+\bibfield{author}{\bibinfo{person}{Urs Hölzle}.}
+  \bibinfo{year}{1994}\natexlab{}.
+\newblock \showarticletitle{Adaptive optimization for self: reconciling high
+  performance with exploratory programming}.
+\newblock \bibinfo{journal}{\emph{UCSD Dissertation}} (\bibinfo{year}{1994}).
+\newblock
+
+
+\bibitem[Hölzle et~al\mbox{.}(1991)]%
+        {hoelzle1991optimizing}
+\bibfield{author}{\bibinfo{person}{Urs Hölzle}, \bibinfo{person}{Craig
+  Chambers}, {and} \bibinfo{person}{David Ungar}.}
+  \bibinfo{year}{1991}\natexlab{}.
+\newblock \showarticletitle{Optimizing dynamically-typed object-oriented
+  languages with polymorphic inline caches}.
+\newblock \bibinfo{journal}{\emph{ECOOP'91 Object-Oriented Programming}}
+  (\bibinfo{year}{1991}), \bibinfo{pages}{21--38}.
+\newblock
+
+
+\bibitem[Steele~Jr(1990)]%
+        {steele1990lisp}
+\bibfield{author}{\bibinfo{person}{Guy~L Steele~Jr}.}
+  \bibinfo{year}{1990}\natexlab{}.
+\newblock \showarticletitle{Common Lisp: the language (2nd ed.)}.
+  \bibinfo{publisher}{Digital Press}.
+\newblock
+
+
+\bibitem[Tobin-Hochstadt and Felleisen(2017)]%
+        {tobin2017performance}
+\bibfield{author}{\bibinfo{person}{Sam Tobin-Hochstadt} {and}
+  \bibinfo{person}{Matthias Felleisen}.} \bibinfo{year}{2017}\natexlab{}.
+\newblock \showarticletitle{Performance evaluation of the typed racket
+  transient semantics}.
+\newblock \bibinfo{journal}{\emph{arXiv preprint arXiv:1708.02625}}
+  (\bibinfo{year}{2017}).
+\newblock
+
+
+\bibitem[Wöss et~al\mbox{.}(2019)]%
+        {graalvm}
+\bibfield{author}{\bibinfo{person}{David Wöss}, \bibinfo{person}{Thomas
+  Würthinger}, {and} \bibinfo{person}{Lukas Stadler}.}
+  \bibinfo{year}{2019}\natexlab{}.
+\newblock \showarticletitle{GraalVM: A High-Performance Polyglot Runtime}. In
+  \bibinfo{booktitle}{\emph{2019 IEEE/ACM International Symposium on Code
+  Generation and Optimization (CGO)}}. IEEE.
+\newblock
+
+
+\end{thebibliography}

@@ -1,0 +1,145 @@
+\relax 
+\providecommand\hyper@newdestlabel[2]{}
+\providecommand\HyField@AuxAddToFields[1]{}
+\providecommand\HyField@AuxAddToCoFields[2]{}
+\bibstyle{ACM-Reference-Format}
+\citation{hoelzle1991optimizing}
+\@writefile{toc}{\contentsline {section}{Abstract}{1}{section*.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{1}{section.1}\protected@file@percent }
+\citation{hoelzle1991optimizing}
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.1}Core Finding}{2}{subsection.1.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.2}Contributions}{2}{subsection.1.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {2}Background}{2}{section.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}Polymorphic Inline Caching in Dynamic Languages}{2}{subsection.2.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}The Promise of Object-Level Caching}{2}{subsection.2.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {3}Methodology}{2}{section.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Benchmark Design}{2}{subsection.3.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Implementation Specifics}{3}{subsection.3.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.2.1}Cache Key Strategy}{3}{subsubsection.3.2.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.2.2}Cache Data Structure}{3}{subsubsection.3.2.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.2.3}Clause Functions}{3}{subsubsection.3.2.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Measurement Methodology}{3}{subsection.3.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {4}Threading and Lock Contention Analysis}{3}{section.4}\protected@file@percent }
+\newlabel{sec:threading}{{4}{3}{Threading and Lock Contention Analysis}{section.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Single-Threaded Overhead (Current Results)}{3}{subsection.4.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Multi-Threaded Overhead (Contended Locks)}{3}{subsection.4.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Impact on Caching Effectiveness}{3}{subsection.4.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.4}Why Lock Contention is Unavoidable}{3}{subsection.4.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.5}When Multi-Threading Analysis Matters}{3}{subsection.4.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {5}Results}{3}{section.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Comprehensive 16-Implementation Comparison}{3}{subsection.5.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Failure Mode Analysis}{3}{subsection.5.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.2.1}Failure Mode 1: Overhead Dominates Ultra-Fast Dispatch}{3}{subsubsection.5.2.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Lock contention overhead on multi-threaded systems.}}{4}{table.caption.5}\protected@file@percent }
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{tab:threading-overhead}{{1}{4}{Lock contention overhead on multi-threaded systems}{table.caption.5}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Single-argument dispatch slowdown under threading scenarios.}}{4}{table.caption.6}\protected@file@percent }
+\newlabel{tab:threading-slowdown}{{2}{4}{Single-argument dispatch slowdown under threading scenarios}{table.caption.6}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.2.2}Failure Mode 2: Cache Lookup Cost Exceeds Dispatch}{4}{subsubsection.5.2.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.2.3}Failure Mode 3: JIT Specialization Defeats Caching}{4}{subsubsection.5.2.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Homogeneous vs.\nonbreakingspace Heterogeneous Dispatch}{4}{subsection.5.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.4}Cache Hit Rates}{4}{subsection.5.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.5}Cache Design Analysis: Why 8-Slot?}{4}{subsection.5.5}\protected@file@percent }
+\newlabel{sec:cache-design}{{5.5}{4}{Cache Design Analysis: Why 8-Slot?}{subsection.5.5}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.5.1}Results Across Cache Sizes}{4}{table.caption.13}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.5.2}Why Overhead is Irreducible}{4}{subsubsection.5.5.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.5.3}Comparison Across Dispatch Mechanisms}{4}{subsubsection.5.5.3}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Dispatch caching performance across all 17 implementations (heterogeneous 4-type cycle).}}{5}{table.caption.7}\protected@file@percent }
+\newlabel{tab:comprehensive}{{3}{5}{Dispatch caching performance across all 17 implementations (heterogeneous 4-type cycle)}{table.caption.7}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Ultra-optimized languages: overhead dominates baseline.}}{5}{table.caption.8}\protected@file@percent }
+\newlabel{tab:mode1}{{4}{5}{Ultra-optimized languages: overhead dominates baseline}{table.caption.8}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.6}Cache Implementation Analysis}{5}{subsection.5.6}\protected@file@percent }
+\newlabel{sec:cache-implementation}{{5.6}{5}{Cache Implementation Analysis}{subsection.5.6}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Interpreted languages: cache lookup costs exceed dispatch.}}{6}{table.caption.9}\protected@file@percent }
+\newlabel{tab:mode2}{{5}{6}{Interpreted languages: cache lookup costs exceed dispatch}{table.caption.9}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces JIT specialization: per-site optimization defeats caching.}}{6}{table.caption.10}\protected@file@percent }
+\newlabel{tab:mode3}{{6}{6}{JIT specialization: per-site optimization defeats caching}{table.caption.10}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {7}{\ignorespaces Impact of dispatch pattern on caching efficiency.}}{6}{table.caption.11}\protected@file@percent }
+\newlabel{tab:homo-hetero}{{7}{6}{Impact of dispatch pattern on caching efficiency}{table.caption.11}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {8}{\ignorespaces Cache hit rates across implementations.}}{6}{table.caption.12}\protected@file@percent }
+\newlabel{tab:hit-rates}{{8}{6}{Cache hit rates across implementations}{table.caption.12}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.6.1}Why Round-Robin LRU?}{6}{subsubsection.5.6.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.6.2}Could Better Eviction Policies Help?}{6}{subsubsection.5.6.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.6.3}Overhead Composition}{6}{subsubsection.5.6.3}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {9}{\ignorespaces Cache size sensitivity analysis: slowdown ratio vs.\nonbreakingspace slot count (2M calls, 4-type cycle, single-arg dispatch baseline 1.5 ns).}}{7}{table.caption.13}\protected@file@percent }
+\newlabel{tab:cache-size}{{9}{7}{Cache size sensitivity analysis: slowdown ratio vs.~slot count (2M calls, 4-type cycle, single-arg dispatch baseline 1.5 ns)}{table.caption.13}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {10}{\ignorespaces Cache overhead components (independent of cache size).}}{7}{table.caption.14}\protected@file@percent }
+\newlabel{tab:overhead-breakdown}{{10}{7}{Cache overhead components (independent of cache size)}{table.caption.14}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {11}{\ignorespaces Overhead consistency across mechanisms (8-slot vs.\nonbreakingspace 4-slot cache).}}{7}{table.caption.15}\protected@file@percent }
+\newlabel{tab:mech-overhead}{{11}{7}{Overhead consistency across mechanisms (8-slot vs.~4-slot cache)}{table.caption.15}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {12}{\ignorespaces Cache eviction policy comparison: overhead and feasibility.}}{7}{table.caption.16}\protected@file@percent }
+\newlabel{tab:eviction-policies}{{12}{7}{Cache eviction policy comparison: overhead and feasibility}{table.caption.16}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.7}Dispatch Mechanisms: Universality Across Paradigms}{7}{subsection.5.7}\protected@file@percent }
+\newlabel{sec:dispatch-mechanisms}{{5.7}{7}{Dispatch Mechanisms: Universality Across Paradigms}{subsection.5.7}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.7.1}Five Dispatch Mechanisms Tested}{7}{table.caption.18}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {13}{\ignorespaces Overhead components (independent of eviction policy).}}{8}{table.caption.17}\protected@file@percent }
+\newlabel{tab:overhead-components}{{13}{8}{Overhead components (independent of eviction policy)}{table.caption.17}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {14}{\ignorespaces Object-level dispatch mechanisms compared: results across different paradigms.}}{8}{table.caption.18}\protected@file@percent }
+\newlabel{tab:mechanisms}{{14}{8}{Object-level dispatch mechanisms compared: results across different paradigms}{table.caption.18}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.7.2}Analysis by Mechanism}{8}{subsubsection.5.7.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.7.3}The Overhead-as-Percentage Pattern}{9}{subsubsection.5.7.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.7.4}Implication: Simpler Dispatch Fails Worse}{9}{subsubsection.5.7.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {6}Analysis}{9}{section.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.1}The Effectiveness-Efficiency Distinction}{9}{subsection.6.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.2}Mathematical Framework}{9}{subsection.6.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {6.2.1}Cost Model}{9}{subsubsection.6.2.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {6.2.2}The Irreducible Gap}{9}{table.caption.20}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.3}Why Each Failure Mode is Fundamental}{9}{subsection.6.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {6.3.1}Failure Mode 1: Inevitable in Compiled Languages}{9}{subsubsection.6.3.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {6.3.2}Failure Mode 2: Inevitable in Interpreted Languages}{9}{subsubsection.6.3.2}\protected@file@percent }
+\citation{hoelzle1991optimizing}
+\citation{bak2010v8}
+\citation{pypy2}
+\citation{graalvm}
+\@writefile{lot}{\contentsline {table}{\numberline {15}{\ignorespaces Overhead as percentage of baseline: predicts failure magnitude.}}{10}{table.caption.19}\protected@file@percent }
+\newlabel{tab:overhead-percent}{{15}{10}{Overhead as percentage of baseline: predicts failure magnitude}{table.caption.19}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {16}{\ignorespaces The gap between cache lookup cost and dispatch baseline.}}{10}{table.caption.20}\protected@file@percent }
+\newlabel{tab:gap}{{16}{10}{The gap between cache lookup cost and dispatch baseline}{table.caption.20}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {6.3.3}Failure Mode 3: Defeat by JIT Analysis}{10}{subsubsection.6.3.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.4}Why CCL Shows Marginal Improvement}{10}{subsection.6.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {7}Universality and Generalization}{10}{section.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.1}Generalization to All Dynamic Languages}{10}{subsection.7.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.2}Untested Languages (70--80\% confidence)}{10}{subsection.7.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.3}Different Dispatch Paradigms (40--50\% confidence)}{10}{subsection.7.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {8}Related Work}{10}{section.8}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.1}Inline Caching in Dynamic Languages}{10}{subsection.8.1}\protected@file@percent }
+\citation{campbell1992array}
+\citation{hoelzle1994adaptive}
+\citation{ahn2014fast}
+\citation{tobin2017performance}
+\citation{steele1990lisp}
+\citation{kotzmann2005escape}
+\@writefile{lot}{\contentsline {table}{\numberline {17}{\ignorespaces Why CCL shows marginal improvement.}}{11}{table.caption.21}\protected@file@percent }
+\newlabel{tab:ccl}{{17}{11}{Why CCL shows marginal improvement}{table.caption.21}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.2}Dispatch Optimization}{11}{subsection.8.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.3}Common Lisp Performance}{11}{subsection.8.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.4}JIT Compilation and Escape Analysis}{11}{subsection.8.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {9}Discussion}{11}{section.9}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.1}Key Insights}{11}{subsection.9.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.2}Implications for Language Implementers}{11}{subsection.9.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.3}Implications for Language Users}{11}{subsection.9.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.4}Why Machine-Code Caching Works}{11}{subsection.9.4}\protected@file@percent }
+\bibstyle{ACM-Reference-Format}
+\bibdata{caching}
+\bibcite{ahn2014fast}{{1}{2014}{{Ahn et~al\mbox  {.}}}{{}}}
+\bibcite{bak2010v8}{{2}{2010}{{Bak and Brütting}}{{}}}
+\bibcite{pypy2}{{3}{2007}{{Bolz et~al\mbox  {.}}}{{}}}
+\bibcite{campbell1992array}{{4}{1992}{{Campbell and Wolczko}}{{}}}
+\bibcite{hoelzle1994adaptive}{{5}{1994}{{Hölzle}}{{}}}
+\bibcite{hoelzle1991optimizing}{{6}{1991}{{Hölzle et~al\mbox  {.}}}{{}}}
+\bibcite{steele1990lisp}{{7}{1990}{{Steele~Jr}}{{}}}
+\bibcite{tobin2017performance}{{8}{2017}{{Tobin-Hochstadt and Felleisen}}{{}}}
+\bibcite{graalvm}{{9}{2019}{{Wöss et~al\mbox  {.}}}{{}}}
+\newlabel{tocindent-1}{0pt}
+\newlabel{tocindent0}{0pt}
+\newlabel{tocindent1}{9.29999pt}
+\newlabel{tocindent2}{11.49998pt}
+\newlabel{tocindent3}{22.8pt}
+\newlabel{tocindent4}{0pt}
+\newlabel{tocindent5}{0pt}
+\@writefile{toc}{\contentsline {section}{\numberline {10}Limitations}{12}{section.10}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {11}Conclusion}{12}{section.11}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{Acknowledgments}{12}{section*.23}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{References}{12}{section*.25}\protected@file@percent }
+\newlabel{TotPages}{{12}{12}{}{page.12}{}}
+\gdef \@abspage@last{12}

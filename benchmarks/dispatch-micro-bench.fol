@@ -1,0 +1,35 @@
+;; Micro-benchmark: polymorphic dispatch caching
+;; Test case: tight loop calling a 6-clause dispatcher with homogeneous types
+
+(defn dispatch-sum
+  "6-clause dispatcher on value type"
+  [x]
+  (< x 0) (- x)
+  (= x 0) 0
+  (< x 1000) (inc x)
+  (< x 10000) (+ x 1)
+  (< x 100000) (+ x 2)
+  (+ x 3))
+
+(defn run-micro-bench
+  "Reduce over 1M integers using polymorphic dispatcher"
+  [n-iterations]
+  (loop [i 0 sum 0]
+    (if (< i n-iterations)
+      (recur (inc i) (+ sum (dispatch-sum i)))
+      sum)))
+
+(defn main
+  []
+  (println "FOL Micro-benchmark: Polymorphic Dispatch")
+  (println "==========================================")
+  (let [n 1000000
+        start (System/currentTimeMillis)
+        result (run-micro-bench n)
+        elapsed (- (System/currentTimeMillis) start)]
+    (println (str "Iterations: " n))
+    (println (str "Result: " result))
+    (println (str "Time: " elapsed " ms"))
+    (println (str "Per-call: " (/ (double elapsed) n) " µs"))))
+
+(main)
