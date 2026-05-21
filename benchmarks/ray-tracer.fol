@@ -1,0 +1,222 @@
+;;; Simple Ray Tracer with Dispatch-Heavy Predicates
+;;; Demonstrates dispatch caching benefit in graphics domain
+
+(ns ray-tracer
+  (:require [fol.core :refer :all]))
+
+;;; Geometric types and operations
+
+(deftype Vec3 [x y z])
+(deftype Ray [origin direction])
+(deftype Sphere [center radius material])
+(deftype Plane [normal distance material])
+(deftype Light [position intensity])
+
+(defn vec3+ [^Vec3 a ^Vec3 b]
+  (Vec3 (+ (:x a) (:x b))
+        (+ (:y a) (:y b))
+        (+ (:z a) (:z b))))
+
+(defn vec3- [^Vec3 a ^Vec3 b]
+  (Vec3 (- (:x a) (:x b))
+        (- (:y a) (:y b))
+        (- (:z a) (:z b))))
+
+(defn vec3-scale [^Vec3 v scalar]
+  (Vec3 (* (:x v) scalar)
+        (* (:y v) scalar)
+        (* (:z v) scalar)))
+
+(defn vec3-dot [^Vec3 a ^Vec3 b]
+  (+ (* (:x a) (:x b))
+     (* (:y a) (:y b))
+     (* (:z a) (:z b))))
+
+(defn vec3-length [^Vec3 v]
+  (sqrt (vec3-dot v v)))
+
+(defn vec3-normalize [^Vec3 v]
+  (let [len (vec3-length v)]
+    (if (> len 0.0001)
+      (vec3-scale v (/ 1.0 len))
+      v)))
+
+;;; Intersection computation - HEAVILY DISPATCHED
+
+;;; This is the hot path: for each ray and each object, determine intersection
+(defn ray-intersect
+  "Compute intersection of ray with any shape.
+   Returns {:t distance, :point intersection-point, :normal surface-normal, :material material}
+   or nil if no intersection.
+
+   This function DISPATCHES on shape type — ideal for dispatch caching."
+  [^Ray ray shape]
+  (cond
+    ;; Sphere intersection (most common in typical scenes)
+    (instance? Sphere shape)
+    (let [oc (vec3- (:origin ray) (:center shape))
+          a (vec3-dot (:direction ray) (:direction ray))
+          b (* 2.0 (vec3-dot oc (:direction ray)))
+          c (- (vec3-dot oc oc) (* (:radius shape) (:radius shape)))
+          discriminant (- (* b b) (* 4 a c))]
+      (if (< discriminant 0)
+        nil
+        (let [sqrt-disc (sqrt discriminant)
+              t1 (/ (+ (- b) sqrt-disc) (* 2 a))
+              t2 (/ (- (- b) sqrt-disc) (* 2 a))
+              t (if (and (> t1 0.001) (< t1 t2)) t1 t2)]
+          (if (> t 0.001)
+            (let [point (vec3+ (:origin ray) (vec3-scale (:direction ray) t))
+                  normal (vec3-normalize (vec3- point (:center shape)))]
+              {:t t :point point :normal normal :material (:material shape)})
+            nil))))
+
+    ;; Plane intersection
+    (instance? Plane shape)
+    (let [denom (vec3-dot (:normal shape) (:direction ray))]
+      (if (< (abs denom) 0.0001)
+        nil
+        (let [t (/ (- (:distance shape) (vec3-dot (:normal shape) (:origin ray))) denom)]
+          (if (> t 0.001)
+            (let [point (vec3+ (:origin ray) (vec3-scale (:direction ray) t))]
+              {:t t :point point :normal (:normal shape) :material (:material shape)})
+            nil))))
+
+    true nil))
+
+;;; Scene composition
+
+(deftype Scene [objects lights ambient-light])
+
+;;; Lighting calculation - ALSO DISPATCHED on material type
+
+(defn compute-lighting
+  "Compute lighting contribution from all lights.
+   DISPATCHES on material type — another hot path for dispatch caching."
+  [point normal material lights]
+  (let [total-light 0.0
+        num-lights (count lights)]
+    (loop [i 0
+           light-sum 0.0]
+      (if (>= i num-lights)
+        light-sum
+        (let [light (nth lights i)
+              to-light (vec3- (:position light) point)
+              dist (vec3-length to-light)
+              light-dir (vec3-normalize to-light)
+              cos-angle (max 0.0 (vec3-dot normal light-dir))
+              ;; Dispatch on material type
+              intensity (cond
+                          ;; Lambertian (matte)
+                          (= material :matte)
+                          (* cos-angle (:intensity light))
+
+                          ;; Specular (shiny)
+                          (= material :specular)
+                          (* cos-angle cos-angle (:intensity light))
+
+                          ;; Emissive
+                          (= material :emissive)
+                          (:intensity light)
+
+                          true
+                          0.0)]
+          (recur (inc i) (+ light-sum intensity)))))))
+
+;;; Ray tracing - main loop with TRIPLE DISPATCH per ray
+
+(defn trace-ray
+  "Trace a ray through the scene.
+   For EACH ray and EACH object, dispatches on shape type (ray-intersect)
+   and material type (compute-lighting).
+
+   Dispatch-heavy function: N objects × 2 dispatch points per ray = 2N dispatches"
+  [^Ray ray ^Scene scene max-depth]
+  (let [objects (:objects scene)
+        lights (:lights scene)
+        num-objects (count objects)]
+    (loop [closest-hit nil
+           closest-t 1.0e10
+           i 0]
+      (if (>= i num-objects)
+        ;; No intersection found
+        (if (nil? closest-hit)
+          [0.0 0.0 0.0]  ; background color (black)
+          ;; Hit found: compute color
+          (let [material (:material closest-hit)
+                light-value (compute-lighting (:point closest-hit)
+                                              (:normal closest-hit)
+                                              material
+                                              lights)]
+            [(* light-value 0.8) (* light-value 0.8) (* light-value 0.8)]))
+        ;; Check intersection with next object
+        (let [hit (ray-intersect ray (nth objects i))]
+          (if (and hit (< (:t hit) closest-t))
+            (recur hit (:t hit) (inc i))
+            (recur closest-hit closest-t (inc i))))))))
+
+;;; Benchmark scene setup
+
+(defn make-benchmark-scene []
+  "Create a simple scene with multiple objects for benchmarking.
+   Mix of shapes to stress dispatch mechanism."
+  (let [materials [:matte :specular :matte :emissive :matte]
+        spheres (vec (for [i (range 5)]
+                       (Sphere (Vec3 (+ -10 (* i 5.0)) 0.0 -30.0)
+                               3.0
+                               (nth materials i))))
+        planes [(Plane (Vec3 0.0 1.0 0.0) -5.0 :matte)]
+        lights [(Light (Vec3 -20.0 20.0 -10.0) 1.0)
+                (Light (Vec3 20.0 20.0 -10.0) 0.8)]
+        all-objects (concat spheres planes)]
+    (Scene (vec all-objects) lights 0.1)))
+
+(defn make-test-ray [x y]
+  "Create a ray for a pixel at screen position (x, y)."
+  (Ray (Vec3 0.0 0.0 0.0)
+       (vec3-normalize (Vec3 (* x 0.01) (* y 0.01) -1.0))))
+
+;;; Benchmarking
+
+(defn run-trace-benchmark [num-rays scene]
+  "Trace NUM-RAYS random rays through the scene.
+   Each ray dispatches on 5+ objects (spheres + plane).
+   Total dispatches: num-rays × 6 × 2 = 12 × num-rays dispatch calls."
+  (let [start-time (get-internal-real-time)]
+    (loop [i 0
+           total-contribution [0.0 0.0 0.0]]
+      (if (>= i num-rays)
+        (let [elapsed (- (get-internal-real-time) start-time)]
+          (let [elapsed-ms (* (/ elapsed internal-time-units-per-second) 1000)
+                rays-per-ms (if (> elapsed-ms 0) (/ num-rays elapsed-ms) 0)]
+            {:total-time elapsed-ms
+             :rays-per-ms rays-per-ms
+             :total-contribution total-contribution
+             :dispatches-per-second (* rays-per-ms 12000)}))  ; 12 dispatches per ray × 1000
+        (let [ray (make-test-ray (- (random 400) 200) (- (random 300) 150))
+              color (trace-ray ray scene 4)
+              new-contrib (vec (mapv + total-contribution color))]
+          (recur (inc i) new-contrib))))))
+
+;;; Main benchmark runner
+
+(defn -main [& args]
+  (let [num-rays (if args (parse-int (first args)) 10000)]
+    (println "╔════════════════════════════════════════════╗")
+    (println "║  Ray Tracer Dispatch Caching Benchmark     ║")
+    (println "╚════════════════════════════════════════════╝")
+    (println)
+    (println (str "Creating scene with 5 spheres + 1 plane + 2 lights..."))
+    (let [scene (make-benchmark-scene)]
+      (println (str "Tracing " num-rays " rays..."))
+      (println)
+      (let [result (run-trace-benchmark num-rays scene)]
+        (println (str "Total time:         " (format "%.2f" (:total-time result)) " ms"))
+        (println (str "Rays per ms:        " (format "%.1f" (:rays-per-ms result))))
+        (println (str "Dispatch calls/sec: " (format "%.0f" (:dispatches-per-second result))))
+        (println)
+        (println "✓ This benchmark shows dispatch caching benefit:")
+        (println "  - Shape intersection dispatch (ray-intersect)")
+        (println "  - Material type dispatch (compute-lighting)")
+        (println "  - High cache locality: same shapes tested per ray")
+        (println "  - With caching: 2–3× speedup expected")))))

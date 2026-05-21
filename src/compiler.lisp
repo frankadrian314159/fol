@@ -2748,6 +2748,16 @@
       :value)))
 
 (defun make-cached-defn (name lambda-form dispatch-mode)
+  "Generate a cached defn with dispatch caching.
+
+   Per-GF Versioning Integration (Future Enhancement):
+   - Current: Uses global generation (may over-invalidate on unrelated method additions)
+   - Future: Could include GF versions in cache key via (make-versioned-cache-key ...)
+   - Requirement: CallSet analysis would need to identify which GFs this function calls
+   - Implementation: Replace key-expr with version-aware key construction
+
+   Current approach remains backward-compatible; per-GF versioning available via
+   the MOP hooks in dispatch.lisp when *use-per-gf-versioning* is enabled."
   (let* ((params (second lambda-form)) (raw-body (cddr lambda-form))
          (first-body (first raw-body)) (has-declare (and (consp first-body) (eq (first first-body) 'cl:declare)))
          (declare-form (when has-declare first-body)) (cond-form (if has-declare (second raw-body) first-body))

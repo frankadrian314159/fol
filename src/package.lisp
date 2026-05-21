@@ -218,11 +218,19 @@
    cache-stats
    inspect-fn-cache
    pred-key
-   ;; GF-level cache management
+   ;; GF-level cache management (legacy)
    *gf-cache-registry*
    register-gf-cache!
    flush-gf-caches!
-   flush-all-caches!))
+   flush-all-caches!
+   ;; Per-GF versioning (new)
+   *gf-version-registry*
+   get-gf-version
+   increment-gf-version!
+   flush-all-gf-versions!
+   make-versioned-cache-key
+   ;; Configuration
+   *use-per-gf-versioning*))
 
 (defpackage fol.compiler.mutable
   (:use cl)

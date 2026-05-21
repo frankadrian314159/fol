@@ -1,0 +1,74 @@
+This is BibTeX, Version 0.99e
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: caching11pldi.aux
+Reallocating 'name_of_file' (item size: 1) to 21 items.
+The style file: ACM-Reference-Format.bst
+Reallocating 'name_of_file' (item size: 1) to 8 items.
+Reallocating 'singl_function' (item size: 4) to 100 items.
+Reallocating 'singl_function' (item size: 4) to 100 items.
+Reallocating 'wiz_functions' (item size: 4) to 6000 items.
+Database file #1: caching.bib
+Reallocating 'singl_function' (item size: 4) to 100 items.
+Reallocating 'wiz_functions' (item size: 4) to 9000 items.
+Reallocating 'glb_str_end' (item size: 4) to 20 items.
+Reallocating 'glb_str_ptr' (item size: 4) to 20 items.
+Reallocating 'global_strs' (item size: 1) to 4000000 items.
+Reallocating 'singl_function' (item size: 4) to 100 items.
+Warning--empty publisher in arnold2005feedback
+Warning--empty address in arnold2005feedback
+Warning--empty publisher in bak2010v8
+Warning--empty address in bak2010v8
+Warning--empty publisher in campbell1992array
+Warning--empty address in campbell1992array
+Warning--empty publisher in chambers1989optimizing
+Warning--empty address in chambers1989optimizing
+Warning--no number and no volume in hoelzle1991optimizing
+Warning--empty address in keene1989object
+Warning--empty booktitle in steele1990lisp
+Warning--empty address in steele1990lisp
+Warning--page numbers missing in both pages and numpages fields in steele1990lisp
+Warning--empty publisher in graalvm
+Warning--empty address in graalvm
+Warning--page numbers missing in both pages and numpages fields in graalvm
+You've used 12 entries,
+            6273 wiz_defined-function locations,
+            1587 strings with 20385 characters,
+and the built_in function-call counts, 12916 in all, are:
+= -- 1486
+> -- 360
+< -- 0
++ -- 127
+- -- 135
+* -- 836
+:= -- 1243
+add.period$ -- 62
+call.type$ -- 12
+change.case$ -- 78
+chr.to.int$ -- 12
+cite$ -- 28
+duplicate$ -- 1247
+empty$ -- 872
+format.name$ -- 175
+if$ -- 3087
+int.to.chr$ -- 2
+int.to.str$ -- 1
+missing$ -- 47
+newline$ -- 129
+num.names$ -- 84
+pop$ -- 531
+preamble$ -- 1
+purify$ -- 173
+quote$ -- 0
+skip$ -- 465
+stack$ -- 0
+substring$ -- 944
+swap$ -- 113
+text.length$ -- 0
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 302
+warning$ -- 16
+while$ -- 85
+width$ -- 0
+write$ -- 263
+(There were 16 warnings)
