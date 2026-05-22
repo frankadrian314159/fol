@@ -105,9 +105,7 @@ recently-seen type combinations, avoiding expensive dispatch predicates on subse
 The success of inline caching in V8, PyPy, and GraalVM has motivated decades of research into caching strategies. However, these
 successes rely on \emph{machine-code inline caching}: JIT compilers embed type checks and direct jumps into compiled code, achieving near-zero overhead through specialization. Why, then, evaluate an approach that JITs have already solved? Because developers and language designers still mistakenly reach for object-level caching—a real intuition trap with practical consequences.
 
-\textbf{Real-World Examples}: Python developers use \texttt{@lru\_cache} on dispatchers (cache overhead exceeds type-check cost). Clojure multimethods include caching but deliver no speedup on repeated types. Interpreter authors cache AST dispatch decisions, but lookup overhead exceeds dispatch itself. These production patterns—documented in Section~\ref{sec:case-studies}—show developers reasoning correctly about caching in isolation but failing to account for modern optimization. A critical question emerges: \textbf{is there a fundamental gap between cache lookup cost
-  (determined by memory latency) and the dispatch cost savings available through caching}? In particular, can cache lookup latency simultaneously
-  beat both ultra-fast dispatch (achievable through compiler optimization) and the non-existent expensive dispatch (>10~µs) required for break-even?
+\textbf{Real-World Examples}: Python developers use \texttt{@lru\_cache} on dispatchers (overhead exceeds type-check cost). Clojure multimethods include caching but show no speedup on repeated types. These production patterns show developers reasoning correctly about caching in isolation but failing to account for modern optimization. A critical question: \textbf{is there a fundamental gap between cache lookup cost and dispatch cost savings}? Can cache lookup latency simultaneously beat ultra-fast dispatch and the expensive dispatch (>10~µs) theoretically required for break-even?
 
   To answer this question, we develop an analytic cost model characterizing the irreducible efficiency gap. Cache lookup cost is bounded below
   by memory access latency and hash computation (20--300~ns), while modern language implementations optimize dispatch to costs below this threshold
@@ -225,7 +223,7 @@ The question we investigate is whether this promise translates to actual perform
 
 \section{Methodology}
 
-Benchmarks: 24 implementations, 200K warmup + 3 independent runs of 2M iterations each. **Statistical methodology**: Each run is independent (cache cleared between runs); per-language standard deviation computed across 3 runs ±0.5~ns; 95\% CI on ratios ±0.5\% relative (e.g., ±0.06× at 11.49×). All ratios >1.1× represent robust failures (>2 standard errors from break-even). **Note on Clojure (244.8×)**: Tight CI (±1.1\%) reflects consistent allocation pressure across runs; each run triggers 3--5× increased GC frequency, making behavior reproducible despite catastrophic slowdown. JVM measurements retain escape analysis (production baseline). Cache keys: class tuples. AMD Ryzen 9, Windows 11. Single-threaded (multi-threading adds 2--5× contention, Section~\ref{sec:discussion}).
+Benchmarks: 24 implementations, 200K warmup + 3 independent runs of 2M iterations. **Statistics**: Per-language std dev ±0.5~ns; 95\% CI on ratios ±0.5\% relative. Ratios >1.1× are robust failures. **Clojure (244.8×)**: Tight CI (±1.1\%) reflects consistent GC pressure (3--5× increase) across runs. JVM uses escape analysis (production baseline). Cache keys: class tuples. AMD Ryzen 9, Windows 11. Single-threaded.
 
 \section{Results}
 
@@ -481,9 +479,9 @@ Do not implement object-level dispatch caching (performance degradation, 88× mu
 
 \subsection{Selective Predicate Caching Framework}
 
-Edge-case analysis suggests a viable approach: **selective caching for expensive predicates**. Required components: (1)~predicate cost instrumentation (profile >1~µs threshold); (2)~selective enablement (cache only expensive predicates, not all dispatch); (3)~adaptive toggling (disable if hit rate <95\%); (4)~per-thread isolation (thread-local caches eliminate 88× lock contention in SBCL).
+Edge-case analysis suggests: **selective caching for expensive predicates**. Components: (1)~cost instrumentation (>1~µs threshold); (2)~selective enablement (expensive predicates only); (3)~adaptive toggling (disable if hit rate <95\%); (4)~per-thread caching (eliminates 88× lock contention).
 
-**Applicability**: Languages with reflection and user-defined expensive predicates (Clojure multimethods, CLOS methods). Typed languages (Go, Java) show minimal benefit. Framework is domain-specific, not general-purpose.
+**Applicability**: Reflection languages (Clojure, CLOS). Typed languages minimal benefit. Domain-specific, not general-purpose.
 
 \subsection{Per-Thread and Type-Biased Specialization}
 
@@ -533,17 +531,11 @@ when caching could viably work.
 
 \subsection{Design Space Insights}
 
-\textbf{Pattern by dispatch cost}: Two implementations (CCL: 360~ns, Racket: 420~ns) approach break-even by maintaining slower baseline dispatch. The relationship between caching viability and dispatch cost is non-monotonic: caching fails worst for ultra-optimized dispatch (1--100~ns), gradually improving as baseline increases, approaching viability around 500~ns. Break-even threshold: caching becomes neutral (within noise) when dispatch cost ~500~ns.
+\textbf{Pattern by dispatch cost}: CCL (360~ns) and Racket (420~ns) approach break-even via slower baseline dispatch. Caching viability is non-monotonic: fails worst for ultra-optimized dispatch (1--100~ns), improving as cost increases, approaching viability at ~500~ns.
 
-\textbf{Empirical design space validation}: We measure four conditions where caching viably works:
-\begin{itemize}
-  \item \textbf{Cold-start JIT} (GraalVM): 1.39× speedup during pre-JIT phase, then drops to 0.25× post-JIT. Practical impact: <0.1\% amortization in long-running programs.
-  \item \textbf{FFI boundaries} (C: 1.74×, JNI: 1.68×): Real cross-language calls incur 500+ ns overhead; caching recovers 10--30\% of cost.
-  \item \textbf{Expensive predicates} (regex: email 9.0×, URL 15.8×, date+time 35.4×): Dispatch cost >1~µs dominates; caching provides substantial (9--35×) speedups.
-  \item \textbf{Semantic dispatch} (identified): Languages deliberately prioritizing reflection/metaprogramming (e.g., Clojure multimethods with expensive user-defined predicates) could exploit caching.
-\end{itemize}
+\textbf{Empirical validation}: Four conditions where caching approaches viability: (1)~Cold-start JIT (GraalVM 1.39×, <0.1% amortization); (2)~FFI boundaries (C 1.74×, JNI 1.68×, recovers 10--30%); (3)~Expensive predicates (>1~µs dispatch cost); (4)~Semantic dispatch (reflection-heavy languages).
 
-\textbf{Convergence on speed}: Languages independently converge on fast dispatch (<100~ns) because performance optimization is a shared priority across application domains (gaming, ML, servers). No language deliberately chooses expensive dispatch for expressiveness over speed, explaining why caching fails universally in contemporary implementations.
+\textbf{Convergence on speed}: Languages prioritize fast dispatch (<100~ns) across domains (gaming, ML, servers). No language trades speed for expressiveness, explaining universal caching failure.
 
 \subsection{Practical Guidance}
 
@@ -555,15 +547,9 @@ when caching could viably work.
 
 \subsection{Summary}
 
-The consistency of failure across diverse implementations and mechanisms (5 dispatch types, 6 language families, 3 fundamental failure modes)
-reflects not implementation quirks but deep properties of CPU architecture and modern optimization strategies. Cache lookup (20--300~ns) is
-trapped between ultra-optimized dispatch (1--100~ns, the current target) and non-existent expensive dispatch (>10~µs, the theoretical break-even).
-No current language sits in the break-even region by design.
+Failure consistency (5 dispatch types, 6 language families, 3 mechanisms) reflects CPU architecture and optimization strategies, not implementation quirks. Cache lookup (20--300~ns) is trapped between ultra-optimized dispatch (1--100~ns) and expensive dispatch (>10~µs, break-even). No language sits in break-even region by design.
 
-Object-level dispatch caching is best understood not as a ``failed optimization'' but as a mismatched design choice:
-a technique optimized for expensive operations applied to operations modern language implementations have already optimized away.
-Future language designs might deliberately choose different trade-offs, creating conditions where caching becomes viable,
-but such designs would represent a fundamental departure from the dispatch-speed priority that has dominated language implementation for two decades.
+Object-level caching is a mismatched design choice: a technique for expensive operations applied to already-optimized operations. Future languages might exploit different trade-offs, but would abandon the dispatch-speed priority dominating language implementation for two decades.
 
 Extended empirical validation of two critical design-space conditions (expensive predicates and lazy JIT cold-start) through V8 benchmarks is provided in Appendix B.
 
@@ -609,9 +595,9 @@ V8 benchmarks test predicates with varying costs:
   \item Constraint solver (5323~ns baseline): 0.00× (6.69~ns cached vs. 5323~ns uncached)
 \end{itemize}
 
-**The Optimization Paradox**: The constraint solver represents the strongest theoretic case for caching—at 5.3~µs baseline, caching should provide 6~µs savings per call. Yet V8 optimizes it to 6.69~ns, faster than cached dispatch (showing 0.00× ratio). This occurs via aggressive inlining, escape analysis, and constant folding: V8 recognizes that the loop's result depends only on the input value and optimizes the entire 500-iteration loop to a constant.
+**The Optimization Paradox**: The constraint solver is caching's strongest case—at 5.3~µs baseline, caching should save 6~µs. Yet V8 optimizes it to 6.69~ns via inlining and constant folding (0.00× ratio). V8 recognizes the loop result depends only on input and optimizes away the entire computation.
 
-**Design-space implication**: The expensive-predicate condition (>1~µs cost) theoretically enables break-even. However, V8 suggests "expensive" predicates are compiler specialization opportunities, not caching candidates. Optimizers detect expensive operations and specialize them away, eliminating caching viability conditions. This validates universality: languages with expensive-predicate dispatch would have compilers defeat caching via specialization.
+**Design-space implication**: Expensive-predicate condition (>1~µs cost) theoretically enables break-even. However, V8 shows optimizers detect expensive operations and specialize them away, eliminating caching viability. Languages with expensive-predicate dispatch would have compilers defeat caching via specialization.
 
 \subsection{Lazy JIT Cold-Start: Interpretation Optimization}
 
@@ -628,9 +614,9 @@ Post-JIT & 197 & 262 & 1.33× \\
 \end{tabular}
 \end{center}
 
-**Design-space contradiction**: Cold-start theorized expensive pre-JIT dispatch (1--2~µs) would enable caching. However, V8's pre-JIT (250~ns) is already optimized via interpreter-level inline caches, bytecode dispatch optimization, and branch prediction. At 250~ns, cache overhead (136~ns) dominates (1.55× slowdown). Modern interpreters optimize dispatch heavily before JIT, eliminating pre-JIT windows.
+**Design-space contradiction**: Cold-start assumed expensive pre-JIT dispatch (1--2~µs). V8's pre-JIT (250~ns) is already optimized via interpreter inline caches and bytecode optimization. Cache overhead (136~ns) dominates (1.55× slowdown). Modern interpreters eliminate pre-JIT windows before JIT kicks in.
 
-**Amortization**: Pre-JIT phase (<0.1\% long-running execution) is negligible. Even short-lived processes (100M calls) show <0.2~ns/call amortization—dwarfed by cache overhead (14--20~ns/call).
+**Amortization**: Pre-JIT phase (<0.1\%) is negligible. Short-lived processes show <0.2~ns/call—dwarfed by cache overhead (14--20~ns/call).
 
 \subsection{Conclusion}
 
