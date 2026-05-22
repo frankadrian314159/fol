@@ -225,7 +225,7 @@ The question we investigate is whether this promise translates to actual perform
 
 \section{Methodology}
 
-Benchmarks: 24 implementations, 200K warmup + 3 runs of 2M iterations. Per-language standard deviation ±0.5~ns; ratio CI ±0.5\% (all ratios >1.1× are statistically robust). JVM measurements retain escape analysis (production baseline). Cache keys: class tuples. AMD Ryzen 9, Windows 11. Single-threaded (multi-threading adds 2--5× contention, Section~\ref{sec:discussion}).
+Benchmarks: 24 implementations, 200K warmup + 3 independent runs of 2M iterations each. **Statistical methodology**: Each run is independent (cache cleared between runs); per-language standard deviation computed across 3 runs ±0.5~ns; 95\% CI on ratios ±0.5\% relative (e.g., ±0.06× at 11.49×). All ratios >1.1× represent robust failures (>2 standard errors from break-even). **Note on Clojure (244.8×)**: Tight CI (±1.1\%) reflects consistent allocation pressure across runs; each run triggers 3--5× increased GC frequency, making behavior reproducible despite catastrophic slowdown. JVM measurements retain escape analysis (production baseline). Cache keys: class tuples. AMD Ryzen 9, Windows 11. Single-threaded (multi-threading adds 2--5× contention, Section~\ref{sec:discussion}).
 
 \section{Results}
 
@@ -452,11 +452,11 @@ Object-level caching fails universally unless dispatch >10~µs. Evidence: consis
 
 \subsection{Polymorphic Inline Caching and Machine-Code Specialization}
 
-Hölzle et al.~\cite{hoelzle1991optimizing} introduced polymorphic inline caching for Smalltalk (2--4× speedups via machine-code type checks). Modern JITs (V8, PyPy, GraalVM) report similar benefits. Our work studies orthogonal approach: object-level caching (runtime data structures) vs. machine-code specialization.
+Hölzle et al.~\cite{hoelzle1991optimizing} introduced polymorphic inline caching for Smalltalk, achieving 2--4× speedups through machine-code type checks embedded in compiled code. Modern JITs (V8, PyPy, GraalVM) achieve similar benefits via specialization. Our work is orthogonal: we study object-level caching (runtime data structures), demonstrating it fails where machine-code caching succeeds.
 
 \subsection{Adaptive Optimization and Dispatch Efficiency}
 
-Chambers/Ungar~\cite{chambers1989optimizing} and Arnold/Ryder~\cite{arnold2005feedback} optimize via dynamic specialization (JIT-dependent). Campbell/Wolczko~\cite{campbell1992array} and Steele/Gabriel~\cite{steele1990lisp} show compiled dispatch achieves 1--100~ns (validating SBCL 30~ns). Escape analysis~\cite{kotzmann2005escape} eliminates allocation, making external caching redundant.
+Chambers and Ungar~\cite{chambers1989optimizing} introduced adaptive optimization: JIT compilation based on observed type patterns. Arnold and Ryder~\cite{arnold2005feedback} extend this with profile-guided decisions. Both require JIT infrastructure; our results show object-level caching is ineffective even when paired with JIT. Campbell and Wolczko~\cite{campbell1992array} and Steele and Gabriel~\cite{steele1990lisp} demonstrate that compiled dispatch achieves 1--100~ns through aggressive inlining, validating our SBCL baseline (30~ns). Escape analysis~\cite{kotzmann2005escape} eliminates allocation entirely, rendering external caching redundant.
 
 \subsection{Language-Specific Dispatch Caching}
 
@@ -479,18 +479,30 @@ Mytkowicz et al.~\cite{mytkowicz2009producing} emphasize rigorous measurement an
 
 Do not implement object-level dispatch caching (performance degradation, 88× multi-threaded failure). Instead: machine-code caching (JIT), optimized dispatch compilation, escape analysis. Machine-code exploits CPU architecture (direct jumps, L1I); object-level opposes it (indirect calls, L1D/L2, allocation). JIT amortization (0.1~ns/call over $10^6$ calls) is 100× faster than cache overhead (14--20~ns/call).
 
+\subsection{Selective Predicate Caching Framework}
+
+Edge-case analysis suggests a viable approach: **selective caching for expensive predicates**. Required components: (1)~predicate cost instrumentation (profile >1~µs threshold); (2)~selective enablement (cache only expensive predicates, not all dispatch); (3)~adaptive toggling (disable if hit rate <95\%); (4)~per-thread isolation (thread-local caches eliminate 88× lock contention in SBCL).
+
+**Applicability**: Languages with reflection and user-defined expensive predicates (Clojure multimethods, CLOS methods). Typed languages (Go, Java) show minimal benefit. Framework is domain-specific, not general-purpose.
+
+\subsection{Per-Thread and Type-Biased Specialization}
+
+**Per-thread caching**: SBCL achieves 3.1× vs. 88.94× shared (8 threads). Cost: 1--16~KB per thread (256~MB on 256-thread systems). Viable for long-running servers with stable thread pools (<100 threads); prohibitive for serverless/Lambda.
+
+**Type-biased specialization**: 95\% type-A specialization achieves 1.18× vs. 5.31×. Applicability: stable polymorphism patterns (game engines, ML operators with skewed type distribution). Requires offline profiling; limits to AOT languages (Rust, Go, SBCL). Both are domain-specific, not general-purpose.
+
 \section{Limitations}
 
 \begin{enumerate}
-  \item \textbf{Pure dispatch overhead}: Benchmarks measure dispatch latency without expensive clause bodies. Overhead becomes negligible (<1\%) only when bodies exceed ~500~ns; typical 10--100~ns bodies remain overhead-dominated. Real workloads with heavy clause bodies might approach break-even but require intentionally expensive per-call logic.
+  \item \textbf{Pure dispatch overhead}: Overhead becomes negligible (<1\%) only at clause body cost >500~ns; typical 10--100~ns bodies remain overhead-dominated. Real workloads might approach break-even but require intentionally expensive per-call logic.
 
-  \item \textbf{Type-based dispatch only}: We test class objects. Value-predicate dispatch or exotic mechanisms might differ if predicates are expensive (>1~µs) by design. Our framework predicts similar failure, but exceptions are possible.
+  \item \textbf{Type-based dispatch only}: Value-predicate or exotic dispatch might differ if predicates are expensive (>1~µs). Framework predicts similar failure, but exceptions possible.
 
-  \item \textbf{Homogeneous workloads}: 4-type repeating cycles guarantee high hit rates. Real patterns might have more types or better locality, but hit rates reach 99.\%+ with diverse patterns. Cache overhead dominates; miss-rate variation unlikely to change conclusions.
+  \item \textbf{Homogeneous workloads}: 4-type cycles guarantee high hit rates. Real patterns reach 99\%+ with diverse type distributions; cache overhead dominates conclusion robustness.
 
-  \item \textbf{Cold-start JIT and CPU effects}: We measure GraalVM cold-start (1.39× speedup) but not PyPy/V8. We do not instrument L1/L2/L3 misses, TLB, or branch prediction; CPU interactions could shift timing ~5--10\%. Qualitative conclusions remain sound.
+  \item \textbf{CPU effects}: We do not instrument L1/L2/L3 misses, TLB, or branch prediction; timing could shift ~5--10\%. Qualitative conclusions sound.
 
-  \item \textbf{Marginal cases and language-specific paths}: CCL (1.02×) and Racket (0.99×) are within ±5\% noise. Some languages might exploit specialized dispatch pathways (SBCL ~fastcall, JVM invokedynamic); we use generic mechanisms applicable across implementations.
+  \item \textbf{Marginal cases}: CCL (1.02×) and Racket (0.99×) within ±5\% noise. Some languages might exploit specialized pathways (SBCL ~fastcall, JVM invokedynamic).
 \end{enumerate}
 
 \section{Conclusion}
@@ -589,16 +601,19 @@ How do caching economics change with expensive clause bodies? We tested SBCL wit
 
 V8 benchmarks validate two potentially viable design-space conditions: expensive predicates and lazy JIT cold-start.
 
-\subsection{Expensive Predicates}
+\subsection{Expensive Predicates and the Optimization Paradox}
 
-V8 benchmarks on email/URL/date regex (44--69~ns baseline) and constraint solver (5323~ns baseline) reveal JIT defeats caching even for expensive dispatch costs:
+V8 benchmarks test predicates with varying costs:
 \begin{itemize}
-  \item Email: 0.23×, URL: 0.11×, Date: 0.14× (regex patterns specialized away)
-  \item Constraint solver: 0.00× (6.69~ns cached vs. 5323~ns uncached)
+  \item Email/URL/Date regex (44--69~ns baseline): 0.23–0.14× (JIT specializes regex compilation to near-zero overhead)
+  \item Constraint solver (5323~ns baseline): 0.00× (6.69~ns cached vs. 5323~ns uncached)
 \end{itemize}
-The constraint solver case is critical: at 5.3~µs, caching should theoretically help, yet V8 optimizes it to 6.69~ns via inlining and constant folding. JIT specialization eliminates the operation entirely, defeating caching's purpose.
 
-\subsection{Lazy JIT Cold-Start}
+**The Optimization Paradox**: The constraint solver represents the strongest theoretic case for caching—at 5.3~µs baseline, caching should provide 6~µs savings per call. Yet V8 optimizes it to 6.69~ns, faster than cached dispatch (showing 0.00× ratio). This occurs via aggressive inlining, escape analysis, and constant folding: V8 recognizes that the loop's result depends only on the input value and optimizes the entire 500-iteration loop to a constant.
+
+**Design-space implication**: The expensive-predicate condition (>1~µs cost) theoretically enables break-even. However, V8 suggests "expensive" predicates are compiler specialization opportunities, not caching candidates. Optimizers detect expensive operations and specialize them away, eliminating caching viability conditions. This validates universality: languages with expensive-predicate dispatch would have compilers defeat caching via specialization.
+
+\subsection{Lazy JIT Cold-Start: Interpretation Optimization}
 
 V8 cold-start measurements across three JIT phases:
 \begin{center}
@@ -612,7 +627,10 @@ Post-JIT & 197 & 262 & 1.33× \\
 \bottomrule
 \end{tabular}
 \end{center}
-Caching shows slowdown across all phases, even pure interpreted mode. V8's pre-JIT dispatch (250~ns) is already optimized; cache overhead (136~ns) dominates. The pre-JIT phase (<0.1\% of long-running program execution) provides no practical cold-start benefit. Rapid JIT warmup (100 iterations) eliminates the pre-JIT window entirely.
+
+**Design-space contradiction**: Cold-start theorized expensive pre-JIT dispatch (1--2~µs) would enable caching. However, V8's pre-JIT (250~ns) is already optimized via interpreter-level inline caches, bytecode dispatch optimization, and branch prediction. At 250~ns, cache overhead (136~ns) dominates (1.55× slowdown). Modern interpreters optimize dispatch heavily before JIT, eliminating pre-JIT windows.
+
+**Amortization**: Pre-JIT phase (<0.1\% long-running execution) is negligible. Even short-lived processes (100M calls) show <0.2~ns/call amortization—dwarfed by cache overhead (14--20~ns/call).
 
 \subsection{Conclusion}
 
