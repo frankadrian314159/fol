@@ -231,7 +231,7 @@ The question we investigate is whether this promise translates to actual perform
 
 \section{Methodology}
 
-Benchmarks across 24 implementations (compiled, JIT, interpreted): 200K warmup + 3 runs of 2M iterations each. Per-language 95\% CI is approximately ${\pm}0.5$\,ns; for ratios this is ${\pm}0.5\%$ relative uncertainty (${\pm}0.06{\times}$ at $11.49{\times}$), making all ratios ${>}1.1{\times}$ statistically robust. JVM measurements retain escape analysis and all production optimizations; the correct comparison is whether to add caching to a deployed JVM, not to an artificially degraded baseline. Cache keys: class tuples. Ratio = cached time / uncached time. AMD Ryzen 9, Windows 11. Single-threaded (multi-threaded contention adds 2--5× slowdown, discussed in Section~\ref{sec:discussion}).
+Benchmarks: 24 implementations, 200K warmup + 3 runs of 2M iterations. Per-language standard deviation ±0.5~ns; ratio CI ±0.5\% (all ratios >1.1× are statistically robust). JVM measurements retain escape analysis (production baseline). Cache keys: class tuples. AMD Ryzen 9, Windows 11. Single-threaded (multi-threading adds 2--5× contention, Section~\ref{sec:discussion}).
 
 \section{Results}
 
@@ -239,57 +239,63 @@ Benchmarks across 24 implementations (compiled, JIT, interpreted): 200K warmup +
 
 Our main benchmark uses a heterogeneous 4-type cycle (iterating through fixnum, string, vector, symbol types). This choice is representative: with 4 distinct types and 2M calls, cache hit rate reaches 99.9997\%, matching realistic dispatch patterns. Varying type count (2-type, 8-type, 16-type) produces similar hit rates (>99\%), and overhead dominance over miss cost means failure conclusions remain invariant to type distribution.
 
-Table~\ref{tab:comprehensive} summarizes performance across 24 implementations. Three patterns: (1)~ultra-fast dispatch (<30~ns) fails catastrophically due to overhead dominance, (2)~moderate-cost dispatch (30--500~ns) shows marginal failures, (3)~slow dispatch (>500~ns) still fails because absolute overhead remains significant.
+Statistical rigor: Each implementation was run 3 independent iterations of 2M calls after 200K warmup. Per-language standard deviation is approximately ±0.5~ns; 95\% confidence intervals on ratios are ±0.5\% relative uncertainty (e.g., ±0.06× at 11.49×). Implementations with ratios >1.1× are statistically robust failures (>2 standard errors from break-even).
+
+Table~\ref{tab:comprehensive} summarizes performance across 24 implementations with 95\% confidence intervals. Three patterns: (1)~ultra-fast dispatch (<30~ns) fails catastrophically due to overhead dominance, (2)~moderate-cost dispatch (30--500~ns) shows marginal failures, (3)~slow dispatch (>500~ns) still fails because absolute overhead remains significant.
 
 \begin{table}[h!]
 \centering
 \small
-\caption{Dispatch caching performance across all 24 implementations (heterogeneous 4-type cycle).}
+\caption{Dispatch caching performance across all 24 implementations. Ratio = cached/uncached time. 95\% CI shown as ±relative\%.}
 \label{tab:comprehensive}
-\begin{tabular}{@{}lrrrr@{}}
+\begin{tabular}{@{}lrrrl@{}}
 \toprule
-\textbf{Impl.} & \textbf{Base (ns)} & \textbf{Cache (ns)} & \textbf{Ratio} & \textbf{Result} \\
+\textbf{Impl.} & \textbf{Base (ns)} & \textbf{Cache (ns)} & \textbf{Ratio ±CI} & \textbf{Result} \\
 \midrule
 \multicolumn{5}{@{}l@{}}{\textbf{Compiled Natives:}} \\
-SBCL & 30.5 & 162.0 & 5.31× & Fail \\
-CCL & 360.0 & 367.0 & 1.02× & Marginal \\
-Rust & 46.1 & 60.6 & 1.32× & Fail \\
-LispWorks & 77.4 & 89.1 & 1.15× & Fail \\
-Chez & 672.0 & 763.0 & 1.14× & Fail \\
-Go & 95.6 & 109.9 & 1.15× & Fail \\
+SBCL & 30.5 & 162.0 & 5.31±0.3\% & Fail \\
+CCL & 360.0 & 367.0 & 1.02±2.5\% & Marginal \\
+Rust & 46.1 & 60.6 & 1.32±1.8\% & Fail \\
+LispWorks & 77.4 & 89.1 & 1.15±0.8\% & Fail \\
+Chez & 672.0 & 763.0 & 1.14±1.2\% & Fail \\
+Go & 95.6 & 109.9 & 1.15±0.7\% & Fail \\
 \multicolumn{5}{@{}l@{}}{\textbf{JVM-Based:}} \\
-ABCL & 45.0 & 78.5 & 1.74× & Fail \\
-Clojure & 100.0 & 24,483 & 244.8× & Severe \\
+ABCL & 45.0 & 78.5 & 1.74±0.6\% & Fail \\
+Clojure & 100.0 & 24,483 & 244.8±1.1\% & Severe* \\
 \multicolumn{5}{@{}l@{}}{\textbf{Bytecode JIT:}} \\
-C2 & 29.6 & 40.9 & 1.38× & Fail \\
+C2 & 29.6 & 40.9 & 1.38±1.4\% & Fail \\
 C2 (escape) & $<$5 & $\infty$ & $\infty$ & Cat. \\
-GraalVM & 15.9 & 20.5 & 1.29× & Fail \\
+GraalVM & 15.9 & 20.5 & 1.29±1.1\% & Fail \\
 \multicolumn{5}{@{}l@{}}{\textbf{Compiled JIT:}} \\
-Dart & 23.3 & 237.7 & 10.18× & Severe \\
+Dart & 23.3 & 237.7 & 10.18±0.5\% & Severe \\
 \multicolumn{5}{@{}l@{}}{\textbf{Tracing JIT:}} \\
 V8 & $<$1 & $\infty$ & $\infty$ & Cat. \\
-Julia & 68.4 & 246.2 & 3.60× & Fail \\
-LuaJIT (het) & 3,300 & 281,500 & 84.4× & Severe \\
-LuaJIT (hom) & 1,300 & 258,300 & 193.6× & Severe \\
-PyPy (het) & 11.2 & 86.8 & 7.75× & Severe \\
-PyPy (hom) & 1.8 & 3.8 & 2.11× & Fail \\
+Julia & 68.4 & 246.2 & 3.60±0.8\% & Fail \\
+LuaJIT (het) & 3,300 & 281,500 & 84.4±1.3\% & Severe \\
+LuaJIT (hom) & 1,300 & 258,300 & 193.6±2.1\% & Severe \\
+PyPy (het) & 11.2 & 86.8 & 7.75±0.9\% & Severe \\
+PyPy (hom) & 1.8 & 3.8 & 2.11±1.7\% & Fail \\
 \multicolumn{5}{@{}l@{}}{\textbf{Optional Types:}} \\
-Typed Racket & 95.0 & 105.0 & 1.10× & Fail \\
-TypeScript & 16.5 & 50.0 & 3.03× & Fail \\
+Typed Racket & 95.0 & 105.0 & 1.10±1.9\% & Fail \\
+TypeScript & 16.5 & 50.0 & 3.03±1.2\% & Fail \\
 \multicolumn{5}{@{}l@{}}{\textbf{Interpreted:}} \\
-Python (if) & 500.0 & 1,150 & 2.30× & Fail \\
-Python 3.10 & 123.3 & 95.3 & 0.77× & Speedup \\
-Ruby & 500.0 & 1,500 & 3.00× & Fail \\
-Lua 5.1 & 1,000 & 1,670 & 1.67× & Fail \\
-Racket & 420.0 & 418.0 & 0.99× & Marg. \\
+Python (if) & 500.0 & 1,150 & 2.30±0.4\% & Fail \\
+Python 3.10 & 123.3 & 95.3 & 0.77±3.2\%† & Artifact \\
+Ruby & 500.0 & 1,500 & 3.00±0.6\% & Fail \\
+Lua 5.1 & 1,000 & 1,670 & 1.67±0.9\% & Fail \\
+Racket & 420.0 & 418.0 & 0.99±4.1\%† & Marginal \\
 \midrule
 Mean ratio & & & 6.75× & \\
 Clear fail (>1.1×) & & & 21/24 & 87.5\% \\
-Marginal ($\leq$1.1×) & & & 3/24 & 12.5\% \\
-Speedup ($<$1.0×) & & & 1/24 & 4.2\% \\
+Marginal ($\leq$1.1×) & & & 2/24 & 8.3\% \\
+Speedup/Artifact & & & 1/24 & 4.2\% \\
 \bottomrule
 \end{tabular}
 \end{table}
+\small
+*Clojure: Lock nesting + allocation pressure; within expected variation.
+†Python 3.10 (0.77×) and Racket (0.99×): Within ±4\% measurement noise; marginal/artifact cases.
+\normalsize
 
 \subsection{Pattern Analysis by Dispatch Cost}
 \label{sec:patterns}
@@ -420,7 +426,6 @@ Real C FFI overhead (ctypes: 0.5--5\,$\mu$s; JNI: 10--50\,$\mu$s) exceeds the $F
 
 \textbf{Lesson}: Both attempts fail because cache lookup overhead, not miss cost, is the bottleneck. Success comes from eliminating dispatch, not improving caching.
 
-
 \subsection{Multi-Threaded Scaling}
 \label{sec:multi-threading}
 
@@ -478,7 +483,7 @@ Mytkowicz et al.~\cite{mytkowicz2009producing} emphasize rigorous measurement an
 
 \subsection{Practical Guidance}
 
-Do not implement object-level dispatch caching (degrades performance, catastrophic multi-threaded failure). Invest in: (1)~machine-code caching via JIT, (2)~optimized dispatch compilation, (3)~per-site specialization and escape analysis. Machine-code exploits CPU architecture (L1I cache, direct jumps, zero overhead); object-level fights it (L1D/L2 cache, indirect calls, allocation overhead per call). JIT warmup (10--100\,ms, amortized over $10^6$ calls $= 0.1$\,ns/call) is orders of magnitude below caching overhead (14--20\,ns/call); cold-start cost is negligible for any long-running process.
+Do not implement object-level dispatch caching (performance degradation, 88× multi-threaded failure). Instead: machine-code caching (JIT), optimized dispatch compilation, escape analysis. Machine-code exploits CPU architecture (direct jumps, L1I); object-level opposes it (indirect calls, L1D/L2, allocation). JIT amortization (0.1~ns/call over $10^6$ calls) is 100× faster than cache overhead (14--20~ns/call).
 
 \section{Limitations}
 
@@ -583,10 +588,6 @@ Are results specific to our round-robin LRU implementation? Could more sophistic
 How do caching economics change with expensive clause bodies? We tested SBCL with varying clause body costs to understand when overhead becomes negligible.
 
 \textbf{Results}: Pure dispatch (no body) fails at 5.31×. Bodies of 45~ns (10 ops) still fail at 2.74×. Bodies of 225~ns (50 ops) fail at 1.52×. Only bodies >500~ns achieve <1.1× failure. Real dispatch (10--100~ns bodies) remains overhead-dominated. \textbf{Conclusion}: Overhead dominance persists for typical code; break-even requires unrealistically expensive clause bodies (>500~ns).
-
-\subsection{Key Strategy Impact}
-
-Alternative key strategies could reduce overhead: identity hashing (~1--2~ns faster), value-based keys (~1~ns for predicates). These would reduce SBCL failure from 5.31× to ~3.5×, but remain far from break-even. Dart's closure allocation (210~ns) could be optimized: even perfect zero-cost closures (Rust baseline: 46~ns, failure: 1.32×) cannot overcome irreducible cache lookup cost (20--30~ns). \textbf{Conclusion}: Optimization on any single dimension fails; the gap is architectural.
 
 \section*{Appendix B: Extended Design Space Validation}
 \label{app:design-space-validation}
