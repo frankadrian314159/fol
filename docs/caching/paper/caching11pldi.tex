@@ -435,7 +435,7 @@ Multi-threaded contention catastrophically scales failure. SBCL: 3.03× (1 threa
 
 \textbf{Notation}: Let $C$ denote cache lookup cost (20--30\,ns: memory access + hash + equality check), $F$ denote dispatch cost (1--100\,ns baseline for modern implementations), and $F_{\text{opt}}$ denote dispatch cost optimized by compilers (JIT, inline caching, specialization).
 
-\textbf{Effectiveness-Efficiency Distinction}: Hit rates (99.99\%+) orthogonal to per-call overhead. For break-even: $C \approx F$ (cache lookup $\approx$ dispatch cost). Total cached cost = per-call overhead $C$ + amortized setup cost $(D+E)/N$. With $N=2,000,000$ calls and typical setup overhead $D+E \approx 1000$~ns (hash table allocation, initialization, one-time costs), break-even requires: $C < F - 0.5$~ns, effectively $C \approx F$.
+\textbf{Effectiveness-Efficiency Distinction}: Hit rates (99.99\%+) orthogonal to per-call overhead. For break-even: $C \approx F$ (cache lookup $\approx$ dispatch cost). With $N=2,000,000$ calls, setup overhead $\approx 1000$~ns, break-even requires $C \approx F$.
 
 \textbf{Irreducible Gap}: $C_{\text{min}} = 20$~ns (memory access + hash, CPU physics bound). $F_{\text{opt}} = 1$-–100~ns (modern optimization). For any language optimizing dispatch:
 \begin{align}
@@ -452,17 +452,17 @@ F_{\text{opt}} \geq C_{\text{min}} \implies F_{\text{opt}} < 10\text{ µs} \impl
 
 \section{Universality}
 
-Universal principle: object-level caching fails for all contemporary dynamic languages unless dispatch >10~µs. Evidence: consistent failure across 24 implementations, 6 language families, 3 universal mechanisms (overhead dominates fast dispatch, allocation overhead, speed convergence), CPU physics foundation. Confidence in generalization: ~95\%, meaning we predict untested languages (HHVM, Nim, Swift) fail by the same mechanisms with high probability, based on the consistency of failure across diverse existing implementations. No language currently implements expensive-dispatch designs by default.
+Object-level caching fails universally unless dispatch >10~µs. Evidence: consistent failure across 24 implementations, 6 language families, 3 mechanisms (overhead dominates fast dispatch, allocation overhead, convergence on speed). CPU physics foundation. Generalization confidence ~95\%: untested languages (HHVM, Nim, Swift) likely fail by same mechanisms. No language implements expensive-dispatch by design.
 
 \section{Related Work}
 
 \subsection{Polymorphic Inline Caching and Machine-Code Specialization}
 
-Hölzle et al.'s foundational work~\cite{hoelzle1991optimizing} introduced polymorphic inline caching for Smalltalk, achieving 2--4× speedups through machine-code type checks. Modern implementations (V8~\cite{bak2010v8}, PyPy~\cite{pypy2}, GraalVM~\cite{graalvm}) report similar benefits via inline caching in compiled code. Our work is orthogonal: we study object-level caching (runtime data structures) and demonstrate it achieves different trade-offs than machine-code specialization.
+Hölzle et al.~\cite{hoelzle1991optimizing} introduced polymorphic inline caching for Smalltalk (2--4× speedups via machine-code type checks). Modern JITs (V8, PyPy, GraalVM) report similar benefits. Our work studies orthogonal approach: object-level caching (runtime data structures) vs. machine-code specialization.
 
 \subsection{Adaptive Optimization and Dispatch Efficiency}
 
-Chambers and Ungar's adaptive optimization~\cite{chambers1989optimizing} dynamically specializes code based on observed types. Arnold and Ryder's profile-guided optimization~\cite{arnold2005feedback} guides compilation decisions. Both assume JIT infrastructure; our results show object-level caching is ineffective for the languages we tested. Campbell and Wolczko~\cite{campbell1992array} and Steele and Gabriel~\cite{steele1990lisp} demonstrate that compiled dispatch achieves 1--100~ns through inlining, validating our SBCL results (30~ns). Escape analysis (Kotzmann and Mössenböck~\cite{kotzmann2005escape}) eliminates allocation entirely, making external caching redundant.
+Chambers/Ungar~\cite{chambers1989optimizing} and Arnold/Ryder~\cite{arnold2005feedback} optimize via dynamic specialization (JIT-dependent). Campbell/Wolczko~\cite{campbell1992array} and Steele/Gabriel~\cite{steele1990lisp} show compiled dispatch achieves 1--100~ns (validating SBCL 30~ns). Escape analysis~\cite{kotzmann2005escape} eliminates allocation, making external caching redundant.
 
 \subsection{Language-Specific Dispatch Caching}
 
@@ -479,7 +479,7 @@ Mytkowicz et al.~\cite{mytkowicz2009producing} emphasize rigorous measurement an
 
 (1)~Hit rate (99.99\%+) $\neq$ performance; effectiveness orthogonal to efficiency. (2)~Overhead (14--20~ns) dominates fast dispatch (<100~ns). (3)~JIT compilers defeat caching via specialization; escape analysis achieves infinite speedup by eliminating allocation. (4)~Cache lookup (~30~ns) trapped between ultra-optimized dispatch (1--100~ns) and non-existent expensive dispatch (>10~µs). (5)~Design space unexploited: languages could prioritize semantic richness, lazy JIT cold-start, or polyglot dispatch, but none do.
 
-\textit{Note on escape analysis}: We deliberately retain escape analysis in V8/C2 benchmarks. The correct evaluation question is ``does object-level caching help production JVMs?'' not ``does it help JVMs with compiler optimizations disabled?'' Disabling escape analysis would measure an artificial environment no deployed system uses. The ``infinite slowdown'' result reflects that compiler optimizations already solved the problem we are studying.
+\textit{Note on escape analysis}: We retain escape analysis in V8/C2 benchmarks (production baseline). The correct question: "does caching help production JVMs?" not "does it help degraded baselines?" The infinite slowdown reflects that compiler optimizations already solved the problem.
 
 \subsection{Practical Guidance}
 
