@@ -54,15 +54,9 @@
 
 \begin{abstract}
 \textbf{Abstract.}~We establish an analytic cost model demonstrating that object-level dispatch caching is fundamentally limited by an irreducible efficiency gap:
-  cache lookup cost (20--300~ns) cannot simultaneously beat both ultra-fast dispatch (1--100~ns, achievable through compiler optimization) and
-  non-existent expensive dispatch (>10~µs, theoretically required for break-even). This gap is not an implementation artifact but a consequence
-  of CPU physics: memory access latency and hash computation form an irreducible lower bound.
+  cache lookup cost (20--300~ns) cannot simultaneously beat both ultra-fast dispatch (1--100~ns) and expensive dispatch (>10~µs). This gap is rooted in CPU physics: memory access latency and hash computation form an irreducible lower bound.
 
-  We validate this framework through comprehensive empirical study across twenty-four language implementations (compiled natives, bytecode/compiled/tracing JITs,
-  interpreted, optional types), demonstrating that object-level caching fails consistently despite achieving 99.99\%+ hit rates. The failure is universal
-  across 6 language families and 5 dispatch mechanisms, revealing a systematic property: modern language implementations optimize dispatch to costs below
-  cache lookup time, making caching counterproductive. Results show 21/24 implementations suffer clear failure (>1.1× slowdown), with only 1 implementation
-  approaching break-even when its dispatch baseline matches cache lookup latency.
+  We validate this across twenty-four language implementations (compiled, JIT, interpreted), showing object-level caching fails despite 99.99\%+ hit rates. Failure is universal across 6 language families and 5 dispatch mechanisms: modern implementations optimize dispatch below cache lookup cost, making caching counterproductive. Results: 21/24 implementations fail (>1.1× slowdown).
 
   The paper makes three core contributions: (1)~an analytic bound characterizing the irreducible gap between cache lookup and dispatch costs, explaining why
   this optimization fails across all contemporary implementations; (2)~empirical validation across twenty-four diverse implementations, showing the gap is
