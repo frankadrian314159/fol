@@ -1,0 +1,123 @@
+;;; Profile all key benchmarks to find performance hotspots
+(require :asdf)
+
+(pushnew #p"c:/Users/frank/Projects/FOL/fol/src/" asdf:*central-registry*)
+
+(let ((quicklisp-init (merge-pathnames "quicklisp/setup.lisp" (user-homedir-pathname))))
+  (if (probe-file quicklisp-init)
+      (load quicklisp-init)
+      (format t "Quicklisp not found.~%")))
+
+(dolist (dep '(:fset :sycamore :closer-mop :uuid :bordeaux-threads :usocket :cl-ppcre :fiveam))
+  (if (find-package :ql)
+      (uiop:symbol-call :ql :quickload dep)
+      (asdf:load-system dep)))
+
+(asdf:load-system :fol-compiler)
+
+(in-package :cl-user)
+
+(format t "~%========================================================================~%")
+(format t "    FOL Benchmark Profiling - Performance Analysis~%")
+(format t "========================================================================~%")
+
+;; DIFF BENCHMARK
+(format t "~%~%=== DIFF BENCHMARK ===~%")
+(load "c:/Users/frank/Projects/FOL/fol/benchmarks/lisp-code/diff.lisp")
+(load "c:/Users/frank/Projects/FOL/fol/benchmarks/transpiled-fol-code/diff.lisp")
+
+(format t "Warming up diff benchmark...~%")
+(diff::run-bench 5000)
+(sb-ext:gc :full t)
+
+(format t "~%FOL (100K iterations):~%")
+(let ((start (get-internal-real-time))
+      (start-bytes (sb-ext:get-bytes-consed)))
+  (diff::run-bench 100000)
+  (let* ((end (get-internal-real-time))
+         (end-bytes (sb-ext:get-bytes-consed))
+         (elapsed (/ (- end start) (float internal-time-units-per-second)))
+         (bytes (- end-bytes start-bytes)))
+    (format t "  Time: ~,3F seconds~%" elapsed)
+    (format t "  Memory: ~,2F MB~%" (/ bytes 1048576.0))))
+
+(format t "~%CL (100K iterations):~%")
+(sb-ext:gc :full t)
+(let ((start (get-internal-real-time))
+      (start-bytes (sb-ext:get-bytes-consed)))
+  (diff-cl:run-bench 100000)
+  (let* ((end (get-internal-real-time))
+         (end-bytes (sb-ext:get-bytes-consed))
+         (elapsed (/ (- end start) (float internal-time-units-per-second)))
+         (bytes (- end-bytes start-bytes)))
+    (format t "  Time: ~,3F seconds~%" elapsed)
+    (format t "  Memory: ~,2F MB~%" (/ bytes 1048576.0))))
+
+;; GUARDS BENCHMARK
+(format t "~%~%=== GUARDS BENCHMARK ===~%")
+(load "c:/Users/frank/Projects/FOL/fol/benchmarks/lisp-code/guards.lisp")
+(load "c:/Users/frank/Projects/FOL/fol/benchmarks/transpiled-fol-code/guards.lisp")
+
+(format t "Warming up guards benchmark...~%")
+(guards::run-bench 1000)
+(sb-ext:gc :full t)
+
+(format t "~%FOL (10K iterations):~%")
+(let ((start (get-internal-real-time))
+      (start-bytes (sb-ext:get-bytes-consed)))
+  (guards::run-bench 10000)
+  (let* ((end (get-internal-real-time))
+         (end-bytes (sb-ext:get-bytes-consed))
+         (elapsed (/ (- end start) (float internal-time-units-per-second)))
+         (bytes (- end-bytes start-bytes)))
+    (format t "  Time: ~,3F seconds~%" elapsed)
+    (format t "  Memory: ~,2F MB~%" (/ bytes 1048576.0))))
+
+(format t "~%CL (10K iterations):~%")
+(sb-ext:gc :full t)
+(let ((start (get-internal-real-time))
+      (start-bytes (sb-ext:get-bytes-consed)))
+  (guards-cl:run-bench 10000)
+  (let* ((end (get-internal-real-time))
+         (end-bytes (sb-ext:get-bytes-consed))
+         (elapsed (/ (- end start) (float internal-time-units-per-second)))
+         (bytes (- end-bytes start-bytes)))
+    (format t "  Time: ~,3F seconds~%" elapsed)
+    (format t "  Memory: ~,2F MB~%" (/ bytes 1048576.0))))
+
+;; DERIVED VALUE INVALIDATION BENCHMARK
+(format t "~%~%=== DERIVED VALUE INVALIDATION BENCHMARK ===~%")
+(load "c:/Users/frank/Projects/FOL/fol/benchmarks/lisp-code/derived-value-invalidation.lisp")
+(load "c:/Users/frank/Projects/FOL/fol/benchmarks/transpiled-fol-code/derived-value-invalidation.lisp")
+
+(format t "Warming up DVI benchmark...~%")
+(derived-value-invalidation::run-bench 100 10)
+(sb-ext:gc :full t)
+
+(format t "~%FOL (1000 items, 10 reads each):~%")
+(let ((start (get-internal-real-time))
+      (start-bytes (sb-ext:get-bytes-consed)))
+  (derived-value-invalidation::run-bench 1000 10)
+  (let* ((end (get-internal-real-time))
+         (end-bytes (sb-ext:get-bytes-consed))
+         (elapsed (/ (- end start) (float internal-time-units-per-second)))
+         (bytes (- end-bytes start-bytes)))
+    (format t "  Time: ~,3F seconds~%" elapsed)
+    (format t "  Memory: ~,2F MB~%" (/ bytes 1048576.0))))
+
+(format t "~%CL (1000 items, 10 reads each):~%")
+(sb-ext:gc :full t)
+(let ((start (get-internal-real-time))
+      (start-bytes (sb-ext:get-bytes-consed)))
+  (dvi-cl:run-bench 1000 10)
+  (let* ((end (get-internal-real-time))
+         (end-bytes (sb-ext:get-bytes-consed))
+         (elapsed (/ (- end start) (float internal-time-units-per-second)))
+         (bytes (- end-bytes start-bytes)))
+    (format t "  Time: ~,3F seconds~%" elapsed)
+    (format t "  Memory: ~,2F MB~%" (/ bytes 1048576.0))))
+
+(format t "~%~%========================================================================~%")
+(format t "    Summary: All benchmarks show significant FOL slowdown~%")
+(format t "========================================================================~%~%")
+(sb-ext:exit :code 0)

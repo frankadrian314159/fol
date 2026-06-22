@@ -32,25 +32,18 @@
 (format t "~%Running FOL benchmark (100K iterations) with timing...~%~%")
 (time (diff::run-bench 100000))
 
-;; Try to use statistical profiler if available
-(handler-case
-    (progn
-      (require :sb-sprof)
-      (format t "~%~%=== Statistical Profiler Report ===~%")
-      (sb-sprof:reset)
-      (sb-sprof:start-profiling :max-samples 10000 :mode :time)
-      (diff::run-bench 50000)
-      (sb-sprof:stop-profiling)
-      (format t "~%Top hotspots (by sample count):~%")
-      (sb-sprof:report :type :flat :max-samples 30))
-  (error (e)
-    (format t "~%Statistical profiler not available: ~A~%~%Falling back to heap allocation tracking...~%" e)
-    (format t "Running benchmark again to measure heap usage...~%")
-    (sb-ext:gc :full t)
-    (let ((start-bytes (sb-ext:get-bytes-consed)))
-      (diff::run-bench 50000)
-      (let ((bytes-consed (- (sb-ext:get-bytes-consed) start-bytes)))
-        (format t "Heap consed: ~,2F MB~%" (/ bytes-consed 1048576.0))))))
+;; Measure CL version for comparison
+(format t "~%~%--- Common Lisp Baseline (for comparison) ---~%")
+(sb-ext:gc :full t)
+(let ((start (get-internal-real-time))
+      (start-bytes (sb-ext:get-bytes-consed)))
+  (diff-cl:run-bench 100000)
+  (let* ((end (get-internal-real-time))
+         (end-bytes (sb-ext:get-bytes-consed))
+         (elapsed (/ (- end start) (float internal-time-units-per-second)))
+         (bytes (- end-bytes start-bytes)))
+    (format t "Completed in ~,3F seconds~%" elapsed)
+    (format t "Bytes consed: ~,2F MB~%" (/ bytes 1048576.0))))
 
 (format t "~%~%Done.~%")
 (sb-ext:exit :code 0)

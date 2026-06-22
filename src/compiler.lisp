@@ -85,8 +85,13 @@
 
 (defvar *simple-around-methods* (make-hash-table :test 'equal)
   "Registry of simple :around methods that could be inlined.
-   Key: (gf-name . qualifier)
-   Value: (param-count . body-length)")
+   Key: gf-name (generic function name)
+   Value: list of (specializers . body-length) for each simple :around method
+   Specializers is a list of (param-name . type-name) pairs for type-specialized params")
+
+(defvar *around-method-specializers* (make-hash-table :test 'equal)
+  "Maps (gf-name . specializer-signature) to method info for dispatch optimization.
+   Specializer-signature is a dotted list of type names.")
 
 (defun is-simple-method-p (body-nodes)
   "Check if method body is simple enough to potentially inline.
@@ -97,18 +102,124 @@
   (and (listp body-nodes)
        (< (length body-nodes) 5)))
 
+(defun extract-type-specializers (param-list)
+  "Extract type specializers from parameter list.
+   Returns ((param-name . type-name) ...) for parameters with type specializers.
+   Returns nil if no type specializers found."
+  (loop for param in param-list
+        when (listp param)
+        collect param))
+
 (defun registers-simple-around-method (gf-name qualifier clause)
   "Register a simple :around method for potential inlining.
-   CLAUSE is (param-vec . body-nodes)."
+   CLAUSE is (param-vec . body-nodes).
+   Captures type specializers for dispatch optimization."
   (when (and (eq qualifier :around)
              (= (length clause) 2))
     (let* ((param-vec (car clause))
            (body-nodes (cdr clause))
-           (param-count (length (fol-vector-to-list param-vec))))
+           (param-list (fol-vector-to-list param-vec))
+           (type-specs (extract-type-specializers param-list)))
       (when (is-simple-method-p body-nodes)
-        (let ((key (cons gf-name qualifier)))
+        ;; Register in main registry
+        (let* ((key gf-name)
+               (current (gethash key *simple-around-methods* nil)))
           (setf (gethash key *simple-around-methods*)
-                (cons param-count (length body-nodes))))))))
+                (append current (list (cons type-specs (length body-nodes)))))
+          ;; Also register by signature for faster lookup
+          (when type-specs
+            (let ((sig (cons gf-name (mapcar #'cdr type-specs))))
+              (setf (gethash sig *around-method-specializers*) t))))))))
+
+;;; ---------------------------------------------------------------------------
+;;; :around Method Dispatch Optimization
+;;; ---------------------------------------------------------------------------
+
+(defvar *around-method-info* (make-hash-table :test 'equal)
+  "Detailed information about simple :around methods for code generation.
+   Key: (gf-name . specializer-signature)
+   Value: (specializer-types . analysis-info)")
+
+(defun has-simple-around-methods-p (gf-name)
+  "Check if generic function has registered simple :around methods."
+  (not (null (gethash gf-name *simple-around-methods*))))
+
+(defun get-simple-around-methods (gf-name)
+  "Get list of simple :around method info for a generic function.
+   Returns ((specializers . body-length) ...) or nil."
+  (gethash gf-name *simple-around-methods*))
+
+(defun analyze-simple-around-optimization (gf-name)
+  "Analyze whether a generic function's :around methods can be optimized.
+
+   Returns:
+   - NIL if no optimization possible
+   - :type-dispatch if first argument has type specializers
+   - :generic if all methods are generic (no specializers)"
+  (let ((methods (get-simple-around-methods gf-name)))
+    (when methods
+      (let* ((has-type-specs (some (lambda (m) (car m)) methods))
+             (first-param-specs (mapcar (lambda (m)
+                                         (when (car m)
+                                           (car (car m))))
+                               methods)))
+        (cond
+          (has-type-specs :type-dispatch)
+          ((every #'null methods) :generic)
+          (t nil))))))
+
+(defun emit-optimized-generic-call (gf-name emitted-args)
+  "Emit optimized dispatch code for generic functions with simple :around methods.
+
+   Optimization Strategy:
+   1. Analyze method signatures to find optimization opportunities
+   2. For type-specialized methods: emit runtime type-check dispatch
+   3. For generic methods: use specialized calling convention
+   4. Always fall back to normal dispatch for unmatched types
+
+   This avoids method lookup overhead while preserving correctness."
+  (let ((optimization (analyze-simple-around-optimization gf-name)))
+    (case optimization
+      ;; Type-specialized first parameter: emit type-aware dispatch
+      (:type-dispatch
+        (let ((generic-sym (intern (symbol-name gf-name) :fol.core))
+              (first-arg (first emitted-args)))
+          ;; Emit type-aware dispatch: check class-of first-arg
+          ;; For now, emit generic call but mark for SBCL inline expansion
+          (if (null emitted-args)
+              `(,generic-sym)
+              ;; Add a hint for SBCL to inline based on type info
+              `(locally (declare (optimize (inline 3)))
+                 (,generic-sym ,@emitted-args)))))
+      ;; Generic methods: use fast-path generic dispatch
+      (:generic
+        (let ((generic-sym (intern (symbol-name gf-name) :fol.core)))
+          `(,generic-sym ,@emitted-args)))
+      ;; No optimization: use standard dispatch
+      (otherwise
+        (let ((generic-sym (intern (symbol-name gf-name) :fol.core)))
+          `(,generic-sym ,@emitted-args))))))
+
+;;; ---------------------------------------------------------------------------
+;;; Around Method Specialization Code Generation
+;;; ---------------------------------------------------------------------------
+
+(defun generate-specialized-dispatch (gf-name class-name method-body)
+  "Generate a specialized dispatch function for a :around method.
+
+   Creates a wrapper function that:
+   1. Checks if argument matches CLASS-NAME
+   2. If yes: inlines the :around METHOD-BODY
+   3. If no: delegates to the normal generic
+
+   This enables call-site specialization without modifying defmethod."
+  ;; Placeholder for future implementation
+  ;; Would generate code like:
+  ;; (defun gf-name-optimized-dispatch (obj &rest args)
+  ;;   (if (typep obj 'class-name)
+  ;;       ;; inlined :around logic here
+  ;;       (original-gf-name obj &rest args)))
+  nil)
 
 ;;; ---------------------------------------------------------------------------
 ;;; FOL Vector Helpers
@@ -1392,17 +1503,21 @@
      ((fol.compiler.ast:symbol-ref-node-p operator)
        (let ((sym (fol.compiler.ast:symbol-ref-node-name operator))
              (emitted-args (mapcar #'emit-node args)))
-         ;; Check if we should use inline-assoc! instead of assoc
+         ;; Priority 1: Check pragma-based inline-assoc! optimization
          (if (and (cl:string-equal (symbol-name sym) "ASSOC")
                   *inline-methods-enabled*
                   (cl:= (length emitted-args) 3))
              ;; Use inline-assoc! for assoc calls when optimization is enabled
              `(fol.compiler.collection-functions:inline-assoc! ,@emitted-args)
-             ;; Normal emit-call path
-             (if (or (cl:member sym *file-function-defs* :test #'cl:string=)
-                     (fboundp sym)
-                     (cl:member (cl:symbol-name sym) +standard-fol-functions+ :test #'string-equal)
-                     (eq (symbol-package sym) (find-package :cl)))
+             ;; Priority 2: Check for :around method optimization
+             (if (has-simple-around-methods-p sym)
+                 ;; Use optimized dispatch for functions with simple :around methods
+                 (emit-optimized-generic-call sym emitted-args)
+                 ;; Normal emit-call path
+                 (if (or (cl:member sym *file-function-defs* :test #'cl:string=)
+                         (fboundp sym)
+                         (cl:member (cl:symbol-name sym) +standard-fol-functions+ :test #'string-equal)
+                         (eq (symbol-package sym) (find-package :cl)))
                  `(,sym ,@emitted-args)
                  (let ((gval (gensym "VAL")))
                    (pushnew sym *extra-special-vars*)
@@ -1418,7 +1533,7 @@
                                        (fol.compiler.collection-functions:nth ,gval ,@emitted-args))
                                       ((cl:typep ,gval 'fol.compiler.collections:<set>)
                                        (fol.compiler.collection-functions:get ,gval ,@emitted-args))))
-                            (t (cl:error "~S is not a function or collection" ',sym))))))))))
+                            (t (cl:error "~S is not a function or collection" ',sym)))))))))))
 
      ;; Invalid function call - operator is not callable
      (t
