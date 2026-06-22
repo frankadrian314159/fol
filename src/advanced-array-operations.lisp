@@ -129,15 +129,68 @@
 ;;; Section 3: Slicing and Indexing
 ;;; ============================================================================
 
-(defun slice (arr start &optional end)
-  "Extract subarray using index range.
+(defun %parse-range-spec (spec len)
+  "Parse range specification for slicing.
+
+   Supports:
+   - Integer: single index
+   - nil or :all: all indices (0 to len-1)
+   - List (start end): slice from start to end"
+  (cond
+    ((null spec) (cl:list 0 len))
+    ((eq spec :all) (cl:list 0 len))
+    ((integerp spec) (cl:list spec (cl:1+ spec)))
+    ((listp spec)
+     (cl:let ((start (first spec))
+              (end (second spec)))
+       (cl:list (or start 0) (or end len))))
+    (cl:t (cl:list 0 len))))
+
+(defun slice (arr ranges &optional end)
+  "Extract subarray using index ranges for n-D arrays.
+
+   Backward compatible with old interface: (slice arr start end)
+   New interface: (slice arr ranges-list) where ranges-list is list of specs.
+
+   For 1D arrays:
+   - Old: (slice arr 1 4) → [2 3 4]
+   - New: (slice arr (list 1 4)) → [2 3 4]
+
+   For n-D arrays, ranges is a list of specs, one per dimension:
+   - (slice arr (list (list 0 2) (list 1 3))) → 2D subarray
+   - (slice arr (list (list 0 2) nil)) → all cols of rows 0-1"
+  (declare (optimize (speed 3) (safety 1)))
+  (cond
+    ;; Backward compatible: (slice arr start end)
+    ((integerp ranges)
+     (subvec arr ranges end))
+    ;; New interface: integer range or (start end) list
+    ((and (listp ranges) (cl:every #'integerp ranges))
+     (subvec arr (first ranges) (second ranges)))
+    ;; List of range specs for n-D
+    ((listp ranges)
+     (if (cl:= (length ranges) 1)
+         ;; Single range spec for remaining dimensions
+         (let ((spec (%parse-range-spec (first ranges) (count arr))))
+           (subvec arr (first spec) (second spec)))
+         ;; Multiple range specs: slice first dimension, recurse
+         (let* ((first-spec (first ranges))
+                (rest-specs (rest ranges))
+                (spec (%parse-range-spec first-spec (count arr)))
+                (start (first spec))
+                (end-idx (second spec)))
+           (mapv (lambda (i) (slice (get arr i) rest-specs))
+                 (range-n (cl:- end-idx start) start)))))
+    (cl:t arr)))
+
+(defun range-n (count &optional (start 0))
+  "Create vector of integers from start to start+count-1.
 
    Examples:
-   (slice [1 2 3 4 5] 1 4) → [2 3 4]"
-  (declare (optimize (speed 3) (safety 1)))
-  (if (vectorp arr)
-      (subvec arr start end)
-      (subvec arr start end)))
+   (range-n 5) → [0 1 2 3 4]
+   (range-n 5 10) → [10 11 12 13 14]"
+  (let ((items (loop for i below count collect (cl:+ start i))))
+    (make-instance '<vector> :storage (fol.compiler.collection-primitives::%build-vec-t-from-list items))))
 
 (defun get-slice (arr &rest indices)
   "Get element at indices.
@@ -167,49 +220,87 @@
 ;;; Section 4: Concatenation and Stacking
 ;;; ============================================================================
 
+(defun %concat-axis-0 (arr1 arr2)
+  "Concatenate along axis 0 (append sequences)."
+  (if (typep arr1 '<vector>)
+      (if (typep (get arr1 0) '<vector>)
+          ;; 2D or higher: concatenate lists of subarrays
+          (concat arr1 arr2)
+          ;; 1D: concatenate elements
+          (concat arr1 arr2))
+      (concat arr1 arr2)))
+
+(defun %concat-axis-n (arr1 arr2 axis)
+  "Concatenate along axis N (higher than 0)."
+  (let ((rank (if (typep arr1 'fol.compiler.array-functions:<array>)
+                  (fol.compiler.array-functions:nd-rank arr1)
+                  (rank arr1))))
+    (if (cl:> rank 1)
+        ;; Recursively concatenate along axis-1 for each slice
+        (mapv (lambda (i)
+                (%concat-axis-n (get arr1 i) (get arr2 i) (cl:1- axis)))
+              (range (count arr1)))
+        ;; Base case: concatenate 1D arrays
+        (concat arr1 arr2))))
+
 (defun concat-arrays (arr1 arr2 &key (axis 0))
-  "Join arrays along axis.
+  "Join arrays along axis, supporting n-D arrays.
+
+   For axis 0: concatenate sequences directly.
+   For axis N>0: recursively concatenate subarrays along axis-1.
 
    Examples:
    (concat-arrays [1 2 3] [4 5 6] :axis 0) → [1 2 3 4 5 6]
-   (concat-arrays [[1 2]] [[3 4]] :axis 0) → [[1 2] [3 4]]"
+   (concat-arrays [[1 2]] [[3 4]] :axis 0) → [[1 2] [3 4]]
+   (concat-arrays [[1 2] [3 4]] [[5 6] [7 8]] :axis 1) → [[1 2 5 6] [3 4 7 8]]"
   (declare (optimize (speed 3) (safety 1)))
-  (if (cl:= axis 0)
-      (if (vectorp arr1)
-          (concat arr1 arr2)
-          (concat arr1 arr2))
-      (mapv (lambda (i)
-              (concat (get arr1 i) (get arr2 i)))
-            (range (count arr1)))))
+  (cond
+    ((cl:= axis 0) (%concat-axis-0 arr1 arr2))
+    ((cl:> axis 0) (%concat-axis-n arr1 arr2 axis))
+    (cl:t arr1)))
 
 (defun stack (arrays &key (axis 0))
-  "Stack arrays along new axis.
+  "Stack arrays along new axis, supporting n-D arrays.
+
+   For axis 0: create new outer dimension.
+   For axis N>0: insert new dimension at position N.
 
    Examples:
-   (stack [[1 2] [3 4]]) → [[[1 2]] [[3 4]]]
+   (stack [[1 2] [3 4]] :axis 0) → [[[1 2]] [[3 4]]]
    (stack [[1 2] [3 4]] :axis 1) → [[[1 3]] [[2 4]]]"
   (declare (optimize (speed 3) (safety 1)))
-  (cl:reduce (lambda (acc arr) (concat-arrays acc (vector arr) :axis (cl:+ axis 1)))
-             (rest arrays)
-             :initial-value (vector (first arrays))))
+  (if (cl:null (rest arrays))
+      (vector (first arrays))
+      (cl:reduce (lambda (acc arr) (concat-arrays acc (vector arr) :axis (cl:+ axis 1)))
+                 (rest arrays)
+                 :initial-value (vector (first arrays)))))
 
 (defun hstack (arrays)
-  "Stack arrays horizontally (column-wise).
+  "Stack arrays horizontally (along last axis).
 
    Examples:
-   (hstack [[1 2] [3 4]]) → [1 2 3 4]"
+   (hstack [[1 2] [3 4]]) → [1 2 3 4]
+   (hstack [[[1] [2]] [[3] [4]]]) → [[[1] [2] [3] [4]]]"
   (declare (optimize (speed 3) (safety 1)))
-  (cl:reduce #'concat-arrays (rest arrays) :initial-value (first arrays)))
+  (if (cl:null (rest arrays))
+      (first arrays)
+      (let ((rank (rank (first arrays))))
+        (cl:reduce (lambda (acc arr) (concat-arrays acc arr :axis (cl:1- rank)))
+                   (rest arrays)
+                   :initial-value (first arrays)))))
 
 (defun vstack (arrays)
-  "Stack arrays vertically (row-wise).
+  "Stack arrays vertically (along first axis).
 
    Examples:
-   (vstack [[1 2] [3 4]]) → [[1 2] [3 4]]"
+   (vstack [[1 2] [3 4]]) → [[1 2] [3 4]]
+   (vstack [[[1 2]] [[3 4]]]) → [[[1 2]] [[3 4]]]"
   (declare (optimize (speed 3) (safety 1)))
-  (cl:reduce (lambda (acc arr) (concat-arrays acc (vector arr) :axis 0))
-             (rest arrays)
-             :initial-value (vector (first arrays))))
+  (if (cl:null (rest arrays))
+      (first arrays)
+      (cl:reduce (lambda (acc arr) (concat-arrays acc arr :axis 0))
+                 (rest arrays)
+                 :initial-value (first arrays))))
 
 ;;; ============================================================================
 ;;; Section 5: Transpose and Permutation

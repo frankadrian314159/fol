@@ -260,6 +260,111 @@
       (is (typep result 'fol.compiler.collections:<vector>)))))
 
 ;;; ============================================================================
+;;; Phase 5: Slicing & Concatenation
+;;; ============================================================================
+
+(test slice-1d-basic
+  "Test 1D array slicing"
+  (let ((arr (fol.compiler.collection-functions:vector 1 2 3 4 5)))
+    (let ((result (fol.compiler.advanced-array-operations:slice arr (list 1 4))))
+      (is (= 3 (fol.compiler.collection-functions:count result)))
+      (is (= 2 (fol.compiler.collection-functions:get result 0)))
+      (is (= 4 (fol.compiler.collection-functions:get result 2))))))
+
+(test slice-2d-rows
+  "Test 2D array row slicing"
+  (let ((arr (fol.compiler.collection-functions:vector
+              (fol.compiler.collection-functions:vector 1 2 3)
+              (fol.compiler.collection-functions:vector 4 5 6)
+              (fol.compiler.collection-functions:vector 7 8 9))))
+    (let ((result (fol.compiler.advanced-array-operations:slice arr (list (list 0 2) nil))))
+      (is (= 2 (fol.compiler.collection-functions:count result))))))
+
+(test slice-2d-columns
+  "Test 2D array column slicing"
+  (let ((arr (fol.compiler.collection-functions:vector
+              (fol.compiler.collection-functions:vector 1 2 3)
+              (fol.compiler.collection-functions:vector 4 5 6))))
+    (let ((result (fol.compiler.advanced-array-operations:slice arr (list nil (list 1 3)))))
+      (is (= 2 (fol.compiler.collection-functions:count result))))))
+
+(test concat-arrays-1d
+  "Test concatenating 1D arrays"
+  (let ((arr1 (fol.compiler.collection-functions:vector 1 2 3))
+        (arr2 (fol.compiler.collection-functions:vector 4 5 6)))
+    (let ((result (fol.compiler.advanced-array-operations:concat-arrays arr1 arr2 :axis 0)))
+      (is (= 6 (fol.compiler.collection-functions:count result)))
+      (is (= 1 (fol.compiler.collection-functions:get result 0)))
+      (is (= 6 (fol.compiler.collection-functions:get result 5))))))
+
+(test concat-arrays-2d-axis0
+  "Test concatenating 2D arrays along axis 0"
+  (let ((arr1 (fol.compiler.collection-functions:vector
+               (fol.compiler.collection-functions:vector 1 2)
+               (fol.compiler.collection-functions:vector 3 4)))
+        (arr2 (fol.compiler.collection-functions:vector
+               (fol.compiler.collection-functions:vector 5 6))))
+    (let ((result (fol.compiler.advanced-array-operations:concat-arrays arr1 arr2 :axis 0)))
+      (is (= 3 (fol.compiler.collection-functions:count result))))))
+
+(test concat-arrays-2d-axis1
+  "Test concatenating 2D arrays along axis 1"
+  (let ((arr1 (fol.compiler.collection-functions:vector
+               (fol.compiler.collection-functions:vector 1 2)
+               (fol.compiler.collection-functions:vector 3 4)))
+        (arr2 (fol.compiler.collection-functions:vector
+               (fol.compiler.collection-functions:vector 5 6)
+               (fol.compiler.collection-functions:vector 7 8))))
+    (let ((result (fol.compiler.advanced-array-operations:concat-arrays arr1 arr2 :axis 1)))
+      ;; Result should be 2 rows (count of outer vector is 2)
+      (is (typep result 'fol.compiler.collections:<vector>))
+      ;; Check that we got a vector result
+      (let ((first-row (fol.compiler.collection-functions:get result 0)))
+        (is (typep first-row 'fol.compiler.collections:<vector>))))))
+
+(test stack-2d
+  "Test stacking 2D arrays"
+  (let ((arr1 (fol.compiler.collection-functions:vector
+               (fol.compiler.collection-functions:vector 1 2)
+               (fol.compiler.collection-functions:vector 3 4)))
+        (arr2 (fol.compiler.collection-functions:vector
+               (fol.compiler.collection-functions:vector 5 6)
+               (fol.compiler.collection-functions:vector 7 8))))
+    (let ((result (fol.compiler.advanced-array-operations:stack (list arr1 arr2) :axis 0)))
+      (is (= 2 (fol.compiler.collection-functions:count result))))))
+
+(test hstack-1d
+  "Test horizontal stacking of 1D arrays"
+  (let ((arr1 (fol.compiler.collection-functions:vector 1 2 3))
+        (arr2 (fol.compiler.collection-functions:vector 4 5 6)))
+    (let ((result (fol.compiler.advanced-array-operations:hstack (list arr1 arr2))))
+      (is (= 6 (fol.compiler.collection-functions:count result))))))
+
+(test vstack-2d
+  "Test vertical stacking of 2D arrays"
+  (let ((arr1 (fol.compiler.collection-functions:vector
+               (fol.compiler.collection-functions:vector 1 2)
+               (fol.compiler.collection-functions:vector 3 4)))
+        (arr2 (fol.compiler.collection-functions:vector
+               (fol.compiler.collection-functions:vector 5 6))))
+    (let ((result (fol.compiler.advanced-array-operations:vstack (list arr1 arr2))))
+      (is (= 3 (fol.compiler.collection-functions:count result))))))
+
+(test range-n-basic
+  "Test range-n generation"
+  (let ((result (fol.compiler.advanced-array-operations:range-n 5)))
+    (is (= 5 (fol.compiler.collection-functions:count result)))
+    (is (= 0 (fol.compiler.collection-functions:get result 0)))
+    (is (= 4 (fol.compiler.collection-functions:get result 4)))))
+
+(test range-n-with-start
+  "Test range-n with custom start"
+  (let ((result (fol.compiler.advanced-array-operations:range-n 5 10)))
+    (is (= 5 (fol.compiler.collection-functions:count result)))
+    (is (= 10 (fol.compiler.collection-functions:get result 0)))
+    (is (= 14 (fol.compiler.collection-functions:get result 4)))))
+
+;;; ============================================================================
 ;;; Helper: Range
 ;;; ============================================================================
 

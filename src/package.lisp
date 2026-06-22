@@ -1040,6 +1040,8 @@
    concat-arrays stack hstack vstack
    ;; Transpose and permutation (Phase 4)
    transpose permute swap-axes
+   ;; Slicing and concatenation (Phase 5)
+   range-n
    ;; Helper
    range))
 
