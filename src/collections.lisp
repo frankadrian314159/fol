@@ -833,8 +833,14 @@
     (ref coll idx not-found)))
 
 (defmethod collection-assoc ((coll <array>) key value)
-  (let ((idx (%column-major-idx (array-dimensions coll) key)))
-    (fol.compiler.collection-primitives:assoc coll idx value)))
+  (let ((idx (%column-major-idx (array-dimensions coll) key))
+        (dims (array-dimension coll))
+        (old-storage (fol.compiler.collection-primitives::storage coll)))
+    ;; Update storage using low-level function and reconstruct array
+    (let ((new-storage (fol.compiler.collection-primitives::%vec-t-assoc old-storage idx value)))
+      (make-instance '<array>
+        :storage new-storage
+        :dimension dims))))
 
 (defmethod collection-dissoc ((coll <array>) key)
   (error "Cannot dissoc element ~A from array ~A." key coll))

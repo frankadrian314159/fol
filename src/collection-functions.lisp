@@ -670,6 +670,13 @@
         (apply #'assoc new-coll kvs)
         new-coll)))
 
+(defmethod assoc ((coll fol.compiler.collections:<array>) index value &rest ivs)
+  "Update an array element, preserving array type and dimension metadata."
+  (let ((new-coll (fol.compiler.collections:collection-assoc coll index value)))
+    (if ivs
+        (apply #'assoc new-coll ivs)
+        new-coll)))
+
 (defmethod assoc ((coll fol.compiler.collections:<vector>) index value &rest ivs)
   (let ((new-coll (fol.compiler.collections:collection-assoc coll index value)))
     (if ivs
