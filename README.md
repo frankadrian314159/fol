@@ -176,7 +176,6 @@ Benchmarks available in `benchmarks/` directory. Key results:
 
 ## Known Limitations
 
-- **1D/2D Arrays Only**: Currently supports 1D vectors and 2D array matrices
 - **Transpiler supports SBCL Only**: Dispatch caching and advanced features require SBCL
 - **Lexical Scope**: No dynamic scoping (use explicit binding forms)
 
