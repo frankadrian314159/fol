@@ -2039,10 +2039,9 @@
 ;;; Defgeneric Multi-Pattern Caching Helpers
 
 (defun cacheable-defgeneric-p (lambda-lists)
-  "Return T if the defgeneric has enough distinct patterns to warrant caching.
-   Gate: ≥4 distinct (arity, type-pattern) combinations."
-  (and lambda-lists
-       (>= (length lambda-lists) +dispatch-cache-threshold+)))
+  "Dispatch caching disabled: benchmarks showed it slowed performance."
+  (declare (ignore lambda-lists))
+  nil)
 
 (defun make-cached-defgeneric-dispatcher (name patterns-by-arity dispatcher-cases)
   "Wrap the dispatcher with cache logic using compound (arity . class-tuple) keys.
@@ -2386,26 +2385,9 @@
   "Monotonically increasing counter for unique defmethod cache variable naming.")
 
 (defun cacheable-method-p (method-form)
-  "Return T if METHOD-FORM is a defmethod with fixed-arity and cacheable COND body.
-   Checks for: (defmethod name [qualifier] params (cond ...)) structure
-   with pure type dispatch (no &rest params, enough clauses)."
-  (and (consp method-form)
-       (member (first method-form) '(cl:defmethod defmethod) :test #'eq)
-       (let* ((rest (cddr method-form))
-              ;; Skip optional qualifier
-              (has-qualifier (keywordp (first rest)))
-              (rest (if has-qualifier (cdr rest) rest))
-              (ll (first rest))
-              (body (cdr rest)))
-         ;; Check for fixed arity (no &rest)
-         (and (listp ll)
-              (not (member '&rest ll))
-              ;; Find COND form in body
-              (let ((cond-form (find-if (lambda (f) (and (consp f) (eq (first f) 'cl:cond)))
-                                        body)))
-                (and cond-form
-                     ;; Enough clauses to be worth caching
-                     (>= (- (length (rest cond-form)) 1) +dispatch-cache-threshold+)))))))
+  "Dispatch caching disabled: benchmarks showed it slowed performance."
+  (declare (ignore method-form))
+  nil)
 
 (defun make-cached-method (name method-form)
   "Transform a defmethod form with COND body into a cached dispatcher.
@@ -2710,28 +2692,9 @@
   `(cl:list ,@(mapcar (lambda (p) `(fol.compiler.dispatch:pred-key ,p)) params)))
 
 (defun cacheable-clauses-p (clauses)
-  "Determine cacheability from raw AST clauses BEFORE compile-fn.
-   Returns :value if cacheable, nil otherwise.
-
-   Case 1 (multi-clause): 4+ clauses with same arity and no &rest → :value
-   Case 2 (single-clause with wide cond body): body is a cond-node with 4+ non-fallback
-           clauses → :value
-
-   This analysis is robust to compile-fn output format changes since it works on the AST."
-  (let ((n (length clauses)))
-    (cond
-      ;; Multi-clause: count is authoritative, compile-fn will enforce arity uniformity
-      ((>= n +dispatch-cache-threshold+) :value)
-      ;; Single-clause: check if the body starts with a wide cond node
-      ((= n 1)
-       (let* ((clause (first clauses))
-              (body-nodes (cdr clause))
-              (first-body (first body-nodes)))
-         (when (and (fol.compiler.ast:cond-node-p first-body)
-                    (>= (- (length (fol.compiler.ast:cond-node-clauses first-body)) 1)
-                        +dispatch-cache-threshold+))
-           :value)))
-      (t nil))))
+  "Dispatch caching disabled: benchmarks showed it slowed performance."
+  (declare (ignore clauses))
+  nil)
 
 (defun count-nested-ifs (form)
   "Count the total number of if-branches in a nested IF dispatch structure.
@@ -2754,24 +2717,9 @@
       (t nil))))
 
 (defun cacheable-defn-p (lambda-form)
-  "Return :value for cache mode, or nil if not cacheable.
-
-   Enables caching for any fixed-arity lambda with IF/COND dispatch structure.
-   The cache infrastructure (pred-key) handles all dispatch types safely:
-   - Type predicates: class-of key works correctly
-   - Value predicates on eql-comparable types: each value gets own cache slot
-   - Value predicates on reference types: cache misses harmlessly fall through"
-  (let* ((params (second lambda-form))
-         (fixed-arity-p (not (member '&rest params)))
-         (raw-body (cddr lambda-form))
-         (first-body (first raw-body))
-         (has-declare (and (consp first-body) (eq (first first-body) 'cl:declare)))
-         (dispatch-form (if has-declare (second raw-body) first-body))
-         (dispatch-depth (has-nested-dispatch-p dispatch-form)))
-    (when (and fixed-arity-p
-               dispatch-depth
-               (>= dispatch-depth +dispatch-cache-threshold+))
-      :value)))
+  "Dispatch caching disabled: benchmarks showed it slowed performance."
+  (declare (ignore lambda-form))
+  nil)
 
 (defun make-cached-defn (name lambda-form dispatch-mode)
   "Generate a cached defn with dispatch caching.

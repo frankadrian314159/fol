@@ -201,36 +201,16 @@
    ;; Hooks
    *emit-predicate-hook*))
 
+;; Stub dispatch package - caching is disabled (benchmarks showed slowdown)
+;; Code references remain but stub definitions prevent compilation errors
 (defpackage fol.compiler.dispatch
   (:use cl)
   (:export
-   ;; Cache structure and accessors
-   dispatch-cache
    make-dispatch-cache
    dispatch-cache-table
    dispatch-cache-generation
-   dispatch-cache-hits
-   dispatch-cache-misses
-   ;; Cache operations
-   cache-lookup
-   cache-insert!
-   cache-flush!
-   cache-stats
-   inspect-fn-cache
-   pred-key
-   ;; GF-level cache management (legacy)
-   *gf-cache-registry*
    register-gf-cache!
-   flush-gf-caches!
-   flush-all-caches!
-   ;; Per-GF versioning (new)
-   *gf-version-registry*
-   get-gf-version
-   increment-gf-version!
-   flush-all-gf-versions!
-   make-versioned-cache-key
-   ;; Configuration
-   *use-per-gf-versioning*))
+   pred-key))
 
 (defpackage fol.compiler.mutable
   (:use cl)
