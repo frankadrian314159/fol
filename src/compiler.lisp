@@ -1638,8 +1638,8 @@
             lambda-form))))
 
 (defun emit-thread-first (node)
-  "Emit a thread-first node by expanding into nested function calls.
-   (-> x f)           => (f x)
+  "Emit a thread-first node by expanding into nested function calls with dynamic dispatch.
+   (-> x f)           => (if (fboundp 'f) (f x) (let ((val f)) ...))
    (-> x (f a))       => (f x a)
    (-> x (f a) (g b)) => (g (f x a) b)
    Each form threads the accumulated value as the first argument."
@@ -1651,9 +1651,20 @@
         (reduce (lambda (acc form-node)
                   (let ((emitted (emit-node form-node)))
                     (cond
-                     ;; Bare symbol: call it with accumulated value
+                     ;; Bare symbol: call it with accumulated value, with dynamic dispatch
                      ((symbolp emitted)
-                       `(,emitted ,acc))
+                       (let ((gval (gensym "VAL")))
+                         (pushnew emitted *extra-special-vars*)
+                         `(if (cl:fboundp ',emitted)
+                              (,emitted ,acc)
+                              (let ((,gval ,emitted))
+                                (cl:cond
+                                  ((cl:functionp ,gval) (cl:funcall ,gval ,acc))
+                                  ((cl:typep ,gval 'fol.compiler.collections:<dict>)
+                                   (fol.compiler.collection-functions:get ,gval ,acc))
+                                  ((cl:typep ,gval 'fol.compiler.collections:<vector>)
+                                   (fol.compiler.collection-functions:nth ,gval ,acc))
+                                  (t (cl:error "Value ~S is not callable or a collection" ,gval)))))))
                      ;; List form (f args...): insert accumulated as first arg
                      ((listp emitted)
                        `(,(first emitted) ,acc ,@(rest emitted)))
@@ -1663,8 +1674,8 @@
           :initial-value initial))))
 
 (defun emit-thread-last (node)
-  "Emit a thread-last node by expanding into nested function calls.
-   (->> x f)           => (f x)
+  "Emit a thread-last node by expanding into nested function calls with dynamic dispatch.
+   (->> x f)           => (if (fboundp 'f) (f x) (let ((val f)) ...))
    (->> x (f a))       => (f a x)
    (->> x (f a) (g b)) => (g b (f a x))
    Each form threads the accumulated value as the last argument."
@@ -1676,9 +1687,20 @@
         (reduce (lambda (acc form-node)
                   (let ((emitted (emit-node form-node)))
                     (cond
-                     ;; Bare symbol: call it with accumulated value
+                     ;; Bare symbol: call it with accumulated value, with dynamic dispatch
                      ((symbolp emitted)
-                       `(,emitted ,acc))
+                       (let ((gval (gensym "VAL")))
+                         (pushnew emitted *extra-special-vars*)
+                         `(if (cl:fboundp ',emitted)
+                              (,emitted ,acc)
+                              (let ((,gval ,emitted))
+                                (cl:cond
+                                  ((cl:functionp ,gval) (cl:funcall ,gval ,acc))
+                                  ((cl:typep ,gval 'fol.compiler.collections:<dict>)
+                                   (fol.compiler.collection-functions:get ,gval ,acc))
+                                  ((cl:typep ,gval 'fol.compiler.collections:<vector>)
+                                   (fol.compiler.collection-functions:nth ,gval ,acc))
+                                  (t (cl:error "Value ~S is not callable or a collection" ,gval)))))))
                      ;; List form (f args...): append accumulated as last arg
                      ((listp emitted)
                        `(,(first emitted) ,@(rest emitted) ,acc))
@@ -2557,22 +2579,22 @@
             method-form)))))
 
 (defun emit-def (node)
-  "Emit a def node as CL defparameter (always initializes if value provided)."
+  "Emit a def node as CL defvar."
   (let ((name (fol.compiler.ast:def-node-name node))
         (value (fol.compiler.ast:def-node-value node)))
     (pushnew name *extra-special-vars*)
     (if value
-        `(cl:defparameter ,name ,(emit-node value))
+        `(cl:defvar ,name ,(emit-node value))
         `(cl:defvar ,name))))
 
 (defun emit-defdynamic (node)
-  "Emit a defdynamic node as CL defparameter.
+  "Emit a defdynamic node as CL defvar.
    Identical output to emit-def — defdynamic is an explicit-intent alias."
   (let ((name (fol.compiler.ast:defdynamic-node-name node))
         (value (fol.compiler.ast:defdynamic-node-value node)))
     (pushnew name *extra-special-vars*)
     (if value
-        `(cl:defparameter ,name ,(emit-node value))
+        `(cl:defvar ,name ,(emit-node value))
         `(cl:defvar ,name))))
 
 (defun emit-binding (node)

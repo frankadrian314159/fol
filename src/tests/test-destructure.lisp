@@ -86,11 +86,11 @@
 ;;; ---------------------------------------------------------------------------
 
 (test specificity-levels
-  "Specificity levels follow: pred (3) > type (2) > seq (1) > any (0)."
+  "Specificity levels follow: pure-pred (4) > type-and-pred (3) > type (2) > seq (1) > any (0)."
   (is (= 0 (fol.compiler.destructure:pattern-specificity-level '(:any))))
   (is (= 1 (fol.compiler.destructure:pattern-specificity-level '(:seq ()))))
   (is (= 2 (fol.compiler.destructure:pattern-specificity-level '(:type <number>))))
-  (is (= 3 (fol.compiler.destructure:pattern-specificity-level '(:pred = (0))))))
+  (is (= 4 (fol.compiler.destructure:pattern-specificity-level '(:pred = (0))))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; pattern-more-specific-p
