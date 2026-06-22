@@ -672,10 +672,17 @@
 
 (defmethod assoc ((coll fol.compiler.collections:<array>) index value &rest ivs)
   "Update an array element, preserving array type and dimension metadata."
-  (let ((new-coll (fol.compiler.collections:collection-assoc coll index value)))
+  (let* ((dims (cl:slot-value coll (cl:intern "DIMENSION" :fol.compiler.collections)))
+         (new-vec (fol.compiler.collection-functions:assoc
+                   (make-instance 'fol.compiler.collections:<vector>
+                     :storage (cl:slot-value coll (cl:intern "STORAGE" :fol.compiler.collections)))
+                   index value))
+         (new-arr (make-instance 'fol.compiler.collections:<array>
+                    :dimension dims
+                    :storage (cl:slot-value new-vec (cl:intern "STORAGE" :fol.compiler.collections)))))
     (if ivs
-        (apply #'assoc new-coll ivs)
-        new-coll)))
+        (apply #'assoc new-arr ivs)
+        new-arr)))
 
 (defmethod assoc ((coll fol.compiler.collections:<vector>) index value &rest ivs)
   (let ((new-coll (fol.compiler.collections:collection-assoc coll index value)))

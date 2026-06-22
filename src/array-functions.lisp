@@ -346,9 +346,15 @@
 (defun %shape-list (shape-arg)
   "Normalize shape argument (vector or list) to list of integers."
   (declare (optimize (speed 3) (safety 0)))
-  (if (typep shape-arg '<vector>)
-      (loop for i below (count shape-arg) collect (get shape-arg i))
-      (if (listp shape-arg) shape-arg (list shape-arg))))
+  (cond
+    ((typep shape-arg '<vector>)
+     (cl:let* ((n (fol.compiler.collection-functions:count shape-arg))
+               (result nil))
+       (cl:dotimes (i n)
+         (cl:push (fol.compiler.collection-functions:get shape-arg (cl:- (cl:- n 1) i)) result))
+       result))
+    ((listp shape-arg) shape-arg)
+    (t (list shape-arg))))
 
 (defun create-nd-array (shape &key initial-element)
   "Create an n-dimensional array with given shape.

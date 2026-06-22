@@ -19,7 +19,8 @@
   :author "Frank Adrian"
   :license "MIT"
   :depends-on ("closer-mop" "uuid" "bordeaux-threads" "usocket" "cl-ppcre")
-  :components ((:file "package")
+  :components ((:file "version")
+               (:file "package" :depends-on ("version"))
                (:file "compareops" :depends-on ("package"))
                (:file "primitives" :depends-on ("package"))
                (:file "collection-primitives" :depends-on ("package"))

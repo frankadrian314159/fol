@@ -440,8 +440,9 @@
   (fol.compiler:register-macro 'dotimes (macro-function 'dotimes))
   (fol.compiler:register-macro 'doseq (macro-function 'doseq))
   (fol.compiler:register-macro 'for (macro-function 'for))
-  (fol.compiler:register-macro '-> (macro-function '->))
-  (fol.compiler:register-macro '->> (macro-function '->>))
+  ;; -> and ->> are handled as special forms in compiler.lisp for dynamic dispatch
+  ;; (fol.compiler:register-macro '-> (macro-function '->))
+  ;; (fol.compiler:register-macro '->> (macro-function '->>))
   (fol.compiler:register-macro 'as-> (macro-function 'as->))
   (fol.compiler:register-macro 'cond-> (macro-function 'cond->))
   (fol.compiler:register-macro 'cond->> (macro-function 'cond->>))
