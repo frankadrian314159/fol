@@ -1073,9 +1073,9 @@
   (setf (gethash "QUOTE" special-forms) #'parse-quote)
   (setf (gethash "FN" special-forms) #'parse-fn)
   (setf (gethash "Λ" special-forms) #'parse-fn) ; Λ/λ is an alias for fn
-  ;; Threading macros now handled in macros.lisp
-  ;; (setf (gethash "->" special-forms) #'parse-thread-first)
-  ;; (setf (gethash "->>" special-forms) #'parse-thread-last)
+  ;; Threading forms with dynamic dispatch
+  (setf (gethash "->" special-forms) #'parse-thread-first)
+  (setf (gethash "->>" special-forms) #'parse-thread-last)
   (setf (gethash "VECTOR" special-forms) #'parse-vector)
   (setf (gethash "DICT" special-forms) #'parse-dict)
   (setf (gethash "SET" special-forms) #'parse-set)
@@ -1651,13 +1651,15 @@
         (reduce (lambda (acc form-node)
                   (let ((emitted (emit-node form-node)))
                     (cond
-                     ;; Bare symbol: call it with accumulated value, with dynamic dispatch
-                     ((symbolp emitted)
-                       (let ((gval (gensym "VAL")))
-                         (pushnew emitted *extra-special-vars*)
-                         `(if (cl:fboundp ',emitted)
-                              (,emitted ,acc)
-                              (let ((,gval ,emitted))
+                     ;; Bare symbol or (cl:function name): call with accumulated value, with dynamic dispatch
+                     ((or (symbolp emitted)
+                          (and (listp emitted) (eq (first emitted) 'cl:function)))
+                       (let ((gval (gensym "VAL"))
+                             (sym (if (symbolp emitted) emitted (second emitted))))
+                         (pushnew sym *extra-special-vars*)
+                         `(if (cl:fboundp ',sym)
+                              (,sym ,acc)
+                              (let ((,gval ,sym))
                                 (cl:cond
                                   ((cl:functionp ,gval) (cl:funcall ,gval ,acc))
                                   ((cl:typep ,gval 'fol.compiler.collections:<dict>)
@@ -1665,7 +1667,7 @@
                                   ((cl:typep ,gval 'fol.compiler.collections:<vector>)
                                    (fol.compiler.collection-functions:nth ,gval ,acc))
                                   (t (cl:error "Value ~S is not callable or a collection" ,gval)))))))
-                     ;; List form (f args...): insert accumulated as first arg
+                     ;; List form (f args...) not matching (cl:function ...): insert accumulated as first arg
                      ((listp emitted)
                        `(,(first emitted) ,acc ,@(rest emitted)))
                      ;; Anything else: treat as function call
@@ -1687,13 +1689,15 @@
         (reduce (lambda (acc form-node)
                   (let ((emitted (emit-node form-node)))
                     (cond
-                     ;; Bare symbol: call it with accumulated value, with dynamic dispatch
-                     ((symbolp emitted)
-                       (let ((gval (gensym "VAL")))
-                         (pushnew emitted *extra-special-vars*)
-                         `(if (cl:fboundp ',emitted)
-                              (,emitted ,acc)
-                              (let ((,gval ,emitted))
+                     ;; Bare symbol or (cl:function name): call with accumulated value, with dynamic dispatch
+                     ((or (symbolp emitted)
+                          (and (listp emitted) (eq (first emitted) 'cl:function)))
+                       (let ((gval (gensym "VAL"))
+                             (sym (if (symbolp emitted) emitted (second emitted))))
+                         (pushnew sym *extra-special-vars*)
+                         `(if (cl:fboundp ',sym)
+                              (,sym ,acc)
+                              (let ((,gval ,sym))
                                 (cl:cond
                                   ((cl:functionp ,gval) (cl:funcall ,gval ,acc))
                                   ((cl:typep ,gval 'fol.compiler.collections:<dict>)
@@ -1701,7 +1705,7 @@
                                   ((cl:typep ,gval 'fol.compiler.collections:<vector>)
                                    (fol.compiler.collection-functions:nth ,gval ,acc))
                                   (t (cl:error "Value ~S is not callable or a collection" ,gval)))))))
-                     ;; List form (f args...): append accumulated as last arg
+                     ;; List form (f args...) not matching (cl:function ...): append accumulated as last arg
                      ((listp emitted)
                        `(,(first emitted) ,@(rest emitted) ,acc))
                      ;; Anything else: treat as function call
