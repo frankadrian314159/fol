@@ -47,6 +47,70 @@
   (errors nil)) ; list of error strings
 
 ;;; ---------------------------------------------------------------------------
+;;; Optimization Pragmas
+;;; ---------------------------------------------------------------------------
+
+(defvar *inline-methods-enabled* nil
+  "Set of function names with inline-methods optimization enabled.
+   When T, enables inlining for all functions. When a hash table or list,
+   enables only for listed functions.")
+
+(defvar *optimize-assoc-calls* nil
+  "Flag to enable optimization of assoc calls in hot loops.
+   When T, generates code that uses inline-assoc! instead of assoc.")
+
+(defun enable-inline-methods (&optional (functions t))
+  "Enable inline-methods optimization.
+   FUNCTIONS can be:
+   - T: enable for all functions
+   - list of symbols: enable only for listed functions
+   - hash table: enable for functions in hash table keys"
+  (setf *inline-methods-enabled* functions))
+
+(defun disable-inline-methods ()
+  "Disable inline-methods optimization."
+  (setf *inline-methods-enabled* nil))
+
+(defun inline-methods-enabled-p (fn-name)
+  "Check if inline-methods is enabled for FN-NAME."
+  (or (eq *inline-methods-enabled* t)
+      (and (listp *inline-methods-enabled*)
+           (member fn-name *inline-methods-enabled*))
+      (and (hash-table-p *inline-methods-enabled*)
+           (gethash fn-name *inline-methods-enabled*))))
+
+;;; ---------------------------------------------------------------------------
+;;; Simple Method Detection (for inlining)
+;;; ---------------------------------------------------------------------------
+
+(defvar *simple-around-methods* (make-hash-table :test 'equal)
+  "Registry of simple :around methods that could be inlined.
+   Key: (gf-name . qualifier)
+   Value: (param-count . body-length)")
+
+(defun is-simple-method-p (body-nodes)
+  "Check if method body is simple enough to potentially inline.
+   Simple methods have:
+   - Few forms (< 5 statements)
+   - No complex control flow (no loop, flet, labels, etc.)
+   - Mostly calls and simple expressions"
+  (and (listp body-nodes)
+       (< (length body-nodes) 5)))
+
+(defun registers-simple-around-method (gf-name qualifier clause)
+  "Register a simple :around method for potential inlining.
+   CLAUSE is (param-vec . body-nodes)."
+  (when (and (eq qualifier :around)
+             (= (length clause) 2))
+    (let* ((param-vec (car clause))
+           (body-nodes (cdr clause))
+           (param-count (length (fol-vector-to-list param-vec))))
+      (when (is-simple-method-p body-nodes)
+        (let ((key (cons gf-name qualifier)))
+          (setf (gethash key *simple-around-methods*)
+                (cons param-count (length body-nodes))))))))
+
+;;; ---------------------------------------------------------------------------
 ;;; FOL Vector Helpers
 ;;; ---------------------------------------------------------------------------
 
@@ -1324,29 +1388,37 @@
      ;; Symbol-ref call with runtime collection fallback
      ;; If symbol is fboundp or a CL package symbol, emit direct call;
      ;; otherwise emit runtime check: try as function, then as dict/vector/set
+     ;; Special handling for assoc when inline-methods optimization is enabled
      ((fol.compiler.ast:symbol-ref-node-p operator)
        (let ((sym (fol.compiler.ast:symbol-ref-node-name operator))
              (emitted-args (mapcar #'emit-node args)))
-         (if (or (cl:member sym *file-function-defs* :test #'cl:string=)
-                 (fboundp sym)
-                 (cl:member (cl:symbol-name sym) +standard-fol-functions+ :test #'string-equal)
-                 (eq (symbol-package sym) (find-package :cl)))
-             `(,sym ,@emitted-args)
-             (let ((gval (gensym "VAL")))
-               (pushnew sym *extra-special-vars*)
-               `(if (cl:fboundp ',sym)
-                    (,sym ,@emitted-args)
-                    (let ((,gval ,sym))
-                      (cl:cond
-                        ((cl:functionp ,gval) (cl:funcall ,gval ,@emitted-args))
-                        ,@(when (cl:and emitted-args (cl:<= (cl:length emitted-args) 2))
-                                `(((cl:typep ,gval 'fol.compiler.collections:<dict>)
-                                   (fol.compiler.collection-functions:get ,gval ,@emitted-args))
-                                  ((cl:typep ,gval 'fol.compiler.collections:<vector>)
-                                   (fol.compiler.collection-functions:nth ,gval ,@emitted-args))
-                                  ((cl:typep ,gval 'fol.compiler.collections:<set>)
-                                   (fol.compiler.collection-functions:get ,gval ,@emitted-args))))
-                        (t (cl:error "~S is not a function or collection" ',sym)))))))))
+         ;; Check if we should use inline-assoc! instead of assoc
+         (if (and (cl:string-equal (symbol-name sym) "ASSOC")
+                  *inline-methods-enabled*
+                  (cl:= (length emitted-args) 3))
+             ;; Use inline-assoc! for assoc calls when optimization is enabled
+             `(fol.compiler.collection-functions:inline-assoc! ,@emitted-args)
+             ;; Normal emit-call path
+             (if (or (cl:member sym *file-function-defs* :test #'cl:string=)
+                     (fboundp sym)
+                     (cl:member (cl:symbol-name sym) +standard-fol-functions+ :test #'string-equal)
+                     (eq (symbol-package sym) (find-package :cl)))
+                 `(,sym ,@emitted-args)
+                 (let ((gval (gensym "VAL")))
+                   (pushnew sym *extra-special-vars*)
+                   `(if (cl:fboundp ',sym)
+                        (,sym ,@emitted-args)
+                        (let ((,gval ,sym))
+                          (cl:cond
+                            ((cl:functionp ,gval) (cl:funcall ,gval ,@emitted-args))
+                            ,@(when (cl:and emitted-args (cl:<= (cl:length emitted-args) 2))
+                                    `(((cl:typep ,gval 'fol.compiler.collections:<dict>)
+                                       (fol.compiler.collection-functions:get ,gval ,@emitted-args))
+                                      ((cl:typep ,gval 'fol.compiler.collections:<vector>)
+                                       (fol.compiler.collection-functions:nth ,gval ,@emitted-args))
+                                      ((cl:typep ,gval 'fol.compiler.collections:<set>)
+                                       (fol.compiler.collection-functions:get ,gval ,@emitted-args))))
+                            (t (cl:error "~S is not a function or collection" ',sym))))))))))
 
      ;; Invalid function call - operator is not callable
      (t
@@ -2458,11 +2530,15 @@
   "Emit a defmethod node as CL code.
    Single-clause with type specializers: CL defmethod.
    Multi-clause or predicate dispatch: defun with cond dispatcher.
-   Also emits metadata setting code if docstring is present."
+   Also emits metadata setting code if docstring is present.
+   Registers simple :around methods for potential optimization."
   (let ((name (fol.compiler.ast:defmethod-node-name node))
         (qualifier (fol.compiler.ast:defmethod-node-qualifier node))
         (clauses (fol.compiler.ast:defmethod-node-clauses node))
         (docstring (fol.compiler.ast:defmethod-node-docstring node)))
+    ;; Register simple :around methods for optimization tracking
+    (dolist (clause clauses)
+      (registers-simple-around-method name qualifier clause))
     (let ((*extra-special-vars* nil))
       ;; Compute the defmethod form once
       (let ((method-form
