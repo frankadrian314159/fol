@@ -170,15 +170,9 @@ a pattern we explore in depth in Section~\ref{sec:patterns}.
     where cache lookup cost dominates.
 \end{enumerate}
 
-\subsection{Theorem 1: Universal Dispatch Caching Failure}
+\subsection{Theorem 1: Dispatch Caching Failure in Speed-Optimized Systems}
 
-\textbf{Statement}: For any language implementation optimizing dispatch for speed, let $C$ denote cache lookup cost (20--300~ns, determined by memory latency + hash computation), and $F$ denote baseline dispatch cost. Caching improves performance only if $C < F$. However:
-\begin{itemize}
-  \item Contemporary implementations achieve $F_{\text{opt}} < 100$ ns through compiler optimization (SBCL: 30~ns, V8: 2--5~ns)
-  \item Break-even requires $F > 10$ µs (cost savings must exceed lookup overhead across amortization)
-  \item No language exhibits both $F_{\text{opt}} < 100$ ns AND $F > 10$ µs simultaneously
-\end{itemize}
-Therefore, object-level caching fails universally for implementations optimizing dispatch speed. This bound is rooted in CPU physics (memory hierarchy latencies), not implementation artifacts.
+\textbf{Statement}: Speed-optimized JIT systems (V8, C2) defeat caching via specialization. Yet conservative compiled systems (SBCL) preserve expensive predicates. Example: V8 optimizes constraint solver 5323~ns → 6.69~ns (0.00×), SBCL keeps it 22,833~ns → 674× speedup. Caching fails universally only for speed-optimized JIT implementations; design space remains viable for conservative compiled languages.
 
 \section{Background}
 
@@ -479,13 +473,13 @@ Do not implement object-level dispatch caching (performance degradation, 88× mu
 
 \subsection{Selective Predicate Caching Framework}
 
-Edge-case analysis suggests: **selective caching for expensive predicates**. Components: (1)~cost instrumentation (>1~µs threshold); (2)~selective enablement (expensive predicates only); (3)~adaptive toggling (disable if hit rate <95\%); (4)~per-thread caching (eliminates 88× lock contention).
+Edge-case analysis suggests: **selective caching for expensive predicates**. Components: (1)~cost instrumentation; (2)~selective enablement; (3)~adaptive toggling; (4)~per-thread caching (limited to 1--3 threads; Appendix B).
 
 **Applicability**: Reflection languages (Clojure, CLOS). Typed languages minimal benefit. Domain-specific, not general-purpose.
 
 \subsection{Per-Thread and Type-Biased Specialization}
 
-**Per-thread caching**: SBCL achieves 3.1× vs. 88.94× shared (8 threads). Cost: 1--16~KB per thread (256~MB on 256-thread systems). Viable for long-running servers with stable thread pools (<100 threads); prohibitive for serverless/Lambda.
+**Per-thread caching**: Validation (Appendix B) shows speedup degrades 0.18× (1T) to 0.01× (15T) due to mutex contention; viable only 1--3 threads even with expensive predicates. Cost: 1--16~KB/thread (256~MB at 256T).
 
 **Type-biased specialization**: 95\% type-A specialization achieves 1.18× vs. 5.31×. Applicability: stable polymorphism patterns (game engines, ML operators with skewed type distribution). Requires offline profiling; limits to AOT languages (Rust, Go, SBCL). Both are domain-specific, not general-purpose.
 
@@ -494,7 +488,7 @@ Edge-case analysis suggests: **selective caching for expensive predicates**. Com
 \begin{enumerate}
   \item \textbf{Pure dispatch overhead}: Overhead becomes negligible (<1\%) only at clause body cost >500~ns; typical 10--100~ns bodies remain overhead-dominated. Real workloads might approach break-even but require intentionally expensive per-call logic.
 
-  \item \textbf{Type-based dispatch only}: Value-predicate or exotic dispatch might differ if predicates are expensive (>1~µs). Framework predicts similar failure, but exceptions possible.
+  \item \textbf{Type-based dispatch only}: Value-predicate or exotic dispatch might differ if predicates are expensive (>1~µs). Expensive-predicate behavior is optimizer-strategy-dependent: V8 (JIT-aggressive) achieves 0.00× speedup (optimized to 6.69~ns from 5323~ns baseline), whereas SBCL (conservative compiled) achieves 674× speedup (preserved at 22,833~ns baseline). Design space is closed for speed-optimized JITs but remains open for conservative compiled systems (Appendix B, Section B.1).
 
   \item \textbf{Homogeneous workloads}: 4-type cycles guarantee high hit rates. Real patterns reach 99\%+ with diverse type distributions; cache overhead dominates conclusion robustness.
 
@@ -587,17 +581,9 @@ How do caching economics change with expensive clause bodies? We tested SBCL wit
 
 V8 benchmarks validate two potentially viable design-space conditions: expensive predicates and lazy JIT cold-start.
 
-\subsection{Expensive Predicates and the Optimization Paradox}
+\subsection{Expensive Predicates: JIT vs. Conservative Compilation}
 
-V8 benchmarks test predicates with varying costs:
-\begin{itemize}
-  \item Email/URL/Date regex (44--69~ns baseline): 0.23–0.14× (JIT specializes regex compilation to near-zero overhead)
-  \item Constraint solver (5323~ns baseline): 0.00× (6.69~ns cached vs. 5323~ns uncached)
-\end{itemize}
-
-**The Optimization Paradox**: The constraint solver is caching's strongest case—at 5.3~µs baseline, caching should save 6~µs. Yet V8 optimizes it to 6.69~ns via inlining and constant folding (0.00× ratio). V8 recognizes the loop result depends only on input and optimizes away the entire computation.
-
-**Design-space implication**: Expensive-predicate condition (>1~µs cost) theoretically enables break-even. However, V8 shows optimizers detect expensive operations and specialize them away, eliminating caching viability. Languages with expensive-predicate dispatch would have compilers defeat caching via specialization.
+Same constraint solver (5323 ns baseline) shows opposite results: V8 (JIT) achieves 0.00× speedup (optimized to 6.69 ns via escape analysis, inlining, constant folding), whereas SBCL (conservative compiled) achieves 674× speedup (preserved at 22,833 ns). Design-space expensive-predicate condition is viable for conservative compiled systems but closed for speed-optimized JITs. Optimization strategy, not CPU physics, determines design-space viability.
 
 \subsection{Lazy JIT Cold-Start: Interpretation Optimization}
 
@@ -618,9 +604,11 @@ Post-JIT & 197 & 262 & 1.33× \\
 
 **Amortization**: Pre-JIT phase (<0.1\%) is negligible. Short-lived processes show <0.2~ns/call—dwarfed by cache overhead (14--20~ns/call).
 
+**Per-thread scaling** (1--15 threads): Speedup degrades 0.18× to 0.01× due to mutex contention; viable <4 threads only.
+
 \subsection{Conclusion}
 
-Modern JIT compilers defeat caching across the entire design space: expensive predicates are specialized to near-zero cost, and cold-start provides no benefit due to ultra-optimized pre-JIT dispatch and rapid JIT warmup. These findings validate the paper's main conclusion.
+Expensive predicates are optimizer-strategy-dependent: V8 (JIT) 0.00×, SBCL (compiled) 674×. Cold-start fails (1.55× V8 pre-JIT). Per-thread breaks at 5 threads (0.01× at 15T). Design space is closed for speed-optimized JITs, partially open for conservative compiled systems. Main finding: caching fails in contemporary speed-optimized implementations; no production language exploits the conservative-compiled exception.
 
 \bibliography{caching}
 

@@ -31,7 +31,8 @@ For the design rationale, synergy patterns, and benchmarks, see the companion pa
 19. [Macros](#19-macros)
 20. [Exception Handling](#20-exception-handling)
 21. [Zippers](#21-zippers)
-22. [Miscellaneous](#22-miscellaneous)
+22. [Array Programming](#22-array-programming)
+23. [Miscellaneous](#23-miscellaneous)
 
 ---
 
@@ -2038,6 +2039,61 @@ Zippers provide functional tree editing -- navigating and modifying tree structu
 
 (-> z down right down node)          ; => 4
 (-> z down right down (replace 99) root)  ; => [1 [2 3] [99 [5 6]]]
+```
+
+---
+
+# 22. Array Programming
+
+Array programming operations for vectorized computation on collections with axis-aware semantics.
+
+## Phase 1: Generic Operators
+
+Vectorized arithmetic, comparison, and logical operators with automatic broadcasting.
+
+See [array-operations.md](array-operations.md) for complete documentation of:
+
+- **Arithmetic**: `+`, `-`, `*`, `/` with broadcasting
+- **Comparison**: `=`, `<`, `>`, `<=`, `>=`, `not=`
+- **Logical**: `and`, `or`, `not`
+
+### Examples
+
+```fol
+(+ [1 2 3] [4 5 6])                 ; => [5 7 9] (element-wise)
+(+ [1 2 3] 10)                      ; => [11 12 13] (broadcast scalar)
+(* 2 3 4 5)                         ; => 120 (varargs reduction)
+```
+
+## Phase 2: Adverbs (Axis-Aware Operations)
+
+Higher-order operations on vectors and arrays that reduce, scan, or transform along specified axes.
+
+See [adverbs.md](adverbs.md) for complete documentation of:
+
+- **Reductions**: `fold`, `scan` (cumulative reduction)
+- **Iteration**: `each`, `window`, `group-by`
+- **Statistics**: `sum`, `mean`, `variance`, `std-dev`
+- **Transformations**: `array-reverse`, `map-array`, `zip`
+- **Partitioning**: `array-partition`, `array-take`, `array-drop`
+
+### Axis Convention
+
+- **Axis 0** (default): Vertical (rows) - operates along columns
+- **Axis 1**: Horizontal (columns) - operates along rows
+
+### Examples
+
+```fol
+; Sum along axis 0 (reduce rows, return column sums)
+(sum [[1 2 3] [4 5 6]] :axis 0)     ; => [5 7 9]
+
+; Cumulative sum (scan)
+(scan #'+ [1 2 3 4])                ; => [1 3 6 10]
+
+; Apply function to each element
+(map-array #'(lambda (x) (* x 2)) [1 2 3])
+                                    ; => [2 4 6]
 ```
 
 ---

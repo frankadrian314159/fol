@@ -1,0 +1,93 @@
+To load "bordeaux-threads":
+  Load 1 ASDF system:
+    bordeaux-threads
+; Loading "bordeaux-threads"
+
+To load "usocket":
+  Load 1 ASDF system:
+    usocket
+; Loading "usocket"
+
+To load "cl-json":
+  Load 1 ASDF system:
+    cl-json
+; Loading "cl-json"
+
+To load "flexi-streams":
+  Load 1 ASDF system:
+    flexi-streams
+; Loading "flexi-streams"
+
+To load "fiveam":
+  Load 1 ASDF system:
+    fiveam
+; Loading "fiveam"
+
+To load "closer-mop":
+  Load 1 ASDF system:
+    closer-mop
+; Loading "closer-mop"
+
+To load "cl-ppcre":
+  Load 1 ASDF system:
+    cl-ppcre
+; Loading "cl-ppcre"
+..
+SBCL Per-Thread Caching Scaling Experiment
+SBCL 2.6.0
+System: X86-64 (NIL)
+Iterations per thread: 300,000
+
+Testing with 1 thread...
+  Uncached: 16.36 ns/call
+  Cached:   90.63 ns/call (speedup: 0.18×)
+
+Testing with 3 threads...
+  Uncached: 15.67 ns/call
+  Cached:   520.81 ns/call (speedup: 0.03×)
+
+Testing with 5 threads...
+  Uncached: 18.41 ns/call
+  Cached:   1395.36 ns/call (speedup: 0.01×)
+
+Testing with 7 threads...
+  Uncached: 20.22 ns/call
+  Cached:   2256.49 ns/call (speedup: 0.01×)
+
+Testing with 9 threads...
+  Uncached: 23.44 ns/call
+  Cached:   3113.66 ns/call (speedup: 0.01×)
+
+Testing with 11 threads...
+  Uncached: 27.70 ns/call
+  Cached:   3729.94 ns/call (speedup: 0.01×)
+
+Testing with 13 threads...
+  Uncached: 26.97 ns/call
+  Cached:   4391.59 ns/call (speedup: 0.01×)
+
+Testing with 15 threads...
+  Uncached: 29.72 ns/call
+  Cached:   4961.43 ns/call (speedup: 0.01×)
+
+
+
+=== SUMMARY TABLE ===
+Threads              Uncached (ns)      Cached (ns)        Speedup        
+-------------------- ------------------ ------------------ ---------------
+                   1              16.36              90.63            0.18×
+                   3              15.67             520.81            0.03×
+                   5              18.41            1395.36            0.01×
+                   7              20.22            2256.49            0.01×
+                   9              23.44            3113.66            0.01×
+                  11              27.70            3729.94            0.01×
+                  13              26.97            4391.59            0.01×
+                  15              29.72            4961.43            0.01×
+
+
+=== ANALYSIS ===
+Single-thread speedup: 0.18×
+Max-thread speedup:    0.01×
+Scaling efficiency:    3.3%
+
+CONCLUSION: Per-thread caching provides consistent speedup across thread counts

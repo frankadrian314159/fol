@@ -965,6 +965,84 @@
    ;; Symbol interning
    intern))
 
+(defpackage fol.compiler.array-functions
+  (:use cl)
+  (:shadow + - * / = < > <= >= and or not)  ;; Shadow CL operators
+  (:shadowing-import-from fol.compiler.collection-functions
+                          count)
+  (:import-from fol.compiler.collections
+                <vector> <array>)
+  (:import-from fol.compiler.collection-primitives
+                %make-filled-vec-t)
+  (:import-from fol.compiler.seq-functions
+                mapv)
+  (:export
+   ;; Arithmetic operators (generic functions)
+   + - * /
+   ;; Comparison operators (generic functions)
+   = < > <= >= not=
+   ;; Logical operators (generic functions)
+   and or not
+   ;; Phase 1: N-dimensional arrays
+   create-nd-array
+   nd-shape
+   nd-rank
+   nd-size
+   ;; Helper functions
+   vector-element-wise
+   vector-broadcast
+   ;; Re-export imported functions
+   count mapv <array>))
+
+(defpackage fol.compiler.adverbs
+  (:use cl)
+  (:shadowing-import-from fol.compiler.collection-functions
+                          count get assoc conj vector dict contains? vector-of subvec rseq)
+  (:shadowing-import-from fol.compiler.array-functions
+                          + - * / = < > <= >= not= and or not
+                          vector-element-wise vector-broadcast)
+  (:import-from fol.compiler.collections
+                <vector>)
+  (:shadowing-import-from fol.compiler.seq-functions
+                          reduce mapv filterv into partition take drop)
+  (:export
+   ;; Phase 2: Axis-aware operations (default axis 0)
+   fold scan each window
+   sum mean variance std-dev
+   array-reverse
+   map-array zip
+   array-partition array-take array-drop
+
+   ;; Infrastructure
+   normalize-axis axis-shape other-axes))
+
+(defpackage fol.compiler.advanced-array-operations
+  (:use cl)
+  (:import-from fol.compiler.collections
+                <vector> <array>)
+  (:import-from fol.compiler.array-functions
+                create-nd-array nd-shape nd-rank nd-size)
+  (:shadowing-import-from fol.compiler.collection-functions
+                          count get assoc subvec vector vector-of)
+  (:shadowing-import-from fol.compiler.seq-functions
+                          reduce mapv concat)
+  (:export
+   ;; Phase 2: Shape & Reshape Operations
+   reshape as-array as-nested
+   ;; Phase 3: Advanced array operations
+   ;; Shape operations
+   shape rank array-size flatten
+   ;; Axis operations
+   sum-axis mean-axis max-axis min-axis
+   ;; Slicing and indexing
+   slice get-slice put-slice
+   ;; Concatenation and stacking
+   concat-arrays stack hstack vstack
+   ;; Transpose and permutation (Phase 4)
+   transpose permute swap-axes
+   ;; Helper
+   range))
+
 (defpackage fol.compiler.mutable-functions
   (:use cl)
   (:shadowing-import-from fol.compiler.mutable atom)
@@ -1110,8 +1188,6 @@
   (:shadowing-import-from fol.compiler.arithmetic-functions
                           ;; Type conversions (prefer over primitives)
                           <complex> <single-float> <double-float>
-                          ;; Arithmetic operators
-                          + - * /
                           ;; Math functions
                           abs sin cos tan asin acos atan
                           sinh cosh tanh asinh acosh atanh
@@ -1129,9 +1205,12 @@
   (:import-from fol.compiler.primitive-functions
                 instance? nil? some?)
 
-  ;; ---- Comparison operators (shadow CL) -----------------------------------
+  ;; ---- Comparison operators (shadow CL with FOL generic versions) ----------
+  (:shadowing-import-from fol.compiler.array-functions
+                          = < > <= >= not=)
+  ;; ---- Additional comparison from compareops (non-shadowed) ----------------
   (:shadowing-import-from fol.compiler.compareops
-                          < > <= >= = /= min max)
+                          /= min max)
 
   ;; ---- Collection class symbols (shadow cl:array-dimension) ----------------
   (:shadowing-import-from fol.compiler.collections
@@ -1167,9 +1246,17 @@
                         into
                           pmap seque)
 
-  ;; ---- Logic operators (shadow cl:not cl:and cl:or) -----------------------
-  (:shadowing-import-from fol.compiler.logical-operation-functions
+  ;; ---- Arithmetic operators (shadow CL with FOL generic versions) ---------
+  (:shadowing-import-from fol.compiler.array-functions
+                          + - * /)
+
+  ;; ---- Logic operators (shadow CL with FOL generic versions) ---------------
+  (:shadowing-import-from fol.compiler.array-functions
                           not and or)
+
+  ;; ---- Phase 1: N-dimensional arrays ----------------------------------------
+  (:import-from fol.compiler.array-functions
+                create-nd-array nd-shape nd-rank nd-size <array>)
 
   ;; ---- Function combinators (shadow CL) -----------------------------------
   (:shadowing-import-from fol.compiler.functional
@@ -1210,6 +1297,14 @@
   (:shadowing-import-from fol.compiler.misc-functions
                           intern)
 
+  ;; ---- Phase 2 Adverbs (axis-aware operations) ---------------------------
+  (:import-from fol.compiler.adverbs
+                fold scan each window
+                sum mean variance std-dev
+                array-reverse
+                map-array zip
+                array-partition array-take array-drop)
+
   ;; ---- Use all FOL packages (conflicts resolved above) --------------------
   (:use cl
         fol.compiler.primitives
@@ -1230,6 +1325,7 @@
         fol.compiler.cl-utils
         fol.compiler.reader
         fol.compiler
+        fol.compiler.array-functions
         fol.macros
         fol.compiler.streams
         fol.compiler.io

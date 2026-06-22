@@ -35,6 +35,11 @@ FOL (Functional Object Lisp) is a Lisp dialect combining features from Common Li
 - [Sequence Operations](seqop.md) - Extended operations: first, rest, take, drop, concat, sort, group-by, partition
 - [List Operations](list-operations.md) - List-specific: cons, list, list*, peek, pop, push, append, reverse
 
+### Array Programming
+
+- [Array Operations](array-operations.md) - Vectorized operators: +, -, *, / with broadcasting; comparisons; logical ops
+- [Adverbs](adverbs.md) - Axis-aware operations: fold, scan, sum, mean, variance; transformations: transpose, zip
+
 ### Strings & Characters
 
 - [String Functions](string.md) - String manipulation: str, trim, split, join, replace, starts-with?, etc.
