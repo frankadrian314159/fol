@@ -133,6 +133,11 @@
      (vector-element-wise #'cl:= a b))
     (t (error "Type mismatch in = : ~A and ~A" (type-of a) (type-of b)))))
 
+(defmethod = ((a t) &optional b &rest rest)
+  (if b
+      (cl:and (cl:equal a b) (if rest (apply #'= b rest) t))
+      t))
+
 ;;; Less Than: <
 (defgeneric < (a &optional b &rest rest)
   (:documentation "Less-than test for scalars, vectors, arrays."))

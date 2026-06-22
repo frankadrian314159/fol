@@ -560,6 +560,8 @@
    ;; High-level accessors
    first rest get assoc dissoc conj size empty? count update merge
    empty not-empty bounded-size
+   ;; Performance optimization
+   inline-assoc!
    ;; Array indexing
    %index
    ;; Collection predicates
