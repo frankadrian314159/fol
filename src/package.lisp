@@ -797,6 +797,10 @@
    macroexpand-1
    macroexpand
    macroexpand-all
+   ;; Optimization pragmas
+   enable-inline-methods
+   disable-inline-methods
+   inline-methods-enabled-p
    ;; Special forms
    fn
    defn
