@@ -562,6 +562,7 @@
    empty not-empty bounded-size
    ;; Performance optimization
    inline-assoc!
+   vec-nth
    ;; Array indexing
    %index
    ;; Collection predicates
