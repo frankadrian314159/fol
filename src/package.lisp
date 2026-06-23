@@ -823,7 +823,10 @@
  do
    bind
    cond
-   case))
+   case
+   ;; Priority 2: Type-aware collections (Phase 2 type registry)
+   get-slot-name-for-type
+   infer-type-from-constructor))
 
 (defpackage fol.compiler.streams
   (:use cl)

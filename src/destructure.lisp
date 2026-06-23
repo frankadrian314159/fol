@@ -531,12 +531,13 @@
   (when (and rest-param (not (wildcard-param-p rest-param)))
         (list (list rest-param `(nthcdr ,arity ,args-sym)))))
 
-(defun emit-dict-inner-predicates (dict-param access-expr)
+(defun emit-dict-inner-predicates (dict-param access-expr &optional outer-type)
   "Emit additional runtime predicate checks from a {:keys [...]} dict pattern.
    Returns a list of CL check forms to be ANDed with the dispatch check.
+   OUTER-TYPE (optional) is the known type of access-expr, enabling optimized field access.
    Handles pairs in :keys vectors:
-   - (field (eql val))            → (eql (get obj :field) val)
-   - (field (nested-dict <type>)) → (typep (get obj :field) '<type>) + recursive
+   - (field (eql val))            → (eql (field obj) val) [optimized if type known]
+   - (field (nested-dict <type>)) → (typep (field obj) '<type>) + recursive
    Simple symbols produce no checks (bindings only)."
   (let ((pairs (fol.compiler.collections:collection-seq dict-param))
         (checks nil))
@@ -551,32 +552,41 @@
                 (let* ((field (first s))
                        (binding (second s))
                        (key (intern (symbol-name field) :keyword))
-                       (field-access `(fol.compiler.collection-functions:get ,access-expr ,key)))
+                       ;; Priority 2: Use type-aware field access if type known
+                       (field-access
+                        (if outer-type
+                            (let ((slot-pair (fol.compiler::get-slot-name-for-type outer-type key)))
+                              (if slot-pair
+                                  `(cl:slot-value ,access-expr ',(cl:cdr slot-pair))
+                                  `(fol.compiler.collection-functions:get ,access-expr ,key)))
+                            `(fol.compiler.collection-functions:get ,access-expr ,key))))
                   (cond
                     ;; (field (eql val)) → eql check
                     ((and (listp binding) (>= (length binding) 1)
                           (symbolp (first binding))
                           (string= (symbol-name (first binding)) "EQL"))
                      (push `(eql ,field-access ,(second binding)) checks))
-                    ;; (field (dict-pattern <type>)) → typep + nested checks
+                    ;; (field (dict-pattern <type>)) → typep + nested checks with type info
                     ((and (listp binding) (= (length binding) 2)
                           (symbolp (second binding))
                           (typep (first binding) 'fol.compiler.collections:<dict>))
                      (let* ((type-sym (second binding))
                             (inner-dict (first binding))
-                            (inner-checks (emit-dict-inner-predicates inner-dict field-access)))
+                            ;; Pass inner type to recursive call for optimization
+                            (inner-checks (emit-dict-inner-predicates inner-dict field-access type-sym)))
                        (push `(typep ,field-access ',type-sym) checks)
                        (dolist (ic inner-checks) (push ic checks))))
                     ;; Other forms: no extra check
                     (t nil)))))))))
     (nreverse checks)))
 
-(defun emit-stripped-param-inner-predicates (stripped-param access-expr)
+(defun emit-stripped-param-inner-predicates (stripped-param access-expr &optional param-type)
   "Emit inner predicate checks for a stripped parameter (type specializer removed).
+   PARAM-TYPE (optional) is the type from the signature, used for type-aware optimization.
    For dict params with nested predicates, returns check forms.
    For other params, returns nil."
   (when (typep stripped-param 'fol.compiler.collections:<dict>)
-    (emit-dict-inner-predicates stripped-param access-expr)))
+    (emit-dict-inner-predicates stripped-param access-expr param-type)))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Fixed-arity emission (optimization for uniform-arity multi-clause)

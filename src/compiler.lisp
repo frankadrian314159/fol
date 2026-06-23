@@ -2536,10 +2536,14 @@
                       for base-check = (fol.compiler.destructure:emit-fixed-arity-pattern-check
                                         signature param-syms)
                         ;; Include inner dict predicate checks (e.g. nested :keys eql patterns)
+                        ;; Priority 2: Extract type from signature for type-aware optimization
                       for inner-checks = (loop for param in stripped
                                                for sym in param-syms
+                                               for sig in signature
+                                               for param-type = (when (and (listp sig) (eq (first sig) :type))
+                                                                  (second sig))
                                                append (fol.compiler.destructure:emit-stripped-param-inner-predicates
-                                                       param sym))
+                                                       param sym param-type))
                       for check = (if inner-checks
                                       `(cl:and ,base-check ,@inner-checks)
                                       base-check)
@@ -2582,8 +2586,11 @@
                                         signature arity has-rest args-sym)
                       for inner-checks = (loop for param in stripped
                                                for i from 0
+                                               for sig in signature
+                                               for param-type = (when (and (listp sig) (eq (first sig) :type))
+                                                                  (second sig))
                                                append (fol.compiler.destructure:emit-stripped-param-inner-predicates
-                                                       param `(nth ,i ,args-sym)))
+                                                       param `(nth ,i ,args-sym) param-type))
                       for check = (if inner-checks
                                       `(cl:and ,base-check ,@inner-checks)
                                       base-check)
