@@ -71,6 +71,11 @@ FOL (Functional Object Lisp) is a Lisp dialect combining features from Common Li
 
 - [Miscellaneous](misc.md) - Utilities: print, type, str, gensym, parse functions
 
+## Performance & Optimization
+
+- [Optimization Guide](optimization-guide.md) - Compiler optimizations: type annotations, metadata, dispatch caching, performance tuning
+- [Metadata](metadata.md) - Reader syntax for metadata: `^TYPE`, `^{:key val}`, `^:keyword`
+
 ## Quick Reference by Category
 
 ### Defining Things
