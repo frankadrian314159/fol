@@ -1405,6 +1405,36 @@
    Populated by emit-defclass when a :sealed class is processed.
    Queried by emit-defclass to catch compile-time inheritance from sealed classes.")
 
+;; Phase 2: Global type information registry
+(defvar *global-type-info* (make-hash-table :test 'equal)
+        "Compile-time registry mapping type-name → list of (keyword-key . slot-name) pairs.
+   Built from defclass definitions. Used to optimize (get obj :key) when
+   we can infer obj's type from constructor calls or type annotations.
+   Example: (<op-add> → ((:left . left) (:right . right)))")
+
+(defun infer-type-from-constructor (node)
+  "Infer type from a make-<type> constructor call node.
+   Returns the type name (symbol) if node is a constructor call, nil otherwise.
+   Example: (make-<op-add> :left ... :right ...) → <op-add>"
+  (when (and (fol.compiler.ast:call-node-p node)
+             (fol.compiler.ast:symbol-ref-node-p (fol.compiler.ast:call-node-operator node)))
+    (let ((op-name (fol.compiler.ast:symbol-ref-node-name
+                    (fol.compiler.ast:call-node-operator node))))
+      (let ((name-str (cl:symbol-name op-name)))
+        (when (and (cl:>= (cl:length name-str) 5)
+                   (cl:string-equal (cl:subseq name-str 0 5) "MAKE-"))
+          ;; Constructor name is make-<TYPE>, extract TYPE
+          (let ((type-str (cl:subseq name-str 5)))
+            (cl:intern type-str (cl:symbol-package op-name))))))))
+
+(defun get-slot-name-for-type (type-name keyword-key)
+  "Look up slot name for a given type and keyword key using global registry.
+   Returns nil if type or key not found."
+  (when (and type-name (keywordp keyword-key))
+    (let ((slot-pairs (gethash type-name *global-type-info*)))
+      (when slot-pairs
+        (cl:assoc keyword-key slot-pairs :test #'eq)))))
+
 (defun emit-literal (node)
   "Emit a literal value. Self-evaluating forms compile to themselves."
   (fol.compiler.ast:literal-node-value node))
@@ -1450,12 +1480,22 @@
     (cond
      ;; Pattern: (:keyword dict) - keyword used as accessor function
      ;; This is unambiguous since keywords are never function names
+     ;; Phase 2: Try to infer type and emit optimized slot-value if possible
      ((and (fol.compiler.ast:literal-node-p operator)
            (keywordp (fol.compiler.ast:literal-node-value operator))
            (= (length args) 1))
        (let ((keyword (fol.compiler.ast:literal-node-value operator))
+             (dict-arg-node (first args))
              (dict-arg (emit-node (first args))))
-         `(fol.compiler.collection-functions:get ,dict-arg ,keyword)))
+         ;; Try to infer type from constructor call
+         (let* ((inferred-type (infer-type-from-constructor dict-arg-node))
+                (slot-pair (when inferred-type
+                             (get-slot-name-for-type inferred-type keyword))))
+           (if slot-pair
+               ;; Emit optimized direct slot-value access
+               `(cl:slot-value ,dict-arg ',(cl:cdr slot-pair))
+               ;; Fall back to generic get
+               `(fol.compiler.collection-functions:get ,dict-arg ,keyword)))))
 
      ;; Pattern: (letfn-fn ...) - function bound by an enclosing letfn (labels)
      ;; These are in the function slot, so emit a direct function call.
@@ -2126,6 +2166,10 @@
                                      (remf (cdr result) :accessor)
                                      result))
                   collect processed)))
+      ;; Phase 2: Populate global type info registry for this type
+      (let ((slot-pairs (loop for (slot-name initarg accessor storage-key) in slot-infos
+                              collect (cons storage-key slot-name))))
+        (setf (gethash name *global-type-info*) slot-pairs))
       `(cl:progn
          (cl:defclass ,name ,effective-supers
            ,clean-slots
