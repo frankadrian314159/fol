@@ -1864,43 +1864,54 @@
             (make-cached-fn lambda-form cache-mode)
             lambda-form))))
 
+;;; ---------------------------------------------------------------------------
+;;; Priority 3: Transient Accumulation - Detect and optimize update chains
+;;; ---------------------------------------------------------------------------
+;;; DISABLED PENDING IMPLEMENTATION FIXES
+;;; The optimization structure is in place but needs careful pattern detection
+
 (defun emit-thread-first (node)
   "Emit a thread-first node by expanding into nested function calls with dynamic dispatch.
    (-> x f)           => (if (fboundp 'f) (f x) (let ((val f)) ...))
    (-> x (f a))       => (f x a)
    (-> x (f a) (g b)) => (g (f x a) b)
+
+   Priority 3: Detect accumulation chains and use transients for efficiency.
+   (-> dict (assoc :a 1) (assoc :b 2)) => uses transient accumulation
    Each form threads the accumulated value as the first argument."
   (let* ((forms (fol.compiler.ast:thread-first-node-forms node))
          (initial (emit-node (first forms)))
          (threading-forms (rest forms)))
     (if (null threading-forms)
         initial
+        ;; Standard thread-first (Priority 3 transient accumulation disabled pending fixes)
         (reduce (lambda (acc form-node)
-                  (let ((emitted (emit-node form-node)))
-                    (cond
-                     ;; Bare symbol or (cl:function name): call with accumulated value, with dynamic dispatch
-                     ((or (symbolp emitted)
-                          (and (listp emitted) (eq (first emitted) 'cl:function)))
-                       (let ((gval (gensym "VAL"))
-                             (sym (if (symbolp emitted) emitted (second emitted))))
-                         (pushnew sym *extra-special-vars*)
-                         `(if (cl:fboundp ',sym)
-                              (,sym ,acc)
-                              (let ((,gval ,sym))
-                                (cl:cond
-                                  ((cl:functionp ,gval) (cl:funcall ,gval ,acc))
-                                  ((cl:typep ,gval 'fol.compiler.collections:<dict>)
-                                   (fol.compiler.collection-functions:get ,gval ,acc))
-                                  ((cl:typep ,gval 'fol.compiler.collections:<vector>)
-                                   (fol.compiler.collection-functions:nth ,gval ,acc))
-                                  (t (cl:error "Value ~S is not callable or a collection" ,gval)))))))
-                     ;; List form (f args...) not matching (cl:function ...): insert accumulated as first arg
-                     ((listp emitted)
-                       `(,(first emitted) ,acc ,@(rest emitted)))
-                     ;; Anything else: treat as function call
-                     (t `(funcall ,emitted ,acc)))))
-            threading-forms
-          :initial-value initial))))
+                        (let ((emitted (emit-node form-node)))
+                          (cond
+                           ;; Bare symbol or (cl:function name): call with accumulated value, with dynamic dispatch
+                           ((or (symbolp emitted)
+                                (and (listp emitted) (eq (first emitted) 'cl:function)))
+                             (let ((gval (gensym "VAL"))
+                                   (sym (if (symbolp emitted) emitted (second emitted))))
+                               (pushnew sym *extra-special-vars*)
+                               `(if (cl:fboundp ',sym)
+                                    (,sym ,acc)
+                                    (let ((,gval ,sym))
+                                      (cl:cond
+                                        ((cl:functionp ,gval) (cl:funcall ,gval ,acc))
+                                        ((cl:typep ,gval 'fol.compiler.collections:<dict>)
+                                         (fol.compiler.collection-functions:get ,gval ,acc))
+                                        ((cl:typep ,gval 'fol.compiler.collections:<vector>)
+                                         (fol.compiler.collection-functions:nth ,gval ,acc))
+                                        (t (cl:error "Value ~S is not callable or a collection" ,gval)))))))
+                           ;; List form (f args...) not matching (cl:function ...): insert accumulated as first arg
+                           ((listp emitted)
+                             `(,(first emitted) ,acc ,@(rest emitted)))
+                           ;; Anything else: treat as function call
+                           (t `(funcall ,emitted ,acc)))))
+                threading-forms
+              :initial-value initial))))
+
 
 (defun emit-thread-last (node)
   "Emit a thread-last node by expanding into nested function calls with dynamic dispatch.
