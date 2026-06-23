@@ -2133,7 +2133,7 @@
          ,@(loop for (sname initarg accessor storage-key) in slot-infos
                    when accessor
                  collect `(cl:defun ,accessor (object)
-                            (fol.compiler.collection-functions:get object ,storage-key)))
+                            (cl:slot-value object ',sname)))
          ;; Abstract guard: prevent direct make-instance calls from CL code.
          ,@(when abstractp
                  `((cl:defmethod cl:initialize-instance :before ((obj ,name) &rest args)
