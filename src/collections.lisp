@@ -570,17 +570,42 @@
   (fol.compiler.collection-primitives:conj coll val))
 
 ;;; ============================================================================
-;;; F64-array (subclass of f64-vector)
+;;; Array-Ops Base Class
 ;;; ============================================================================
 
-(defclass <f64-array> (<f64-vector>)
+(defclass <array-ops> (standard-object)
     ((dimension :initarg :dimension
                 :initform '(1)
                 :reader array-dimension
                 :documentation "List of dimension sizes, as in CL array-dimensions."))
-  (:documentation "A persistent array.
-                   Subclass of <vector> with O(1) indexed access and
-                   a dimension slot tracking shape."))
+  (:documentation "Base class for typed arrays with dimension tracking and common operations."))
+
+(defgeneric <array-ops>? (obj)
+  (:documentation "Returns T if OBJ is a FOL <array-ops>."))
+
+(defmethod <array-ops>? (obj)
+  (declare (ignore obj))
+  nil)
+
+(defmethod <array-ops>? ((obj <array-ops>))
+  (declare (ignore obj))
+  t)
+
+(defmethod initialize-instance :after ((a <array-ops>) &key)
+  "Validate that all dimension entries are non-negative integers."
+  (dolist (d (array-dimension a))
+    (unless (and (integerp d) (>= d 0))
+      (error "Array dimension ~A is not a non-negative integer" d))))
+
+;;; ============================================================================
+;;; F64-array (subclass of f64-vector)
+;;; ============================================================================
+
+(defclass <f64-array> (<array-ops> <f64-vector>)
+    ()
+  (:documentation "A persistent 64-bit float array.
+                   Subclass of <array-ops> and <f64-vector> with O(1) indexed access and
+                   dimension tracking."))
 
 (defgeneric <f64-array>? (obj)
   (:documentation "Returns T if OBJ is a FOL <array>."))
@@ -593,16 +618,18 @@
   (declare (ignore obj))
   t)
 
-(defmethod initialize-instance :after ((a <f64-array>) &key)
-  "Validate that all dimension entries are non-negative integers."
-  (dolist (d (array-dimension a))
-    (unless (and (integerp d) (>= d 0))
-      (error "Array dimension ~A is not a non-negative integer" d))))
-
 (defmethod make ((class (eql '<f64-array>)) &rest args)
   (let* ((has-dims (eq (cl:first args) :dimensions))
-         (dimensions (if has-dims (cl:second args) (cl:first args)))
-         (elements (if has-dims (cl:cddr args) (cl:rest args)))
+         ;; If first arg is :dimensions, second is dims and rest are elements
+         ;; If first arg is a list, it's the dimensions and rest are elements
+         ;; Otherwise, all args are elements with auto 1D dimensions
+         (dimensions (cond (has-dims (cl:second args))
+                           ((null args) '(0))
+                           ((cl:listp (cl:first args)) (cl:first args))
+                           (t (cl:list (cl:length args)))))
+         (elements (cond (has-dims (cl:cddr args))
+                         ((cl:listp (cl:first args)) (cl:rest args))
+                         (t args)))
 
          ;; Normalize dimensions to a list to calculate expected capacity
          (dims-list (if (listp dimensions) dimensions (coerce dimensions 'cl:list)))
@@ -611,7 +638,7 @@
     (cond
      ;; FAST PATH 1: Single repeating initial element (O(log N) memory aliasing)
      ((eq (cl:first elements) :initial-element)
-       (make-instance '<array>
+       (make-instance '<f64-array>
          :dimension dimensions
          :storage (fol.compiler.collection-primitives::%make-filled-vec-f64
                    expected-size
@@ -620,13 +647,13 @@
      ;; FAST PATH 2: A sequence of distinct initial elements (O(N) bottom-up builder)
      (elements
        ;; Optional: You can add an error check here to ensure (length elements) == expected-size
-       (make-instance '<array>
+       (make-instance '<f64-array>
          :dimension dimensions
          :storage (fol.compiler.collection-primitives::%build-vec-f64-from-list elements)))
 
      ;; FAST PATH 3: Empty array (fallback)
      (t
-       (make-instance '<array>
+       (make-instance '<f64-array>
          :dimension dimensions
          :storage fol.compiler.collection-primitives::%empty-vec-f64)))))
 
@@ -661,14 +688,11 @@
 ;;; f32-array (subclass of f32-vector)
 ;;; ============================================================================
 
-(defclass <f32-array> (<f32-vector>)
-    ((dimension :initarg :dimension
-                :initform '(1)
-                :reader array-dimension
-                :documentation "List of dimension sizes, as in CL array-dimensions."))
-  (:documentation "A persistent array.
-                   Subclass of <vector> with O(1) indexed access and
-                   a dimension slot tracking shape."))
+(defclass <f32-array> (<array-ops> <f32-vector>)
+    ()
+  (:documentation "A persistent 32-bit float array.
+                   Subclass of <array-ops> and <f32-vector> with O(1) indexed access and
+                   dimension tracking."))
 
 (defgeneric <f32-array>? (obj)
   (:documentation "Returns T if OBJ is a FOL <array>."))
@@ -681,16 +705,18 @@
   (declare (ignore obj))
   t)
 
-(defmethod initialize-instance :after ((a <f32-array>) &key)
-  "Validate that all dimension entries are non-negative integers."
-  (dolist (d (array-dimension a))
-    (unless (and (integerp d) (>= d 0))
-      (error "Array dimension ~A is not a non-negative integer" d))))
-
 (defmethod make ((class (eql '<f32-array>)) &rest args)
   (let* ((has-dims (eq (cl:first args) :dimensions))
-         (dimensions (if has-dims (cl:second args) (cl:first args)))
-         (elements (if has-dims (cl:cddr args) (cl:rest args)))
+         ;; If first arg is :dimensions, second is dims and rest are elements
+         ;; If first arg is a list, it's the dimensions and rest are elements
+         ;; Otherwise, all args are elements with auto 1D dimensions
+         (dimensions (cond (has-dims (cl:second args))
+                           ((null args) '(0))
+                           ((cl:listp (cl:first args)) (cl:first args))
+                           (t (cl:list (cl:length args)))))
+         (elements (cond (has-dims (cl:cddr args))
+                         ((cl:listp (cl:first args)) (cl:rest args))
+                         (t args)))
 
          ;; Normalize dimensions to a list to calculate expected capacity
          (dims-list (if (listp dimensions) dimensions (coerce dimensions 'cl:list)))
@@ -699,7 +725,7 @@
     (cond
      ;; FAST PATH 1: Single repeating initial element (O(log N) memory aliasing)
      ((eq (cl:first elements) :initial-element)
-       (make-instance '<array>
+       (make-instance '<f32-array>
          :dimension dimensions
          :storage (fol.compiler.collection-primitives::%make-filled-vec-f32
                    expected-size
@@ -708,13 +734,13 @@
      ;; FAST PATH 2: A sequence of distinct initial elements (O(N) bottom-up builder)
      (elements
        ;; Optional: You can add an error check here to ensure (length elements) == expected-size
-       (make-instance '<array>
+       (make-instance '<f32-array>
          :dimension dimensions
          :storage (fol.compiler.collection-primitives::%build-vec-f32-from-list elements)))
 
      ;; FAST PATH 3: Empty array (fallback)
      (t
-       (make-instance '<array>
+       (make-instance '<f32-array>
          :dimension dimensions
          :storage fol.compiler.collection-primitives::%empty-vec-f32)))))
 
@@ -749,14 +775,11 @@
 ;;; Array (subclass of Vector)
 ;;; ============================================================================
 
-(defclass <array> (<vector>)
-    ((dimension :initarg :dimension
-                :initform '(1)
-                :reader array-dimension
-                :documentation "List of dimension sizes, as in CL array-dimensions."))
+(defclass <array> (<array-ops> <vector>)
+    ()
   (:documentation "A persistent array.
-                   Subclass of <vector> with O(1) indexed access and
-                   a dimension slot tracking shape."))
+                   Subclass of <array-ops> and <vector> with O(1) indexed access and
+                   dimension tracking."))
 
 (defgeneric <array>? (obj)
   (:documentation "Returns T if OBJ is a FOL <array>."))
@@ -768,12 +791,6 @@
 (defmethod <array>? ((obj <array>))
   (declare (ignore obj))
   t)
-
-(defmethod initialize-instance :after ((a <array>) &key)
-  "Validate that all dimension entries are non-negative integers."
-  (dolist (d (array-dimension a))
-    (unless (and (integerp d) (>= d 0))
-      (error "Array dimension ~A is not a non-negative integer" d))))
 
 (defmethod make ((class (eql '<array>)) &rest args)
   (let* ((has-dims (eq (cl:first args) :dimensions))
@@ -857,14 +874,11 @@
 ;;; Fix64-array (subclass of fix64-vector)
 ;;; ============================================================================
 
-(defclass <fix64-array> (<fix64-vector>)
-    ((dimension :initarg :dimension
-                :initform '(1)
-                :reader array-dimension
-                :documentation "List of dimension sizes, as in CL array-dimensions."))
-  (:documentation "A persistent array.
-                   Subclass of <vector> with O(1) indexed access and
-                   a dimension slot tracking shape."))
+(defclass <fix64-array> (<array-ops> <fix64-vector>)
+    ()
+  (:documentation "A persistent 64-bit fixnum array.
+                   Subclass of <array-ops> and <fix64-vector> with O(1) indexed access and
+                   dimension tracking."))
 
 (defgeneric <fix64-array>? (obj)
   (:documentation "Returns T if OBJ is a FOL <array>."))
@@ -877,16 +891,18 @@
   (declare (ignore obj))
   t)
 
-(defmethod initialize-instance :after ((a <fix64-array>) &key)
-  "Validate that all dimension entries are non-negative integers."
-  (dolist (d (array-dimension a))
-    (unless (and (integerp d) (>= d 0))
-      (error "Array dimension ~A is not a non-negative integer" d))))
-
 (defmethod make ((class (eql '<fix64-array>)) &rest args)
   (let* ((has-dims (eq (cl:first args) :dimensions))
-         (dimensions (if has-dims (cl:second args) (cl:first args)))
-         (elements (if has-dims (cl:cddr args) (cl:rest args)))
+         ;; If first arg is :dimensions, second is dims and rest are elements
+         ;; If first arg is a list, it's the dimensions and rest are elements
+         ;; Otherwise, all args are elements with auto 1D dimensions
+         (dimensions (cond (has-dims (cl:second args))
+                           ((null args) '(0))
+                           ((cl:listp (cl:first args)) (cl:first args))
+                           (t (cl:list (cl:length args)))))
+         (elements (cond (has-dims (cl:cddr args))
+                         ((cl:listp (cl:first args)) (cl:rest args))
+                         (t args)))
 
          ;; Normalize dimensions to a list to calculate expected capacity
          (dims-list (if (listp dimensions) dimensions (coerce dimensions 'cl:list)))
@@ -895,7 +911,7 @@
     (cond
      ;; FAST PATH 1: Single repeating initial element (O(log N) memory aliasing)
      ((eq (cl:first elements) :initial-element)
-       (make-instance '<array>
+       (make-instance '<fix64-array>
          :dimension dimensions
          :storage (fol.compiler.collection-primitives::%make-filled-vec-fix64
                    expected-size
@@ -904,13 +920,13 @@
      ;; FAST PATH 2: A sequence of distinct initial elements (O(N) bottom-up builder)
      (elements
        ;; Optional: You can add an error check here to ensure (length elements) == expected-size
-       (make-instance '<array>
+       (make-instance '<fix64-array>
          :dimension dimensions
          :storage (fol.compiler.collection-primitives::%build-vec-fix64-from-list elements)))
 
      ;; FAST PATH 3: Empty array (fallback)
      (t
-       (make-instance '<array>
+       (make-instance '<fix64-array>
          :dimension dimensions
          :storage fol.compiler.collection-primitives::%empty-vec-fix64)))))
 

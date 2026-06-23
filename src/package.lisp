@@ -415,6 +415,16 @@
    <array>
    <array>?
    array-dimension
+   ;; Array operations base class
+   <array-ops>
+   <array-ops>?
+   ;; Concrete: typed arrays (subclass of array-ops)
+   <f64-array>
+   <f64-array>?
+   <f32-array>
+   <f32-array>?
+   <fix64-array>
+   <fix64-array>?
    ;; Concrete: ordered-set
    <ordered-set>
    <ordered-set>?
@@ -526,7 +536,9 @@
                 ;; Class name symbols (needed for make dispatch)
                 <vector> <dict> <ordered-dict> <array-dict> <set> <bag>
                 <ordered-set> <sorted-set> <sorted-dict> <int-dict> <priority-dict>
-                <int-set> <dense-int-set> <deque> <list> <lazy-seq> <array>)
+                <int-set> <dense-int-set> <deque> <list> <lazy-seq> <array>
+                ;; Typed arrays
+                <array-ops> <f64-array> <f32-array> <fix64-array>)
   (:import-from fol.compiler.string-functions
                 index-of last-index-of)
   (:shadowing-import-from fol.compiler.merged-functions
@@ -557,6 +569,9 @@
    deque
    list
    lazy-seq
+   f64-array
+   f32-array
+   fixnum-array
    ;; High-level accessors
    first rest get assoc dissoc conj size empty? count update merge
    empty not-empty bounded-size
@@ -1214,6 +1229,7 @@
                           vector set list list* nth push pop
                           dict bag deque ordered-dict ordered-set sorted-set sorted-dict
                           int-set int-dict priority-dict dense-int-set
+                          f64-array f32-array fixnum-array
                           first rest get assoc dissoc conj update count merge
                           empty?
                           find subseq
@@ -1249,6 +1265,8 @@
   ;; ---- Phase 1: N-dimensional arrays ----------------------------------------
   (:import-from fol.compiler.array-functions
                 create-nd-array nd-shape nd-rank nd-size <array>)
+  (:import-from fol.compiler.collections
+                <array-ops> <f64-array> <f32-array> <fix64-array>)
 
   ;; ---- Function combinators (shadow CL) -----------------------------------
   (:shadowing-import-from fol.compiler.functional

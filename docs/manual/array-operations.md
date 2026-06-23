@@ -13,6 +13,51 @@ Phase 1 provides vectorized versions of arithmetic, comparison, and logical oper
 
 ---
 
+## Typed Arrays
+
+FOL provides three main typed array types for efficient numeric storage. All typed arrays inherit from the `<array-ops>` base class.
+
+### Array Types
+
+| Constructor | Type | Element Type | Best For |
+|-------------|------|--------------|----------|
+| `f64-array` | `<f64-array>` | 64-bit float (double) | High-precision calculations, scientific computing |
+| `f32-array` | `<f32-array>` | 32-bit float (single) | Graphics, memory-sensitive applications |
+| `fixnum-array` | `<fix64-array>` | 64-bit integer (fixnum) | Integer-based computations, indexing |
+
+### Constructor Syntax
+
+```fol
+;; Simple 1D array
+(f64-array 1.0 2.0 3.0)
+
+;; Multi-dimensional array
+(f64-array :dimensions (2 3) 1.0 2.0 3.0 4.0 5.0 6.0)
+
+;; Array filled with initial value
+(f64-array :dimensions (4) :initial-element 0.0)
+```
+
+### Type Predicates
+
+```fol
+(f64-array? arr)     ; true if arr is a 64-bit float array
+(f32-array? arr)     ; true if arr is a 32-bit float array
+(fix64-array? arr)   ; true if arr is a 64-bit integer array
+(array-ops? arr)     ; true if arr is any typed array
+```
+
+### Dimension Information
+
+All typed arrays track their dimensions:
+
+```fol
+(let [arr (f64-array :dimensions (2 3) 1.0 2.0 3.0 4.0 5.0 6.0)]
+  (array-dimension arr))    ; => (2 3)
+```
+
+---
+
 ## Arithmetic Operators
 
 ### +

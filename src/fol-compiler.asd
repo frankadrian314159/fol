@@ -95,6 +95,7 @@
                                   (:file "test-array-functions" :depends-on ("compiler-tests-package"))
                                   (:file "test-adverbs" :depends-on ("compiler-tests-package"))
                                   (:file "test-advanced-array-operations" :depends-on ("compiler-tests-package"))
+                                  (:file "test-typed-arrays" :depends-on ("compiler-tests-package"))
                                   (:file "fol-tests" :depends-on ("compiler-tests-package")))))
            :perform (test-op (o s) (symbol-call :fol.compiler.tests :run-compiler-tests)))
 

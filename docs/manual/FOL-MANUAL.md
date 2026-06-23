@@ -530,7 +530,56 @@ A persistent multiset that counts occurrences.
 A multi-dimensional array stored as a flat vector with dimension information.
 
 ```fol
-(<array> [2 3] 1 2 3 4 5 6)  ; 2x3 array
+(make <array> :dimensions (2 3) 1 2 3 4 5 6)  ; 2x3 array
+```
+
+### Typed Arrays
+
+FOL provides specialized array types for different numeric data types, all inheriting from the `<array-ops>` base class for consistent dimension tracking and array operations.
+
+#### Constructor Functions
+
+| Constructor | Type | Storage | Description |
+|-------------|------|---------|-------------|
+| `f64-array` | `<f64-array>` | 64-bit floats | High-precision floating-point arrays |
+| `f32-array` | `<f32-array>` | 32-bit floats | Single-precision floating-point arrays |
+| `fixnum-array` | `<fix64-array>` | 64-bit integers | Machine word integer arrays |
+
+#### Usage Examples
+
+```fol
+;; Create 64-bit float arrays
+(f64-array 1.0 2.0 3.0)                              ; 1D array of 3 elements
+(f64-array :dimensions (2 3) 1.0 2.0 3.0 4.0 5.0 6.0) ; 2x3 array
+(f64-array :dimensions (4) :initial-element 0.0)    ; 4-element array, all zeros
+
+;; Create 32-bit float arrays
+(f32-array 1.0 2.0 3.0)                              ; 1D array of 3 elements
+(f32-array :dimensions (2 2) 1.0 2.0 3.0 4.0)        ; 2x2 array
+(f32-array :dimensions (3) :initial-element 5.0)    ; 3-element array, all 5.0
+
+;; Create fixnum (64-bit integer) arrays
+(fixnum-array 10 20 30)                              ; 1D array of 3 elements
+(fixnum-array :dimensions (2 3) 1 2 3 4 5 6)         ; 2x3 array
+(fixnum-array :dimensions (5) :initial-element 42)  ; 5-element array, all 42
+```
+
+#### Type Predicates
+
+```fol
+(f64-array? arr)     ; Check if arr is a 64-bit float array
+(f32-array? arr)     ; Check if arr is a 32-bit float array
+(fix64-array? arr)   ; Check if arr is a 64-bit integer array
+(array-ops? arr)     ; Check if arr is any typed array (base class predicate)
+```
+
+#### Dimension Tracking
+
+All typed arrays maintain dimension information accessible via `array-dimension`:
+
+```fol
+(let [arr (f64-array :dimensions (2 3) 1.0 2.0 3.0 4.0 5.0 6.0)]
+  (array-dimension arr))  ; => (2 3)
 ```
 
 ---

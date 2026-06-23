@@ -1968,3 +1968,31 @@
    Direct access to vector element without type checking.
    ~1.5-2× faster than generic get for vector-heavy loops."
   (nth v i))
+
+;;;; ─────────────────────────────────────────────────────────────────────────
+;;;; Typed Array Constructors
+;;;; ─────────────────────────────────────────────────────────────────────────
+
+(defun f64-array (&rest args)
+  "Create a 64-bit float array.
+   Usage:
+     (f64-array :dimensions (2 3) 1.0 2.0 3.0 4.0 5.0 6.0)
+     (f64-array :dimensions (4) :initial-element 0.0)
+     (f64-array 1.0 2.0 3.0)  ; 1D array with 3 elements"
+  (apply (function make) 'fol.compiler.collections:<f64-array> args))
+
+(defun f32-array (&rest args)
+  "Create a 32-bit float array.
+   Usage:
+     (f32-array :dimensions (2 3) 1.0 2.0 3.0 4.0 5.0 6.0)
+     (f32-array :dimensions (4) :initial-element 0.0)
+     (f32-array 1.0 2.0 3.0)  ; 1D array with 3 elements"
+  (apply (function make) 'fol.compiler.collections:<f32-array> args))
+
+(defun fixnum-array (&rest args)
+  "Create a 64-bit fixnum array (fix64-array).
+   Usage:
+     (fixnum-array :dimensions (2 3) 1 2 3 4 5 6)
+     (fixnum-array :dimensions (4) :initial-element 0)
+     (fixnum-array 1 2 3)  ; 1D array with 3 elements"
+  (apply (function make) 'fol.compiler.collections:<fix64-array> args))

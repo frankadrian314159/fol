@@ -105,15 +105,21 @@ Use Clojure-style `^TYPE` syntax to add SBCL type hints that enable compile-time
 
 ### Syntax
 
-```lisp
-;; Type annotation before function name
-(defn ^cl:fixnum add [a b]
-  (cl:+ a b))
+Type annotations work with both **FOL native types** and **Common Lisp types**:
 
-;; Generates SBCL declaration:
+```lisp
+;; FOL native type (recommended)
+(defn ^<fixnum> add [a b]
+  (+ a b))
+
+;; OR Common Lisp type (also supported)
+(defn ^cl:fixnum add [a b]
+  (+ a b))
+
+;; Both generate the same SBCL declaration:
 (defun add (a b)
-  (declare (ftype (function (t t) cl:fixnum) add))
-  (cl:+ a b))
+  (declare (ftype (function (t t) fixnum) add))
+  (+ a b))
 ```
 
 ### How It Works
@@ -132,16 +138,24 @@ Use Clojure-style `^TYPE` syntax to add SBCL type hints that enable compile-time
 (defn factorial [n]
   (if (<= n 1) 1 (* n (factorial (dec n)))))
 
-;; After - add type hint
+;; After - add type hint (FOL style)
 (defn ^<fixnum> factorial [n]
+  (if (<= n 1) 1 (* n (factorial (dec n)))))
+
+;; OR Common Lisp style (also works)
+(defn ^cl:fixnum factorial [n]
   (if (<= n 1) 1 (* n (factorial (dec n)))))
 ```
 
 #### Multiple Return Types
 
 ```lisp
-;; Specify return type
+;; Using FOL types
 (defn ^<double-float> compute-average [numbers]
+  (/ (apply + numbers) (count numbers)))
+
+;; OR using CL types
+(defn ^cl:double compute-average [numbers]
   (/ (apply + numbers) (count numbers)))
 ```
 
@@ -151,11 +165,16 @@ Use Clojure-style `^TYPE` syntax to add SBCL type hints that enable compile-time
 ;; For functions with multiple dispatch, annotate each clause
 (defn ^<number> process
   [^<fixnum> x]
-  (+ x 1))  ; specialized for fixnum
+  (+ x 1))  ; FOL types
+
+;; Mix and match FOL and CL types as needed
+(defn ^cl:number process
+  [^cl:fixnum x]
+  (+ x 1))  ; CL types
 
 (defn ^<number> process
-  [^<double-float> x]
-  (* x 2.0))  ; specialized for double
+  [^cl:double-float x]  ; Mix both styles
+  (* x 2.0))
 ```
 
 ### Performance Impact

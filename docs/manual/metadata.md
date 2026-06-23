@@ -155,19 +155,24 @@ plist-style and dict-style metadata.
 ## Type Annotations for Optimization
 
 The `^Type` metadata syntax can be used to add compile-time type hints that enable SBCL optimizations.
+Both **FOL native types** and **Common Lisp types** are supported.
 
 ### Reader Syntax
 
 ```fol
-;; Add type annotation to function
+;; FOL native type (recommended)
 (defn ^<fixnum> factorial [n]
   (if (<= n 1) 1 (* n (factorial (dec n)))))
 
-;; SBCL generates:
+;; OR Common Lisp type (also supported)
+(defn ^cl:fixnum factorial [n]
+  (if (<= n 1) 1 (* n (factorial (dec n)))))
+
+;; SBCL generates (for both):
 ;; (declare (ftype (function (t) fixnum) factorial))
 ```
 
-### FOL Type Specifiers
+### FOL Type Specifiers (Recommended)
 
 | Type | Meaning | Example |
 |------|---------|---------|
@@ -180,18 +185,31 @@ The `^Type` metadata syntax can be used to add compile-time type hints that enab
 | `<string>` | String | `^<string> text` |
 | `<boolean>` | Boolean (true/false) | `^<boolean> flag` |
 
+### Common Lisp Types (Advanced)
+
+You can also use CL types directly:
+- `^cl:fixnum` — Machine-word integer
+- `^cl:integer` — Arbitrary-precision integer
+- `^cl:double` or `^cl:double-float` — 64-bit float
+- `^cl:single-float` — 32-bit float
+- `^cl:number` — Generic numeric type
+
 ### Examples
 
 ```fol
-;; Simple type annotation
+;; Simple type annotation (FOL style)
 (defn ^<fixnum> add-one [n]
   (+ n 1))
 
-;; Multi-clause with types
+;; Simple type annotation (CL style)
+(defn ^cl:fixnum add-one [n]
+  (+ n 1))
+
+;; Multi-clause with types (mixed styles)
 (defn ^<number> compute
   ([^<fixnum> x]
    (+ x 1))
-  ([^<double-float> x]
+  ([^cl:double-float x]      ; CL type also works
    (* x 2.0)))
 
 ;; Return type only (for complex functions)
