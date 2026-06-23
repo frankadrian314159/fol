@@ -133,7 +133,7 @@ Use Clojure-style `^TYPE` syntax to add SBCL type hints that enable compile-time
   (if (<= n 1) 1 (* n (factorial (dec n)))))
 
 ;; After - add type hint
-(defn ^cl:fixnum factorial [^cl:fixnum n]
+(defn ^<fixnum> factorial [n]
   (if (<= n 1) 1 (* n (factorial (dec n)))))
 ```
 
@@ -141,7 +141,7 @@ Use Clojure-style `^TYPE` syntax to add SBCL type hints that enable compile-time
 
 ```lisp
 ;; Specify return type
-(defn ^cl:double compute-average [numbers]
+(defn ^<double-float> compute-average [numbers]
   (/ (apply + numbers) (count numbers)))
 ```
 
@@ -149,13 +149,13 @@ Use Clojure-style `^TYPE` syntax to add SBCL type hints that enable compile-time
 
 ```lisp
 ;; For functions with multiple dispatch, annotate each clause
-(defn ^cl:number process
-  [^cl:fixnum x]
-  (cl:+ x 1))  ; specialized for fixnum
+(defn ^<number> process
+  [^<fixnum> x]
+  (+ x 1))  ; specialized for fixnum
 
-(defn ^cl:number process
-  [^cl:double x]
-  (cl:* x 2.0))  ; specialized for double
+(defn ^<number> process
+  [^<double-float> x]
+  (* x 2.0))  ; specialized for double
 ```
 
 ### Performance Impact
@@ -181,16 +181,40 @@ Expected improvements: 5-30% on heavily-typed code (depends on SBCL optimization
 
 ### Supported Type Specifiers
 
-Common SBCL types:
-- `cl:fixnum` — 30-bit signed integer (on 32-bit CL) or 60-bit (on 64-bit)
-- `cl:integer` — arbitrary-precision integer
-- `cl:double` — 64-bit floating point
-- `cl:single-float` — 32-bit floating point
-- `(cl:function (arg1 arg2 ...) return-type)` — function type (advanced)
-- `cl:vector` — sequence
-- `(cl:values type1 type2 ...)` — multiple return values
+FOL's native type system (recommended):
 
-See [Common Lisp Hyperspec](http://www.lispworks.com/documentation/HyperSpec/) for complete type list.
+**Numeric Types**:
+- `<fixnum>` — Machine-word integer (30/60-bit signed)
+- `<integer>` — Arbitrary-precision integer
+- `<double-float>` — 64-bit IEEE floating point
+- `<single-float>` — 32-bit IEEE floating point
+- `<number>` — Generic numeric type (fixnum, float, ratio, complex)
+- `<real>` — Real numbers (integer, float, ratio)
+- `<complex>` — Complex numbers
+
+**Collection Types**:
+- `<vector>` — Persistent vector
+- `<list>` — Linked list
+- `<dict>` — Associative map
+- `<set>` — Set collection
+- `<string>` — String type
+
+**Other Types**:
+- `<symbol>` — Symbol
+- `<keyword>` — Keyword
+- `<boolean>` — Boolean (true/false)
+
+### Using Common Lisp Types (Advanced)
+
+If you need direct access to Common Lisp types for SBCL optimization:
+
+- `cl:fixnum` — Maps to `<fixnum>`
+- `cl:integer` — Maps to `<integer>`
+- `cl:double` or `cl:double-float` — Maps to `<double-float>`
+- `cl:single-float` — Maps to `<single-float>`
+- `cl:vector` — Maps to `<vector>`
+
+Most users should prefer FOL's type names, which are more portable and idiomatic.
 
 ---
 
@@ -202,18 +226,21 @@ See [Common Lisp Hyperspec](http://www.lispworks.com/documentation/HyperSpec/) f
 ```lisp
 (declaim (optimize (safety 2) (speed 1)))
 ;; Fewer optimizations, more runtime checks
+;; Good for catching type errors early
 ```
 
 **For Performance**:
 ```lisp
 (declaim (optimize (safety 0) (speed 3)))
 ;; Maximum optimization, trust type annotations
+;; Use when all types are correctly annotated
 ```
 
-**Balanced**:
+**Balanced** (recommended):
 ```lisp
 (declaim (optimize (safety 1) (speed 2)))
 ;; Reasonable tradeoff
+;; Good for most production code
 ```
 
 ---

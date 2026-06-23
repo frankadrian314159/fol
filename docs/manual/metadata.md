@@ -160,40 +160,42 @@ The `^Type` metadata syntax can be used to add compile-time type hints that enab
 
 ```fol
 ;; Add type annotation to function
-(defn ^cl:fixnum factorial [n]
+(defn ^<fixnum> factorial [n]
   (if (<= n 1) 1 (* n (factorial (dec n)))))
 
 ;; SBCL generates:
-;; (declare (ftype (function (t) cl:fixnum) factorial))
+;; (declare (ftype (function (t) fixnum) factorial))
 ```
 
-### Common Types
+### FOL Type Specifiers
 
 | Type | Meaning | Example |
 |------|---------|---------|
-| `cl:fixnum` | 60-bit signed integer | `^cl:fixnum n` |
-| `cl:integer` | Arbitrary-precision integer | `^cl:integer count` |
-| `cl:double` | 64-bit float | `^cl:double value` |
-| `cl:single-float` | 32-bit float | `^cl:single-float x` |
-| `cl:vector` | Sequence/array | `^cl:vector items` |
-| `(cl:function (arg-types...) ret-type)` | Function type | Advanced |
+| `<fixnum>` | Machine-word integer (30/60-bit signed) | `^<fixnum> n` |
+| `<integer>` | Arbitrary-precision integer | `^<integer> count` |
+| `<double-float>` | 64-bit float | `^<double-float> value` |
+| `<single-float>` | 32-bit float | `^<single-float> x` |
+| `<number>` | Generic numeric type | `^<number> x` |
+| `<vector>` | Persistent vector | `^<vector> items` |
+| `<string>` | String | `^<string> text` |
+| `<boolean>` | Boolean (true/false) | `^<boolean> flag` |
 
 ### Examples
 
 ```fol
 ;; Simple type annotation
-(defn ^cl:fixnum add-one [^cl:fixnum n]
-  (cl:+ n 1))
+(defn ^<fixnum> add-one [n]
+  (+ n 1))
 
 ;; Multi-clause with types
-(defn ^cl:number compute
-  ([^cl:fixnum x]
-   (cl:+ x 1))
-  ([^cl:double x]
-   (cl:* x 2.0)))
+(defn ^<number> compute
+  ([^<fixnum> x]
+   (+ x 1))
+  ([^<double-float> x]
+   (* x 2.0)))
 
 ;; Return type only (for complex functions)
-(defn ^cl:vector process-data [items]
+(defn ^<vector> process-data [items]
   (map inc items))
 ```
 
