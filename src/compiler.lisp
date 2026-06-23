@@ -722,10 +722,29 @@
 (defun parse-defn (form)
   "Parse a defn form into a defn-node.
    Supported syntaxes:
-     (defn name [params] body ...)                 - single clause
-     (defn name ([p1] b1 ...) ([p2] b2 ...) ...)   - multi-clause"
+     (defn name [params] body ...)                                    - single clause
+     (defn name ([p1] b1 ...) ([p2] b2 ...) ...)                    - multi-clause
+     (defn ^long name [a b] ...)                                     - with type metadata
+
+   Type metadata can be attached via reader ^TYPE syntax and is stored on the function
+   name symbol plist for use by emit-defn to generate SBCL type declarations."
   (destructuring-bind (op name &rest args) form
     (declare (ignore op))
+
+    ;; Extract metadata from the name if it's wrapped in with-meta by reader
+    ;; (with-meta name-sym metadata-dict) -> extract and attach to symbol plist
+    (when (and (listp name)
+               (= (length name) 2)
+               (symbolp (first name))
+               (string= (symbol-name (first name)) "WITH-META"))
+      (let ((actual-name (second name))
+            (meta-expr (third name)))
+        ;; Store the metadata expression on the symbol plist for later extraction
+        ;; Note: meta-expr is a reader-generated (dict :type TypeName) form
+        (when (symbolp actual-name)
+          (setf (cl:symbol-plist actual-name)
+                (cl:list* :defn-type-metadata meta-expr (cl:symbol-plist actual-name)))
+          (setf name actual-name))))
     (labels ((parse-clause (clause)
                            (destructuring-bind (params &rest body) clause
                              (cons params (mapcar #'parse-form body))))
@@ -3037,10 +3056,14 @@
    Puts the function in the function slot, not the value slot.
    For single-clause: (defun name (params) body...)
    For multi-clause: (defun name (&rest args) (cond ...)) with optional caching
-   Also emits metadata setting code if docstring is present."
+
+   Also emits metadata setting code if docstring is present.
+   Supports type annotations via reader ^TYPE syntax, generating SBCL (declare (ftype ...)) forms."
   (let* ((name (fol.compiler.ast:defn-node-name node))
          (clauses (fol.compiler.ast:defn-node-clauses node))
          (docstring (fol.compiler.ast:defn-node-docstring node))
+         ;; Extract type metadata attached by reader ^TYPE syntax
+         (type-metadata-form (cl:get name :defn-type-metadata))
          ;; AST-level analysis (robust, format-independent)
          (cache-mode (cacheable-clauses-p clauses))
          ;; Compile regardless (needed for emit)
@@ -3050,17 +3073,37 @@
     ;; Track this function for Lisp-1 compatibility in compile-file
     (when *file-function-defs*
           (pushnew name *file-function-defs* :test #'string=))
-    ;; lambda-form is (lambda params body...)
-    ;; Check if dispatch caching applies
-    (let* ((base-form (if cache-mode
-                          (make-cached-defn name lambda-form cache-mode)
-                          (let ((params (second lambda-form))
-                                (body (cddr lambda-form)))
-                            `(cl:defun ,name ,params ,@body))))
-           (metadata-form (emit-metadata-assignment name docstring clauses)))
-      (if metadata-form
-          `(cl:progn ,base-form ,metadata-form)
-          base-form))))
+
+    ;; Extract type from metadata form if present
+    ;; Metadata form is (dict :type TypeName) from the reader
+    (let ((type-name (when (and type-metadata-form
+                                (listp type-metadata-form)
+                                (not (null (rest type-metadata-form))))
+                       ;; type-metadata-form is (dict :type TypeName) where TypeName is the actual type
+                       ;; We need to extract TypeName from this form
+                       ;; The (dict :type TypeName) form evaluates to a dict, but we have the raw form
+                       ;; TypeName is the last element in the plist after :type
+                       (let ((plist-tail (rest type-metadata-form)))
+                         (loop for (key val) on plist-tail by #'cddr
+                               when (eq key :type)
+                               return val)))))
+
+      ;; lambda-form is (lambda params body...)
+      ;; Check if dispatch caching applies
+      (let* ((params (second lambda-form))
+             ;; Generate type declaration if we have a type name
+             (type-decl (when type-name
+                          `((cl:declare (cl:ftype (cl:function ,@(loop for p in params collect t) ,type-name) ,name)))))
+             (base-form (if cache-mode
+                            (make-cached-defn name lambda-form cache-mode)
+                            (let ((body (cddr lambda-form)))
+                              (if type-decl
+                                  `(cl:defun ,name ,params ,@type-decl ,@body)
+                                  `(cl:defun ,name ,params ,@body)))))
+             (metadata-form (emit-metadata-assignment name docstring clauses)))
+        (if metadata-form
+            `(cl:progn ,base-form ,metadata-form)
+            base-form)))))
 
 (defun emit-letfn (node)
   "Emit a letfn node as CL labels.
