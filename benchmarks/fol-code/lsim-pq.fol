@@ -258,6 +258,27 @@
 ;; Event-driven simulation
 ;; ---------------------------------------------------------------------------
 
+;;; Single-pass batch accumulator: builds updates, history, changed-nodes, affected-comps without intermediates
+(defn accumulate-batch-changes [batch monitored-nodes connectivity event-history]
+  (reduce
+    (fn [acc evt]
+      (bind [node (get evt :node)
+             val  (get evt :value)
+             updates (get acc :updates)
+             history (get acc :history)
+             changed (get acc :changed)
+             affected (get acc :affected)]
+        {:updates (assoc updates node val)
+         :history (if (contains? monitored-nodes node)
+                    (update history node (fn [evts] (conj (if evts evts []) evt)))
+                    history)
+         :changed (conj changed node)
+         :affected (if-let [comps (get connectivity node)]
+                     (reduce (fn [a c] (conj a c)) affected comps)
+                     affected)}))
+    {:updates {} :history event-history :changed #{} :affected #{}}
+    batch))
+
 (defn run-simulation [netlist initial-events max-time monitored-nodes]
   (bind [connectivity (reduce (fn [acc c] (register-connectivity c acc)) {} netlist)]
     (loop [queue        (reduce lh-insert nil initial-events)
@@ -270,24 +291,13 @@
                  batch       (first pop-result)
                  remaining   (second pop-result)
                  event-time  (get (first batch) :time)
-                 updates           (reduce (fn [acc evt]
-                                             (assoc acc (get evt :node) (get evt :value)))
-                                           {} batch)
+                 ;; OPTIMIZED: Single-pass accumulation instead of 4 sequential reduces
+                 batch-acc   (accumulate-batch-changes batch monitored-nodes connectivity event-history)
+                 updates           (get batch-acc :updates)
+                 new-event-history (get batch-acc :history)
+                 changed-nodes     (get batch-acc :changed)
+                 affected-comps    (get batch-acc :affected)
                  new-node-values   (merge node-values updates)
-                 new-event-history (reduce (fn [acc evt]
-                                             (bind [node (get evt :node)]
-                                               (if (contains? monitored-nodes node)
-                                                   (update acc node
-                                                           (fn [evts] (conj (if evts evts []) evt)))
-                                                   acc)))
-                                           event-history batch)
-                 changed-nodes     (reduce (fn [s k] (conj s k)) #{} (keys updates))
-                 affected-comps    (reduce (fn [acc node]
-                                             (bind [comps (get connectivity node)]
-                                               (if comps
-                                                   (reduce (fn [a c] (conj a c)) acc comps)
-                                                   acc)))
-                                           #{} changed-nodes)
                  new-events        (reduce (fn [acc comp]
                                              (do (swap! *gate-evals* (fn [n] (cl:+ n 1)))
                                                  (bind [input-states  (get-input-states comp new-node-values)
