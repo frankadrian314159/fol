@@ -1020,8 +1020,9 @@
   "When *TRANSIENT-LOOPS* is enabled, return a rewritten copy of loop NODE
    with qualifying accumulators converted to the transient protocol;
    otherwise return NODE unchanged. Called by emit-loop.
-   Second value: the summarized operator names the conversion assumed
-   (for world-guard registration)."
+   Second value: the summarized operator names the conversion assumed.
+   Third value: a profitability-check form to be emitted as a runtime guard,
+   or NIL if no check is needed."
   (if (not *transient-loops*)
       node
       (let* ((bindings (fol.compiler.ast:loop-node-bindings node))
@@ -1029,6 +1030,7 @@
              (qnames '())
              (assumptions '()))
         (loop for (pname . init) in bindings
+              for i from 0
               for pos from 0
               do (when (and (symbolp pname)
                             (transient-eligible-init-p init))
@@ -1042,23 +1044,33 @@
                        (setf (aref pos-names pos) pname)
                        (setf assumptions
                              (union (union *chain-ops* *read-ops* :test #'string=)
-                                    assumptions :test #'string=))))))
+                                    assumptions :test #'string=)))))))
         (if (null qnames)
             node
-            (progn
-              (incf *loops-converted*)
-              (incf *params-converted* (length qnames))
-              (values
-               (fol.compiler.ast:make-loop-node
-                :bindings (loop for (pname . init) in bindings
-                                collect (cons pname
-                                              (if (member pname qnames)
-                                                  (%call1 "TRANSIENT" init)
-                                                  init)))
-                :body (rewrite-loop-body (fol.compiler.ast:loop-node-body node)
-                                         qnames pos-names)
-                :form (fol.compiler.ast:ast-node-form node))
-               assumptions))))))
+            (let* ((first-qname (first qnames))
+                   (first-qpos (position first-qname (mapcar #'car bindings)))
+                   (first-qinit (cdr (nth first-qpos bindings)))
+                   (threshold (cond
+                                ((fol.compiler.ast:dict-node-p first-qinit) 16)
+                                ((fol.compiler.ast:vector-node-p first-qinit) 12)
+                                (t nil)))
+                   (profit-check (when threshold
+                                   `(< ,threshold (fol.compiler.collection-functions:count ,first-qname)))))
+              (progn
+                (incf *loops-converted*)
+                (incf *params-converted* (length qnames))
+                (values
+                 (fol.compiler.ast:make-loop-node
+                  :bindings (loop for (pname . init) in bindings
+                                  collect (cons pname
+                                                (if (member pname qnames)
+                                                    (%call1 "TRANSIENT" init)
+                                                    init)))
+                  :body (rewrite-loop-body (fol.compiler.ast:loop-node-body node)
+                                           qnames pos-names)
+                  :form (fol.compiler.ast:ast-node-form node))
+                 assumptions
+                 profit-check)))))))
 
 ;;; ============================================================================
 ;;; Tier-2 Summary Inference (step 6)

@@ -1,0 +1,15 @@
+;;; Profitability Benchmark - Dictionaries
+;;;
+;;; Performs a fixed number of updates on a dictionary of a given size.
+;;; The runner script will vary the initial size to find the crossover point
+;;; where transient conversion becomes profitable.
+
+(defn main [initial-size]
+  (let [ops 100
+        initial-dict (reduce (fn [acc i] (assoc acc i i))
+                             {}
+                             (range 0 initial-size))]
+    (loop [acc initial-dict i 0]
+      (if (< i ops)
+        (recur (assoc acc i i) (inc i))
+        acc))))

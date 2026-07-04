@@ -3186,16 +3186,20 @@
    enabled and an accumulator qualifies, emits a world-guarded dual path:
    the transient-converted loop behind a validity-cell check registered
    against the conversion's summarized-name assumptions, with the original
-   loop as the fallback (design doc section 5.2). *sealed-world* skips the
-   guard for batch snapshots."
-  (multiple-value-bind (converted assumptions)
+   loop as the fallback (design doc section 5.2). If a profitability
+   heuristic is available, it is ANDed with the validity check. *sealed-world*
+   skips the guard for batch snapshots."
+  (multiple-value-bind (converted assumptions profit-check)
       (fol.compiler.escape-analysis:maybe-transient-loop node)
     (cond
       ((eq converted node) (emit-loop-1 node))
       (fol.compiler.world:*sealed-world* (emit-loop-1 converted))
-      (t `(cl:if (cl:car (cl:load-time-value
-                          (fol.compiler.world:register-region ',assumptions)
-                          cl:t))
+      (t (let ((validity-check `(cl:car (cl:load-time-value
+                                         (fol.compiler.world:register-region ',assumptions)
+                                         cl:t))))
+           `(cl:if ,(if profit-check
+                        `(cl:and ,validity-check ,profit-check)
+                        validity-check)
                  ,(emit-loop-1 converted)
                  ,(emit-loop-1 node))))))
 
@@ -3214,7 +3218,9 @@
          (binding-names (mapcar #'car bindings))
          (*current-loop-context* (list block-name tag binding-names))
          ;; Track loop bindings as lexical vars
-         (*lexical-vars* (append binding-names (list result-sym) *lexical-vars*)))
+         (*lexical-vars* (append binding-names
+                                 (list result-sym)
+                                 *lexical-vars*)))
     `(cl:block ,block-name
        (cl:let ,(loop for (name . init-node) in bindings
                       collect `(,name ,(emit-node init-node)))

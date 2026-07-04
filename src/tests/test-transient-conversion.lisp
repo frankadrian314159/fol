@@ -550,6 +550,32 @@
                 always (eql (fol.compiler.collection-functions:get plain i)
                             (fol.compiler.collection-functions:get opt i)))))))
 
+(test profitability-heuristic-emitted-correctly
+  "Verifies the runtime size check is emitted for qualifying loops."
+  (let* ((dict-form '(loop (acc (dict) i 0) (if (< i 10) (recur (assoc acc i i) (inc i)) acc)))
+         (vec-form '(loop (acc (vector) i 0) (if (< i 10) (recur (conj acc i) (inc i)) acc)))
+         (fol.compiler.escape-analysis:*transient-loops* t)
+         (dict-code-str (write-to-string
+                         (fol.compiler:compilation-result-code
+                          (fol.compiler:compile-form dict-form))))
+         (vec-code-str (write-to-string
+                        (fol.compiler:compilation-result-code
+                         (fol.compiler:compile-form vec-form)))))
+    ;; Check for dict threshold
+    (is (search "(CL:AND (CL:CAR (CL:LOAD-TIME-VALUE (FOL.COMPILER.WORLD:REGISTER-REGION '(\"ASSOC\")) T)) (< 16 (FOL.COMPILER.COLLECTION-FUNCTIONS:COUNT ACC)))"
+                dict-code-str
+                :test #'string-equal))
+    ;; Check for vector threshold
+    (is (search "(CL:AND (CL:CAR (CL:LOAD-TIME-VALUE (FOL.COMPILER.WORLD:REGISTER-REGION '(\"CONJ\")) T)) (< 12 (FOL.COMPILER.COLLECTION-FUNCTIONS:COUNT ACC)))"
+                vec-code-str
+                :test #'string-equal))
+    ;; Check that a non-qualifying loop has no check
+    (let* ((fol.compiler.escape-analysis:*transient-loops* t)
+           (set-form '(loop (acc (set) i 0) (if (< i 10) (recur (conj acc (count acc)) (inc i)) acc)))
+           (set-code-str (write-to-string (fol.compiler:compilation-result-code (fol.compiler:compile-form set-form)))))
+      (is (null (search "FOL.COMPILER.COLLECTION-FUNCTIONS:COUNT" set-code-str))))))
+
+
 ;;; ============================================================================
 ;;; Run the suite
 ;;; ============================================================================

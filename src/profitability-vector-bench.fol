@@ -1,0 +1,15 @@
+;;; Profitability Benchmark - Vectors
+;;;
+;;; Performs a fixed number of updates on a vector of a given size.
+;;; The runner script will vary the initial size to find the crossover point
+;;; where transient conversion becomes profitable.
+
+(defn main [initial-size]
+  (let [ops 100
+        initial-vec (reduce (fn [acc i] (conj acc i))
+                            []
+                            (range 0 initial-size))]
+    (loop [acc initial-vec i 0]
+      (if (< i ops)
+        (recur (conj acc i) (inc i))
+        acc))))
