@@ -1996,3 +1996,50 @@
      (fixnum-array :dimensions (4) :initial-element 0)
      (fixnum-array 1 2 3)  ; 1D array with 3 elements"
   (apply (function make) 'fol.compiler.collections:<fix64-array> args))
+
+;;;; ─────────────────────────────────────────────────────────────────────────
+;;;; Reads on edit-tagged transients (step 3.5)
+;;;; ─────────────────────────────────────────────────────────────────────────
+;;;; These make GET/NTH/COUNT/SIZE/EMPTY? work mid-session on transient
+;;;; collections, matching the escape-analysis read whitelist
+;;;; (+transient-readable-ops+). Keep the two in sync.
+
+(defmethod get ((coll fol.compiler.collections:<transient-dict>) key &optional default)
+  (fol.compiler.collection-primitives:hamt-get-transient
+   (fol.compiler.collections:transient-dict-th coll) key default))
+
+(defmethod get ((coll fol.compiler.collections:<transient-vector>) index &optional default)
+  (fol.compiler.collection-primitives:%transient-vec-t-ref
+   (fol.compiler.collections:transient-vector-tv coll) index default))
+
+(defmethod nth ((coll fol.compiler.collections:<transient-vector>) index &optional not-found)
+  (fol.compiler.collection-primitives:%transient-vec-t-ref
+   (fol.compiler.collections:transient-vector-tv coll) index not-found))
+
+(defmethod count ((coll fol.compiler.collections:<transient-dict>))
+  (fol.compiler.collection-primitives:transient-hamt-count
+   (fol.compiler.collections:transient-dict-th coll)))
+
+(defmethod count ((coll fol.compiler.collections:<transient-vector>))
+  (fol.compiler.collection-primitives:trans-%vec-t-count
+   (fol.compiler.collections:transient-vector-tv coll)))
+
+(defmethod fol.compiler.collection-primitives:size
+    ((coll fol.compiler.collections:<transient-dict>))
+  (fol.compiler.collection-primitives:transient-hamt-count
+   (fol.compiler.collections:transient-dict-th coll)))
+
+(defmethod fol.compiler.collection-primitives:size
+    ((coll fol.compiler.collections:<transient-vector>))
+  (fol.compiler.collection-primitives:trans-%vec-t-count
+   (fol.compiler.collections:transient-vector-tv coll)))
+
+(defmethod fol.compiler.collection-primitives:empty?
+    ((coll fol.compiler.collections:<transient-dict>))
+  (zerop (fol.compiler.collection-primitives:transient-hamt-count
+          (fol.compiler.collections:transient-dict-th coll))))
+
+(defmethod fol.compiler.collection-primitives:empty?
+    ((coll fol.compiler.collections:<transient-vector>))
+  (zerop (fol.compiler.collection-primitives:trans-%vec-t-count
+          (fol.compiler.collections:transient-vector-tv coll))))

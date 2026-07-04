@@ -1007,6 +1007,63 @@
     (setf (transient-hamt-token th) new-thread)
     th))
 
+;;; ----------------------------------------------------------------------------
+;;; Transient-aware reads (step 3.5)
+;;; ----------------------------------------------------------------------------
+;;; FIND-NODE only understands persistent HAMT-NODEs; after a hamt-assoc! the
+;;; root subtree contains HAMT-TRANSIENT-NODEs, so reads on an in-progress
+;;; transient need a traversal that handles both node kinds.
+
+(defun find-node-transient (node shift hash key not-found)
+  "FIND-NODE that also traverses in-progress transient nodes."
+  (declare (type fixnum shift hash))
+  (cond
+    ((null node) (values not-found nil))
+    ((hamt-leaf-p node)
+     (if (equal (hamt-leaf-key node) key)
+         (values (hamt-leaf-value node) t)
+         (values not-found nil)))
+    ((hamt-collision-p node)
+     (let ((leaf (find key (hamt-collision-leaves node)
+                       :key #'hamt-leaf-key :test #'equal)))
+       (if leaf
+           (values (hamt-leaf-value leaf) t)
+           (values not-found nil))))
+    (t
+     (multiple-value-bind (bitmap children)
+         (if (hamt-transient-node-p node)
+             (values (hamt-transient-node-bitmap node)
+                     (hamt-transient-node-children node))
+             (values (hamt-node-bitmap node)
+                     (hamt-node-children node)))
+       (let* ((chunk (logand (ash hash (- shift)) +bit-mask+))
+              (bit (ash 1 chunk)))
+         (if (zerop (logand bitmap bit))
+             (values not-found nil)
+             (find-node-transient (svref children (hamt-index bitmap bit))
+                                  (+ shift +bit-shift+)
+                                  hash key not-found)))))))
+
+(defun hamt-get-transient (th key &optional not-found)
+  "Look KEY up in an in-progress transient HAMT.
+   Returns (VALUES value found-p)."
+  (find-node-transient (transient-hamt-root th) 0 (sxhash key) key not-found))
+
+(defun %transient-vec-t-ref (tv index &optional not-found)
+  "Indexed read on an in-progress transient %vec-t.
+   Tree nodes are plain simple-vectors (the transient owns only its tail),
+   so the persistent descent logic applies directly."
+  (let ((cnt (trans-%vec-t-count tv)))
+    (if (or (< index 0) (>= index cnt))
+        not-found
+        (let ((tail-off (if (< cnt 32) 0 (logand (- cnt 1) -32))))
+          (if (>= index tail-off)
+              (svref (trans-%vec-t-tail tv) (logand index 31))
+              (let ((node (trans-%vec-t-root tv)))
+                (loop for level from (trans-%vec-t-shift tv) downto +bit-shift+ by +bit-shift+
+                      do (setf node (svref node (logand (ash index (- level)) +bit-mask+))))
+                (svref node (logand index +bit-mask+))))))))
+
 ;;; --------------------------------- <dict-mixin> -------------------------------------
 (defclass <dict-mixin> () ((dict-storage :initarg :dict-storage :initform (%make-hamt) :accessor dict-storage)))
 

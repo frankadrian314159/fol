@@ -75,20 +75,60 @@
   (cons :transient-set table))
 
 ;;; ===========================================================================
-;;; Vector Transients
+;;; Edit-tagged transient classes (step 3.5)
 ;;; ===========================================================================
+;;; O(1)/O(32) boundaries: TRANSIENT shares structure with the source
+;;; (copying only the vector tail), bang ops mutate only nodes owned by this
+;;; session (token-checked copy-on-write in collection-primitives), and
+;;; PERSISTENT! freezes in time proportional to the nodes actually edited.
+;;; Reads (get/nth/count/size/empty?) are supported mid-session -- see the
+;;; methods in collection-functions.lisp. Sets remain on the legacy wrapper
+;;; representation below.
 
-(defmethod transient ((v <vector>))
-  (let* ((seq (collection-seq v))
-         (arr (make-array (length seq) :initial-contents seq :adjustable t :fill-pointer t)))
-    (%make-transient-vector arr)))
+(defclass <transient-dict> (standard-object)
+    ((th :initarg :th :accessor transient-dict-th
+         :documentation "The underlying transient-hamt struct."))
+  (:documentation "An edit-tagged in-place transient dict."))
+
+(defclass <transient-vector> (standard-object)
+    ((tv :initarg :tv :accessor transient-vector-tv
+         :documentation "The underlying transient-%vec-t struct."))
+  (:documentation "An edit-tagged in-place transient vector."))
 
 (defmethod transient ((d <dict>))
-  (let ((tv (%make-transient-dict (make-hash-table :test 'equal))))
-    ;; Copy existing entries from dict to hash-table
-    (fol.compiler.collection-primitives:do-hamt (k v (dict-storage d))
-                                                (setf (gethash k (cdr tv)) v))
-    tv))
+  (make-instance '<transient-dict>
+    :th (fol.compiler.collection-primitives:api-transient-hamt (dict-storage d))))
+
+(defmethod transient ((v <vector>))
+  (make-instance '<transient-vector>
+    :tv (fol.compiler.collection-primitives:transient-%vec-t (storage v))))
+
+(defmethod persistent! ((td <transient-dict>))
+  (make-instance '<dict>
+    :dict-storage (fol.compiler.collection-primitives:hamt-persistent!
+                   (transient-dict-th td))))
+
+(defmethod persistent! ((tv <transient-vector>))
+  (make-instance '<vector>
+    :storage (fol.compiler.collection-primitives:transient-%vec-t-persistent!
+              (transient-vector-tv tv))))
+
+(defmethod assoc! ((td <transient-dict>) key val)
+  (fol.compiler.collection-primitives:hamt-assoc! (transient-dict-th td) key val)
+  td)
+
+(defmethod dissoc! ((td <transient-dict>) key)
+  (fol.compiler.collection-primitives:hamt-dissoc! (transient-dict-th td) key)
+  td)
+
+(defmethod conj! ((tv <transient-vector>) val)
+  (fol.compiler.collection-primitives:transient-%vec-t-conj!
+   (transient-vector-tv tv) val)
+  tv)
+
+;;; ===========================================================================
+;;; Legacy wrapper transients (sets only)
+;;; ===========================================================================
 
 (defmethod transient ((s <set>))
   (let ((ts (%make-transient-set (make-hash-table :test 'equal))))
@@ -145,7 +185,10 @@
     (:transient-dict
      (setf (gethash key (cdr td)) val))
     (:transient-vector
-     (setf (aref (cdr td) key) val))
+     ;; Parity with persistent vector assoc: index == count appends.
+     (if (= key (length (cdr td)))
+         (vector-push-extend val (cdr td))
+         (setf (aref (cdr td) key) val)))
     (t (error "assoc! not supported for transient ~A" (car td))))
   td)
 

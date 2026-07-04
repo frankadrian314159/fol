@@ -1494,8 +1494,57 @@
    - (:keyword dict) => (get dict :keyword)  ; keyword as accessor
    - (lexical-var ...) => runtime dispatch: funcall if function, get if collection
    - (symbol ...) => normal call with runtime collection fallback"
-  (let ((operator (fol.compiler.ast:call-node-operator node))
-        (args (fol.compiler.ast:call-node-args node)))
+  (multiple-value-bind (converted assumptions)
+      (fol.compiler.escape-analysis:maybe-transient-reduce node)
+    (cond
+      ((eq converted node) (emit-call-1 node))
+      (fol.compiler.world:*sealed-world* (emit-node converted))
+      (t `(cl:if (cl:car (cl:load-time-value
+                          (fol.compiler.world:register-region ',assumptions)
+                          cl:t))
+                 ,(emit-node converted)
+                 ,(emit-call-1 node))))))
+
+(defvar *dx-counter* 0)
+(defvar *dx-suppress* nil
+  "Bound while emitting the fallback branch of a dynamic-extent call, so the
+   transform does not re-fire on the same node.")
+
+(defun emit-dx-call (node)
+  "Emit a call whose position-0 closure argument is stack-allocated, world-
+   guarded against redefinition of the (non-retaining) callee:
+   (if <cell> (let ((dx-fn (fn ...))) (declare (dynamic-extent dx-fn)) (op dx-fn ...))
+              <original call>)"
+  (let* ((args (fol.compiler.ast:call-node-args node))
+         (op-name (symbol-name (fol.compiler.escape-analysis:operator-symbol node)))
+         (tmp (intern (format nil "DX-FN-~D" (incf *dx-counter*))))
+         ;; arg0 becomes a symbol ref, so dx-call-p cannot re-fire on this.
+         (subst-node (fol.compiler.ast:make-call-node
+                      :operator (fol.compiler.ast:call-node-operator node)
+                      :args (cons (fol.compiler.ast:make-symbol-ref-node
+                                   :name tmp :form tmp)
+                                  (rest args))
+                      :form (fol.compiler.ast:ast-node-form node)))
+         (fn-code (emit-node (first args)))
+         (opt `(cl:let ((,tmp ,fn-code))
+                 (cl:declare (cl:dynamic-extent ,tmp))
+                 ,(let ((*lexical-vars* (cons tmp *lexical-vars*)))
+                    (emit-call-1 subst-node)))))
+    (if fol.compiler.world:*sealed-world*
+        opt
+        `(cl:if (cl:car (cl:load-time-value
+                         (fol.compiler.world:register-region '(,op-name))
+                         cl:t))
+                ,opt
+                ,(let ((*dx-suppress* t)) (emit-call-1 node))))))
+
+(defun emit-call-1 (node)
+  "The original emit-call logic (see emit-call for the world-guard wrapper)."
+  (when (and (not *dx-suppress*)
+             (fol.compiler.escape-analysis:dx-call-p node))
+    (return-from emit-call-1 (emit-dx-call node)))
+  (let* ((operator (fol.compiler.ast:call-node-operator node))
+         (args (fol.compiler.ast:call-node-args node)))
     (cond
      ;; Pattern: (:keyword dict) - keyword used as accessor function
      ;; This is unambiguous since keywords are never function names
@@ -3133,6 +3182,24 @@
         "Counter for generating unique loop block/tag names.")
 
 (defun emit-loop (node)
+  "Emit a loop node. When fol.compiler.escape-analysis:*transient-loops* is
+   enabled and an accumulator qualifies, emits a world-guarded dual path:
+   the transient-converted loop behind a validity-cell check registered
+   against the conversion's summarized-name assumptions, with the original
+   loop as the fallback (design doc section 5.2). *sealed-world* skips the
+   guard for batch snapshots."
+  (multiple-value-bind (converted assumptions)
+      (fol.compiler.escape-analysis:maybe-transient-loop node)
+    (cond
+      ((eq converted node) (emit-loop-1 node))
+      (fol.compiler.world:*sealed-world* (emit-loop-1 converted))
+      (t `(cl:if (cl:car (cl:load-time-value
+                          (fol.compiler.world:register-region ',assumptions)
+                          cl:t))
+                 ,(emit-loop-1 converted)
+                 ,(emit-loop-1 node))))))
+
+(defun emit-loop-1 (node)
   "Emit a loop node using block/tagbody/go for optimized iteration.
    The block provides the exit mechanism (return-from).
    tagbody/go provides the loop mechanism.
@@ -3541,9 +3608,46 @@
   "Compile a single FOL form (already read) to a Common Lisp form.
    Returns a compilation-result."
   (handler-case
-      (let* ((ast (parse-form form))
-             (code (emit-node ast)))
-        (make-compilation-result :code code))
+      (let* ((ast (parse-form form)))
+        ;; Escape-analysis audit mode: observe the parsed AST, never fail the
+        ;; compile because of it. Names defined in this compilation unit are
+        ;; excluded from Tier-1 name resolution, mirroring emit-call's
+        ;; *file-function-defs* precedence.
+        (when fol.compiler.escape-analysis:*escape-audit*
+          (handler-case
+              (let ((fol.compiler.summaries:*name-exclusions*
+                      (loop for x in *file-function-defs*
+                            when (and x (symbolp x) (not (eq x t)))
+                              collect (symbol-name x)
+                            when (stringp x)
+                              collect x)))
+                (fol.compiler.escape-analysis:audit-node ast))
+            (error (e) (warn "escape-audit error on ~S: ~A"
+                             (if (consp form) (first form) form) e))))
+        (let ((code (emit-node ast))
+              ;; World machinery (step 4): a definition executing at runtime
+              ;; must invalidate optimized regions that assumed its name's
+              ;; Tier-1 meaning. The notification is part of the optimizer
+              ;; contract: it is emitted only in optimizer mode (like the
+              ;; guards themselves), so flag-off output is unchanged. Sealed
+              ;; batch snapshots emit no guards and skip it too.
+              (redef-name
+                (when (and fol.compiler.escape-analysis:*transient-loops*
+                           (not fol.compiler.world:*sealed-world*))
+                  (typecase ast
+                    (fol.compiler.ast:defn-node
+                     (fol.compiler.ast:defn-node-name ast))
+                    (fol.compiler.ast:defn-private-node
+                     (fol.compiler.ast:defn-private-node-name ast))
+                    (fol.compiler.ast:definline-node
+                     (fol.compiler.ast:definline-node-name ast))
+                    (fol.compiler.ast:defmethod-node
+                     (fol.compiler.ast:defmethod-node-name ast))))))
+          (make-compilation-result
+           :code (if (and redef-name (symbolp redef-name))
+                     `(cl:prog1 ,code
+                        (fol.compiler.world:note-redefinition ',redef-name))
+                     code))))
     (error (e)
       (make-compilation-result
        :errors (list (format nil "~A" e))))))

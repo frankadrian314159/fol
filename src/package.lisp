@@ -69,6 +69,102 @@
    ;; Universal comparator
    %universal-comparator))
 
+(defpackage fol.compiler.summaries
+  (:use cl)
+  (:export
+   ;; Summary struct and accessors
+   escape-summary
+   make-escape-summary
+   escape-summary-p
+   escape-summary-name
+   escape-summary-param-effects
+   escape-summary-rest-effect
+   escape-summary-returns-fresh-p
+   escape-summary-barrier-p
+   ;; Effect lattice
+   +effect-order+
+   effect<=
+   effect-join
+   ;; Summary operations
+   summary<=
+   summary-join
+   effect-for-arg
+   ;; Tier-1 stdlib table
+   *stdlib-summaries*
+   define-stdlib-summary
+   lookup-summary
+   fol-stdlib-symbol-p
+   *resolve-by-name*
+   *name-exclusions*
+   ;; Transient op mapping
+   transient-op-for
+   transient-safe-op-p
+   ;; Package locking (Tier-1 soundness)
+   *summary-locked-packages*
+   lock-summary-packages
+   unlock-summary-packages))
+
+(defpackage fol.compiler.world
+  (:use cl)
+  (:export
+   *sealed-world*
+   register-region
+   region-valid-p
+   note-redefinition
+   invalidate-all-regions
+   reset-world
+   world-stats
+   *regions-registered*
+   *regions-invalidated*
+   *redefinitions-noted*
+   *redefinitions-invalidating*))
+
+(defpackage fol.compiler.escape-analysis
+  (:use cl)
+  (:export
+   ;; Audit switch and entry points
+   *escape-audit*
+   audit-node
+   reset-audit
+   audit-report
+   audit-file
+   ;; Statistics (readable from tests and drivers)
+   *audit-stats*
+   audit-stats
+   audit-stats-functions
+   audit-stats-loops
+   audit-stats-loop-params
+   audit-stats-candidates
+   audit-stats-qualified
+   audit-stats-disqual-reasons
+   audit-stats-loop-details
+   audit-stats-chains
+   audit-stats-chain-lengths
+   audit-stats-nested-chains
+   audit-stats-calls
+   audit-stats-calls-tier1
+   audit-stats-calls-keyword
+   audit-stats-calls-tier0
+   audit-stats-tier0-names
+   audit-stats-barriers
+   ;; Analysis primitives (unit-testable)
+   classify-loop-param
+   param-verdict
+   chain-kind
+   node-children
+   operator-symbol
+   ;; Transient loop conversion (step 3)
+   *transient-loops*
+   maybe-transient-loop
+   maybe-transient-reduce
+   transient-eligible-init-p
+   *loops-converted*
+   *params-converted*
+   *reduces-converted*
+   ;; Dynamic-extent closure client (step 5)
+   *stack-closures*
+   dx-call-p))
+
 (defpackage fol.compiler.ast
   (:use cl)
   (:export
@@ -304,6 +400,9 @@
    ;; HAMT primitives
    %make-hamt %make-hamt-node %make-hamt-leaf %make-hamt-collision
    api-transient-hamt hamt-assoc! hamt-dissoc! hamt-persistent! hamt-transfer-ownership!
+   hamt-get-transient transient-hamt-count transient-hamt-p transient-hamt-token
+   transient-%vec-t transient-%vec-t-conj! transient-%vec-t-persistent!
+   transient-%vec-t-p trans-%vec-t-count trans-%vec-t-token %transient-vec-t-ref
    ;; Empty instances
    %empty-vec-f64 %empty-vec-f32 %empty-vec-t %empty-vec-fix64
    ;; Internal struct accessors
@@ -469,6 +568,7 @@
    collection-metadata
    ;; Transient protocol
    transient persistent! conj! pop! assoc! dissoc! disj!
+   <transient-dict> <transient-vector> transient-dict-th transient-vector-tv
    transfer-ownership!))
 
 (defpackage fol.compiler.string-functions
