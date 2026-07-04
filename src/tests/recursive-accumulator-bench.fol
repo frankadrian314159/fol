@@ -1,0 +1,16 @@
+;;; Recursive Accumulator Benchmark
+;;;
+;;; Tests the performance of transient conversion on a tail-recursive
+;;; function that builds a large vector. The fixed-point summary inference
+;;; must correctly identify the linear use of the accumulator.
+
+(defn build-vec-recursively [n]
+  (defn helper [i acc]
+    (if (>= i n)
+      acc
+      (helper (inc i) (conj acc i))))
+  (helper 0 []))
+
+(defn main []
+  (let [n 100000]
+    (build-vec-recursively n)))

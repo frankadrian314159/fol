@@ -3604,11 +3604,29 @@
 ;;; Main Entry Points
 ;;; ---------------------------------------------------------------------------
 
+(defun %maybe-infer-and-cache-summary (ast)
+  "If AST is a function definition, infer its summary and cache it.
+   This is the entry point for Tier-2 interprocedural analysis."
+  (when (and fol.compiler.escape-analysis:*transient-loops*
+             (typep ast '(or fol.compiler.ast:defn-node
+                            fol.compiler.ast:defn-private-node
+                            fol.compiler.ast:definline-node
+                            fol.compiler.ast:defmethod-node)))
+    (let* ((name (fol.compiler.ast:defn-node-name ast))
+           (fn-ast (fol.compiler.ast:make-fn-node :clauses (fol.compiler.ast:defn-node-clauses ast) :name name))
+           (summary (fol.compiler.escape-analysis:infer-summary fn-ast)))
+      (when summary
+        (setf (gethash name fol.compiler.summaries:*inferred-summaries*) summary)))))
+
 (defun compile-form (form)
   "Compile a single FOL form (already read) to a Common Lisp form.
    Returns a compilation-result."
   (handler-case
+      ;; Tier-2: We need to infer summaries *before* emitting code that might
+      ;; depend on them. We parse, then check if it's a function definition.
+      ;; If so, we infer and cache its summary.
       (let* ((ast (parse-form form)))
+        (%maybe-infer-and-cache-summary ast)
         ;; Escape-analysis audit mode: observe the parsed AST, never fail the
         ;; compile because of it. Names defined in this compilation unit are
         ;; excluded from Tier-1 name resolution, mirroring emit-call's

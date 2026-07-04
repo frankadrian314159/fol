@@ -71,6 +71,8 @@
   (bt:with-lock-held (*world-lock*)
     (incf *redefinitions-noted*)
     (let ((cells (gethash (string-upcase (string name)) *region-deps*)))
+      ;; Tier-2: Clear any inferred summary for this function.
+      (fol.compiler.summaries:clear-inferred-summary name)
       (when cells
         (incf *redefinitions-invalidating*)
         (dolist (cell cells)
@@ -91,6 +93,7 @@
                    (setf (car cell) nil)
                    (incf *regions-invalidated*))))
              *region-deps*)
+    (clrhash fol.compiler.summaries:*inferred-summaries*)
     (clrhash *region-deps*))
   (values))
 
@@ -98,6 +101,7 @@
   "Testing helper: clear the registry and counters."
   (bt:with-lock-held (*world-lock*)
     (clrhash *region-deps*)
+    (clrhash fol.compiler.summaries:*inferred-summaries*)
     (setf *regions-registered* 0
           *regions-invalidated* 0
           *redefinitions-noted* 0

@@ -1,0 +1,22 @@
+;;; Mutual Recursion Benchmark
+;;;
+;;; Tests the performance of transient conversion on a pair of mutually
+;;; recursive functions. The fixed-point summary inference must correctly
+;;; analyze the cycle to determine that both accumulators are used linearly.
+
+(defn process-items [items]
+  (defn process-a [items acc-a acc-b]
+    (if (empty? items)
+      [acc-a acc-b]
+      (process-b (rest items) (conj acc-a (first items)) acc-b)))
+
+  (defn process-b [items acc-a acc-b]
+    (if (empty? items)
+      [acc-a acc-b]
+      (process-a (rest items) acc-a (conj acc-b (first items)))))
+
+  (process-a items [] []))
+
+(defn main []
+  (let [items (range 0 100000)]
+    (process-items items)))

@@ -1,0 +1,74 @@
+This is BibTeX, Version 0.99e
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: pldi2027.aux
+Reallocating 'name_of_file' (item size: 1) to 21 items.
+The style file: ACM-Reference-Format.bst
+Reallocating 'name_of_file' (item size: 1) to 9 items.
+Reallocating 'singl_function' (item size: 4) to 100 items.
+Reallocating 'singl_function' (item size: 4) to 100 items.
+Reallocating 'wiz_functions' (item size: 4) to 6000 items.
+Database file #1: pldi2027.bib
+Reallocating 'singl_function' (item size: 4) to 100 items.
+Reallocating 'wiz_functions' (item size: 4) to 9000 items.
+Reallocating 'glb_str_end' (item size: 4) to 20 items.
+Reallocating 'glb_str_ptr' (item size: 4) to 20 items.
+Reallocating 'global_strs' (item size: 1) to 4000000 items.
+Reallocating 'singl_function' (item size: 4) to 100 items.
+Warning--can't use both volume and number fields in belyakova2020jit
+Warning--empty publisher in belyakova2020jit
+Warning--empty address in belyakova2020jit
+Warning--empty publisher in choi1999escape
+Warning--empty address in choi1999escape
+Warning--empty publisher in lorenzen2023functional
+Warning--empty address in lorenzen2023functional
+Warning--empty publisher in reinking2021perceus
+Warning--empty address in reinking2021perceus
+Warning--empty publisher in stadler2014partial
+Warning--empty address in stadler2014partial
+Warning--empty publisher in steindorfer2015optimizing
+Warning--empty address in steindorfer2015optimizing
+Warning--empty publisher in wadler1990linear
+Warning--empty address in wadler1990linear
+Warning--page numbers missing in both pages and numpages fields in wadler1990linear
+You've used 11 entries,
+            6273 wiz_defined-function locations,
+            1582 strings with 20212 characters,
+and the built_in function-call counts, 11849 in all, are:
+= -- 1382
+> -- 301
+< -- 1
++ -- 99
+- -- 110
+* -- 739
+:= -- 1114
+add.period$ -- 55
+call.type$ -- 11
+change.case$ -- 69
+chr.to.int$ -- 10
+cite$ -- 27
+duplicate$ -- 1167
+empty$ -- 818
+format.name$ -- 134
+if$ -- 2863
+int.to.chr$ -- 3
+int.to.str$ -- 1
+missing$ -- 43
+newline$ -- 120
+num.names$ -- 76
+pop$ -- 497
+preamble$ -- 1
+purify$ -- 155
+quote$ -- 0
+skip$ -- 428
+stack$ -- 0
+substring$ -- 885
+swap$ -- 103
+text.length$ -- 1
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 296
+warning$ -- 16
+while$ -- 84
+width$ -- 0
+write$ -- 240
+(There were 16 warnings)

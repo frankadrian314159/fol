@@ -129,6 +129,10 @@
 (defvar *stdlib-summaries* (make-hash-table :test 'equal)
   "Symbol-name -> ESCAPE-SUMMARY for the trusted standard library (Tier 1).")
 
+(defvar *inferred-summaries* (make-hash-table :test 'eq)
+  "Symbol -> ESCAPE-SUMMARY for user functions (Tier 2), inferred by the
+   compiler. Cleared on redefinition.")
+
 (defparameter *fol-function-packages*
   '("FOL.COMPILER.COLLECTION-FUNCTIONS"
     "FOL.COMPILER.SEQ-FUNCTIONS"
@@ -178,13 +182,20 @@
 
 (defun lookup-summary (sym)
   "Return the Tier-1 summary for SYM, or NIL (= Tier 0, fully conservative).
-   Matches by home package first; falls back to name matching per
-   *RESOLVE-BY-NAME* (see its docstring for the soundness argument)."
+   Checks for Tier-1 (stdlib), then Tier-2 (inferred), then falls back to
+   name matching for Tier-1 per *RESOLVE-BY-NAME*."
   (when (and (symbolp sym) (not (keywordp sym)))
-    (cond ((fol-stdlib-symbol-p sym)
-           (gethash (symbol-name sym) *stdlib-summaries*))
-          ((and *resolve-by-name* (not (%name-excluded-p sym)))
-           (gethash (symbol-name sym) *stdlib-summaries*)))))
+    (or (gethash sym *inferred-summaries*)
+        (cond ((fol-stdlib-symbol-p sym)
+               (gethash (symbol-name sym) *stdlib-summaries*))
+              ((and *resolve-by-name* (not (%name-excluded-p sym)))
+               (gethash (symbol-name sym) *stdlib-summaries*))))))
+
+(defun clear-inferred-summary (sym)
+  "Remove the inferred summary for SYM, if any. Called on redefinition."
+  (when (symbolp sym)
+    (remhash sym *inferred-summaries*))
+  (values))
 
 (defun define-stdlib-summary (name effects &key rest returns-fresh barrier)
   "Register a Tier-1 summary under NAME (case-insensitive)."

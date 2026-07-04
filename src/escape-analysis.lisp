@@ -1059,3 +1059,144 @@
                                          qnames pos-names)
                 :form (fol.compiler.ast:ast-node-form node))
                assumptions))))))
+
+;;; ============================================================================
+;;; Tier-2 Summary Inference (step 6)
+;;; ============================================================================
+
+(defun %infer-summary-single-pass (fn-node)
+  "The core single-pass analysis for inferring a function's summary.
+   This is called repeatedly by the fixed-point iterator."
+  (if (or (not (fol.compiler.ast:fn-node-p fn-node))
+          (/= 1 (length (fol.compiler.ast:fn-node-clauses fn-node))))
+      ;; For now, only handle single-clause functions. Multi-clause dispatch
+      ;; would require joining summaries from each clause.
+      (return-from infer-summary nil))
+
+  (let* ((clause (first (fol.compiler.ast:fn-node-clauses fn-node)))
+         (params (%param-names (car clause)))
+         (body (cdr clause))
+         (param-effects (make-array (length params) :initial-element :none))
+         (returns-fresh-p nil)
+         (barrier-p nil))
+
+    (labels ((param-index (name)
+               (position name params :test #'eq))
+             (update-effect (index effect)
+               (setf (svref param-effects index)
+                     (fol.compiler.summaries:effect-join
+                      (svref param-effects index) effect)))
+             (walk (node tailp)
+               (cond
+                 ((null node) nil)
+                 ;; A parameter returned directly is :shared-with-result
+                 ((fol.compiler.ast:symbol-ref-node-p node)
+                  (let ((idx (param-index (fol.compiler.ast:symbol-ref-node-name node))))
+                    (when (and idx tailp)
+                      (update-effect idx :shared-with-result))))
+
+                 ((fol.compiler.ast:call-node-p node)
+                  (let* ((op (operator-symbol node))
+                         (summary (and op (fol.compiler.summaries:lookup-summary op))))
+                    (when (and op (member (symbol-name op) +barrier-names+ :test #'string=))
+                      (setf barrier-p t))
+
+                    (when (and tailp summary (fol.compiler.summaries:escape-summary-returns-fresh-p summary))
+                      (setf returns-fresh-p t))
+
+                    (walk (fol.compiler.ast:call-node-operator node) nil)
+                    (loop for arg in (fol.compiler.ast:call-node-args node)
+                          for i from 0
+                          do (if (fol.compiler.ast:symbol-ref-node-p arg)
+                                 (let ((idx (param-index (fol.compiler.ast:symbol-ref-node-name arg))))
+                                   (when idx
+                                     (update-effect idx (if summary
+                                                            (fol.compiler.summaries:effect-for-arg summary i)
+                                                            :retained))))
+                                 (walk arg nil)))))
+
+                 ((fol.compiler.ast:if-node-p node)
+                  (walk (fol.compiler.ast:if-node-test node) nil)
+                  (walk (fol.compiler.ast:if-node-then node) tailp)
+                  (dolist (form (fol.compiler.ast:if-node-else node))
+                    (walk form tailp)))
+
+                 ((fol.compiler.ast:do-node-p node)
+                  (loop for rest on (fol.compiler.ast:do-node-body node)
+                        do (walk (car rest) (and tailp (null (cdr rest))))))
+
+                 ((fol.compiler.ast:bind-node-p node)
+                  (dolist (b (fol.compiler.ast:bind-node-bindings node))
+                    (walk (cdr b) nil))
+                  (loop for rest on (fol.compiler.ast:bind-node-body node)
+                        do (walk (car rest) (and tailp (null (cdr rest))))))
+
+                 ;; For closures, any captured parameter is marked as :retained.
+                 ;; A more precise analysis would track the closure's lifetime.
+                 ((fol.compiler.ast:fn-node-p node)
+                  (dolist (p params)
+                    (when (%tree-refs-name-p node p)
+                      (let ((idx (param-index p)))
+                        (when idx (update-effect idx :retained))))))
+
+                 ;; Default traversal
+                 (t (dolist (child (node-children node))
+                      (walk child nil))))))
+
+      (loop for form in body
+            for lastp = (eq form (car (last body)))
+            do (walk form (and lastp t))))
+
+    ;; If any parameter has a :retained effect, the function cannot guarantee
+    ;; freshness of its return value if it's derived from that parameter.
+    (loop for effect across param-effects
+          for i from 0
+          do (when (eq effect :retained)
+               (setf returns-fresh-p nil)))
+
+    (fol.compiler.summaries:make-escape-summary
+     :name (or (fol.compiler.ast:fn-node-name fn-node) "anonymous")
+     :param-effects param-effects
+     :rest-effect nil ; Non-recursive version doesn't handle &rest
+     :returns-fresh-p returns-fresh-p
+     :barrier-p barrier-p)))
+
+(defun infer-summary (fn-node)
+  "Infer an escape-summary for a literal FN-NODE. This is the core of the
+   Tier-2 interprocedural analysis.
+
+   For recursive functions, this function iterates to a fixed point to find
+   the most precise possible summary."
+  (let ((name (fol.compiler.ast:fn-node-name fn-node)))
+    ;; If the function is anonymous or contains loop/recur, we can't handle
+    ;; recursion, so just do a single pass.
+    (when (or (not name) (%contains-recur-p fn-node))
+      (return-from infer-summary (%infer-summary-single-pass fn-node)))
+
+    (let* ((params (%param-names (car (first (fol.compiler.ast:fn-node-clauses fn-node)))))
+           (param-count (length params))
+           ;; Start with the most optimistic summary: nothing escapes, returns fresh.
+           (current-summary
+             (fol.compiler.summaries:make-escape-summary
+              :name name
+              :param-effects (make-array param-count :initial-element :none)
+              :returns-fresh-p t))
+           (iteration-count 0)
+           (max-iterations 5)) ; Safety break
+
+      (loop
+        (when (> (incf iteration-count) max-iterations)
+          (warn "infer-summary for ~S did not converge after ~D iterations." name max-iterations)
+          ;; Return a conservative summary on failure to converge.
+          (return (fol.compiler.summaries:make-escape-summary
+                   :name name
+                   :param-effects (make-array param-count :initial-element :retained))))
+
+        ;; Temporarily place the current assumption in the cache so recursive calls find it.
+        (setf (gethash name fol.compiler.summaries:*inferred-summaries*) current-summary)
+
+        (let* ((next-summary (%infer-summary-single-pass fn-node))
+               (joined-summary (fol.compiler.summaries:summary-join current-summary next-summary)))
+          (when (fol.compiler.summaries:summary<= joined-summary current-summary)
+            (return joined-summary)) ; Fixed point reached.
+          (setf current-summary joined-summary))))))
