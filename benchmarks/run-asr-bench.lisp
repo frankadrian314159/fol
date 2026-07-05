@@ -56,6 +56,46 @@
   "The compiled FOL run-function object, by (hyphenated) name string."
   (fdefinition (find-symbol (string-upcase name) :fol.core)))
 
+;;; --- Native mutable-defstruct baselines (the performance ceiling) ---------
+;;; The idiomatic imperative equivalent of each benchmark: a mutable defstruct
+;;; updated in place (setf slot) each iteration. Single-float slots match FOL's
+;;; float type so results are directly comparable. This is the "native mutable
+;;; struct" the paper's motivation contrasts against; it allocates one struct
+;;; total and shows what the loop costs with no persistence and no allocation.
+(defstruct (npt  (:conc-name npt-))
+  (x  0.0 :type single-float) (y  0.0 :type single-float))
+(defstruct (nrot (:conc-name nrot-))
+  (re 0.0 :type single-float) (im 0.0 :type single-float))
+(defstruct (nst3 (:conc-name nst3-))
+  (x  0.0 :type single-float) (y  0.0 :type single-float) (vy 0.0 :type single-float))
+
+(defun native-particle (n)
+  (declare (fixnum n) (optimize (speed 3) (safety 0)))
+  (let ((p (make-npt :x 0.0 :y 0.0)))
+    (dotimes (i n)
+      (setf (npt-x p) (+ (npt-x p) 0.1)
+            (npt-y p) (+ (npt-y p) 0.2)))
+    (+ (npt-x p) (npt-y p))))
+
+(defun native-rotation (n)
+  (declare (fixnum n) (optimize (speed 3) (safety 0)))
+  (let ((z (make-nrot :re 1.0 :im 0.0)))
+    (dotimes (i n)
+      (let ((re (nrot-re z)) (im (nrot-im z)))
+        (setf (nrot-re z) (- (* re 0.9950041652780258) (* im 0.09983341664682815))
+              (nrot-im z) (+ (* re 0.09983341664682815) (* im 0.9950041652780258)))))
+    (+ (nrot-re z) (nrot-im z))))
+
+(defun native-projectile (n)
+  (declare (fixnum n) (optimize (speed 3) (safety 0)))
+  (let ((s (make-nst3 :x 0.0 :y 0.0 :vy 20.0)))
+    (dotimes (i n)
+      (let ((nvy (- (nst3-vy s) 0.098)))
+        (setf (nst3-x s)  (+ (nst3-x s) 1.0)
+              (nst3-y s)  (+ (nst3-y s) nvy)
+              (nst3-vy s) nvy)))
+    (+ (nst3-x s) (+ (nst3-y s) (nst3-vy s)))))
+
 ;;; --- Statistics ----------------------------------------------------------
 (defun mean (xs) (/ (reduce #'+ xs) (float (length xs))))
 (defun stddev (xs)
@@ -91,7 +131,7 @@
   (funcall thunk)
   (loop repeat n collect (measure-once thunk)))
 
-(defun bench (label file run-name)
+(defun bench (label file run-name native-fn)
   (let ((path (merge-pathnames file *bench-dir*)))
     (load-fol-file path nil)
     (let ((base (trials (let ((f (run-fn run-name)))
@@ -100,56 +140,62 @@
       (load-fol-file path t)
       (let ((asr (trials (let ((f (run-fn run-name)))
                            (lambda () (funcall f *iterations*)))
-                         *trials*)))
-        (report label base asr)
-        (list :label label :base base :asr asr)))))
+                         *trials*))
+            (nat (trials (lambda () (funcall native-fn *iterations*)) *trials*)))
+        (report label base asr nat)
+        (list :label label :base base :asr asr :native nat)))))
 
 ;;; --- Reporting -----------------------------------------------------------
-(defun report (label base asr)
-  (let* ((bt (col base :secs)) (at (col asr :secs))
-         (speedups (mapcar #'/ bt at))
+(defun report (label base asr nat)
+  (let* ((bt (col base :secs)) (at (col asr :secs)) (nt (col nat :secs))
+         (asr-sp (mapcar #'/ bt at)) (nat-sp (mapcar #'/ bt nt))
          (bbytes (mean (col base :bytes))) (abytes (mean (col asr :bytes)))
+         (nbytes (mean (col nat :bytes)))
          (bgc  (mean (col base :gc)))      (agc  (mean (col asr :gc)))
          (bgcs (mean (col base :gc-secs))) (agcs (mean (col asr :gc-secs)))
          (bres (getf (first base) :result)) (ares (getf (first asr) :result))
+         (nres (getf (first nat) :result))
          (ok   (and (every (lambda (r) (equalp r bres)) (col base :result))
                     (every (lambda (r) (equalp r ares)) (col asr :result))
                     (equalp bres ares))))
     (format t "~%~A~%" label)
-    (format t "  ~:D iterations, ~D trials, result = ~A~%" *iterations* *trials* bres)
-    (format t "  ~20A ~14A ~14A~%" "" "Baseline" "ASR on")
-    (format t "  Wall time (ms)       ~6,1F +/-~5,1F  ~6,1F +/-~5,1F~%"
+    (format t "  ~:D iterations, ~D trials~%" *iterations* *trials*)
+    (format t "  ~19A ~17A ~14A ~14A~%"
+            "" "Baseline (persist)" "ASR" "Native struct")
+    (format t "  Wall time (ms)      ~7,1F +/-~5,1F  ~5,1F +/-~4,1F  ~5,1F +/-~4,1F~%"
             (* 1000 (mean bt)) (* 1000 (stddev bt))
-            (* 1000 (mean at)) (* 1000 (stddev at)))
-    (format t "  Speedup (paired)     ~6,2Fx +/-~5,2F~%"
-            (mean speedups) (stddev speedups))
-    (format t "  Alloc (MB/call)      ~9,2F      ~9,2F~%"
-            (/ bbytes 1048576.0) (/ abytes 1048576.0))
-    (format t "  Alloc (B/iter)       ~9,1F      ~9,1F~%"
-            (/ bbytes *iterations*) (/ abytes *iterations*))
-    (format t "  GC collections/call  ~9,1F      ~9,1F~%" bgc agc)
-    (format t "  GC time (ms/call)    ~9,1F      ~9,1F~%" (* 1000 bgcs) (* 1000 agcs))
-    (format t "  Result identical?    ~A~%"
-            (if ok "YES (bit-identical, all trials)" "NO -- MISMATCH"))))
+            (* 1000 (mean at)) (* 1000 (stddev at))
+            (* 1000 (mean nt)) (* 1000 (stddev nt)))
+    (format t "  Speedup vs baseline ~10A       ~5,2Fx        ~5,2Fx~%"
+            "1.00x" (mean asr-sp) (mean nat-sp))
+    (format t "  Alloc (B/iter)      ~10,1F       ~7,1F       ~7,1F~%"
+            (/ bbytes *iterations*) (/ abytes *iterations*) (/ nbytes *iterations*))
+    (format t "  GC (count / ms per call): baseline ~,1F / ~,1F ; ASR ~,1F / ~,1F~%"
+            bgc (* 1000 bgcs) agc (* 1000 agcs))
+    (format t "  ASR reaches ~,0F%% of native speed (ASR ~,2Fx native wall time)~%"
+            (* 100 (/ (mean nt) (mean at))) (/ (mean at) (mean nt)))
+    (format t "  Result identical (ASR==baseline)? ~A ; native = ~A~%"
+            (if ok "YES" "NO -- MISMATCH") nres)))
 
 (defun summary (results)
   (format t "~%================================================================~%")
   (format t "  SUMMARY (mean over ~D trials)~%" *trials*)
   (format t "================================================================~%")
-  (format t "  ~26A ~10A ~10A ~9A ~10A~%"
-          "Benchmark" "Base ms" "ASR ms" "Speedup" "Base MB")
-  (format t "  ~26A ~10A ~10A ~9A ~10A~%"
-          (make-string 26 :initial-element #\-) (make-string 10 :initial-element #\-)
-          (make-string 10 :initial-element #\-) (make-string 9 :initial-element #\-)
-          (make-string 10 :initial-element #\-))
+  (format t "  ~26A ~9A ~8A ~9A ~8A ~9A ~8A~%"
+          "Benchmark" "Base ms" "ASR ms" "Nat ms" "ASR x" "Native x" "ASR/Nat")
+  (format t "  ~26A ~9A ~8A ~9A ~8A ~9A ~8A~%"
+          (make-string 26 :initial-element #\-) (make-string 9 :initial-element #\-)
+          (make-string 8 :initial-element #\-) (make-string 9 :initial-element #\-)
+          (make-string 8 :initial-element #\-) (make-string 9 :initial-element #\-)
+          (make-string 8 :initial-element #\-))
   (dolist (r results)
-    (let* ((base (getf r :base)) (asr (getf r :asr))
-           (bt (col base :secs)) (at (col asr :secs)))
-      (format t "  ~26A ~10,1F ~10,1F ~8,2Fx ~10,2F~%"
+    (let* ((base (getf r :base)) (asr (getf r :asr)) (nat (getf r :native))
+           (bt (col base :secs)) (at (col asr :secs)) (nt (col nat :secs)))
+      (format t "  ~26A ~9,1F ~8,1F ~9,1F ~7,2Fx ~8,2Fx ~7,2Fx~%"
               (getf r :label)
-              (* 1000 (mean bt)) (* 1000 (mean at))
-              (mean (mapcar #'/ bt at))
-              (/ (mean (col base :bytes)) 1048576.0)))))
+              (* 1000 (mean bt)) (* 1000 (mean at)) (* 1000 (mean nt))
+              (mean (mapcar #'/ bt at)) (mean (mapcar #'/ bt nt))
+              (/ (mean at) (mean nt))))))
 
 (defun env-header ()
   (format t "~%================================================================~%")
@@ -170,11 +216,11 @@
   (env-header)
   (let ((results
           (list (bench "C. Particle simulation  <particle>{x,y}"
-                       "asr-particle.fol"   "run-particle")
+                       "asr-particle.fol"   "run-particle"   #'native-particle)
                 (bench "A. 2D rotation orbit    <rot>{re,im}"
-                       "asr-rotation.fol"   "run-rotation")
+                       "asr-rotation.fol"   "run-rotation"   #'native-rotation)
                 (bench "B. Ballistic integrator <state3>{x,y,vy}"
-                       "asr-projectile.fol" "run-projectile"))))
+                       "asr-projectile.fol" "run-projectile" #'native-projectile))))
     (summary results)
     (format t "~%Done.~%")))
 

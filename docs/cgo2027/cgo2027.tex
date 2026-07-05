@@ -59,8 +59,9 @@
 \begin{abstract}
 Persistent-first languages give programmers immutable objects, but a record
 rebuilt every iteration of a loop turns into a stream of short-lived heap
-allocations: on our system a single field update on a persistent object is up
-to 89$\times$ slower than the same update on a native mutable struct. Classic
+allocations: on our system a loop that rebuilds a persistent record runs
+90--160$\times$ slower than the same loop over a native mutable struct,
+dominated by allocation and garbage collection. Classic
 \emph{scalar replacement} removes such allocations by holding an object's fields
 in registers, but the textbook formulation only fires when an object is created
 and dies inside one lexical scope---the least profitable case---and it assumes a
@@ -77,9 +78,12 @@ interprocedural reach without a whole-program analysis; and (2) a
 redefined at run time. A single classify-and-rewrite walk is aligned by
 construction---any use it does not recognize aborts the rewrite and yields the
 original loop---so the transformation is never unsound, only sometimes
-inapplicable. Across three allocation-bound benchmarks the technique delivers
-6.5$\times$--7.2$\times$ speedups and reduces per-iteration allocation to zero,
-with byte-identical results and no cost when disabled.
+inapplicable. Across three allocation-bound benchmarks the technique eliminates
+per-iteration allocation entirely for an end-to-end 5.7$\times$--6.6$\times$
+speedup, recovering the allocation component of that 90--160$\times$ gap, with
+byte-identical results and no cost when disabled; the residual distance to
+native, which we measure and attribute to generic scalar arithmetic rather than
+allocation, is orthogonal to this work.
 \end{abstract}
 
 \begin{CCSXML}
@@ -125,9 +129,9 @@ with the old one. This is a pleasant programming model, but it has a cost. When
 a small record is updated inside a loop, every iteration allocates a fresh
 object on the heap, and the previous version becomes garbage immediately. In
 FOL---a Lisp-1 dialect with CLOS-style persistent objects, transpiled to Common
-Lisp---a field update on a persistent object is up to \textbf{89$\times$} slower
-than the equivalent update on a native mutable \texttt{defstruct}, dominated by
-allocation and garbage-collection pressure.
+Lisp---a loop that rebuilds a persistent record runs \textbf{90--160$\times$}
+slower than the same loop written over a native mutable \texttt{defstruct}
+(\S\ref{sec:eval}), dominated by allocation and garbage-collection pressure.
 
 The canonical remedy in a static, closed-world setting is \emph{scalar
 replacement of aggregates} (SRA): if a compiler can prove an object does not
@@ -179,10 +183,12 @@ the result. Our contributions are:
   enabled on untyped code (\S\ref{sec:align}).
   \item \textbf{Evaluation.} On three allocation-bound benchmarks---spanning
   two- and three-field records and both additive and multiplicative update
-  shapes---the technique yields 6.5$\times$--7.2$\times$ speedups at 5M
-  iterations, reduces per-iteration allocation to zero, produces byte-identical
-  results to the unoptimized program, and adds no cost when disabled or
-  inapplicable (\S\ref{sec:eval}).
+  shapes---the technique reduces per-iteration allocation to zero for an
+  end-to-end 5.7$\times$--6.6$\times$ speedup at 5M iterations, produces
+  byte-identical results, and adds no cost when disabled or inapplicable. We
+  additionally measure a native mutable-\texttt{defstruct} implementation of
+  each benchmark as an upper bound, and report honestly how much of the gap ASR
+  closes and what the residual is (\S\ref{sec:eval}).
 \end{enumerate}
 
 \begin{figure}
@@ -432,44 +438,49 @@ byte-for-byte unchanged.
 \section{Evaluation}
 \label{sec:eval}
 
-We evaluate three questions. \textbf{RQ1:} does the transformation fire on the
+We evaluate four questions. \textbf{RQ1:} does the transformation fire on the
 target pattern and eliminate allocation? \textbf{RQ2:} what speedup does it
 deliver, and is the result identical to the unoptimized program? \textbf{RQ3:}
-what does it cost when disabled or inapplicable? All measurements were taken on
-an AMD Ryzen 5 7430U (used single-threaded) with 32\,GB of RAM, running SBCL
-2.6.0---generational GC, 1\,GB dynamic space, 51\,MB nursery---on Windows 11.
-For each benchmark and configuration we run one warm-up call followed by five
-timed calls, forcing a full collection before each, and report the mean $\pm$
-sample standard deviation. Wall time uses the real-time clock; per-call
-allocation, garbage-collection counts, and time spent in GC are read from the
-SBCL runtime (the bytes-consed counter, an after-GC hook, and
-\texttt{*gc-run-time*}); speedup is computed per paired trial and then averaged.
-The three benchmarks all instantiate the loop-carried record accumulator but
-differ in shape: a \emph{particle} simulation (two independent additive field
-updates, the pattern of Figure~\ref{fig:overview}), a 2D \emph{rotation} orbit
-(two fields updated by a coupled, multiplicative map), and a three-field
-\emph{ballistic} integrator (three fields, where the position update reads the
-freshly computed velocity).
+what does it cost when disabled or inapplicable? \textbf{RQ4:} how close does the
+optimized code come to a native mutable-struct implementation, and what accounts
+for the difference? All measurements were taken on an AMD Ryzen 5 7430U (used
+single-threaded) with 32\,GB of RAM, running SBCL 2.6.0---generational GC,
+1\,GB dynamic space, 51\,MB nursery---on Windows 11. For each benchmark and
+configuration we run one warm-up call followed by five timed calls, forcing a
+full collection before each, and report the mean $\pm$ sample standard
+deviation. Wall time uses the real-time clock; per-call allocation,
+garbage-collection counts, and time spent in GC are read from the SBCL runtime
+(the bytes-consed counter, an after-GC hook, and \texttt{*gc-run-time*});
+speedup is computed per paired trial and then averaged. As an upper bound we
+also implement each benchmark natively---an idiomatic mutable \texttt{defstruct}
+updated in place, with declared \texttt{single-float} slots matching FOL's float
+type, compiled at \texttt{(speed 3) (safety 0)}. Because a speedup over the
+baseline depends on how often the collector runs, it carries run-to-run
+variation of roughly $\pm0.5\times$; the allocation figures (deterministic) and
+the native ceiling (nearly noise-free) are the more robust numbers. The three
+benchmarks all instantiate the loop-carried record accumulator but differ in
+shape: a \emph{particle} simulation (two independent additive field updates, the
+pattern of Figure~\ref{fig:overview}), a 2D \emph{rotation} orbit (two fields
+updated by a coupled, multiplicative map), and a three-field \emph{ballistic}
+integrator (three fields, where the position update reads the freshly computed
+velocity).
 
 \textbf{RQ1: Firing and allocation.} The pass fires on all three benchmarks:
 each emitted fast path (Figure~\ref{fig:emitted}) splits the accumulator into
 one scalar loop variable per field, inlines its update helper, and contains
 \emph{no} constructor call on the back-edge. The effect is visible directly in
 the runtime counters: each baseline conses 1.0--1.2\,GB per call and triggers
-roughly 20 collections costing 34--47\,ms, whereas the scalar-replaced version
+roughly 20 collections costing 22--31\,ms, whereas the scalar-replaced version
 conses \emph{nothing} and triggers no workload collection at all. Per-iteration
-allocation drops from one record to zero (the \texttt{Alloc/iter} column of
-Table~\ref{tab:speedup}); the only allocation that survives is the single re-box
-at loop exit, executed at most once per activation.
+allocation drops from one record (224\,B for the two-field records, 256\,B for
+the three-field one) to zero; the only allocation that survives is the single
+re-box at loop exit, executed at most once per activation. The native version,
+mutating one struct in place, likewise conses nothing per iteration.
 
 \textbf{RQ2: Speedup and correctness.} Table~\ref{tab:speedup} reports the three
 benchmarks at five million iterations. Eliminating allocation removes the
-garbage-collection pressure that dominates each baseline, yielding speedups of
-6.5$\times$--7.2$\times$; the three-field integrator benefits most, as it conses
-the largest record and also shows the tightest variance. Run-to-run variability
-is modest---sample standard deviations are within 8\% of the mean and are
-dominated by baseline GC jitter---and, being wall-clock on a desktop OS, it is
-reported rather than smoothed away. Crucially, every optimized program returns
+garbage-collection pressure that dominates each baseline, yielding end-to-end
+speedups of 5.7$\times$--6.6$\times$. Crucially, every optimized program returns
 results bit-identical to its unoptimized counterpart across all five trials; a
 dedicated test suite checks optimized-equals-unoptimized on several
 record-accumulator shapes (field read at exit, bare re-box at exit, inlined and
@@ -477,21 +488,43 @@ non-inlined reconstructions), and the full compiler test suite of 3{,}285 checks
 passes with the pass enabled.
 
 \begin{table}
-  \caption{Three allocation-bound benchmarks at 5M iterations: mean $\pm$ sample
-  standard deviation over five timed trials (after one warm-up), AMD Ryzen 5
-  7430U, SBCL 2.6.0. Aggregate scalar replacement drives per-iteration
-  allocation to zero; every result is bit-identical to its baseline.}
+  \caption{Three allocation-bound benchmarks at 5M iterations: wall time (mean
+  $\pm$ sample stddev over five timed trials, after one warm-up) for the
+  persistent baseline, aggregate scalar replacement (ASR), and a native
+  mutable-\texttt{defstruct} upper bound; AMD Ryzen 5 7430U, SBCL 2.6.0. ASR
+  drives per-iteration allocation (224/256\,B) to zero and is bit-identical to
+  the baseline; the ``$\times$'' columns are speedups over the baseline.}
   \label{tab:speedup}
-  \begin{tabular}{lrrrr}
+  \small
+  \begin{tabular}{lrrrrr}
     \toprule
-    Benchmark & Base (ms) & ASR (ms) & Alloc/iter & Speedup \\
+    Benchmark & Base & ASR & Native & ASR & Native \\
+              & (ms) & (ms) & (ms) & $\times$ & $\times$ \\
     \midrule
-    Particle \{x, y\}      & $2121\pm78$  & $307\pm4$ & 224\,B $\to$ 0 & 6.9$\times$ \\
-    Rotation \{re, im\}    & $3141\pm254$ & $486\pm8$ & 224\,B $\to$ 0 & 6.5$\times$ \\
-    Ballistic \{x, y, vy\} & $2584\pm10$  & $361\pm4$ & 256\,B $\to$ 0 & \textbf{7.2$\times$} \\
+    Particle  & $1923\pm58$ & $293\pm2$  & 15 & 6.6 & 128 \\
+    Rotation  & $2702\pm31$ & $476\pm13$ & 29 & 5.7 & \phantom{0}92 \\
+    Ballistic & $2395\pm26$ & $378\pm19$ & 15 & 6.3 & 160 \\
     \bottomrule
   \end{tabular}
 \end{table}
+
+\textbf{RQ4: Distance to native.} A hand-written native version---a mutable
+\texttt{defstruct} updated in place---is 92$\times$--160$\times$ faster than the
+persistent baseline (Table~\ref{tab:speedup}), which is what makes the pattern
+worth attacking in the first place. Aggregate scalar replacement recovers the
+\emph{allocation} component of that gap: it removes 100\% of per-iteration
+consing, worth the 5.7$\times$--6.6$\times$ of RQ2. It does \emph{not} close the
+gap entirely---the scalar-replaced loop remains 16$\times$--25$\times$ slower
+than native, reaching 4--6\% of native speed---and we report that rather than
+eliding it. The residual is not allocation, of which none remains, but
+arithmetic: the unboxed loop still calls FOL's \emph{generic} operators
+(\texttt{+}, \texttt{*}, \texttt{-}) on its scalar variables, whereas the native
+loop issues declared single-float machine instructions. Closing it is a matter
+of scalar type specialization, which is orthogonal to allocation and in fact
+complementary to this transformation---scalar replacement is what exposes the
+per-field variables that a type specializer would then annotate. As an
+allocation optimization, ASR is complete on these benchmarks; the remaining
+distance is a separate axis of work.
 
 \textbf{RQ3: Cost when disabled or inapplicable.} With the flag off, loop
 emission is unchanged and the output is byte-identical to the unmodified
@@ -574,9 +607,12 @@ variables---no allocation on the back-edge, one re-box at the exit---by a single
 classify-and-rewrite walk that reaches across a call boundary through a small
 syntactic inliner and stays sound under class redefinition through a world
 guard. The pass is safe by construction: it optimizes the shapes it recognizes
-and declines the rest. Across three allocation-bound benchmarks it turns object
-churn into flat scalar arithmetic for 6.5$\times$--7.2$\times$ speedups with
-identical results. We see it as the record-shaped complement to automatic transient
+and declines the rest. Across three allocation-bound benchmarks it eliminates
+per-iteration allocation entirely for 5.7$\times$--6.6$\times$ speedups with
+identical results, recovering the allocation component of a 90--160$\times$ gap
+to native mutable structs; the remainder, which we measure and attribute to
+generic scalar arithmetic, is a complementary axis of specialization. We see the
+transformation as the record-shaped complement to automatic transient
 conversion, and a step toward bringing the benefits of partial escape analysis
 to persistent-first languages with an open world.
 
