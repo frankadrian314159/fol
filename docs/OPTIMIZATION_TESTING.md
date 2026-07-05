@@ -73,21 +73,17 @@ Optimizations are validated through **benchmark suites** that measure actual per
 
 ### Priority 4: Aggregate Scalar Replacement (ASR)
 
-**Benchmarks**: `benchmarks/*.fol` (particle, rotation, mandelbrot, kalman, etc.)
+**Benchmarks**: `benchmarks/fol-code/asr-*.fol` (particle, rotation, ballistic, two-body)
 
 **Metrics**:
-- Speedup: 5.6x - 7.4x
+- Speedup: 5.6x - 7.2x
 - Allocation: Per-iteration allocation eliminated (e.g., 1.1GB -> 0GB)
 
 **How it works**:
 1. Defines a `defclass` record and a `loop/recur` that carries it as an accumulator.
-2. The benchmark runner script (`run-asr-bench.ps1`) invokes a `run-two` helper that compiles and runs two versions of the benchmark function: one with ASR disabled (`*scalar-replacement*` nil) and one with it enabled (`*scalar-replacement*` t).
-3. It measures wall time, allocation, and GC stats for both versions and reports the speedup.
-4. The results are used to populate Table 1 in the CGO 2027 paper.
-1. Creates complex nested AST structures with type specializers
-2. Runs optimizer with multi-clause methods using type patterns
-3. Measures dispatch overhead and pattern matching cost
-4. Reports total optimization time and memory allocation
+2. The SBCL driver (`benchmarks/run-asr-bench.lisp`, wrapped by `run-asr-bench.ps1`) compiles each benchmark twice -- once with `*scalar-replacement*` nil (baseline) and once with it t (ASR) -- and also runs a native mutable-`defstruct` implementation as an upper bound.
+3. It runs five trials of each, measuring wall time, per-iteration allocation, and GC stats, and reports mean +/- stddev speedups.
+4. The results populate Table 1 in the CGO 2027 paper.
 
 ### Running Performance Benchmarks
 

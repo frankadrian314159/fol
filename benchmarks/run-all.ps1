@@ -1,17 +1,16 @@
-# Main runner script for all benchmarks
+# Run all aggregate scalar replacement (ASR) benchmarks.
+#
+# Delegates to run-asr-bench.ps1, which runs the SBCL driver over every
+# benchmark registered in run-asr-bench.lisp (currently particle, rotation,
+# ballistic, two-body).
+#
+# To add a benchmark -- e.g. the planned real-world kernels lorenz, mandelbrot,
+# kalman, biquad, co-moments -- drop an asr-*.fol into fol-code/, then add a
+# native baseline and a (bench ...) call to run-asr-bench.lisp's MAIN; it will
+# run here automatically.
 
-Write-Host "Running all ASR benchmarks..."
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 
-.\run-asr-bench.ps1 "mandelbrot" "mandelbrot.fol" "run-mandelbrot-base" "run-mandelbrot-asr" 1
-.\run-asr-bench.ps1 "kalman" "kalman.fol" "run-kalman-filter-base" "run-kalman-filter-asr" 5000000
-.\run-asr-bench.ps1 "biquad" "biquad.fol" "run-biquad-filter-base" "run-biquad-filter-asr" 10000000
-.\run-asr-bench.ps1 "comoments" "comoments.fol" "run-co-moments-base" "run-co-moments-asr" 10000000
-
-# Existing physics benchmarks
-.\run-asr-bench.ps1 "particle" "particle.fol" "run-particle-base" "run-particle-asr" 5000000
-.\run-asr-bench.ps1 "rotation" "rotation.fol" "run-rotation-base" "run-rotation-asr" 5000000
-.\run-asr-bench.ps1 "ballistic" "ballistic.fol" "run-ballistic-base" "run-ballistic-asr" 5000000
-.\run-asr-bench.ps1 "twobody" "twobody.fol" "run-two-body-base" "run-two-body-asr" 5000000
-..\run-asr-bench.ps1 "lorenz" "lorenz.fol" "run-lorenz-base" "run-lorenz-asr" 5000000
-
-Write-Host "All benchmarks complete."
+Write-Host "Running all ASR benchmarks..." -ForegroundColor Cyan
+& (Join-Path $ScriptDir "run-asr-bench.ps1")
+Write-Host "All benchmarks complete." -ForegroundColor Green

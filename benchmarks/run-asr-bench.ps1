@@ -1,12 +1,17 @@
-param(
-    [Parameter(Mandatory = $true, Position = 0)][string]$BenchmarkName,
-    [Parameter(Mandatory = $true, Position = 1)][string]$FolFile,
-    [Parameter(Mandatory = $true, Position = 2)][string]$BaselineFn,
-    [Parameter(Mandatory = $true, Position = 3)][string]$AsrFn,
-    [Parameter(Mandatory = $true, Position = 4)][int]$CountN
-)
+# Run the aggregate scalar replacement (ASR) benchmark suite.
+#
+# Thin wrapper around the SBCL driver benchmarks/run-asr-bench.lisp, which is the
+# real harness: it compiles each benchmark with *scalar-replacement* off and on,
+# runs five trials, and reports wall time, per-iteration allocation, GC stats,
+# speedup, and a native mutable-defstruct ceiling. Benchmarks are registered in
+# that driver's MAIN.
 
-$OutputFile = "results\${BenchmarkName}.txt"
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
+$Driver = Join-Path $ScriptDir "run-asr-bench.lisp"
 
-Write-Host "Running ASR benchmark: $BenchmarkName"
-.\boilerplate\run-two.ps1 -OutputFile $OutputFile -Function1 $BaselineFn -Function2 $AsrFn -CountN $CountN -LispFiles $FolFile
+if (-not (Get-Command sbcl -ErrorAction SilentlyContinue)) {
+    Write-Error "sbcl not found on PATH."
+    exit 1
+}
+
+sbcl --noinform --non-interactive --load $Driver
