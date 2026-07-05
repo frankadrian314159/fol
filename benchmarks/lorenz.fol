@@ -1,0 +1,25 @@
+(defclass <vec3> ()
+  [[x :initarg :x]
+   [y :initarg :y]
+   [z :initarg :z]])
+
+(defn lorenz-step [p dt]
+  (let [x (get p :x)
+        y (get p :y)
+        z (get p :z)
+        sigma 10.0
+        rho 28.0
+        beta (/ 8.0 3.0)]
+    (let [dx (* sigma (- y x))
+          dy (* x (- rho z))
+          dz (- (* x y) (* beta z))]
+      (make-<vec3> :x (+ x (* dx dt))
+                   :y (+ y (* dy dt))
+                   :z (+ z (* dz dt))))))
+
+(defn run-lorenz [n]
+  (loop [p (make-<vec3> :x 1.0 :y 1.0 :z 1.0)
+         i 0]
+    (if (< i n)
+      (recur (lorenz-step p 0.01) (inc i))
+      p)))

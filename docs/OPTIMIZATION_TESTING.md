@@ -71,9 +71,28 @@ Optimizations are validated through **benchmark suites** that measure actual per
 3. Measures dispatch overhead and pattern matching cost
 4. Reports total optimization time and memory allocation
 
+### Priority 4: Aggregate Scalar Replacement (ASR)
+
+**Benchmarks**: `benchmarks/*.fol` (particle, rotation, mandelbrot, kalman, etc.)
+
+**Metrics**:
+- Speedup: 5.6x - 7.4x
+- Allocation: Per-iteration allocation eliminated (e.g., 1.1GB -> 0GB)
+
+**How it works**:
+1. Defines a `defclass` record and a `loop/recur` that carries it as an accumulator.
+2. The benchmark runner script (`run-asr-bench.ps1`) invokes a `run-two` helper that compiles and runs two versions of the benchmark function: one with ASR disabled (`*scalar-replacement*` nil) and one with it enabled (`*scalar-replacement*` t).
+3. It measures wall time, allocation, and GC stats for both versions and reports the speedup.
+4. The results are used to populate Table 1 in the CGO 2027 paper.
+1. Creates complex nested AST structures with type specializers
+2. Runs optimizer with multi-clause methods using type patterns
+3. Measures dispatch overhead and pattern matching cost
+4. Reports total optimization time and memory allocation
+
 ### Running Performance Benchmarks
 
 ```bash
+cd fol/benchmarks && ./run-all.ps1
 cd fol && sbcl --noinform --non-interactive --load benchmarks/run-ast-bench-balanced-timed.lisp
 cd fol && sbcl --noinform --non-interactive --load benchmarks/run-interp-bench.lisp
 cd fol && sbcl --noinform --non-interactive --load benchmarks/run-derived-value-invalidation-bench.lisp
