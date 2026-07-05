@@ -78,7 +78,7 @@ redefined at run time. A single classify-and-rewrite walk is aligned by
 construction---any use it does not recognize aborts the rewrite and yields the
 original loop---so the transformation is never unsound, only sometimes
 inapplicable. Across three allocation-bound benchmarks the technique delivers
-6.0$\times$--7.2$\times$ speedups and reduces per-iteration allocation to zero,
+6.5$\times$--7.2$\times$ speedups and reduces per-iteration allocation to zero,
 with byte-identical results and no cost when disabled.
 \end{abstract}
 
@@ -179,7 +179,7 @@ the result. Our contributions are:
   enabled on untyped code (\S\ref{sec:align}).
   \item \textbf{Evaluation.} On three allocation-bound benchmarks---spanning
   two- and three-field records and both additive and multiplicative update
-  shapes---the technique yields 6.0$\times$--7.2$\times$ speedups at 5M
+  shapes---the technique yields 6.5$\times$--7.2$\times$ speedups at 5M
   iterations, reduces per-iteration allocation to zero, produces byte-identical
   results to the unoptimized program, and adds no cost when disabled or
   inapplicable (\S\ref{sec:eval}).
@@ -435,49 +435,60 @@ byte-for-byte unchanged.
 We evaluate three questions. \textbf{RQ1:} does the transformation fire on the
 target pattern and eliminate allocation? \textbf{RQ2:} what speedup does it
 deliver, and is the result identical to the unoptimized program? \textbf{RQ3:}
-what does it cost when disabled or inapplicable? All measurements use SBCL
-2.6.0 on a single core; we report the mean of five runs after one warm-up run
-and a full collection, with per-iteration allocation measured from the
-runtime's bytes-consed counter. The three benchmarks all instantiate the
-loop-carried record accumulator but differ in shape: a \emph{particle}
-simulation (two independent additive field updates, the pattern of
-Figure~\ref{fig:overview}), a 2D \emph{rotation} orbit (two fields updated by a
-coupled, multiplicative map), and a three-field \emph{ballistic} integrator
-(three fields, where the position update reads the freshly computed velocity).
+what does it cost when disabled or inapplicable? All measurements were taken on
+an AMD Ryzen 5 7430U (used single-threaded) with 32\,GB of RAM, running SBCL
+2.6.0---generational GC, 1\,GB dynamic space, 51\,MB nursery---on Windows 11.
+For each benchmark and configuration we run one warm-up call followed by five
+timed calls, forcing a full collection before each, and report the mean $\pm$
+sample standard deviation. Wall time uses the real-time clock; per-call
+allocation, garbage-collection counts, and time spent in GC are read from the
+SBCL runtime (the bytes-consed counter, an after-GC hook, and
+\texttt{*gc-run-time*}); speedup is computed per paired trial and then averaged.
+The three benchmarks all instantiate the loop-carried record accumulator but
+differ in shape: a \emph{particle} simulation (two independent additive field
+updates, the pattern of Figure~\ref{fig:overview}), a 2D \emph{rotation} orbit
+(two fields updated by a coupled, multiplicative map), and a three-field
+\emph{ballistic} integrator (three fields, where the position update reads the
+freshly computed velocity).
 
 \textbf{RQ1: Firing and allocation.} The pass fires on all three benchmarks:
 each emitted fast path (Figure~\ref{fig:emitted}) splits the accumulator into
 one scalar loop variable per field, inlines its update helper, and contains
-\emph{no} constructor call on the back-edge. Per-iteration heap allocation drops
-from one record per iteration to zero (the \texttt{Alloc/iter} column of
-Table~\ref{tab:speedup}); the only surviving allocation is the single re-box at
-loop exit. We confirm the transformation is applied by inspecting the generated
-code for the scalar loop variables and the absence of the inlined callee on the
-fast path.
+\emph{no} constructor call on the back-edge. The effect is visible directly in
+the runtime counters: each baseline conses 1.0--1.2\,GB per call and triggers
+roughly 20 collections costing 34--47\,ms, whereas the scalar-replaced version
+conses \emph{nothing} and triggers no workload collection at all. Per-iteration
+allocation drops from one record to zero (the \texttt{Alloc/iter} column of
+Table~\ref{tab:speedup}); the only allocation that survives is the single re-box
+at loop exit, executed at most once per activation.
 
 \textbf{RQ2: Speedup and correctness.} Table~\ref{tab:speedup} reports the three
 benchmarks at five million iterations. Eliminating allocation removes the
 garbage-collection pressure that dominates each baseline, yielding speedups of
-6.0$\times$--7.2$\times$; the three-field integrator benefits most, as it conses
-the largest record. Crucially, every optimized program returns results
-bit-identical to its unoptimized counterpart; a dedicated test suite checks
-optimized-equals-unoptimized on several record-accumulator shapes (field read at
-exit, bare re-box at exit, inlined and non-inlined reconstructions), and the
-full compiler test suite of 3{,}285 checks passes with the pass enabled.
+6.5$\times$--7.2$\times$; the three-field integrator benefits most, as it conses
+the largest record and also shows the tightest variance. Run-to-run variability
+is modest---sample standard deviations are within 8\% of the mean and are
+dominated by baseline GC jitter---and, being wall-clock on a desktop OS, it is
+reported rather than smoothed away. Crucially, every optimized program returns
+results bit-identical to its unoptimized counterpart across all five trials; a
+dedicated test suite checks optimized-equals-unoptimized on several
+record-accumulator shapes (field read at exit, bare re-box at exit, inlined and
+non-inlined reconstructions), and the full compiler test suite of 3{,}285 checks
+passes with the pass enabled.
 
 \begin{table}
-  \caption{Three allocation-bound benchmarks at 5M iterations (mean of five
-  runs, SBCL 2.6.0, single core). Aggregate scalar replacement drives
-  per-iteration allocation to zero; every result is bit-identical to its
-  baseline.}
+  \caption{Three allocation-bound benchmarks at 5M iterations: mean $\pm$ sample
+  standard deviation over five timed trials (after one warm-up), AMD Ryzen 5
+  7430U, SBCL 2.6.0. Aggregate scalar replacement drives per-iteration
+  allocation to zero; every result is bit-identical to its baseline.}
   \label{tab:speedup}
   \begin{tabular}{lrrrr}
     \toprule
     Benchmark & Base (ms) & ASR (ms) & Alloc/iter & Speedup \\
     \midrule
-    Particle \{x, y\}      & 1950 & 297 & 224\,B $\to$ 0 & 6.6$\times$ \\
-    Rotation \{re, im\}    & 2799 & 466 & 224\,B $\to$ 0 & 6.0$\times$ \\
-    Ballistic \{x, y, vy\} & 2554 & 357 & 256\,B $\to$ 0 & \textbf{7.2$\times$} \\
+    Particle \{x, y\}      & $2121\pm78$  & $307\pm4$ & 224\,B $\to$ 0 & 6.9$\times$ \\
+    Rotation \{re, im\}    & $3141\pm254$ & $486\pm8$ & 224\,B $\to$ 0 & 6.5$\times$ \\
+    Ballistic \{x, y, vy\} & $2584\pm10$  & $361\pm4$ & 256\,B $\to$ 0 & \textbf{7.2$\times$} \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -564,7 +575,7 @@ classify-and-rewrite walk that reaches across a call boundary through a small
 syntactic inliner and stays sound under class redefinition through a world
 guard. The pass is safe by construction: it optimizes the shapes it recognizes
 and declines the rest. Across three allocation-bound benchmarks it turns object
-churn into flat scalar arithmetic for 6.0$\times$--7.2$\times$ speedups with
+churn into flat scalar arithmetic for 6.5$\times$--7.2$\times$ speedups with
 identical results. We see it as the record-shaped complement to automatic transient
 conversion, and a step toward bringing the benefits of partial escape analysis
 to persistent-first languages with an open world.
