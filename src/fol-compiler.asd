@@ -102,6 +102,7 @@
                                   (:file "test-escape-summaries" :depends-on ("compiler-tests-package"))
                                   (:file "test-escape-analysis" :depends-on ("compiler-tests-package"))
                                   (:file "test-transient-conversion" :depends-on ("compiler-tests-package"))
+                                  (:file "test-scalar-replacement" :depends-on ("compiler-tests-package"))
                                   (:file "fol-tests" :depends-on ("compiler-tests-package")))))
            :perform (test-op (o s) (symbol-call :fol.compiler.tests :run-compiler-tests)))
 

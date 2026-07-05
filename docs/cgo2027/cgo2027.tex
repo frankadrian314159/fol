@@ -1,0 +1,558 @@
+%%
+%% OCG 2027 submission: "Objects Without Allocation".
+%% Loop-carried scalar replacement of persistent records in FOL.
+%%
+%% NOTE: The \acmConference metadata below uses a placeholder expansion of
+%% "OCG"; replace the venue name/dates/location with the real call once known.
+%%
+\documentclass[sigplan,review,anonymous]{acmart}
+
+\usepackage{listings}
+\usepackage{booktabs} %% For formal tables
+\usepackage{seqsplit}
+
+\lstset{
+  language=Lisp,
+  basicstyle=\small\ttfamily,
+  breaklines=true,
+  frame=single,
+  numbers=left,
+  numberstyle=\tiny,
+  keywordstyle=\color{blue},
+  commentstyle=\color{green!40!black},
+  stringstyle=\color{red},
+  showstringspaces=false
+}
+
+%%
+%% \BibTeX command to typeset BibTeX logo in the docs
+\AtBeginDocument{%
+  \providecommand\BibTeX{{%
+    \normalfont B\kern-0.5em{\scshape i\kern-0.25em b}\kern-0.8em\TeX}}}
+
+%% Rights management information.
+\setcopyright{acmlicensed}
+\copyrightyear{2027}
+\acmYear{2027}
+\acmDOI{XXXXXXX.XXXXXXX}
+
+%% These commands are for a PROCEEDINGS abstract or paper. (Placeholder venue.)
+\acmConference[OCG '27]{International Conference on Optimizing Compilers and Code Generation}{2027}{Somewhere, USA}
+\acmBooktitle{Proceedings of the International Conference on Optimizing Compilers and Code Generation (OCG '27), 2027, Somewhere, USA}
+\acmPrice{15.00}
+\acmISBN{978-1-4503-XXXX-X/27/06}
+
+%%
+%% The "title" command has an optional parameter for a short title.
+\title[Objects Without Allocation]{Objects Without Allocation: Loop-Carried Scalar Replacement of Persistent Records in a Dynamic Language}
+
+\author{Anonymous Author(s)}
+\affiliation{%
+  \institution{Anonymous Institution}
+  \city{Anonymous City}
+  \country{Anonymous Country}
+}
+\email{anonymous@example.com}
+
+\renewcommand{\shortauthors}{Anonymous Author(s)}
+
+\begin{abstract}
+Persistent-first languages give programmers immutable objects, but a record
+rebuilt every iteration of a loop turns into a stream of short-lived heap
+allocations: on our system a single field update on a persistent object is up
+to 89$\times$ slower than the same update on a native mutable struct. Classic
+\emph{scalar replacement} removes such allocations by holding an object's fields
+in registers, but the textbook formulation only fires when an object is created
+and dies inside one lexical scope---the least profitable case---and it assumes a
+closed world in which a class's shape never changes. We present \emph{aggregate
+scalar replacement}, an emit-time transformation for FOL (a persistent-first
+Lisp) that unboxes a persistent-record \emph{loop accumulator}: the accumulator
+becomes one scalar loop variable per field, field reads become variable reads,
+the reconstruction that feeds the back-edge becomes per-field value expressions,
+and a single object is re-boxed only at loop exit. Two ingredients make this
+practical in a dynamic language: (1) an \emph{inlining} step that exposes the
+constructor returned by an object-producing callee at the recur position, giving
+interprocedural reach without a whole-program analysis; and (2) a
+\emph{world-guarded} dual path that keeps the optimization sound when a class is
+redefined at run time. A single classify-and-rewrite walk is aligned by
+construction---any use it does not recognize aborts the rewrite and yields the
+original loop---so the transformation is never unsound, only sometimes
+inapplicable. On an allocation-bound particle simulation the technique delivers
+a 5.8$\times$ speedup and reduces per-iteration allocation to zero, with
+byte-identical results and no cost when disabled.
+\end{abstract}
+
+\begin{CCSXML}
+<ccs2012>
+   <concept>
+       <concept_id>10011007.10010940.10010941.10010942.10010943</concept_id>
+       <concept_desc>Software and its engineering~Compilers</concept_desc>
+       <concept_significance>500</concept_significance>
+       </concept>
+   <concept>
+       <concept_id>10011007.10011006.10011041.10011045</concept_id>
+       <concept_desc>Software and its engineering~Dynamic compilers</concept_desc>
+       <concept_significance>500</concept_significance>
+       </concept>
+   <concept>
+       <concept_id>10003752.10003753.10003757</concept_id>
+       <concept_desc>Theory of computation~Program analysis</concept_desc>
+       <concept_significance>500</concept_significance>
+       </concept>
+   <concept>
+       <concept_id>10002944.10011122.10011123</concept_id>
+       <concept_desc>General and reference~Performance</concept_desc>
+       <concept_significance>300</concept_significance>
+       </concept>
+ </ccs2012>
+\end{CCSXML}
+
+\ccsdesc[500]{Software and its engineering~Compilers}
+\ccsdesc[500]{Software and its engineering~Dynamic compilers}
+\ccsdesc[500]{Theory of computation~Program analysis}
+
+\keywords{scalar replacement, escape analysis, persistent data structures,
+inlining, dynamic languages, lisp, compiler optimization}
+
+\begin{document}
+\maketitle
+
+\section{Introduction}
+
+Languages built on persistent data structures let programmers treat records as
+immutable values: an ``update'' produces a new version that structurally shares
+with the old one. This is a pleasant programming model, but it has a cost. When
+a small record is updated inside a loop, every iteration allocates a fresh
+object on the heap, and the previous version becomes garbage immediately. In
+FOL---a Lisp-1 dialect with CLOS-style persistent objects, transpiled to Common
+Lisp---a field update on a persistent object is up to \textbf{89$\times$} slower
+than the equivalent update on a native mutable \texttt{defstruct}, dominated by
+allocation and garbage-collection pressure.
+
+The canonical remedy in a static, closed-world setting is \emph{scalar
+replacement of aggregates} (SRA): if a compiler can prove an object does not
+escape, it need not allocate the object at all; the object's fields live in
+local variables, and field accesses become variable accesses. Modern
+just-in-time compilers realize a powerful form of this via \emph{partial escape
+analysis} \cite{stadler2014partial}, building on a long line of escape analyses
+for object-oriented languages \cite{choi1999escape,blanchet2003escape}.
+
+Two obstacles keep the textbook formulation from helping the programs that hurt
+most in a language like FOL. First, the \emph{scope} problem: the simplest SRA
+only fires when an object is created and dies inside a single lexical
+scope---a \texttt{let} whose body consumes the object and returns something
+else. That is the least interesting case; a good backend often stack-allocates
+it anyway. The objects that actually drive allocation are \emph{loop
+accumulators}: a record that is read, rebuilt, and threaded through a
+\texttt{recur} back-edge, iteration after iteration, frequently by calling a
+small helper that returns a fresh record. Second, the \emph{open-world}
+problem: FOL classes can be redefined at run time. An optimization that bakes in
+a class's field layout must remain correct even if that class's shape changes
+\emph{while the optimized code is running}---something a closed-world SRA never
+has to consider.
+
+This paper presents \emph{aggregate scalar replacement} for FOL: an emit-time
+transformation that unboxes a persistent-record loop accumulator into one scalar
+loop variable per field. Figure~\ref{fig:overview} shows the target pattern and
+the result. Our contributions are:
+
+\begin{enumerate}
+  \item \textbf{Loop-carried record unboxing.} A transformation that splits a
+  record accumulator into per-field scalar loop variables: \texttt{(get p :x)}
+  becomes a variable read, the constructor that feeds \texttt{recur} becomes its
+  field value-expressions (the loop's arity grows to match), and a single
+  object is re-materialized only if the bare accumulator is returned at the loop
+  exit (\S\ref{sec:loop}).
+  \item \textbf{Interprocedural reach by inlining.} An object-returning callee
+  at the recur position---the common shape \texttt{(recur (update p) \ldots)}---is
+  inlined so that its tail constructor becomes the reconstruction expression,
+  giving interprocedural unboxing without a whole-program ownership analysis
+  (\S\ref{sec:inline}).
+  \item \textbf{Soundness under live redefinition.} The converted loop is
+  emitted as a \emph{world-guarded} dual path keyed on the record's class name;
+  redefining the class invalidates the region and the next call transparently
+  takes the original, object-allocating loop (\S\ref{sec:world}).
+  \item \textbf{Alignment by construction.} A single walk both classifies and
+  rewrites; any accumulator use it does not recognize aborts the rewrite and
+  yields the original loop unchanged. The transformation is therefore never
+  wrong, only sometimes inapplicable---the safe default for a compiler pass
+  enabled on untyped code (\S\ref{sec:align}).
+  \item \textbf{Evaluation.} On an allocation-bound particle simulation the
+  technique yields a 5.8$\times$ speedup at 5M iterations, reduces per-iteration
+  allocation to zero, produces byte-identical results to the unoptimized
+  program, and adds no cost when disabled or inapplicable
+  (\S\ref{sec:eval}).
+\end{enumerate}
+
+\begin{figure}
+\begin{lstlisting}
+;; --- Source ---
+(defclass <point> [] [[x] [y]])
+
+(defn update-point [p]
+  (bind [dx 0.1 dy 0.2]
+    (make-<point> :x (+ (get p :x) dx)
+                  :y (+ (get p :y) dy))))
+
+(defn run-simulation [n]
+  (loop [p (make-<point> :x 0 :y 0) i 0]
+    (if (< i n)
+      (recur (update-point p) (inc i))
+      p)))
+
+;; --- After aggregate scalar replacement ---
+(loop [p_x 0 p_y 0 i 0]
+  (if (< i n)
+    (bind [dx 0.1 dy 0.2]
+      (recur (+ p_x dx) (+ p_y dy) (inc i)))
+    (make-<point> :x p_x :y p_y)))
+\end{lstlisting}
+\caption{The target pattern. \texttt{update-point} is inlined at the recur
+position, the accumulator \texttt{p} is split into scalar loop variables
+\texttt{p\_x}/\texttt{p\_y}, and the object is re-boxed only at the exit. In
+the emitted code this fast path sits behind a world guard on \texttt{<point>}
+(Figure~\ref{fig:emitted}).}
+\label{fig:overview}
+\end{figure}
+
+Our evaluation is deliberately narrow: this technique targets one high-value
+pattern, and we report an honest picture of when it fires and what it buys.
+
+\section{Background}
+
+\textbf{FOL in one column.} FOL is a Lisp-1 dialect transpiled to Common Lisp
+(SBCL). Persistent records are declared with \texttt{defclass}; a class
+\texttt{<t>} induces a constructor \texttt{make-<t>} and keyword field
+accessors read with \texttt{(get obj :field)}. A global type registry records,
+for each class, its field set. \texttt{(loop [bindings] \ldots (recur
+new-vals))} provides tail-recursive iteration; the compiler lowers it to a
+\texttt{block}/\texttt{tagbody} with a \texttt{psetq} that updates all loop
+variables simultaneously before jumping to the head. Forms are transpiled one
+at a time, in source order.
+
+\textbf{Why the accumulator is the hard case.} In
+Figure~\ref{fig:overview}, the allocation lives in two places, neither of which
+a scope-local SRA can touch. In \texttt{update-point}, the \texttt{make-<point>}
+is the function's \emph{return value}---it escapes to the caller. In
+\texttt{run-simulation}, \texttt{p} is a \emph{loop parameter}, not a
+\texttt{let}-binding, and it is passed whole into \texttt{update-point}. To
+remove the allocation one must reason across the call boundary and across the
+loop back-edge simultaneously. That is precisely what aggregate scalar
+replacement does.
+
+\textbf{Relationship to transient conversion.} A companion line of work makes
+persistent \emph{collection} accumulators (dicts, vectors, sets) update in place
+by converting them to Clojure-style transients, guarded for soundness under
+redefinition. Aggregate scalar replacement is the analogue for user-defined
+\emph{records}: rather than mutate a boxed object in place, it eliminates the box
+entirely. The two share the world-guard machinery described in
+\S\ref{sec:world} and compose in the same \texttt{emit-loop} entry point.
+
+\section{Aggregate Scalar Replacement}
+\label{sec:algo}
+
+The transformation runs at loop-emission time. Given a \texttt{loop} node, it
+searches the bindings for a parameter whose initializer is a record constructor
+\texttt{(make-<t> \ldots)} of a class known to the type registry, and attempts
+to unbox it. The attempt either succeeds and returns a rewritten loop, or bails
+and leaves the loop untouched. We describe candidate selection, the two core
+rewrites, the alignment discipline that keeps them sound, and the world guard.
+
+\subsection{Candidates and fields}
+\label{sec:cand}
+
+A loop parameter \texttt{p} is a \emph{candidate} when (i) its initializer is a
+constructor call \texttt{(make-<t> :k1 v1 \ldots)}, (ii) \texttt{<t>} is in the
+type registry with a known field set $F = \{f_1,\ldots,f_m\}$, and (iii) the
+constructor supplies exactly the fields in $F$. For each field $f_j$ we mint a
+fresh scalar loop variable named \texttt{p\_}$f_j$ (e.g.\ \texttt{p\_x}). The
+loop binding for \texttt{p} is replaced by $m$ bindings \texttt{p\_}$f_j$
+initialized to the corresponding constructor argument $v_j$. All keys are
+canonicalized so that the constructor initarg, the \texttt{get} key, and the
+registry's storage key coincide.
+
+\subsection{Loop-carried unboxing}
+\label{sec:loop}
+
+The body is rewritten by a single recursive walk parameterized by whether the
+current node is in tail position and by a set of \emph{alias} names that denote
+the accumulator (initially $\{\texttt{p}\}$; \S\ref{sec:inline} explains why it
+is a set). The walk maps each accumulator use to one of a small number of
+recognized shapes:
+
+\begin{itemize}
+  \item \textbf{Field read.} \texttt{(get p :}$f_j$\texttt{)} rewrites to a
+  reference to \texttt{p\_}$f_j$. A read of a key not in $F$ aborts.
+  \item \textbf{Reconstruction at the back-edge.} At the recur position, the
+  argument in the accumulator's slot must \emph{reconstruct} the record. The
+  walk expands it into the $m$ per-field value expressions and splices them into
+  the recur argument list in field order, growing the loop's arity from
+  $k$ to $k+m-1$. A bare accumulator here (an unchanged pass-through) expands to
+  the current field variables.
+  \item \textbf{Re-box at exit.} A bare accumulator reference in tail position
+  (the loop's result) is re-materialized as \texttt{(make-<t> :}$f_1$
+  \texttt{p\_}$f_1$ \ldots\texttt{)}---a single allocation, executed at most once
+  per loop activation.
+  \item \textbf{Anything else aborts.} A bare accumulator passed to an
+  arbitrary call, stored in a literal, captured by a closure, or reaching a node
+  type the walk does not handle causes the whole attempt to fail. Because the
+  walk builds the rewritten body functionally and signals failure by a
+  non-local exit, a failed attempt has no effect: the original loop is emitted.
+\end{itemize}
+
+A reconstruction may be wrapped in single-form \texttt{bind}/\texttt{do} layers
+(as in Figure~\ref{fig:overview}, where the \texttt{make-<point>} sits under
+\texttt{(bind [dx 0.1 dy 0.2] \ldots)}). The walk peels these layers, rewrites
+their initializers (which may themselves read accumulator fields), and re-wraps
+the rewritten \texttt{recur} in the same layers, so that names like \texttt{dx}
+remain in scope for the field expressions that use them.
+
+Because the emitted \texttt{recur} lowers to a \texttt{psetq} over the loop's
+(now $m$-way expanded) binding list, and both the binding list and every
+\texttt{recur} are rewritten together, the loop stays internally consistent by
+construction; no change to the loop/recur code generator is required.
+
+\subsection{Interprocedural reach by inlining}
+\label{sec:inline}
+
+The accumulator rarely reconstructs itself with a literal constructor; more
+often it is rebuilt by a helper, as \texttt{(recur (update-point p) \ldots)}. To
+expose the helper's constructor, we inline it. During transpilation, a
+lightweight \texttt{compile-form} hook records every single-clause function whose
+body reduces (through \texttt{bind}/\texttt{do} peeling) to a record
+constructor into an \emph{inlinable} table, keyed by name.
+
+When the reconstruction at a recur position is a call to an inlinable function
+whose accumulator-carrying argument is the accumulator itself, the walk inlines
+the callee's body in place. The parameter that received the accumulator is added
+to the alias set, so that reads of \emph{that} parameter inside the inlined body
+(e.g.\ \texttt{(get p :x)} in \texttt{update-point}, whose parameter is also
+named \texttt{p}) are recognized as accumulator reads and rewritten to field
+variables. Other parameters are bound by a wrapper layer around the rewritten
+\texttt{recur}. Inlining is applied only when the callee's arguments are
+symbols or literals, which keeps the substitution capture-free and avoids
+duplicating side effects. This is deliberately a one-level, syntactic inliner:
+it is enough to reach the dominant \texttt{(recur (helper acc) \ldots)} shape,
+and it composes with the peeling of \S\ref{sec:loop} to turn Koka-style
+``functional but in place'' record threading into flat scalar arithmetic.
+
+Unlike ownership- or effect-based approaches to in-place update
+\cite{reinking2021perceus,lorenzen2023functional}, this reach requires no type
+information: the inlinable table is populated purely from syntactic shape, and
+the alias-set discipline keeps the rewrite local and checkable.
+
+\subsection{Alignment by construction}
+\label{sec:align}
+
+The classifier and the rewriter are the \emph{same walk}. There is no separate
+``is this legal?'' analysis that could drift out of sync with the
+transformation: the walk rewrites what it recognizes and aborts on everything
+else. This has two consequences. First, soundness of the field-level rewrite is
+local and obvious: every surviving accumulator reference is either a field read
+(replaced by the corresponding scalar) or a tail re-box (replaced by an
+equivalent constructor), and no bare accumulator escapes---if one did, the walk
+would have aborted. Second, the pass is conservative by default: novel or
+complex accumulator uses simply prevent optimization rather than risk a wrong
+rewrite. For a pass enabled on latently-typed code with open-world dispatch,
+``inapplicable'' is a far cheaper failure mode than ``incorrect.''
+
+\subsection{Soundness under live redefinition}
+\label{sec:world}
+
+Aggregate scalar replacement bakes a class's field layout into the fast path: it
+assumes \texttt{<point>} has exactly fields \texttt{x} and \texttt{y}. In FOL a
+class can be redefined at run time---\texttt{(defclass <point> [] [[x] [y]
+[z]])}---which would invalidate that assumption. We keep the optimization sound
+with the same \emph{invalidation ladder} the transient work uses.
+
+The converted loop is emitted as a guarded dual path
+(Figure~\ref{fig:emitted}). At load time, a validity cell is registered and
+indexed under the record's class name. \texttt{emit-defclass} is instrumented so
+that (re)defining a class \emph{notifies} the world, flipping the cells of
+exactly the regions that assumed that class name. The guard---one pointer read
+of the cell's \texttt{car}, checked once on loop entry---selects the unboxed fast
+path while the assumption holds and the original object-allocating loop after
+the class is redefined. In-flight activations complete on the path they entered,
+which is safe because the fast path performs only scalar arithmetic and the
+final re-box against the field layout it was compiled for. When the compiler is
+told the world is sealed (whole-program, cold-loaded builds), the guard is
+omitted entirely and only the fast path is emitted.
+
+\begin{figure}
+\begin{lstlisting}
+(IF (CAR (LOAD-TIME-VALUE
+           (REGISTER-REGION '("<POINT>")) T))
+    ;; fast path: accumulator unboxed, callee inlined
+    (BLOCK LOOP-BLOCK-2
+      (LET ((P_X 0) (P_Y 0) (I 0))
+        (TAGBODY LOOP-2
+          ... (IF (< I ITERATIONS)
+                  (LET ((DX 0.1)) (LET ((DY 0.2))
+                    (PSETQ P_X (+ P_X DX)
+                           P_Y (+ P_Y DY)
+                           I   (INC I))
+                    (GO LOOP-2)))
+                  (MAKE-<POINT> :X P_X :Y P_Y)) ...)))
+    ;; fallback: original allocating loop
+    (BLOCK LOOP-BLOCK-3
+      (LET ((P (MAKE-<POINT> :X 0 :Y 0)) (I 0))
+        ... (PSETQ P (UPDATE-POINT P) I (INC I)) ...)))
+\end{lstlisting}
+\caption{Emitted Common Lisp for \texttt{run-simulation}. The world guard reads
+one cell registered under \texttt{"<POINT>"}; redefining \texttt{<point>} flips
+the cell and the next call takes the fallback. The fast path contains no
+constructor call on the back-edge---only \texttt{psetq} of scalar arithmetic.}
+\label{fig:emitted}
+\end{figure}
+
+\section{Implementation}
+\label{sec:impl}
+
+The pass is implemented inside FOL's compiler in about 300 lines of Common Lisp.
+It lives at the loop-emission boundary rather than as a standalone AST pass, for
+a concrete reason: the transformation needs the class registry and the record
+constructors that \texttt{defclass} populates during emission, and it reuses the
+existing loop/recur code generator by handing it an already-rewritten loop node.
+Its entry point is consulted by \texttt{emit-loop} before the transient path;
+when it declines, emission proceeds exactly as before, so a program that never
+triggers the pattern produces identical output.
+
+The inlinable-function table is populated by the same \texttt{compile-form} hook
+that drives interprocedural summary inference, and because forms are transpiled
+in source order, a helper is registered before the loop that calls it. The pass
+is gated behind a single flag; with the flag off, \texttt{emit-loop} is
+byte-for-byte unchanged.
+
+\section{Evaluation}
+\label{sec:eval}
+
+We evaluate three questions. \textbf{RQ1:} does the transformation fire on the
+target pattern and eliminate allocation? \textbf{RQ2:} what speedup does it
+deliver, and is the result identical to the unoptimized program? \textbf{RQ3:}
+what does it cost when disabled or inapplicable? All measurements use SBCL on a
+single core.
+
+\textbf{RQ1: Firing and allocation.} On the particle simulation of
+Figure~\ref{fig:overview}, the pass fires: the emitted fast path
+(Figure~\ref{fig:emitted}) splits \texttt{p} into \texttt{p\_x}/\texttt{p\_y},
+inlines \texttt{update-point}, and contains \emph{no} constructor call on the
+back-edge. Per-iteration heap allocation of \texttt{<point>} objects drops from
+one per iteration to zero; the only surviving allocation is the single re-box at
+loop exit. We confirm the transformation is applied by inspecting the generated
+code for the scalar loop variables and the absence of the inlined callee on the
+fast path.
+
+\textbf{RQ2: Speedup and correctness.} Table~\ref{tab:speedup} reports the
+particle simulation at five million iterations. Eliminating allocation removes
+the garbage-collection pressure that dominates the baseline, yielding a
+5.8$\times$ speedup. Crucially, the optimized and unoptimized programs return
+identical results; a dedicated test suite checks optimized-equals-unoptimized
+on several record-accumulator shapes (field read at exit, bare re-box at exit,
+inlined and non-inlined reconstructions), and the full compiler test suite of
+3{,}285 checks passes with the pass enabled.
+
+\begin{table}
+  \caption{Particle simulation (5M iterations): eliminating per-iteration
+  allocation removes the GC bottleneck.}
+  \label{tab:speedup}
+  \begin{tabular}{lrrr}
+    \toprule
+    Configuration & Time (ms) & Alloc/iter & Speedup \\
+    \midrule
+    Baseline (persistent objects) & 4123 & 1 object & 1.0$\times$ \\
+    Aggregate scalar replacement  &  719 & 0 objects & \textbf{5.8$\times$} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\textbf{RQ3: Cost when disabled or inapplicable.} With the flag off, loop
+emission is unchanged and the output is byte-identical to the unmodified
+compiler; there is no residual cost. When the flag is on but the pattern does
+not apply---because the accumulator escapes, the reconstruction is not a
+recognized shape, or the class is unknown---the walk aborts and the original
+loop is emitted, again with no change to the generated code. We verified the
+abort path on an accumulator that flows into an unknown call: the loop is left
+untouched and no scalar variables are introduced.
+
+\textbf{Correctness under redefinition.} We exercise the world guard directly:
+after a converted loop registers its region, redefining the record class flips
+the region's validity cell, and the next call falls back to the original
+allocating loop and still produces the correct result against the redefined
+class.
+
+\section{Discussion and Limitations}
+
+\textbf{Scope of the current transformation.} The pass targets one record
+accumulator per loop; additional non-record loop variables (counters, indices)
+pass through unaffected. The reconstruction must peel---through single-form
+\texttt{bind}/\texttt{do} wrappers and at most one level of inlinable call---to a
+constructor that supplies \emph{every} field. \texttt{if}-branched
+reconstructions (\texttt{(if c (make-<t> \ldots) (make-<t> \ldots))}) are not
+yet recognized and cause a conservative abort, as do inlinable callees whose
+accumulator argument is a non-trivial expression. These are engineering
+extensions rather than fundamental limits: each corresponds to a shape the walk
+could learn to peel, and each preserves the safe-by-default discipline because
+an unrecognized shape aborts.
+
+\textbf{Relationship to partial escape analysis.} Partial escape analysis with
+scalar replacement \cite{stadler2014partial} is strictly more general: it
+handles arbitrary control flow and materializes objects lazily at the points
+where they escape. Our transformation trades that generality for a simple,
+auditable rewrite specialized to the loop-accumulator pattern, and it adds
+something a closed-world JIT does not need---soundness under class
+redefinition. A promising direction is to generalize the single classify-rewrite
+walk toward a materialization-on-escape discipline while retaining the world
+guard.
+
+\textbf{Freshness, not linearity.} Where Perceus \cite{reinking2021perceus} and
+uniqueness/borrowing systems \cite{lorenzen2023functional} establish in-place
+reuse through reference counting or types, we establish it structurally: the
+accumulator is freshly constructed at loop entry and every use is either a field
+read or a tail reconstruction, so no live alias survives a rewrite. This buys
+in-place behavior---indeed, no ``place'' at all---without a type system, at the
+cost of applying only where the syntactic discipline holds.
+
+\section{Related Work}
+
+\textbf{Scalar replacement and escape analysis.} Scalar replacement of
+non-escaping objects is classic \cite{choi1999escape,blanchet2003escape}; the
+state of the art is partial escape analysis in a JIT, which performs scalar
+replacement along paths where an object does not escape and materializes it on
+paths where it does \cite{stadler2014partial}. Our work adapts the core
+idea---hold an object's fields in variables---to a persistent-first,
+open-world dynamic language, specializing to loop accumulators and adding
+run-time-redefinition soundness.
+
+\textbf{In-place update of functional data.} Perceus achieves garbage-free
+reuse via precise reference counting \cite{reinking2021perceus}; borrowing and
+uniqueness extend it to ``functional but in-place'' programming
+\cite{lorenzen2023functional}. Linear types \cite{wadler1990linear} give a type
+discipline for single-use values. Clojure's transients \cite{hickey2009clojure}
+expose in-place update as a manual, unchecked escape hatch. We target the same
+allocation cost but require neither types nor programmer annotations, and we
+eliminate the object rather than mutate it.
+
+\textbf{Persistent data structures.} Hash array mapped tries
+\cite{bagwell2001ideal} and their optimizations \cite{steindorfer2015optimizing}
+underlie FOL's persistent collections. Deforestation \cite{wadler1990deforestation}
+similarly removes intermediate structures, but by fusing producers and
+consumers rather than by unboxing a loop-carried aggregate.
+
+\section{Conclusion}
+
+Persistent records make programs clear and allocation-heavy. We showed that a
+record rebuilt every iteration of a loop can be unboxed into scalar loop
+variables---no allocation on the back-edge, one re-box at the exit---by a single
+classify-and-rewrite walk that reaches across a call boundary through a small
+syntactic inliner and stays sound under class redefinition through a world
+guard. The pass is safe by construction: it optimizes the shapes it recognizes
+and declines the rest. On an allocation-bound simulation it turns object
+churn into flat scalar arithmetic for a 5.8$\times$ speedup with identical
+results. We see it as the record-shaped complement to automatic transient
+conversion, and a step toward bringing the benefits of partial escape analysis
+to persistent-first languages with an open world.
+
+\bibliographystyle{ACM-Reference-Format}
+\bibliography{ocg2027}
+
+\end{document}

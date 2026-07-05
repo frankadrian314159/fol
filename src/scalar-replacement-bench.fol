@@ -1,0 +1,23 @@
+;;; Scalar Replacement Benchmark
+;;;
+;;; A simple particle simulation that creates and updates many short-lived
+;;; <point> objects. This workload is designed to be allocation-bound, making
+;;; it a perfect candidate for scalar replacement.
+
+(defclass <point> [] [[x] [y]])
+
+(defn update-point [p]
+  "A simple physics update on a point."
+  (bind [dx 0.1 dy 0.2]
+    (make-<point> :x (+ (get p :x) dx)
+                  :y (+ (get p :y) dy))))
+
+(defn run-simulation [iterations]
+  (loop [p (make-<point> :x 0 :y 0)
+         i 0]
+    (if (< i iterations)
+      (recur (update-point p) (inc i))
+      p)))
+
+(defn main []
+  (run-simulation 1000000))

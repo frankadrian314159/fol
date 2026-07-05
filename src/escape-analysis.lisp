@@ -629,6 +629,10 @@
   "When non-nil, emit-loop converts qualifying loop accumulators to the
    transient protocol. Opt-in; sound under batch-compilation assumptions.")
 
+(defvar *scalar-replacement* nil
+  "When non-nil, enables scalar replacement of non-escaping persistent objects.
+   Opt-in; sound under batch-compilation assumptions until world guards are fully integrated.")
+
 (defvar *loops-converted* 0)
 (defvar *params-converted* 0)
 
@@ -1044,7 +1048,7 @@
                        (setf (aref pos-names pos) pname)
                        (setf assumptions
                              (union (union *chain-ops* *read-ops* :test #'string=)
-                                    assumptions :test #'string=)))))))
+                                    assumptions :test #'string=))))))
         (if (null qnames)
             node
             (let* ((first-qname (first qnames))
@@ -1070,7 +1074,12 @@
                                            qnames pos-names)
                   :form (fol.compiler.ast:ast-node-form node))
                  assumptions
-                 profit-check)))))))
+                 profit-check
+                 ;; When a profitability check is emitted it references the
+                 ;; accumulator by name, but the accumulator is bound only
+                 ;; *inside* each loop. Return (name . init-node) so emit-loop
+                 ;; can bind it in an outer LET that scopes the guard.
+                 (when profit-check (cons first-qname first-qinit)))))))))
 
 ;;; ============================================================================
 ;;; Tier-2 Summary Inference (step 6)
@@ -1083,13 +1092,15 @@
           (/= 1 (length (fol.compiler.ast:fn-node-clauses fn-node))))
       ;; For now, only handle single-clause functions. Multi-clause dispatch
       ;; would require joining summaries from each clause.
-      (return-from infer-summary nil))
+      (return-from %infer-summary-single-pass nil))
 
   (let* ((clause (first (fol.compiler.ast:fn-node-clauses fn-node)))
          (params (%param-names (car clause)))
          (body (cdr clause))
          (param-effects (make-array (length params) :initial-element :none))
-         (returns-fresh-p nil)
+         ;; A function returns a fresh (uniquely-owned) value unless it returns
+         ;; one of its parameters in tail position. Default T; cleared below.
+         (returns-fresh-p t)
          (barrier-p nil))
 
     (labels ((param-index (name)
@@ -1101,20 +1112,19 @@
              (walk (node tailp)
                (cond
                  ((null node) nil)
-                 ;; A parameter returned directly is :shared-with-result
+                 ;; A parameter returned directly is :shared-with-result, and
+                 ;; means the function does not return a fresh value.
                  ((fol.compiler.ast:symbol-ref-node-p node)
                   (let ((idx (param-index (fol.compiler.ast:symbol-ref-node-name node))))
                     (when (and idx tailp)
-                      (update-effect idx :shared-with-result))))
+                      (update-effect idx :shared-with-result)
+                      (setf returns-fresh-p nil))))
 
                  ((fol.compiler.ast:call-node-p node)
                   (let* ((op (operator-symbol node))
                          (summary (and op (fol.compiler.summaries:lookup-summary op))))
                     (when (and op (member (symbol-name op) +barrier-names+ :test #'string=))
                       (setf barrier-p t))
-
-                    (when (and tailp summary (fol.compiler.summaries:escape-summary-returns-fresh-p summary))
-                      (setf returns-fresh-p t))
 
                     (walk (fol.compiler.ast:call-node-operator node) nil)
                     (loop for arg in (fol.compiler.ast:call-node-args node)
@@ -1167,11 +1177,13 @@
                (setf returns-fresh-p nil)))
 
     (fol.compiler.summaries:make-escape-summary
-     :name (or (fol.compiler.ast:fn-node-name fn-node) "anonymous")
+     :name (let ((n (fol.compiler.ast:fn-node-name fn-node)))
+             (if n (string n) "anonymous"))
      :param-effects param-effects
      :rest-effect nil ; Non-recursive version doesn't handle &rest
      :returns-fresh-p returns-fresh-p
      :barrier-p barrier-p)))
+
 
 (defun infer-summary (fn-node)
   "Infer an escape-summary for a literal FN-NODE. This is the core of the
@@ -1190,7 +1202,7 @@
            ;; Start with the most optimistic summary: nothing escapes, returns fresh.
            (current-summary
              (fol.compiler.summaries:make-escape-summary
-              :name name
+              :name (string name)
               :param-effects (make-array param-count :initial-element :none)
               :returns-fresh-p t))
            (iteration-count 0)
@@ -1201,7 +1213,7 @@
           (warn "infer-summary for ~S did not converge after ~D iterations." name max-iterations)
           ;; Return a conservative summary on failure to converge.
           (return (fol.compiler.summaries:make-escape-summary
-                   :name name
+                   :name (string name)
                    :param-effects (make-array param-count :initial-element :retained))))
 
         ;; Temporarily place the current assumption in the cache so recursive calls find it.

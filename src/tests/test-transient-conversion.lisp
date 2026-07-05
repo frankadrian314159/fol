@@ -561,17 +561,23 @@
          (vec-code-str (write-to-string
                         (fol.compiler:compilation-result-code
                          (fol.compiler:compile-form vec-form)))))
-    ;; Check for dict threshold
-    (is (search "(CL:AND (CL:CAR (CL:LOAD-TIME-VALUE (FOL.COMPILER.WORLD:REGISTER-REGION '(\"ASSOC\")) T)) (< 16 (FOL.COMPILER.COLLECTION-FUNCTIONS:COUNT ACC)))"
-                dict-code-str
-                :test #'string-equal))
-    ;; Check for vector threshold
-    (is (search "(CL:AND (CL:CAR (CL:LOAD-TIME-VALUE (FOL.COMPILER.WORLD:REGISTER-REGION '(\"CONJ\")) T)) (< 12 (FOL.COMPILER.COLLECTION-FUNCTIONS:COUNT ACC)))"
-                vec-code-str
-                :test #'string-equal))
-    ;; Check that a non-qualifying loop has no check
+    ;; The guard ANDs the world-validity cell with a size check on the
+    ;; accumulator. (Package prefixes on CL:AND/CAR/LOAD-TIME-VALUE depend on
+    ;; the printing package, so we check the package-stable fragments: the
+    ;; assumed op region and the threshold+count comparison.)
+    ;; Dict threshold = 16.
+    (is (search "(FOL.COMPILER.WORLD:REGISTER-REGION '(\"ASSOC\"))"
+                dict-code-str :test #'string-equal))
+    (is (search "(< 16 (FOL.COMPILER.COLLECTION-FUNCTIONS:COUNT ACC))"
+                dict-code-str :test #'string-equal))
+    ;; Vector threshold = 12.
+    (is (search "(FOL.COMPILER.WORLD:REGISTER-REGION '(\"CONJ\"))"
+                vec-code-str :test #'string-equal))
+    (is (search "(< 12 (FOL.COMPILER.COLLECTION-FUNCTIONS:COUNT ACC))"
+                vec-code-str :test #'string-equal))
+    ;; Sets have no size threshold: a converted set loop emits no count check.
     (let* ((fol.compiler.escape-analysis:*transient-loops* t)
-           (set-form '(loop (acc (set) i 0) (if (< i 10) (recur (conj acc (count acc)) (inc i)) acc)))
+           (set-form '(loop (acc (set) i 0) (if (< i 10) (recur (conj acc i) (inc i)) acc)))
            (set-code-str (write-to-string (fol.compiler:compilation-result-code (fol.compiler:compile-form set-form)))))
       (is (null (search "FOL.COMPILER.COLLECTION-FUNCTIONS:COUNT" set-code-str))))))
 

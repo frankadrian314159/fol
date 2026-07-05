@@ -264,17 +264,20 @@
 (test infer-summary-simple-linear
   "Infers a simple linear update function correctly."
   (let ((summary (do-infer-summary
-                  '(defn add-item [cart item]
+                  '(defn add-item #(cart item)
                      (fol.compiler.collection-functions:assoc cart item item)))))
     (is (not (null summary)))
-    (is (equalp #(:none :shared-with-result :shared-with-result)
+    ;; add-item has two params (cart item). cart is the collection assoc builds
+    ;; a fresh root from (:none); item flows in as both key and value, so it is
+    ;; reachable through the result (:shared-with-result).
+    (is (equalp #(:none :shared-with-result)
                 (fol.compiler.summaries:escape-summary-param-effects summary)))
     (is (fol.compiler.summaries:escape-summary-returns-fresh-p summary))))
 
 (test infer-summary-escaping-call
   "Correctly marks a parameter as :retained if passed to an unknown function."
   (let ((summary (do-infer-summary
-                  '(defn escape-it [x] (some-unknown-function x)))))
+                  '(defn escape-it #(x) (some-unknown-function x)))))
     (is (not (null summary)))
     (is (equalp #(:retained)
                 (fol.compiler.summaries:escape-summary-param-effects summary)))))
@@ -282,7 +285,7 @@
 (test infer-summary-capture
   "Correctly marks a captured parameter as :retained."
   (let ((summary (do-infer-summary
-                  '(defn capture-it [x] (fn [] x)))))
+                  '(defn capture-it #(x) (fn #() x)))))
     (is (not (null summary)))
     (is (equalp #(:retained)
                 (fol.compiler.summaries:escape-summary-param-effects summary)))))
@@ -290,7 +293,7 @@
 (test infer-summary-recursive-passthrough
   "Handles a simple tail-recursive function that passes its argument through."
   (let ((summary (do-infer-summary
-                  '(defn recursive-rest [s]
+                  '(defn recursive-rest #(s)
                      (if (fol.compiler.collection-functions:empty? s)
                          s
                          (recursive-rest (fol.compiler.collection-functions:rest s)))))))
@@ -304,28 +307,28 @@
 (test infer-summary-recursive-accumulator
   "Handles a tail-recursive accumulator pattern."
   (let ((summary (do-infer-summary
-                  '(defn build-list [n acc]
+                  '(defn build-list #(n acc)
                      (if (= n 0)
                          acc
                          (build-list (- n 1) (fol.compiler.collection-functions:conj acc n)))))))
     (is (not (null summary)))
-    ;; `n` has :none effect.
-    ;; `acc` is returned in the base case, and passed to `conj` in the recursive
-    ;; step. `conj` has a :none effect on its collection argument. The result
-    ;; of `conj` is passed to the recursive call's `acc` parameter.
-    ;; The fixed-point analysis correctly determines the final effect is :shared-with-result.
-    (is (equalp #(:none :shared-with-result)
+    ;; `acc` is returned in the base case and threaded through `conj` (:none on
+    ;; the collection arg) -> :shared-with-result. `n` is `conj`'s value
+    ;; argument, so it too becomes an element reachable through the result
+    ;; (:shared-with-result). Both params are therefore :shared-with-result.
+    (is (equalp #(:shared-with-result :shared-with-result)
                 (fol.compiler.summaries:escape-summary-param-effects summary)))
+    ;; It returns `acc` (a parameter) in the base case, so not fresh.
     (is (not (fol.compiler.summaries:escape-summary-returns-fresh-p summary)))))
 
 (test infer-summary-mutually-recursive
   "Handles mutually recursive functions by iterating to a fixed point."
   ;; is-even? and is-odd? call each other.
   (let ((is-even-summary (do-infer-summary
-                          '(defn is-even? [n]
+                          '(defn is-even? #(n)
                              (if (= n 0) true (is-odd? (- n 1))))))
         (is-odd-summary (do-infer-summary
-                         '(defn is-odd? [n]
+                         '(defn is-odd? #(n)
                             (if (= n 0) false (is-even? (- n 1)))))))
     ;; This test primarily ensures the analysis terminates and doesn't produce
     ;; an overly-conservative :retained summary due to the recursion.

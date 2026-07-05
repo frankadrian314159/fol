@@ -89,6 +89,9 @@
    summary<=
    summary-join
    effect-for-arg
+   ;; Tier-2 inferred summary cache
+   *inferred-summaries*
+   clear-inferred-summary
    ;; Tier-1 stdlib table
    *stdlib-summaries*
    define-stdlib-summary
@@ -155,6 +158,7 @@
    operator-symbol
    ;; Transient loop conversion (step 3)
    *transient-loops*
+   *scalar-replacement*
    maybe-transient-loop
    maybe-transient-reduce
    transient-eligible-init-p
@@ -163,7 +167,9 @@
    *reduces-converted*
    ;; Dynamic-extent closure client (step 5)
    *stack-closures*
-   dx-call-p))
+   dx-call-p
+   ;; Tier-2 summary inference (step 6)
+   infer-summary))
 
 (defpackage fol.compiler.ast
   (:use cl)
@@ -900,6 +906,7 @@
    compile-form
    compile-file
    compile-string
+   parse-form
    ;; Compilation result
    compilation-result
    compilation-result-p
