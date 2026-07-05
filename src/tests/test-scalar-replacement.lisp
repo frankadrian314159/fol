@@ -124,6 +124,121 @@
     (is (not (sr-code-has code "P_X")))))
 
 ;;; ============================================================================
+;;; Multiple accumulators (fixpoint): unbox more than one record per loop
+;;; ============================================================================
+
+(test sr-multi-independent-correctness
+  "Two independent record accumulators (plus a counter) are both unboxed, and
+   the result matches the unoptimized run."
+  (let ((src "
+(defclass <sr-ma> [] [[x] [y]])
+(defn sr-ma-up [p] (make-<sr-ma> :x (inc (get p :x)) :y (inc (get p :y))))
+(defn sr-ma-run [n]
+  (loop [p (make-<sr-ma> :x 0 :y 0)
+         q (make-<sr-ma> :x 10 :y 20)
+         i 0]
+    (if (< i n)
+      (recur (sr-ma-up p) (sr-ma-up q) (inc i))
+      (+ (get p :x) (get q :y)))))
+(sr-ma-run 5)"))
+    (is (= 30 (sr-fol src :sr nil)))
+    (is (= (sr-fol src :sr nil) (sr-fol src :sr t)))))
+
+(test sr-multi-independent-both-unboxed
+  "The fixpoint unboxes BOTH accumulators: scalar field vars appear for p and q,
+   and no constructor call survives on the fast-path back-edge."
+  (multiple-value-bind (val code)
+      (sr-fol "
+(defclass <sr-ma2> [] [[x] [y]])
+(defn sr-ma2-up [p] (make-<sr-ma2> :x (inc (get p :x)) :y (inc (get p :y))))
+(defn sr-ma2-run [n]
+  (loop [p (make-<sr-ma2> :x 0 :y 0)
+         q (make-<sr-ma2> :x 10 :y 20)
+         i 0]
+    (if (< i n)
+      (recur (sr-ma2-up p) (sr-ma2-up q) (inc i))
+      (+ (get p :x) (get q :y)))))"
+              :sr t)
+    (declare (ignore val))
+    (is (sr-code-has code "P_X"))
+    (is (sr-code-has code "P_Y"))
+    (is (sr-code-has code "Q_X"))
+    (is (sr-code-has code "Q_Y"))))
+
+(test sr-multi-coupled-fibonacci
+  "Coupled accumulators a'=b, b'=a+b (Fibonacci) exercise PSETQ parallelism
+   through DOUBLE unboxing: if simultaneity were lost when both accumulators
+   become scalar loop vars, the sequence would be wrong. Both are unboxed and
+   the result equals Fib(n) and the unoptimized run."
+  (let ((src "
+(defclass <sr-mb> [] [[v]])
+(defn sr-mb-run [n]
+  (loop [a (make-<sr-mb> :v 0)
+         b (make-<sr-mb> :v 1)
+         i 0]
+    (if (< i n)
+      (recur (make-<sr-mb> :v (get b :v))
+             (make-<sr-mb> :v (+ (get a :v) (get b :v)))
+             (inc i))
+      (get a :v))))
+(sr-mb-run 10)"))
+    ;; Fib(10) = 55; a starts at 0, b at 1, ten steps of (a,b)->(b,a+b).
+    (is (= 55 (sr-fol src :sr nil)))
+    (is (= (sr-fol src :sr nil) (sr-fol src :sr t))))
+  ;; Confirm both accumulators were actually unboxed on the fast path.
+  (multiple-value-bind (val code)
+      (sr-fol "
+(defclass <sr-mb2> [] [[v]])
+(defn sr-mb2-run [n]
+  (loop [a (make-<sr-mb2> :v 0) b (make-<sr-mb2> :v 1) i 0]
+    (if (< i n)
+      (recur (make-<sr-mb2> :v (get b :v))
+             (make-<sr-mb2> :v (+ (get a :v) (get b :v)))
+             (inc i))
+      (get a :v))))"
+              :sr t)
+    (declare (ignore val))
+    (is (sr-code-has code "A_V"))
+    (is (sr-code-has code "B_V"))))
+
+(test sr-multi-partial-replacement
+  "When one accumulator qualifies and another escapes, the fixpoint unboxes the
+   qualifying one and leaves the other boxed, still producing the right result."
+  (multiple-value-bind (val code)
+      (sr-fol "
+(defclass <sr-mc> [] [[x]])
+(defn sr-mc-sink [p] (get p :x))
+(defn sr-mc-run [n]
+  (loop [p (make-<sr-mc> :x 0)
+         q (make-<sr-mc> :x 100)
+         i 0]
+    (if (< i n)
+      (recur (make-<sr-mc> :x (inc (get p :x)))
+             (make-<sr-mc> :x (sr-mc-sink q))
+             (inc i))
+      (+ (get p :x) (get q :x)))))"
+              :sr t)
+    (declare (ignore val))
+    ;; p qualifies -> unboxed; q flows into sr-mc-sink (escape) -> stays boxed.
+    (is (sr-code-has code "P_X"))
+    (is (not (sr-code-has code "Q_X"))))
+  (let ((src "
+(defclass <sr-mc2> [] [[x]])
+(defn sr-mc2-sink [p] (get p :x))
+(defn sr-mc2-run [n]
+  (loop [p (make-<sr-mc2> :x 0)
+         q (make-<sr-mc2> :x 100)
+         i 0]
+    (if (< i n)
+      (recur (make-<sr-mc2> :x (inc (get p :x)))
+             (make-<sr-mc2> :x (sr-mc2-sink q))
+             (inc i))
+      (+ (get p :x) (get q :x)))))
+(sr-mc2-run 5)"))
+    (is (= 105 (sr-fol src :sr nil)))
+    (is (= (sr-fol src :sr nil) (sr-fol src :sr t)))))
+
+;;; ============================================================================
 ;;; Soundness: redefining the record class invalidates the converted loop
 ;;; ============================================================================
 

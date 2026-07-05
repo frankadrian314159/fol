@@ -1,0 +1,23 @@
+;;; ASR Benchmark D: coupled two-accumulator relaxation
+;;;
+;;; TWO persistent-record accumulators (a, b : <vec2>) are advanced together,
+;;; each step reading BOTH records: every point moves 1% of the way toward the
+;;; other. This is the multi-accumulator case. It exercises the fixpoint path
+;;; -- both records are unboxed into scalar loop vars (four in total) -- and the
+;;; coupling (a reads b, b reads a) checks that the parallel recur/psetq update
+;;; preserves simultaneity after DOUBLE unboxing. Two <vec2> objects are consed
+;;; per iteration in the baseline; ASR conses none.
+
+(defclass <vec2> [] [[x] [y]])
+
+(defn run-twobody [iterations]
+  (loop [a (make-<vec2> :x 0.0 :y 0.0)
+         b (make-<vec2> :x 1.0 :y 1.0)
+         i 0]
+    (if (< i iterations)
+      (recur (make-<vec2> :x (+ (get a :x) (* 0.01 (- (get b :x) (get a :x))))
+                          :y (+ (get a :y) (* 0.01 (- (get b :y) (get a :y)))))
+             (make-<vec2> :x (+ (get b :x) (* 0.01 (- (get a :x) (get b :x))))
+                          :y (+ (get b :y) (* 0.01 (- (get a :y) (get b :y)))))
+             (inc i))
+      (+ (get a :x) (get a :y)))))

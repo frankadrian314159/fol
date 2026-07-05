@@ -3327,27 +3327,58 @@
     (scan node)
     nil))
 
+(defun %sr-replace-one (node)
+  "Unbox the first qualifying record accumulator in loop NODE. Returns
+   (values NEW-NODE ASSUMPTIONS) on success, or (values NIL NIL) if no loop
+   parameter can be unboxed. Scans bindings in order; each attempt either
+   succeeds (returning the rewritten loop) or leaves NODE untouched."
+  (loop for (pname . init) in (fol.compiler.ast:loop-node-bindings node)
+        for pos from 0
+        do (when (and (symbolp pname)
+                      (fol.compiler.ast:call-node-p init)
+                      (infer-type-from-constructor init))
+             (multiple-value-bind (result assumptions)
+                 (%sr-try-accumulator node pname pos init)
+               (when result
+                 (return-from %sr-replace-one (values result assumptions))))))
+  (values nil nil))
+
 (defun maybe-scalar-replace-loop (node)
-  "When *SCALAR-REPLACEMENT* is on and a loop parameter is a persistent-record
-   accumulator whose every use is a field read, a reconstruction feeding recur,
-   or a tail re-box, return (values REWRITTEN-LOOP ASSUMPTIONS) with the
-   accumulator unboxed into one scalar loop var per field. ASSUMPTIONS is the
-   list of record class-name strings the rewrite depends on (for the world
-   guard). Otherwise (values NODE NIL)."
+  "When *SCALAR-REPLACEMENT* is on, unbox every record accumulator of loop NODE
+   whose uses all fit the recognized shapes (field read, reconstruction feeding
+   recur, tail re-box), one scalar loop var per field. Returns (values
+   REWRITTEN-LOOP ASSUMPTIONS), where ASSUMPTIONS is the list of record
+   class-name strings the rewrite depends on (for the world guard), or
+   (values NODE NIL) if nothing was unboxed.
+
+   Multiple accumulators are handled by fixpoint: %SR-REPLACE-ONE unboxes one
+   accumulator at a time, leaving the rest as ordinary boxed loop vars; because
+   recur lowers to a parallel PSETQ, cross-references between accumulators
+   resolve to the other's scalar vars as each is unboxed in turn, so coupled
+   accumulators (p reads q, q reads p) stay correct. An accumulator that fails
+   to qualify is simply left boxed (partial replacement)."
   (if (not fol.compiler.escape-analysis:*scalar-replacement*)
       (values node nil)
-      (let ((bindings (fol.compiler.ast:loop-node-bindings node)))
-        (loop for (pname . init) in bindings
-              for pos from 0
-              do (when (and (symbolp pname)
-                            (fol.compiler.ast:call-node-p init)
-                            (infer-type-from-constructor init))
-                   (multiple-value-bind (result assumptions)
-                       (%sr-try-accumulator node pname pos init)
-                     (when result
-                       (return-from maybe-scalar-replace-loop
-                         (values result assumptions))))))
-        (values node nil))))
+      (let ((current node)
+            (all-assumptions '())
+            (any nil)
+            ;; Safety backstop against pathological nesting; each successful
+            ;; pass unboxes one accumulator, and real loops carry a handful.
+            ;; Stopping early only yields a less-optimized (still correct) loop.
+            (budget 128))
+        (loop
+          (when (<= budget 0) (return))
+          (decf budget)
+          (multiple-value-bind (next assumptions) (%sr-replace-one current)
+            (if next
+                (setf current next
+                      all-assumptions (union all-assumptions assumptions
+                                             :test #'string=)
+                      any t)
+                (return))))
+        (if any
+            (values current all-assumptions)
+            (values node nil)))))
 
 (defun %sr-try-accumulator (loop-node pname pos init)
   "Attempt to unbox loop accumulator PNAME (at binding POS, initialized by the

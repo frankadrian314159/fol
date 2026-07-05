@@ -96,6 +96,23 @@
               (nst3-vy s) nvy)))
     (+ (nst3-x s) (+ (nst3-y s) (nst3-vy s)))))
 
+;; Multi-accumulator: two mutable structs updated together, all old values read
+;; before any is written (matching the parallel recur semantics of the FOL loop).
+(defstruct (nv2 (:conc-name nv2-))
+  (x 0.0 :type single-float) (y 0.0 :type single-float))
+
+(defun native-twobody (n)
+  (declare (fixnum n) (optimize (speed 3) (safety 0)))
+  (let ((a (make-nv2 :x 0.0 :y 0.0))
+        (b (make-nv2 :x 1.0 :y 1.0)))
+    (dotimes (i n)
+      (let ((ax (nv2-x a)) (ay (nv2-y a)) (bx (nv2-x b)) (by (nv2-y b)))
+        (setf (nv2-x a) (+ ax (* 0.01 (- bx ax)))
+              (nv2-y a) (+ ay (* 0.01 (- by ay)))
+              (nv2-x b) (+ bx (* 0.01 (- ax bx)))
+              (nv2-y b) (+ by (* 0.01 (- ay by))))))
+    (+ (nv2-x a) (nv2-y a))))
+
 ;;; --- Statistics ----------------------------------------------------------
 (defun mean (xs) (/ (reduce #'+ xs) (float (length xs))))
 (defun stddev (xs)
@@ -220,7 +237,9 @@
                 (bench "A. 2D rotation orbit    <rot>{re,im}"
                        "asr-rotation.fol"   "run-rotation"   #'native-rotation)
                 (bench "B. Ballistic integrator <state3>{x,y,vy}"
-                       "asr-projectile.fol" "run-projectile" #'native-projectile))))
+                       "asr-projectile.fol" "run-projectile" #'native-projectile)
+                (bench "D. Two-body relaxation  2x<vec2>{x,y}"
+                       "asr-twobody.fol"    "run-twobody"    #'native-twobody))))
     (summary results)
     (format t "~%Done.~%")))
 

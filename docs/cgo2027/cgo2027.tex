@@ -1,9 +1,9 @@
 %%
-%% OCG 2027 submission: "Objects Without Allocation".
+%% CGO 2027 submission: "Objects Without Allocation".
 %% Loop-carried scalar replacement of persistent records in FOL.
 %%
-%% NOTE: The \acmConference metadata below uses a placeholder expansion of
-%% "OCG"; replace the venue name/dates/location with the real call once known.
+%% NOTE: The venue name below is set to CGO; the dates and location are
+%% placeholders (TBD) to be filled from the real call for papers.
 %%
 \documentclass[sigplan,review,anonymous]{acmart}
 
@@ -36,9 +36,9 @@
 \acmYear{2027}
 \acmDOI{XXXXXXX.XXXXXXX}
 
-%% These commands are for a PROCEEDINGS abstract or paper. (Placeholder venue.)
-\acmConference[OCG '27]{International Conference on Optimizing Compilers and Code Generation}{2027}{Somewhere, USA}
-\acmBooktitle{Proceedings of the International Conference on Optimizing Compilers and Code Generation (OCG '27), 2027, Somewhere, USA}
+%% These commands are for a PROCEEDINGS abstract or paper. (Dates/location TBD.)
+\acmConference[CGO '27]{IEEE/ACM International Symposium on Code Generation and Optimization}{February 2027}{TBD}
+\acmBooktitle{Proceedings of the IEEE/ACM International Symposium on Code Generation and Optimization (CGO '27)}
 \acmPrice{15.00}
 \acmISBN{978-1-4503-XXXX-X/27/06}
 
@@ -60,7 +60,7 @@
 Persistent-first languages give programmers immutable objects, but a record
 rebuilt every iteration of a loop turns into a stream of short-lived heap
 allocations: on our system a loop that rebuilds a persistent record runs
-90--160$\times$ slower than the same loop over a native mutable struct,
+90--290$\times$ slower than the same loop over a native mutable struct,
 dominated by allocation and garbage collection. Classic
 \emph{scalar replacement} removes such allocations by holding an object's fields
 in registers, but the textbook formulation only fires when an object is created
@@ -78,9 +78,9 @@ interprocedural reach without a whole-program analysis; and (2) a
 redefined at run time. A single classify-and-rewrite walk is aligned by
 construction---any use it does not recognize aborts the rewrite and yields the
 original loop---so the transformation is never unsound, only sometimes
-inapplicable. Across three allocation-bound benchmarks the technique eliminates
-per-iteration allocation entirely for an end-to-end 5.7$\times$--6.6$\times$
-speedup, recovering the allocation component of that 90--160$\times$ gap, with
+inapplicable. Across four allocation-bound benchmarks the technique eliminates
+per-iteration allocation entirely for an end-to-end 5.6$\times$--7.2$\times$
+speedup, recovering the allocation component of that 90--290$\times$ gap, with
 byte-identical results and no cost when disabled; the residual distance to
 native, which we measure and attribute to generic scalar arithmetic rather than
 allocation, is orthogonal to this work.
@@ -116,7 +116,8 @@ allocation, is orthogonal to this work.
 \ccsdesc[500]{Theory of computation~Program analysis}
 
 \keywords{scalar replacement, escape analysis, persistent data structures,
-inlining, dynamic languages, lisp, compiler optimization}
+inlining, dynamic languages, lisp, compiler optimization, speculative
+optimization, deoptimization}
 
 \begin{document}
 \maketitle
@@ -129,7 +130,7 @@ with the old one. This is a pleasant programming model, but it has a cost. When
 a small record is updated inside a loop, every iteration allocates a fresh
 object on the heap, and the previous version becomes garbage immediately. In
 FOL---a Lisp-1 dialect with CLOS-style persistent objects, transpiled to Common
-Lisp---a loop that rebuilds a persistent record runs \textbf{90--160$\times$}
+Lisp---a loop that rebuilds a persistent record runs \textbf{90--290$\times$}
 slower than the same loop written over a native mutable \texttt{defstruct}
 (\S\ref{sec:eval}), dominated by allocation and garbage-collection pressure.
 
@@ -181,10 +182,11 @@ the result. Our contributions are:
   yields the original loop unchanged. The transformation is therefore never
   wrong, only sometimes inapplicable---the safe default for a compiler pass
   enabled on untyped code (\S\ref{sec:align}).
-  \item \textbf{Evaluation.} On three allocation-bound benchmarks---spanning
-  two- and three-field records and both additive and multiplicative update
-  shapes---the technique reduces per-iteration allocation to zero for an
-  end-to-end 5.7$\times$--6.6$\times$ speedup at 5M iterations, produces
+  \item \textbf{Evaluation.} On four allocation-bound benchmarks---spanning
+  two- and three-field records, additive and multiplicative update shapes, and a
+  coupled two-accumulator loop---the technique reduces per-iteration allocation
+  to zero for an end-to-end 5.6$\times$--7.2$\times$ speedup at 5M iterations,
+  produces
   byte-identical results, and adds no cost when disabled or inapplicable. We
   additionally measure a native mutable-\texttt{defstruct} implementation of
   each benchmark as an upper bound, and report honestly how much of the gap ASR
@@ -223,9 +225,10 @@ the emitted code this fast path sits behind a world guard on \texttt{<point>}
 \end{figure}
 
 Our evaluation is deliberately focused: the technique targets one high-value
-pattern---the loop-carried record accumulator---and we measure it on three
-microbenchmarks that instantiate that pattern with different field counts and
-update shapes. We make no claim here about how frequently the pattern arises in
+pattern---the loop-carried record accumulator---and we measure it on four
+microbenchmarks that instantiate that pattern with different field counts, update
+shapes, and accumulator multiplicities. We make no claim here about how
+frequently the pattern arises in
 production code; a corpus study of its incidence across real FOL programs is
 future work (\S\ref{sec:eval}). What we do report is an honest picture of when
 the transformation fires and what it buys where it does.
@@ -258,7 +261,12 @@ by converting them to Clojure-style transients, guarded for soundness under
 redefinition. Aggregate scalar replacement is the analogue for user-defined
 \emph{records}: rather than mutate a boxed object in place, it eliminates the box
 entirely. The two share the world-guard machinery described in
-\S\ref{sec:world} and compose in the same \texttt{emit-loop} entry point.
+\S\ref{sec:world} and compose in the same \texttt{emit-loop} entry point. That
+machinery is shared infrastructure, not a claim of this paper: our contribution
+is the record transformation of \S\ref{sec:algo}, and we describe the guard in
+full only because it is what makes that transformation sound in an open world.
+The transient conversion is separate, concurrent work, mentioned here solely for
+context.
 
 \section{Aggregate Scalar Replacement}
 \label{sec:algo}
@@ -267,8 +275,10 @@ The transformation runs at loop-emission time. Given a \texttt{loop} node, it
 searches the bindings for a parameter whose initializer is a record constructor
 \texttt{(make-<t> \ldots)} of a class known to the type registry, and attempts
 to unbox it. The attempt either succeeds and returns a rewritten loop, or bails
-and leaves the loop untouched. We describe candidate selection, the two core
-rewrites, the alignment discipline that keeps them sound, and the world guard.
+and leaves the loop untouched. We describe the transform for a single
+accumulator; a loop with several is handled by applying it to a fixpoint
+(\S\ref{sec:discussion}). We cover candidate selection, the two core rewrites,
+the alignment discipline that keeps them sound, and the world guard.
 
 \subsection{Candidates and fields}
 \label{sec:cand}
@@ -290,7 +300,7 @@ The body is rewritten by a single recursive walk parameterized by whether the
 current node is in tail position and by a set of \emph{alias} names that denote
 the accumulator (initially $\{\texttt{p}\}$; \S\ref{sec:inline} explains why it
 is a set). The walk maps each accumulator use to one of a small number of
-recognized shapes:
+recognized shapes (Figure~\ref{fig:algo} gives it in full):
 
 \begin{itemize}
   \item \textbf{Field read.} \texttt{(get p :}$f_j$\texttt{)} rewrites to a
@@ -311,6 +321,39 @@ recognized shapes:
   walk builds the rewritten body functionally and signals failure by a
   non-local exit, a failed attempt has no effect: the original loop is emitted.
 \end{itemize}
+
+\begin{figure}
+\begin{lstlisting}[language={},basicstyle=\footnotesize\ttfamily,numbers=none,frame=single,columns=fullflexible,keepspaces=true,keywordstyle={}]
+Rewrite(n, tail, A):        # A = accumulator alias names; may raise Fail
+  match n:
+    (get p k), p in A    -> if k in F: return VAR(p_k) else Fail
+    (recur ... a ...)    -> replace slot arg a by Reconstruct(a, A),  # k -> k+m-1
+                            other args via Rewrite(., false, A)
+    p, p in A and tail   -> return (make-<T> :f1 VAR(p_f1)...:fm VAR(p_fm)) # re-box
+    p, p in A            -> Fail                    # bare accumulator escapes
+    (bind bs e)|(do e)   -> peel; rewrite inits (false) and body (tail); re-wrap
+    _                    -> recurse; any surviving p in A -> Fail
+
+Reconstruct(a, A):          # returns m per-field expressions, in field order
+  a := Peel(a)                              # strip single-form bind/do wrappers
+  match a:
+    (make-<T> :f1 v1...:fm vm), {f_j} = F
+                         -> return [ Rewrite(v_j, false, A) | j = 1..m ]
+    (g x1...xn), g in Inlinable, every x_i a symbol or literal
+                         -> (ps, body) := Inlinable[g]; q := param of g bound to acc
+                            return Reconstruct(body, A U {q}) # other ps -> wrapper
+    p, p in A            -> return [ VAR(p_f1)...VAR(p_fm) ]  # unchanged pass-through
+    _                    -> Fail
+\end{lstlisting}
+\caption{The classify-and-rewrite walk (\S\ref{sec:loop},~\S\ref{sec:inline}).
+$F=\{f_1,\dots,f_m\}$ is the accumulator class's field set, \texttt{VAR}($p\_f$)
+the scalar loop variable for field $f$, and \texttt{Inlinable} the table mapping
+a single-clause constructor-returning function to its parameters and body
+(\S\ref{sec:inline}). Classification and rewriting are one traversal: any
+accumulator use not matched here raises \texttt{Fail}, whereupon the original
+loop is emitted unchanged.}
+\label{fig:algo}
+\end{figure}
 
 A reconstruction may be wrapped in single-form \texttt{bind}/\texttt{do} layers
 (as in Figure~\ref{fig:overview}, where the \texttt{make-<point>} sits under
@@ -368,6 +411,30 @@ complex accumulator uses simply prevent optimization rather than risk a wrong
 rewrite. For a pass enabled on latently-typed code with open-world dispatch,
 ``inapplicable'' is a far cheaper failure mode than ``incorrect.''
 
+We can state the guarantee precisely. Say \texttt{Rewrite} (Figure~\ref{fig:algo})
+\emph{succeeds} on a loop body if it returns without raising \texttt{Fail}.
+
+\smallskip
+\noindent\textbf{Invariant (alignment).} \emph{If \texttt{Rewrite} succeeds, then
+in the rewritten body every reference to an accumulator-alias name has been
+replaced by one of exactly three forms: (i) the scalar variable
+\texttt{VAR}($p\_f$) of a field $f\in F$ (a field read); (ii) the per-field value
+expressions spliced into a \texttt{recur} (a reconstruction); or (iii) the single
+tail re-box \texttt{(make-<t> \ldots)}. No bare accumulator reference survives.}
+
+\smallskip
+\noindent The invariant holds by construction: those three are the only cases in
+which \texttt{Rewrite} returns a term mentioning the accumulator, and every other
+occurrence---a field read of an absent key, a bare accumulator in non-tail
+position, an unrecognized reconstruction---is a \texttt{Fail} case. Two
+corollaries follow. \emph{Allocation:} the only \texttt{make-<t>} reachable in the
+rewritten loop is the exit re-box of case (iii), which post-dominates the loop and
+runs at most once per activation, so the back-edge allocates nothing.
+\emph{Correctness:} because the walk is total---it either succeeds with the
+above shape or emits the original loop verbatim---the pass never yields a rewrite
+that is not one of these three equivalences, which is why it is safe to enable on
+untyped code without a separate legality analysis.
+
 \subsection{Soundness under live redefinition}
 \label{sec:world}
 
@@ -375,7 +442,9 @@ Aggregate scalar replacement bakes a class's field layout into the fast path: it
 assumes \texttt{<point>} has exactly fields \texttt{x} and \texttt{y}. In FOL a
 class can be redefined at run time---\texttt{(defclass <point> [] [[x] [y]
 [z]])}---which would invalidate that assumption. We keep the optimization sound
-with the same \emph{invalidation ladder} the transient work uses.
+with the same \emph{invalidation ladder} the transient work uses---a static,
+ahead-of-time analogue of the assumption-and-deoptimization mechanism JIT
+compilers use for speculative optimization (\S\ref{sec:related}).
 
 The converted loop is emitted as a guarded dual path
 (Figure~\ref{fig:emitted}). At load time, a validity cell is registered and
@@ -386,9 +455,10 @@ of the cell's \texttt{car}, checked once on loop entry---selects the unboxed fas
 path while the assumption holds and the original object-allocating loop after
 the class is redefined. In-flight activations complete on the path they entered,
 which is safe because the fast path performs only scalar arithmetic and the
-final re-box against the field layout it was compiled for. When the compiler is
-told the world is sealed (whole-program, cold-loaded builds), the guard is
-omitted entirely and only the fast path is emitted.
+final re-box against the field layout it was compiled for; we make the
+concurrent execution model of this guard precise in \S\ref{sec:discussion}. When
+the compiler is told the world is sealed (whole-program, cold-loaded builds), the
+guard is omitted entirely and only the fast path is emitted.
 
 \begin{figure}
 \begin{lstlisting}
@@ -457,43 +527,49 @@ updated in place, with declared \texttt{single-float} slots matching FOL's float
 type, compiled at \texttt{(speed 3) (safety 0)}. Because a speedup over the
 baseline depends on how often the collector runs, it carries run-to-run
 variation of roughly $\pm0.5\times$; the allocation figures (deterministic) and
-the native ceiling (nearly noise-free) are the more robust numbers. The three
+the native ceiling (nearly noise-free) are the more robust numbers. The four
 benchmarks all instantiate the loop-carried record accumulator but differ in
 shape: a \emph{particle} simulation (two independent additive field updates, the
 pattern of Figure~\ref{fig:overview}), a 2D \emph{rotation} orbit (two fields
-updated by a coupled, multiplicative map), and a three-field \emph{ballistic}
+updated by a coupled, multiplicative map), a three-field \emph{ballistic}
 integrator (three fields, where the position update reads the freshly computed
-velocity).
+velocity), and a coupled \emph{two-body} relaxation that carries \emph{two}
+\texttt{<vec2>} record accumulators, each step reading both---the
+multi-accumulator case.
 
-\textbf{RQ1: Firing and allocation.} The pass fires on all three benchmarks:
-each emitted fast path (Figure~\ref{fig:emitted}) splits the accumulator into
-one scalar loop variable per field, inlines its update helper, and contains
-\emph{no} constructor call on the back-edge. The effect is visible directly in
-the runtime counters: each baseline conses 1.0--1.2\,GB per call and triggers
-roughly 20 collections costing 22--31\,ms, whereas the scalar-replaced version
-conses \emph{nothing} and triggers no workload collection at all. Per-iteration
-allocation drops from one record (224\,B for the two-field records, 256\,B for
-the three-field one) to zero; the only allocation that survives is the single
-re-box at loop exit, executed at most once per activation. The native version,
-mutating one struct in place, likewise conses nothing per iteration.
+\textbf{RQ1: Firing and allocation.} The pass fires on all four benchmarks: each
+emitted fast path (Figure~\ref{fig:emitted}) splits every record accumulator into
+one scalar loop variable per field, inlines any update helper, and contains
+\emph{no} constructor call on the back-edge. In the two-body benchmark the
+fixpoint (\S\ref{sec:discussion}) unboxes \emph{both} accumulators---four scalar
+variables---and the parallel \texttt{recur}/\texttt{psetq} keeps the coupled
+update correct. The effect is visible directly in the runtime counters: each
+baseline conses 1.1--2.2\,GB per call and triggers 20--42 collections costing
+25--106\,ms, whereas the scalar-replaced version conses \emph{nothing} and
+triggers no workload collection at all. Per-iteration allocation drops from one
+record (224 or 256\,B), or two records (448\,B) in the two-body case, to zero;
+the only allocation that survives is the single re-box at loop exit, executed at
+most once per activation. The native versions, mutating their structs in place,
+likewise cons nothing per iteration.
 
-\textbf{RQ2: Speedup and correctness.} Table~\ref{tab:speedup} reports the three
+\textbf{RQ2: Speedup and correctness.} Table~\ref{tab:speedup} reports the four
 benchmarks at five million iterations. Eliminating allocation removes the
 garbage-collection pressure that dominates each baseline, yielding end-to-end
-speedups of 5.7$\times$--6.6$\times$. Crucially, every optimized program returns
+speedups of 5.6$\times$--7.2$\times$. Crucially, every optimized program returns
 results bit-identical to its unoptimized counterpart across all five trials; a
 dedicated test suite checks optimized-equals-unoptimized on several
 record-accumulator shapes (field read at exit, bare re-box at exit, inlined and
-non-inlined reconstructions), and the full compiler test suite of 3{,}285 checks
-passes with the pass enabled.
+non-inlined reconstructions, and multiple coupled accumulators), and the full
+compiler test suite of 3{,}299 checks passes with the pass enabled.
 
 \begin{table}
-  \caption{Three allocation-bound benchmarks at 5M iterations: wall time (mean
+  \caption{Four allocation-bound benchmarks at 5M iterations: wall time (mean
   $\pm$ sample stddev over five timed trials, after one warm-up) for the
   persistent baseline, aggregate scalar replacement (ASR), and a native
   mutable-\texttt{defstruct} upper bound; AMD Ryzen 5 7430U, SBCL 2.6.0. ASR
-  drives per-iteration allocation (224/256\,B) to zero and is bit-identical to
-  the baseline; the ``$\times$'' columns are speedups over the baseline.}
+  drives per-iteration allocation (224--448\,B) to zero and is bit-identical to
+  the baseline; the ``$\times$'' columns are speedups over the baseline.
+  Two-body carries \emph{two} coupled record accumulators, both unboxed.}
   \label{tab:speedup}
   \small
   \begin{tabular}{lrrrrr}
@@ -501,22 +577,25 @@ passes with the pass enabled.
     Benchmark & Base & ASR & Native & ASR & Native \\
               & (ms) & (ms) & (ms) & $\times$ & $\times$ \\
     \midrule
-    Particle  & $1923\pm58$ & $293\pm2$  & 15 & 6.6 & 128 \\
-    Rotation  & $2702\pm31$ & $476\pm13$ & 29 & 5.7 & \phantom{0}92 \\
-    Ballistic & $2395\pm26$ & $378\pm19$ & 15 & 6.3 & 160 \\
+    Particle  & $1908\pm46$ & $294\pm1$  & 15 & 6.5 & 128 \\
+    Rotation  & $2745\pm76$ & $492\pm11$ & 30 & 5.6 & \phantom{0}93 \\
+    Ballistic & $2514\pm45$ & $371\pm3$  & 15 & 6.8 & 168 \\
+    Two-body  & $6951\pm41$ & $964\pm5$  & 24 & 7.2 & 294 \\
     \bottomrule
   \end{tabular}
 \end{table}
 
 \textbf{RQ4: Distance to native.} A hand-written native version---a mutable
-\texttt{defstruct} updated in place---is 92$\times$--160$\times$ faster than the
+\texttt{defstruct} updated in place---is 93$\times$--294$\times$ faster than the
 persistent baseline (Table~\ref{tab:speedup}), which is what makes the pattern
 worth attacking in the first place. Aggregate scalar replacement recovers the
 \emph{allocation} component of that gap: it removes 100\% of per-iteration
-consing, worth the 5.7$\times$--6.6$\times$ of RQ2. It does \emph{not} close the
-gap entirely---the scalar-replaced loop remains 16$\times$--25$\times$ slower
-than native, reaching 4--6\% of native speed---and we report that rather than
-eliding it. The residual is not allocation, of which none remains, but
+consing, worth the 5.6$\times$--7.2$\times$ of RQ2. It does \emph{not} close the
+gap entirely---the scalar-replaced loop remains 16$\times$--41$\times$ slower
+than native, reaching 2--6\% of native speed---and we report that rather than
+eliding it. The gap is widest on the two-body benchmark, whose heavier per-step
+arithmetic makes the generic-operator overhead (below) proportionally larger.
+The residual is not allocation, of which none remains, but
 arithmetic: the unboxed loop still calls FOL's \emph{generic} operators
 (\texttt{+}, \texttt{*}, \texttt{-}) on its scalar variables, whereas the native
 loop issues declared single-float machine instructions. Closing it is a matter
@@ -542,18 +621,27 @@ allocating loop and still produces the correct result against the redefined
 class.
 
 \section{Discussion and Limitations}
+\label{sec:discussion}
 
-\textbf{Scope of the current transformation.} The pass targets one record
-accumulator per loop; additional non-record loop variables (counters, indices)
-pass through unaffected. The reconstruction must peel---through single-form
+\textbf{Scope of the current transformation.} The pass unboxes \emph{every}
+qualifying record accumulator in a loop, applying the single-accumulator rewrite
+to a fixpoint: it unboxes one, re-scans the rewritten loop for another, and
+repeats until none remain. Because \texttt{recur} lowers to a parallel
+\texttt{psetq}, coupled accumulators---where one's reconstruction reads another's
+fields---remain correct, each cross-read resolving to the other's scalar
+variables as it is unboxed in turn; an accumulator that fails to qualify is left
+boxed, so replacement is per-accumulator rather than all-or-nothing (the
+two-body benchmark unboxes two coupled records this way). Non-record loop
+variables (counters, indices) pass through unaffected. Genuine limitations
+remain: each reconstruction must peel---through single-form
 \texttt{bind}/\texttt{do} wrappers and at most one level of inlinable call---to a
-constructor that supplies \emph{every} field. \texttt{if}-branched
-reconstructions (\texttt{(if c (make-<t> \ldots) (make-<t> \ldots))}) are not
-yet recognized and cause a conservative abort, as do inlinable callees whose
-accumulator argument is a non-trivial expression. These are engineering
-extensions rather than fundamental limits: each corresponds to a shape the walk
-could learn to peel, and each preserves the safe-by-default discipline because
-an unrecognized shape aborts.
+constructor that supplies \emph{every} field; \texttt{if}-branched
+reconstructions (\texttt{(if c (make-<t> \ldots) (make-<t> \ldots))}) are not yet
+recognized and cause a conservative abort, as do inlinable callees whose
+accumulator argument is a non-trivial expression or that return more than one
+record. These are engineering extensions rather than fundamental limits: each
+corresponds to a shape the walk could learn to peel, and each preserves the
+safe-by-default discipline because an unrecognized shape aborts.
 
 \textbf{Relationship to partial escape analysis.} Partial escape analysis with
 scalar replacement \cite{stadler2014partial} is strictly more general: it
@@ -572,6 +660,36 @@ accumulator is freshly constructed at loop entry and every use is either a field
 read or a tail reconstruction, so no live alias survives a rewrite. This buys
 in-place behavior---indeed, no ``place'' at all---without a type system, at the
 cost of applying only where the syntactic discipline holds.
+
+\textbf{Execution model and concurrency.} The world registry is shared mutable
+state, so we state its contract precisely. All \emph{writers}---region
+registration and the invalidation triggered by a (re)definition---are serialized
+by a single lock. The \emph{reader} is the emitted guard: a deliberately
+unsynchronized single-word read of the cell's validity flag, kept lock-free
+because it sits on the hot path. Soundness of that unsynchronized read rests on
+two properties of the flag. It is \emph{monotonic}: the transition is one-way,
+$\text{valid}\to\text{invalid}$, and an invalidated cell is unlinked from the
+dependency map and never revived; and its write is a \emph{single aligned pointer
+store}, atomic on the architectures we target (x86-64, ARM64). A concurrent
+reader therefore observes either the pre- or the post-invalidation value---never a
+torn one---and, because the transition is monotonic, a stale read is benign: at
+worst a loop on another thread takes the fast path for a few more entries after
+an invalidation, exactly as if the redefinition had been ordered infinitesimally
+later. The guard's contract is thus \emph{entry-level} consistency (the next
+entry after an invalidation takes the fallback), not \emph{activation-level}
+atomicity. Crucially, neither our guard nor a JIT's deoptimization makes a single
+\emph{in-flight} activation atomic with respect to a concurrent redefinition;
+under scalar replacement the exposure is if anything smaller than the baseline's,
+because during the loop body the fast path performs only scalar arithmetic and
+touches the redefinable constructor at exactly one point---the exit re-box---which
+is the same \texttt{make-<t>} the unoptimized loop would call. For any
+interleaving, then, the optimized loop yields a result the unoptimized loop could
+also produce under some ordering of the redefinition: the transformation
+introduces no new race, but neither does it manufacture a guarantee the source
+program lacks. We assume redefinition is a coarse, infrequent event (a REPL or
+hot-reload action) rather than high-frequency concurrent mutation, and we
+evaluate only the single-threaded case; a concurrent stress evaluation is future
+work.
 
 \textbf{Novelty, and why an open world.} We claim no new escape analysis:
 holding a non-escaping object's fields in variables is classical
@@ -611,6 +729,7 @@ claims---and, being an emit-time syntactic rewrite rather than an IR pass, the
 transformation is small enough to port.
 
 \section{Related Work}
+\label{sec:related}
 
 \textbf{Scalar replacement and escape analysis.} Scalar replacement of
 non-escaping objects is classic \cite{choi1999escape,blanchet2003escape}; the
@@ -620,6 +739,47 @@ paths where it does \cite{stadler2014partial}. Our work adapts the core
 idea---hold an object's fields in variables---to a persistent-first,
 open-world dynamic language, specializing to loop accumulators and adding
 run-time-redefinition soundness.
+
+\textbf{Object inlining and aggregate scalarization.} Two further ways compilers
+unbox aggregates border our work. \emph{Object inlining} fuses a referenced
+object into its parent to remove an indirection and a separate allocation
+\cite{dolby2000automatic}; we instead dissolve the record into loop-local scalars
+rather than embed it in another heap object. \emph{Scalar replacement of
+aggregates} as practiced in production compilers---LLVM's SROA, GCC's SRA---splits
+a memory-resident aggregate into independent scalars once it is known not to
+escape through memory. Those operate on a typed SSA form over a fixed struct
+layout; ours runs on untyped surface syntax over a record layout that may change
+under the running program, which is exactly what the world guard exists to
+tolerate.
+
+\textbf{Speculation, assumptions, and deoptimization.} The world guard is, in
+essence, a static analogue of the assumption-and-invalidation machinery that
+adaptive JIT compilers use for speculative optimization. A JIT compiles a method
+under an assumption---for instance, that a class is never subclassed, licensed by
+class hierarchy analysis \cite{dean1995cha}---installs a dependency on it, and
+when a later class load or redefinition violates the assumption,
+\emph{deoptimizes}: the optimized code is abandoned and in-flight activations are
+rewritten back to interpreter frames by dynamic deoptimization
+\cite{holzle1992deopt}. Production VMs track exactly these class-based
+dependencies to invalidate devirtualized or inlined code when the hierarchy
+changes \cite{paleczny2001hotspot,detlefs1999inlining}, and modern dynamic
+compilers make speculation and its deoptimization points first-class in the IR
+\cite{duboscq2013speculative}. Aggregate scalar replacement lives in the same
+design space---optimize under a class-shape assumption, invalidate on
+redefinition---but resolves it differently, and the differences are the
+contribution. First, it is \emph{static}: instead of compiling one speculative
+version and reconstructing frames on failure, it emits the fast and the fallback
+path ahead of time and selects between them with a one-word guard, so there is no
+interpreter to fall back to and no on-stack-replacement machinery. Second,
+invalidation is \emph{region-scoped} rather than method-scoped: flipping a
+class's validity cell steers only the next entry to a dependent loop, and
+\emph{in-flight activations run to completion on the path they entered}---sound
+precisely because the fast path performs only scalar arithmetic against the field
+layout it was compiled for, so a mid-flight redefinition cannot corrupt it. The
+JIT techniques buy generality (any assumption, switchable mid-execution) at the
+price of a runtime, a deoptimization framework, and frame metadata; we buy a
+zero-dependency emit-time rewrite at the price of switching paths only at loop
+entry.
 
 \textbf{In-place update of functional data.} Perceus achieves garbage-free
 reuse via precise reference counting \cite{reinking2021perceus}; borrowing and
@@ -644,9 +804,9 @@ variables---no allocation on the back-edge, one re-box at the exit---by a single
 classify-and-rewrite walk that reaches across a call boundary through a small
 syntactic inliner and stays sound under class redefinition through a world
 guard. The pass is safe by construction: it optimizes the shapes it recognizes
-and declines the rest. Across three allocation-bound benchmarks it eliminates
-per-iteration allocation entirely for 5.7$\times$--6.6$\times$ speedups with
-identical results, recovering the allocation component of a 90--160$\times$ gap
+and declines the rest. Across four allocation-bound benchmarks it eliminates
+per-iteration allocation entirely for 5.6$\times$--7.2$\times$ speedups with
+identical results, recovering the allocation component of a 90--290$\times$ gap
 to native mutable structs; the remainder, which we measure and attribute to
 generic scalar arithmetic, is a complementary axis of specialization. We see the
 transformation as the record-shaped complement to automatic transient
