@@ -1,0 +1,29 @@
+;;; ASR Benchmark B: three-field ballistic integrator
+;;;
+;;; A projectile (x, y, vy) is advanced by semi-implicit Euler under gravity.
+;;; Unlike the particle simulation (two independent fields), this accumulator
+;;; has THREE fields with inter-field coupling: the vertical position `y` is
+;;; updated from the *freshly computed* velocity `nvy`, which is itself the
+;;; old velocity minus gravity. The helper `advance` binds `nvy` once and
+;;; reuses it in two field expressions, exercising ASR's peeling of a
+;;; single-form `bind` layer around the reconstruction.
+;;;
+;;; Demonstrates that loop-carried record unboxing scales past two fields:
+;;; without ASR each step conses one <state3>; with ASR the accumulator
+;;; becomes three scalar loop vars and no object is built on the back-edge.
+
+(defclass <state3> [] [[x] [y] [vy]])
+
+(defn advance [s]
+  (bind [nvy (- (get s :vy) 0.098)]
+    (make-<state3>
+      :x  (+ (get s :x) 1.0)
+      :y  (+ (get s :y) nvy)
+      :vy nvy)))
+
+(defn run-projectile [iterations]
+  (loop [s (make-<state3> :x 0.0 :y 0.0 :vy 20.0)
+         i 0]
+    (if (< i iterations)
+      (recur (advance s) (inc i))
+      (+ (get s :x) (+ (get s :y) (get s :vy))))))

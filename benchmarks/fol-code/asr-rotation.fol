@@ -1,0 +1,29 @@
+;;; ASR Benchmark A: 2D rotation orbit
+;;;
+;;; A unit 2-vector is rotated N times by a fixed angle (theta = 0.1 rad).
+;;; The accumulator <rot> {re, im} is a persistent record rebuilt every
+;;; iteration by the inlinable helper `rotate`, whose reconstruction reads
+;;; BOTH fields and multiplies them together (coupled, multiplicative update
+;;; -- distinct in shape from the particle simulation's independent additive
+;;; updates). A rotation preserves |z|, so values stay bounded for any N and
+;;; both fields remain live (unlike a translation, whose fields never mix).
+;;;
+;;; This is the canonical allocation-bound loop-carried record: without ASR
+;;; every iteration conses one <rot>; with ASR the accumulator becomes two
+;;; scalar loop vars (re, im) and the back-edge is pure float arithmetic.
+
+(defclass <rot> [] [[re] [im]])
+
+(defn rotate [z]
+  (make-<rot>
+    :re (- (* (get z :re) 0.9950041652780258)
+           (* (get z :im) 0.09983341664682815))
+    :im (+ (* (get z :re) 0.09983341664682815)
+           (* (get z :im) 0.9950041652780258))))
+
+(defn run-rotation [iterations]
+  (loop [z (make-<rot> :re 1.0 :im 0.0)
+         i 0]
+    (if (< i iterations)
+      (recur (rotate z) (inc i))
+      (+ (get z :re) (get z :im)))))

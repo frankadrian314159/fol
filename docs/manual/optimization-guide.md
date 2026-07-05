@@ -4,10 +4,17 @@ This guide covers compiler-level optimizations available in FOL to improve perfo
 
 ## Overview
 
-FOL implements three phases of optimization:
+FOL implements several families of optimization:
 - **Phases 1-2**: Persistent object field access optimization (2-29% improvement)
 - **Priority 2**: Type-aware dispatch and collection operations (2.6× on AST-heavy workloads)
+- **Transient Replacement**: In-place mutation of loop/reduce accumulators (eliminates per-iteration copying)
+- **Aggregate Scalar Replacement**: Unboxing of loop-carried record accumulators (5.8× on the particle benchmark)
 - **Type Annotations**: Compile-time type hints for SBCL optimization (zero cost)
+
+The two allocation-elimination passes (Transient Replacement and Aggregate Scalar
+Replacement) are opt-in and rest on FOL's escape analysis: each is emitted only for
+accumulators it can prove qualify, and each is world-guarded so that redefining a
+type or operator it assumed falls the affected code back to the safe path.
 
 ## Phase 1-2: Direct Slot Access Optimization
 
@@ -94,6 +101,179 @@ Automatically applied in multi-clause methods and functions with type specialize
 | AST optimizer | 2.6× speedup |
 | Pattern-heavy dispatch | 10-30× on pattern matching |
 | Generic dispatch | No change (fallback available) |
+
+---
+
+## Transient Replacement
+
+### What It Does
+
+Persistent collections give you a fresh copy on every update, so a loop that builds
+up a vector, dict, or set one element at a time pays an `O(n)` structure-sharing cost
+per iteration. Transient Replacement rewrites such an accumulator to use the
+**transient protocol** — a temporary, single-threaded, in-place-mutable view of the
+same collection — for the duration of the loop, then converts it back to a persistent
+value at exit. The update chain drops from a copy per step to in-place mutation.
+
+**Before** (persistent accumulator, rebuilt each iteration):
+```lisp
+(reduce (fn [acc x] (conj acc (* x x)))
+        []
+        coll)
+```
+
+**After** (compiler-emitted transient rewrite):
+```lisp
+(persistent!
+  (reduce (fn [acc x] (conj! acc (* x x)))
+          (transient [])
+          coll))
+```
+
+The accumulator is wrapped with `transient` at entry, each persistent update in the
+loop body (`conj`, `assoc`, `disj`, `pop`, ...) is rewritten to its `!` counterpart
+(`conj!`, `assoc!`, `disj!`, `pop!`), and the whole result is sealed with
+`persistent!`.
+
+### How It Works
+
+1. **Eligibility**: The accumulator must start from a transient-eligible initializer
+   (an empty or literal collection) and be **linearly consumed** — every use flows
+   into an update operation that has a `!` counterpart. In the current wrapper-based
+   transient implementation this is a strict rule: even a bare read of the
+   accumulator disqualifies the conversion.
+2. **Two entry points**:
+   - `maybe-transient-loop` handles `loop`/`recur` accumulators.
+   - `maybe-transient-reduce` handles `reduce` calls (its rewritten `init` is itself
+     a `(transient ...)` form, which fails the eligibility re-check, so there is no
+     re-entry hazard).
+3. **Profitability guard**: Transients only pay off once the collection is large
+   enough to make copying expensive. When the accumulator is a dict or vector the
+   compiler emits a runtime guard on its size (dict threshold 16, vector threshold
+   12) and takes the transient path only above that threshold. The guard is hoisted
+   into an outer `let` so it can name the accumulator's initial value.
+4. **World guard**: The rewrite records the standard-library operators it assumed
+   (e.g. `reduce`, `conj`) and is emitted guarded on them, so redefining one of those
+   operators falls the loop back to the persistent path.
+
+### When It Applies
+
+Opt-in via the `*transient-loops*` dynamic variable in `fol.compiler.escape-analysis`.
+When enabled it is applied automatically to every qualifying `loop`/`reduce`
+accumulator — no per-call-site annotation is needed.
+
+**Qualifies:**
+```lisp
+;; accumulator only ever grows via conj — linearly consumed
+(loop [acc [] i 0]
+  (if (< i n)
+    (recur (conj acc (f i)) (inc i))
+    acc))
+```
+
+**Does not qualify** (accumulator is read mid-loop, breaking linearity):
+```lisp
+(loop [acc [] i 0]
+  (if (< i n)
+    (recur (conj acc (+ i (count acc))) (inc i))  ; read of acc disqualifies
+    acc))
+```
+
+### Performance Impact
+
+| Scenario | Effect |
+|----------|--------|
+| Large collection built in a loop | Update chain drops from `O(n)` copy-per-step to in-place mutation |
+| Small collection (below threshold) | Runtime guard keeps the persistent path — no regression |
+| Non-linear accumulator use | Not converted (safe fallback) |
+
+### Limitations
+
+The transient implementation is currently **wrapper-based** rather than
+edit-tagged, which is why converted regions are usage-restricted (the accumulator may
+only flow into `!`-capable operations). Relaxing this restriction — allowing reads of
+a transient accumulator — is planned once transients move to edit-tagged tries.
+
+---
+
+## Aggregate Scalar Replacement
+
+### What It Does
+
+A loop that carries a persistent **record** as its accumulator and rebuilds it every
+iteration allocates one object per iteration. Aggregate Scalar Replacement unboxes
+that accumulator: it splits the record into one scalar loop variable per field, so the
+loop carries plain fields instead of a heap-allocated object, and re-boxes into a
+single record only when the loop exits.
+
+**Before** (record allocated every iteration):
+```lisp
+(loop [p (make-<point> :x 0.0 :y 0.0) i 0]
+  (if (< i n)
+    (recur (make-<point> :x (+ (get p :x) 1.0)
+                         :y (+ (get p :y) 2.0))
+           (inc i))
+    p))
+```
+
+**After** (conceptually — fields carried as scalars, one re-box at exit):
+```lisp
+(loop [p_x 0.0 p_y 0.0 i 0]
+  (if (< i n)
+    (recur (+ p_x 1.0) (+ p_y 2.0) (inc i))
+    (make-<point> :x p_x :y p_y)))   ; single allocation at exit
+```
+
+Net per-iteration allocation: **zero**.
+
+### How It Works
+
+The pass closes three gaps that a naive intra-scope pass would miss:
+
+1. **Loop-carried unboxing**: A loop accumulator `p` of record type `<T>` is split
+   into one scalar loop variable per field (`p_x`, `p_y`, ...). Field reads
+   `(get p :x)` become the scalar `p_x`; the reconstruction that feeds `recur` becomes
+   the per-field value expressions; a bare `p` in tail position is re-boxed with a
+   single `make-<T>` at loop exit.
+2. **Return-value unboxing (interprocedural)**: An object-returning callee at the
+   `recur` position — e.g. `(recur (update-point p) ...)` — is inlined so its tail
+   `make-<T>` becomes the reconstruction right at the back-edge. Qualifying
+   single-clause constructor-returning functions are registered in
+   `*sr-inlinable-fns*` by the `compile-form` hook `sr-transform-toplevel`.
+3. **Soundness under redefinition**: The converted loop is emitted world-guarded on
+   the record's class name, and `emit-defclass` calls `note-redefinition`, so
+   redefining `<T>` falls the loop back to the original object-allocating path on the
+   next entry.
+
+The rewrite is aligned-by-construction: a single walk both classifies and rewrites the
+accumulator's uses, and throws `sr-fail` on any use it does not recognize, so an
+un-handled loop shape yields the **original loop unchanged** — never wrong code.
+
+### When It Applies
+
+Opt-in via the `*scalar-replacement*` dynamic variable in
+`fol.compiler.escape-analysis`. It runs at emit time: `maybe-scalar-replace-loop`
+(called from `emit-loop`) inspects each loop whose accumulator is initialized by a
+record constructor and attempts the unboxing.
+
+**Qualifies:** a loop whose record accumulator is used only as field reads, a
+reconstruction feeding `recur`, or a bare tail re-box.
+
+### Performance Impact
+
+| Workload | Improvement |
+|----------|------------|
+| Particle simulation (5M iterations) | **5.8×**, per-iteration allocation eliminated |
+| Loops with no record accumulator | No change (not triggered) |
+
+### Limitations (v1)
+
+- One record accumulator per loop.
+- No `if`-branched reconstructions (the reconstruction must be unconditional).
+- Arguments to an inlinable callee at the `recur` position must be symbols or
+  literals.
+
+Loops that fall outside these shapes are left unchanged.
 
 ---
 
@@ -327,7 +507,8 @@ sbcl --noinform --non-interactive --load benchmarks/run-ast-bench-balanced-timed
 
 **Research** (being investigated):
 - Type-driven operator selection (choose best + implementation based on arg types)
-- Transient accumulation for update chains
+- Edit-tagged transients to relax the read restriction on transient-replaced accumulators
+- Scalar replacement of `if`-branched reconstructions and multiple record accumulators per loop
 - SIMD vectorization hints
 
 ---

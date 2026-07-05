@@ -1,0 +1,24 @@
+;;; ASR Benchmark C: particle simulation (the motivating example)
+;;;
+;;; This is the paper's motivating workload (Figure 1): a <point> {x, y}
+;;; accumulator advanced by the inlinable helper `update-point`, two
+;;; independent additive field updates. It is reproduced here so all three
+;;; ASR benchmarks run through the same harness (benchmarks/run-asr-bench.lisp)
+;;; and report comparable numbers. The only change from Figure 1 is that the
+;;; loop tail returns the scalar (+ x y) instead of the bare accumulator, so
+;;; the driver can compare optimized vs. baseline results directly; the
+;;; per-iteration allocation being measured is unaffected.
+
+(defclass <particle> [] [[x] [y]])
+
+(defn update-particle [p]
+  (bind [dx 0.1 dy 0.2]
+    (make-<particle> :x (+ (get p :x) dx)
+                     :y (+ (get p :y) dy))))
+
+(defn run-particle [iterations]
+  (loop [p (make-<particle> :x 0.0 :y 0.0)
+         i 0]
+    (if (< i iterations)
+      (recur (update-particle p) (inc i))
+      (+ (get p :x) (get p :y)))))

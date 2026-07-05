@@ -9,7 +9,7 @@
 #>
 
 param(
-    [string]$FileName = "ocg2027"
+    [string]$FileName = "cgo2027"
 )
 
 # --- Configuration ---

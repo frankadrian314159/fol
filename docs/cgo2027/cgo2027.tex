@@ -77,9 +77,9 @@ interprocedural reach without a whole-program analysis; and (2) a
 redefined at run time. A single classify-and-rewrite walk is aligned by
 construction---any use it does not recognize aborts the rewrite and yields the
 original loop---so the transformation is never unsound, only sometimes
-inapplicable. On an allocation-bound particle simulation the technique delivers
-a 5.8$\times$ speedup and reduces per-iteration allocation to zero, with
-byte-identical results and no cost when disabled.
+inapplicable. Across three allocation-bound benchmarks the technique delivers
+6.0$\times$--7.2$\times$ speedups and reduces per-iteration allocation to zero,
+with byte-identical results and no cost when disabled.
 \end{abstract}
 
 \begin{CCSXML}
@@ -177,11 +177,12 @@ the result. Our contributions are:
   yields the original loop unchanged. The transformation is therefore never
   wrong, only sometimes inapplicable---the safe default for a compiler pass
   enabled on untyped code (\S\ref{sec:align}).
-  \item \textbf{Evaluation.} On an allocation-bound particle simulation the
-  technique yields a 5.8$\times$ speedup at 5M iterations, reduces per-iteration
-  allocation to zero, produces byte-identical results to the unoptimized
-  program, and adds no cost when disabled or inapplicable
-  (\S\ref{sec:eval}).
+  \item \textbf{Evaluation.} On three allocation-bound benchmarks---spanning
+  two- and three-field records and both additive and multiplicative update
+  shapes---the technique yields 6.0$\times$--7.2$\times$ speedups at 5M
+  iterations, reduces per-iteration allocation to zero, produces byte-identical
+  results to the unoptimized program, and adds no cost when disabled or
+  inapplicable (\S\ref{sec:eval}).
 \end{enumerate}
 
 \begin{figure}
@@ -215,8 +216,13 @@ the emitted code this fast path sits behind a world guard on \texttt{<point>}
 \label{fig:overview}
 \end{figure}
 
-Our evaluation is deliberately narrow: this technique targets one high-value
-pattern, and we report an honest picture of when it fires and what it buys.
+Our evaluation is deliberately focused: the technique targets one high-value
+pattern---the loop-carried record accumulator---and we measure it on three
+microbenchmarks that instantiate that pattern with different field counts and
+update shapes. We make no claim here about how frequently the pattern arises in
+production code; a corpus study of its incidence across real FOL programs is
+future work (\S\ref{sec:eval}). What we do report is an honest picture of when
+the transformation fires and what it buys where it does.
 
 \section{Background}
 
@@ -429,38 +435,49 @@ byte-for-byte unchanged.
 We evaluate three questions. \textbf{RQ1:} does the transformation fire on the
 target pattern and eliminate allocation? \textbf{RQ2:} what speedup does it
 deliver, and is the result identical to the unoptimized program? \textbf{RQ3:}
-what does it cost when disabled or inapplicable? All measurements use SBCL on a
-single core.
+what does it cost when disabled or inapplicable? All measurements use SBCL
+2.6.0 on a single core; we report the mean of five runs after one warm-up run
+and a full collection, with per-iteration allocation measured from the
+runtime's bytes-consed counter. The three benchmarks all instantiate the
+loop-carried record accumulator but differ in shape: a \emph{particle}
+simulation (two independent additive field updates, the pattern of
+Figure~\ref{fig:overview}), a 2D \emph{rotation} orbit (two fields updated by a
+coupled, multiplicative map), and a three-field \emph{ballistic} integrator
+(three fields, where the position update reads the freshly computed velocity).
 
-\textbf{RQ1: Firing and allocation.} On the particle simulation of
-Figure~\ref{fig:overview}, the pass fires: the emitted fast path
-(Figure~\ref{fig:emitted}) splits \texttt{p} into \texttt{p\_x}/\texttt{p\_y},
-inlines \texttt{update-point}, and contains \emph{no} constructor call on the
-back-edge. Per-iteration heap allocation of \texttt{<point>} objects drops from
-one per iteration to zero; the only surviving allocation is the single re-box at
+\textbf{RQ1: Firing and allocation.} The pass fires on all three benchmarks:
+each emitted fast path (Figure~\ref{fig:emitted}) splits the accumulator into
+one scalar loop variable per field, inlines its update helper, and contains
+\emph{no} constructor call on the back-edge. Per-iteration heap allocation drops
+from one record per iteration to zero (the \texttt{Alloc/iter} column of
+Table~\ref{tab:speedup}); the only surviving allocation is the single re-box at
 loop exit. We confirm the transformation is applied by inspecting the generated
 code for the scalar loop variables and the absence of the inlined callee on the
 fast path.
 
-\textbf{RQ2: Speedup and correctness.} Table~\ref{tab:speedup} reports the
-particle simulation at five million iterations. Eliminating allocation removes
-the garbage-collection pressure that dominates the baseline, yielding a
-5.8$\times$ speedup. Crucially, the optimized and unoptimized programs return
-identical results; a dedicated test suite checks optimized-equals-unoptimized
-on several record-accumulator shapes (field read at exit, bare re-box at exit,
-inlined and non-inlined reconstructions), and the full compiler test suite of
-3{,}285 checks passes with the pass enabled.
+\textbf{RQ2: Speedup and correctness.} Table~\ref{tab:speedup} reports the three
+benchmarks at five million iterations. Eliminating allocation removes the
+garbage-collection pressure that dominates each baseline, yielding speedups of
+6.0$\times$--7.2$\times$; the three-field integrator benefits most, as it conses
+the largest record. Crucially, every optimized program returns results
+bit-identical to its unoptimized counterpart; a dedicated test suite checks
+optimized-equals-unoptimized on several record-accumulator shapes (field read at
+exit, bare re-box at exit, inlined and non-inlined reconstructions), and the
+full compiler test suite of 3{,}285 checks passes with the pass enabled.
 
 \begin{table}
-  \caption{Particle simulation (5M iterations): eliminating per-iteration
-  allocation removes the GC bottleneck.}
+  \caption{Three allocation-bound benchmarks at 5M iterations (mean of five
+  runs, SBCL 2.6.0, single core). Aggregate scalar replacement drives
+  per-iteration allocation to zero; every result is bit-identical to its
+  baseline.}
   \label{tab:speedup}
-  \begin{tabular}{lrrr}
+  \begin{tabular}{lrrrr}
     \toprule
-    Configuration & Time (ms) & Alloc/iter & Speedup \\
+    Benchmark & Base (ms) & ASR (ms) & Alloc/iter & Speedup \\
     \midrule
-    Baseline (persistent objects) & 4123 & 1 object & 1.0$\times$ \\
-    Aggregate scalar replacement  &  719 & 0 objects & \textbf{5.8$\times$} \\
+    Particle \{x, y\}      & 1950 & 297 & 224\,B $\to$ 0 & 6.6$\times$ \\
+    Rotation \{re, im\}    & 2799 & 466 & 224\,B $\to$ 0 & 6.0$\times$ \\
+    Ballistic \{x, y, vy\} & 2554 & 357 & 256\,B $\to$ 0 & \textbf{7.2$\times$} \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -546,13 +563,13 @@ variables---no allocation on the back-edge, one re-box at the exit---by a single
 classify-and-rewrite walk that reaches across a call boundary through a small
 syntactic inliner and stays sound under class redefinition through a world
 guard. The pass is safe by construction: it optimizes the shapes it recognizes
-and declines the rest. On an allocation-bound simulation it turns object
-churn into flat scalar arithmetic for a 5.8$\times$ speedup with identical
-results. We see it as the record-shaped complement to automatic transient
+and declines the rest. Across three allocation-bound benchmarks it turns object
+churn into flat scalar arithmetic for 6.0$\times$--7.2$\times$ speedups with
+identical results. We see it as the record-shaped complement to automatic transient
 conversion, and a step toward bringing the benefits of partial escape analysis
 to persistent-first languages with an open world.
 
 \bibliographystyle{ACM-Reference-Format}
-\bibliography{ocg2027}
+\bibliography{cgo2027}
 
 \end{document}
