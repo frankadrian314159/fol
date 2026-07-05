@@ -573,6 +573,43 @@ read or a tail reconstruction, so no live alias survives a rewrite. This buys
 in-place behavior---indeed, no ``place'' at all---without a type system, at the
 cost of applying only where the syntactic discipline holds.
 
+\textbf{Novelty, and why an open world.} We claim no new escape analysis:
+holding a non-escaping object's fields in variables is classical
+\cite{choi1999escape,stadler2014partial}. What is new is the \emph{assembly} and
+its target---loop-carried unboxing of persistent records, reached
+interprocedurally by a one-level syntactic inliner and kept sound under
+\emph{live class redefinition} by a per-region validity guard---in a transpiled,
+latently-typed language with no optimizing IR, no JIT, and no type system to lean
+on. The open world is not incidental here; it is what creates the problem the
+guard solves. A JVM language such as Clojure has the identical allocation pattern
+(a \texttt{defrecord} rebuilt through \texttt{loop}/\texttt{recur}) but compiles
+records to classes that are not redefined mid-run, and its JIT already performs
+escape analysis and deoptimizes whole frames when assumptions break; there,
+neither our inliner nor our guard would earn their keep. A statically typed
+functional language such as Koka attacks the same cost from the opposite
+direction, with reference counting and borrowing
+\cite{reinking2021perceus,lorenzen2023functional} that presuppose the very type
+information FOL lacks. The gap we address---allocation-eliminating scalar
+replacement for records in an \emph{open-world, untyped, JIT-less}
+setting---is precisely the one those systems leave open, and it is the mechanisms
+(region invalidation, safe-by-abort emit-time rewriting), not FOL itself, that
+transfer to other transpiled dynamic languages in that position.
+
+\textbf{Threats to validity.} Two are worth stating plainly. First, external
+validity: FOL is a research vehicle without an outside user base, and our three
+benchmarks are authored microbenchmarks that instantiate the target pattern
+rather than programs sampled from a corpus (\S\ref{sec:eval}). We argue the
+mechanisms transfer but do not yet demonstrate it in a second language, nor can
+we yet report how often the pattern occurs in the wild. Second, internal
+validity: speedups are single-machine wall-clock measurements whose baseline is
+GC-scheduling sensitive; we mitigate this by repeating trials and reporting
+variance alongside the deterministic allocation and native-ceiling figures, but
+not by pinning the OS scheduler or sweeping microarchitectures. A corpus study
+over real FOL programs and a port of the transformation to a second
+persistent-first language are the two experiments that would most strengthen the
+claims---and, being an emit-time syntactic rewrite rather than an IR pass, the
+transformation is small enough to port.
+
 \section{Related Work}
 
 \textbf{Scalar replacement and escape analysis.} Scalar replacement of
