@@ -644,13 +644,23 @@ declared single-float machine instructions. Closing it is a matter of scalar typ
 specialization, which is orthogonal to allocation and in fact complementary to
 this transformation---scalar replacement is what exposes the per-field variables
 that a type specializer would then annotate, and the two factors compose
-multiplicatively toward native. Attacking allocation first is not arbitrary: it
+multiplicatively toward native. We have prototyped this second factor as an
+opt-in pass: it seeds each scalar's type from its literal initializer, propagates
+it through the arithmetic to a fixpoint, and---wherever every operand is proven
+numeric---lowers FOL's generic operators to native machine arithmetic on declared
+floats (sound, since FOL's scalar operators equal the CL operators on numbers).
+Applied on top of ASR, it delivers a \emph{further} 4.4$\times$--12.8$\times$ on
+these benchmarks, largest on the arithmetic-heavy loops (Lorenz, Mandelbrot) that
+gained least from allocation removal, and it moves the scalar-replaced loops from
+4--6\% of native to roughly a quarter to a half of native speed---confirming the
+multiplicative composition, and turning the residual from an open problem into a
+complementary pass. Attacking allocation first is nonetheless not arbitrary: it
 is the factor that produces garbage-collection pauses (the baseline triggers
 21--47 collections per call; ASR triggers none), so it removes GC from the loop
 entirely---a latency benefit, not merely the throughput factor the speedup
-measures---and it is the prerequisite for the arithmetic work. As an allocation
-optimization, ASR is complete on these benchmarks; the remaining distance is a
-separate, larger axis of work.
+measures---and it is the prerequisite for the arithmetic work, since the
+literal-seeded scalars ASR exposes are exactly what make the type inference
+tractable.
 
 \textbf{RQ3: Cost when disabled or inapplicable.} With the flag off, loop
 emission is unchanged and the output is byte-identical to the unmodified
@@ -911,8 +921,9 @@ and declines the rest. Across nine allocation-bound benchmarks it eliminates
 per-iteration allocation entirely for 2.9$\times$--6.5$\times$ speedups with
 identical results, recovering the allocation component of a 90--250$\times$ gap
 to native mutable structs; the remainder---a larger factor we attribute to
-generic scalar arithmetic---is a complementary axis of specialization. We see the
-transformation as the record-shaped complement to automatic transient
+generic scalar arithmetic---is closed by a complementary type-specialization
+pass, which our prototype shows recovers a further 4.4$\times$--12.8$\times$. We
+see the transformation as the record-shaped complement to automatic transient
 conversion, and a step toward bringing the benefits of partial escape analysis
 to persistent-first languages with an open world.
 

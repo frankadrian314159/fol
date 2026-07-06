@@ -633,6 +633,15 @@
   "When non-nil, enables scalar replacement of non-escaping persistent objects.
    Opt-in; sound under batch-compilation assumptions until world guards are fully integrated.")
 
+(defvar *numeric-specialization* nil
+  "When non-nil, loops whose scalar variables have inferable numeric types get
+   their generic arithmetic (+,-,*,/,inc,dec,<,>,...) rewritten to CL operators
+   on the proven-number path, and float/integer-typed loop variables get CL type
+   declarations so SBCL emits unboxed machine arithmetic. Opt-in; sound (an
+   operator is rewritten only when every operand is proven numeric, and a
+   variable is declared only when its type is proven and stable). Pairs with
+   *scalar-replacement*, which exposes the scalars this pass then types.")
+
 (defvar *loops-converted* 0)
 (defvar *params-converted* 0)
 

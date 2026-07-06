@@ -159,6 +159,7 @@
    ;; Transient loop conversion (step 3)
    *transient-loops*
    *scalar-replacement*
+   *numeric-specialization*
    maybe-transient-loop
    maybe-transient-reduce
    transient-eligible-init-p

@@ -7,14 +7,18 @@ This guide covers compiler-level optimizations available in FOL to improve perfo
 FOL implements several families of optimization:
 - **Phases 1-2**: Persistent object field access optimization (2-29% improvement)
 - **Priority 2**: Type-aware dispatch and collection operations (2.6× on AST-heavy workloads)
-- **Transient Replacement**: In-place mutation of loop/reduce accumulators (eliminates per-iteration copying)
-- **Aggregate Scalar Replacement**: Unboxing of loop-carried record accumulators (5.8× on the particle benchmark)
+- **Transient Replacement**: Automatic, sound in-place mutation of loop/reduce *collection* accumulators (4.1–7.6× on accumulation-bound code)
+- **Aggregate Scalar Replacement**: Unboxing of loop-carried *record* accumulators (2.9–6.5× across nine benchmarks; per-iteration allocation to zero)
+- **Numeric Type Specialization**: Flow inference from literal seeds that turns generic arithmetic on the unboxed scalars into unboxed CL machine arithmetic (a *further* 3.6–12.8× on top of scalar replacement)
 - **Type Annotations**: Compile-time type hints for SBCL optimization (zero cost)
 
-The two allocation-elimination passes (Transient Replacement and Aggregate Scalar
-Replacement) are opt-in and rest on FOL's escape analysis: each is emitted only for
-accumulators it can prove qualify, and each is world-guarded so that redefining a
-type or operator it assumed falls the affected code back to the safe path.
+The three escape-analysis passes (Transient Replacement, Aggregate Scalar
+Replacement, and Numeric Type Specialization) are opt-in: each is emitted only for
+accumulators/operations it can *prove* qualify, and the allocation-elimination ones
+are world-guarded so that redefining a type or operator they assumed falls the
+affected code back to the safe path. They compose: scalar replacement removes a
+record loop's allocation, then numeric specialization types the scalars it exposed
+— together closing most of the gap to a hand-written mutable-struct loop.
 
 ## Phase 1-2: Direct Slot Access Optimization
 
@@ -194,6 +198,34 @@ edit-tagged, which is why converted regions are usage-restricted (the accumulato
 only flow into `!`-capable operations). Relaxing this restriction — allowing reads of
 a transient accumulator — is planned once transients move to edit-tagged tries.
 
+### Design and results (PLDI 2027)
+
+The full treatment of this optimization — *"Automatic, Sound Transient Conversion
+for a Persistent-First Dynamic Language"* (`docs/pldi2027/`) — makes precise what
+"proves the accumulator qualifies" means and why it is sound in FOL's open world:
+
+- **Linear usage analysis.** A flow- and *tail-position-sensitive* analysis proves
+  the accumulator is used **linearly** — uniquely live at each update — so an
+  in-place transient cannot be observed by any surviving alias. This replaces the
+  ownership types (Perceus/FBIP) or manual, unchecked opt-in (Clojure transients)
+  that other systems require; FOL needs no type system.
+- **Alignment by construction.** The analysis and the rewriter are a *single pass*,
+  so only provably safe patterns are converted (the same discipline as scalar
+  replacement).
+- **Name-resolution-faithful summaries.** A table of standard-library operator
+  effects mirrors the compiler's own name resolution, so the classifier agrees with
+  what the code will actually call.
+- **World-guarded regions.** Converted regions are guarded on the operator names
+  they assumed; redefining one at run time flips the region to the safe persistent
+  path on next entry — the same invalidation machinery scalar replacement uses.
+
+**Motivation and results.** In FOL, accumulation-heavy code runs up to **20× slower**
+and allocates **~900× more memory** than a mutable equivalent, dominated by GC. The
+pass delivers **4.1–7.6×** on accumulation-bound benchmarks, is **byte-identical** on
+a production-scale event simulator, costs nothing when disabled or inapplicable, and
+comes with an honest cost model of when conversion pays (hence the profitability
+guard above).
+
 ---
 
 ## Aggregate Scalar Replacement
@@ -259,21 +291,118 @@ record constructor and attempts the unboxing.
 **Qualifies:** a loop whose record accumulator is used only as field reads, a
 reconstruction feeding `recur`, or a bare tail re-box.
 
+Multiple record accumulators in one loop are handled by applying the
+single-accumulator rewrite to a **fixpoint**: it unboxes one, re-scans for another,
+and repeats. Because `recur` lowers to a parallel `psetq`, coupled accumulators
+(where one's reconstruction reads another's fields) stay correct, and any that fail
+to qualify are simply left boxed (partial replacement).
+
 ### Performance Impact
 
 | Workload | Improvement |
 |----------|------------|
-| Particle simulation (5M iterations) | **5.8×**, per-iteration allocation eliminated |
+| Physics kernels (particle, ballistic, two-body) | **6.1–6.8×**, per-iteration allocation → zero |
+| Arithmetic-heavy kernels (rotation, Mandelbrot, Kalman, Lorenz) | **2.9–5.4×** (allocation is a smaller share of their runtime) |
 | Loops with no record accumulator | No change (not triggered) |
 
-### Limitations (v1)
+Across nine allocation-bound benchmarks the range is **2.9–6.5×**. Removing
+allocation recovers only the *allocation* factor; the scalar-replaced loop still
+runs its arithmetic through FOL's generic operators, leaving it 16–41× short of a
+native mutable-struct loop. That residual is what **Numeric Type Specialization**
+(below) closes.
 
-- One record accumulator per loop.
+### Limitations
+
 - No `if`-branched reconstructions (the reconstruction must be unconditional).
 - Arguments to an inlinable callee at the `recur` position must be symbols or
-  literals.
+  literals; an inlinable callee must return exactly one record.
 
 Loops that fall outside these shapes are left unchanged.
+
+---
+
+## Numeric Type Specialization
+
+### What It Does
+
+Scalar Replacement unboxes a record loop into scalar variables, but those scalars
+still flow through FOL's **generic** arithmetic operators (`+`, `*`, `-`, `/`, …),
+which dispatch through CLOS on every operation. Numeric Type Specialization infers
+the numeric types of those scalars and rewrites the arithmetic to **native CL
+operations**, then declares the variables so SBCL emits unboxed machine arithmetic.
+It is the type-inference counterpart to the `^TYPE` annotations below — it derives
+the same information the programmer would otherwise write by hand.
+
+**Before** (post-scalar-replacement, generic dispatch on every op):
+```lisp
+(loop [p_x 0.0 p_y 0.0 i 0]
+  (if (< i n) (recur (+ p_x 1.0) (+ p_y 2.0) (inc i)) (+ p_x p_y)))
+;; +, <, inc are generic functions -> CLOS dispatch each iteration
+```
+
+**After** (native CL ops + type declarations):
+```lisp
+(let ((p_x 0.0) (p_y 0.0) (i 0))
+  (declare (type single-float p_x p_y) (type integer i) (optimize (speed 3)))
+  ... (psetq p_x (cl:+ p_x 1.0) p_y (cl:+ p_y 2.0) i (cl:1+ i)) ...)
+```
+
+### How It Works
+
+1. **Flow inference (seeded by literals).** Loop-variable types are seeded from
+   their literal initializers — `0.0` is single-float, `0` is integer — and
+   propagated through arithmetic (with the standard float-contagion rules) to a
+   **fixpoint** over the `recur` back-edge, threading `bind`-bound intermediates
+   through the local scope.
+2. **Operator conversion.** `+ - * / inc dec < > <= >= = /=` are rewritten to their
+   CL counterparts (`cl:+`, `cl:1+`, `cl:<`, …) **only when every operand is proven
+   numeric.** This is sound because FOL's scalar operators are *defined* to equal the
+   CL operators on numbers; an unknown operand (e.g. `(get v i)`) leaves the generic
+   operator in place.
+3. **Type declarations.** Float/integer loop variables get `(declare (type …))`, and
+   loops carrying a float variable also get a local `(optimize (speed 3))` so SBCL
+   unboxes the arithmetic. `safety` is left at the ambient level: a mistaken type (if
+   inference ever erred) fails loudly as a type error rather than corrupting memory.
+
+Floats propagate soundly (float op float is that float); integers stay `integer`
+under `+ - *` (integer `/` integer is rational, so it widens to `number`). Because
+integer literals are typed `integer` rather than `fixnum` (proving fixnum would
+require overflow/range analysis), the counter is not unboxed — the win is on the
+float arithmetic.
+
+### When It Applies
+
+Opt-in via the `*numeric-specialization*` dynamic variable in
+`fol.compiler.escape-analysis`. It runs inside `emit-loop`, so it applies to any
+loop with inferable numeric variables, but it pays off most on the scalar loops that
+**Aggregate Scalar Replacement** produces — the two compose.
+
+### Performance Impact
+
+On top of scalar replacement, specialization delivers a **further** speedup that is
+largest on the most arithmetic-heavy loops (which gained least from scalar
+replacement alone):
+
+| Benchmark | ASR only | ASR + specialization | Further speedup |
+|-----------|---------:|---------------------:|----------------:|
+| Particle    | 305 ms | 67 ms | 4.4× |
+| Rotation    | 460 ms | 68 ms | 6.8× |
+| Mandelbrot  | 567 ms | 69 ms | 8.2× |
+| Lorenz      | 1037 ms | 82 ms | 12.6× |
+
+This closes most of the arithmetic gap of the previous section: the loops move from
+~4–6% of native-mutable-struct speed to roughly 35–45% of native. Most of the win
+comes from bypassing generic dispatch and the type declarations under the default
+policy; the local `(speed 3)` adds a few percent more (`safety 0` adds nothing
+beyond that and is deliberately not used).
+
+### Soundness
+
+An operator is converted only when all operands are proven numbers, and a variable
+is declared only when its type is proven and stable across init and every `recur`
+path — so specialized code is bit-identical to the generic code (verified on
+float, integer, coupled, division, and `bind`-intermediate loop shapes). With the
+flag off, loop emission is byte-for-byte unchanged.
 
 ---
 

@@ -3643,13 +3643,232 @@
                        ,dual)
                     dual)))))))))
 
+;;; ============================================================================
+;;; Numeric type inference + arithmetic specialization (flow inference, #1)
+;;; ============================================================================
+;;;
+;;; Seeds loop-variable types from literal initializers, propagates through
+;;; arithmetic to a fixpoint, then (a) rewrites generic operators on proven-
+;;; number operands to CL operators, bypassing generic dispatch, and (b) emits
+;;; CL type declarations for float/integer-typed loop variables so SBCL emits
+;;; unboxed machine arithmetic. Opt-in via *numeric-specialization*; sound (an
+;;; op is rewritten only when every operand is proven numeric -- FOL's scalar
+;;; +,-,*,/,inc,dec,<,... are defined to equal the CL operators on numbers --
+;;; and a variable is declared only when its inferred type is proven and stable).
+;;;
+;;; Type domain (CL type symbols): DOUBLE-FLOAT, SINGLE-FLOAT, INTEGER, NUMBER,
+;;; or NIL = "not proven a number". Floats propagate soundly (float op float is
+;;; that float); integers stay INTEGER under +,-,* (INT/INT is rational -> NUMBER).
+
+(defparameter +cl-num-op+
+  '(("+" . cl:+) ("-" . cl:-) ("*" . cl:*) ("/" . cl:/)
+    ("<" . cl:<) (">" . cl:>) ("<=" . cl:<=) (">=" . cl:>=)
+    ("=" . cl:=) ("/=" . cl:/=) ("INC" . cl:1+) ("DEC" . cl:1-))
+  "FOL numeric-op name -> CL operator symbol to emit when all operands are numbers.")
+
+(defparameter +num-value-ops+ '("+" "-" "*" "/" "INC" "DEC")
+  "Ops whose result is itself a number (so they contribute to type inference).")
+
+(defun %num-type-of-literal (v)
+  (typecase v
+    (double-float 'double-float)
+    (single-float 'single-float)
+    (integer      'integer)
+    (number       'number)          ; ratio, complex: a number, no fine unboxed type
+    (t            nil)))
+
+(defun %num-contagion (a b)
+  "Result type of +,-,* on operand types A and B."
+  (cond ((or (null a) (null b))                         nil)
+        ((or (eq a 'number) (eq b 'number))             'number)
+        ((or (eq a 'double-float) (eq b 'double-float)) 'double-float)
+        ((or (eq a 'single-float) (eq b 'single-float)) 'single-float)
+        (t                                              'integer)))
+
+(defun %num-div (a b)
+  "Result type of / on A and B (integer/integer is rational, not integer)."
+  (cond ((or (null a) (null b))                         nil)
+        ((or (eq a 'number) (eq b 'number))             'number)
+        ((or (eq a 'double-float) (eq b 'double-float)) 'double-float)
+        ((or (eq a 'single-float) (eq b 'single-float)) 'single-float)
+        (t                                              'number)))
+
+(defun %num-lub (a b)
+  "Least upper bound of a variable's possible types across init and recur paths."
+  (cond ((eq a b)                a)
+        ((or (null a) (null b))  nil)     ; ever-unknown => unknown
+        (t                       'number)))  ; mixed fine types => just NUMBER
+
+(defun %num-copy-env (env)
+  (let ((h (make-hash-table :test 'eq)))
+    (maphash (lambda (k v) (setf (gethash k h) v)) env) h))
+
+(defun %num-infer (node env)
+  "Infer the numeric type of NODE under type env ENV (symbol -> type). NIL if
+   NODE is not a proven number."
+  (cond
+    ((null node) nil)
+    ((fol.compiler.ast:literal-node-p node)
+     (%num-type-of-literal (fol.compiler.ast:literal-node-value node)))
+    ((fol.compiler.ast:symbol-ref-node-p node)
+     (gethash (fol.compiler.ast:symbol-ref-node-name node) env))
+    ((fol.compiler.ast:call-node-p node)
+     (let ((op (fol.compiler.escape-analysis:operator-symbol node)))
+       (when op
+         (let ((nm (symbol-name op))
+               (args (fol.compiler.ast:call-node-args node)))
+           (cond
+             ((or (string= nm "INC") (string= nm "DEC")) (%num-infer (first args) env))
+             ((member nm +num-value-ops+ :test #'string=)
+              (let ((ts (mapcar (lambda (a) (%num-infer a env)) args)))
+                (cond ((null ts) (if (string= nm "/") nil 'integer))
+                      ((string= nm "/") (reduce #'%num-div ts))
+                      (t (reduce #'%num-contagion ts)))))
+             (t nil))))))                 ; comparisons/other: not a number value
+    ((fol.compiler.ast:bind-node-p node)
+     (let ((env2 (%num-copy-env env)))
+       (dolist (b (fol.compiler.ast:bind-node-bindings node))
+         (when (symbolp (car b))
+           (setf (gethash (car b) env2) (%num-infer (cdr b) env2))))
+       (%num-infer (car (last (fol.compiler.ast:bind-node-body node))) env2)))
+    ((fol.compiler.ast:do-node-p node)
+     (%num-infer (car (last (fol.compiler.ast:do-node-body node))) env))
+    (t nil)))
+
+(defun %num-collect-recur-types (body env)
+  "Walk BODY under scope ENV; at each recur (that targets this loop) infer each
+   arg's type under the enclosing bind scope. Returns a hash position -> LUB type."
+  (let ((acc (make-hash-table :test 'eql)))
+    (labels ((w (n scope)
+               (cond
+                 ((null n) nil)
+                 ((fol.compiler.ast:recur-node-p n)
+                  (loop for arg in (fol.compiler.ast:recur-node-args n)
+                        for k from 0
+                        do (let ((ty (%num-infer arg scope)))
+                             (multiple-value-bind (old present) (gethash k acc)
+                               (setf (gethash k acc) (if present (%num-lub old ty) ty))))))
+                 ((or (fol.compiler.ast:loop-node-p n) (fol.compiler.ast:fn-node-p n)) nil)
+                 ((fol.compiler.ast:bind-node-p n)
+                  (let ((scope2 (%num-copy-env scope)))
+                    (dolist (b (fol.compiler.ast:bind-node-bindings n))
+                      (when (symbolp (car b))
+                        (setf (gethash (car b) scope2) (%num-infer (cdr b) scope2))))
+                    (dolist (bf (fol.compiler.ast:bind-node-body n)) (w bf scope2))))
+                 (t (dolist (c (fol.compiler.escape-analysis:node-children n)) (w c scope))))))
+      (dolist (f body) (w f env)))
+    acc))
+
+(defun %num-infer-loop-env (loop-node)
+  "Fixpoint numeric types for LOOP-NODE's loop variables (symbol -> type)."
+  (let* ((bindings (fol.compiler.ast:loop-node-bindings loop-node))
+         (names (mapcar #'car bindings))
+         (inits (make-hash-table :test 'eq))
+         (env (make-hash-table :test 'eq))
+         (body (fol.compiler.ast:loop-node-body loop-node)))
+    (loop for (name . init) in bindings do
+      (let ((ty (%num-infer init env)))
+        (setf (gethash name inits) ty (gethash name env) ty)))
+    (dotimes (_ 16)
+      (let ((acc (%num-collect-recur-types body env)) (changed nil))
+        (loop for name in names for k from 0 do
+          (let ((new (multiple-value-bind (rty present) (gethash k acc)
+                       (if present (%num-lub (gethash name inits) rty)
+                           (gethash name inits)))))
+            (unless (eq new (gethash name env))
+              (setf (gethash name env) new changed t))))
+        (unless changed (return))))
+    env))
+
+(defun %num-specialize (node env)
+  "Return NODE with generic numeric ops on proven-number operands rewritten to CL
+   operators. Functional (AST nodes are immutable); does not descend into nested
+   loops or fns."
+  (labels ((sp (n) (%num-specialize n env))
+           (form-of (n) (fol.compiler.ast:ast-node-form n)))
+    (cond
+      ((null node) nil)
+      ((fol.compiler.ast:call-node-p node)
+       (let* ((op (fol.compiler.escape-analysis:operator-symbol node))
+              (nm (and op (symbol-name op)))
+              (pair (and nm (assoc nm +cl-num-op+ :test #'string=)))
+              (args (fol.compiler.ast:call-node-args node))
+              (new-args (mapcar #'sp args)))
+         (if (and pair args (every (lambda (a) (%num-infer a env)) args))
+             (fol.compiler.ast:make-call-node
+              :operator (fol.compiler.ast:make-symbol-ref-node :name (cdr pair) :form (cdr pair))
+              :args new-args :form (form-of node))
+             (fol.compiler.ast:make-call-node
+              :operator (sp (fol.compiler.ast:call-node-operator node))
+              :args new-args :form (form-of node)))))
+      ((fol.compiler.ast:if-node-p node)
+       (fol.compiler.ast:make-if-node
+        :test (sp (fol.compiler.ast:if-node-test node))
+        :then (sp (fol.compiler.ast:if-node-then node))
+        :else (mapcar #'sp (fol.compiler.ast:if-node-else node))
+        :form (form-of node)))
+      ((fol.compiler.ast:do-node-p node)
+       (fol.compiler.ast:make-do-node
+        :body (mapcar #'sp (fol.compiler.ast:do-node-body node)) :form (form-of node)))
+      ((fol.compiler.ast:bind-node-p node)
+       (let ((env2 (%num-copy-env env)))
+         (fol.compiler.ast:make-bind-node
+          :bindings (loop for b in (fol.compiler.ast:bind-node-bindings node)
+                          collect (let ((v (%num-specialize (cdr b) env2)))
+                                    (when (symbolp (car b))
+                                      (setf (gethash (car b) env2) (%num-infer (cdr b) env2)))
+                                    (cons (car b) v)))
+          :body (mapcar (lambda (bf) (%num-specialize bf env2))
+                        (fol.compiler.ast:bind-node-body node))
+          :form (form-of node))))
+      ((fol.compiler.ast:recur-node-p node)
+       (fol.compiler.ast:make-recur-node
+        :args (mapcar #'sp (fol.compiler.ast:recur-node-args node)) :form (form-of node)))
+      ((fol.compiler.ast:cond-node-p node)
+       (fol.compiler.ast:make-cond-node
+        :clauses (mapcar (lambda (c)
+                           (cons (if (fol.compiler.ast:ast-node-p (car c)) (sp (car c)) (car c))
+                                 (mapcar #'sp (cdr c))))
+                         (fol.compiler.ast:cond-node-clauses node))
+        :form (form-of node)))
+      ;; nested loops/fns and any unhandled node type: leave unchanged
+      (t node))))
+
+(defun %num-loop-decls (loop-node env)
+  "CL type declarations for loop variables with a proven float or integer type.
+   When at least one float variable is present, also raise the local optimize
+   policy so SBCL unboxes the arithmetic (EXPERIMENT: measuring safety 0 impact)."
+  (let ((decls (loop for (name . nil) in (fol.compiler.ast:loop-node-bindings loop-node)
+                     for ty = (gethash name env)
+                     when (member ty '(double-float single-float integer))
+                       collect `(cl:type ,ty ,name))))
+    (when (some (lambda (d) (member (second d) '(double-float single-float))) decls)
+      (push '(cl:optimize (cl:speed 3)) decls))
+    decls))
+
+(defun maybe-specialize-loop-nums (loop-node)
+  "When *numeric-specialization* is on, return (values SPECIALIZED-LOOP DECLS):
+   a copy of LOOP-NODE with scalar arithmetic rewritten to CL operators, plus
+   type declarations for its numeric loop variables. Otherwise (values LOOP-NODE NIL)."
+  (if (not fol.compiler.escape-analysis:*numeric-specialization*)
+      (values loop-node nil)
+      (let* ((env (%num-infer-loop-env loop-node))
+             (new-body (mapcar (lambda (f) (%num-specialize f env))
+                               (fol.compiler.ast:loop-node-body loop-node))))
+        (values (fol.compiler.ast:make-loop-node
+                 :bindings (fol.compiler.ast:loop-node-bindings loop-node)
+                 :body new-body
+                 :form (fol.compiler.ast:ast-node-form loop-node))
+                (%num-loop-decls loop-node env)))))
+
 (defun emit-loop-1 (node)
   "Emit a loop node using block/tagbody/go for optimized iteration.
    The block provides the exit mechanism (return-from).
    tagbody/go provides the loop mechanism.
    recur updates bindings with psetq then jumps back.
    NOTE: Uses interned symbols (not gensyms) so code can be serialized to files."
-  (let* ((bindings (fol.compiler.ast:loop-node-bindings node))
+  (multiple-value-bind (node decls) (maybe-specialize-loop-nums node)
+   (let* ((bindings (fol.compiler.ast:loop-node-bindings node))
          (body (fol.compiler.ast:loop-node-body node))
          (loop-id (incf *loop-counter*))
          (block-name (intern (format nil "LOOP-BLOCK-~D" loop-id)))
@@ -3664,10 +3883,11 @@
     `(cl:block ,block-name
        (cl:let ,(loop for (name . init-node) in bindings
                       collect `(,name ,(emit-node init-node)))
+         ,@(when decls `((cl:declare ,@decls)))
          (cl:tagbody
            ,tag
            (cl:let ((,result-sym (cl:progn ,@(mapcar #'emit-node body))))
-             (cl:return-from ,block-name ,result-sym)))))))
+             (cl:return-from ,block-name ,result-sym))))))))
 
 (defun emit-recur (node)
   "Emit a recur node as psetq + go.
