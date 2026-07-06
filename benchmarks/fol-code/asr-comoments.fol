@@ -1,0 +1,30 @@
+;;; ASR Benchmark: streaming co-moments (online statistics)
+;;;
+;;; Welford-style online covariance of two constant streams (x=1, y=2). The
+;;; accumulator <comoments>{n, mx, my, cxy} is a FOUR-field record rebuilt every
+;;; element by an inlinable helper, using running divisions (dx/n, dy/n). A real,
+;;; recognizable streaming-statistics kernel. Baseline conses one record per
+;;; element; ASR conses none.
+
+(defclass <comoments> [] [[n] [mx] [my] [cxy]])
+
+(defn comoment-step [st]
+  (bind [n   (get st :n)
+         mx  (get st :mx)
+         my  (get st :my)
+         cxy (get st :cxy)
+         n1  (+ n 1.0)
+         dx  (- 1.0 mx)
+         mx1 (+ mx (/ dx n1))
+         dy  (- 2.0 my)
+         my1 (+ my (/ dy n1))
+         dy2 (- 2.0 my1)]
+    (make-<comoments> :n n1 :mx mx1 :my my1
+                      :cxy (+ cxy (* dx dy2)))))
+
+(defn run-co-moments [iterations]
+  (loop [st (make-<comoments> :n 0.0 :mx 0.0 :my 0.0 :cxy 0.0)
+         i 0]
+    (if (< i iterations)
+      (recur (comoment-step st) (inc i))
+      (get st :cxy))))

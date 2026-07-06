@@ -2,7 +2,7 @@
 %%% Do NOT edit. File created by BibTeX with style
 %%% ACM-Reference-Format-Journals [18-Jan-2012].
 
-\begin{thebibliography}{11}
+\begin{thebibliography}{7}
 
 %%% ====================================================================
 %%% NOTE TO THE USER: you can override these defaults by providing
@@ -36,25 +36,16 @@
 \providecommand\natexlab[1]{#1}
 \providecommand\showeprint[2][]{arXiv:#2}
 
-\bibitem[Bagwell(2001)]%
-        {bagwell2001ideal}
-\bibfield{author}{\bibinfo{person}{Phil Bagwell}.}
-  \bibinfo{year}{2001}\natexlab{}.
-\newblock \bibinfo{booktitle}{\emph{Ideal hash trees}}.
-\newblock \bibinfo{type}{{T}echnical {R}eport} INFO-TR-01-004.
-  \bibinfo{institution}{EPFL}.
-\newblock
-
-
 \bibitem[Belyakova et~al\mbox{.}(2020)]%
-        {belyakova2020jit}
-\bibfield{author}{\bibinfo{person}{Julia Belyakova}, \bibinfo{person}{Jeff
-  Bezanson}, \bibinfo{person}{Alan Edelman}, \bibinfo{person}{Stefan
-  Karpinski}, {and} \bibinfo{person}{Viral~B Shah}.}
+        {belyakova2020oopsla}
+\bibfield{author}{\bibinfo{person}{Kateryna Belyakova}, \bibinfo{person}{Jeff
+  Bezanson}, \bibinfo{person}{Alan Edelman}, \bibinfo{person}{Steven~G
+  Johnson}, {and} \bibinfo{person}{Viral~B Shah}.}
   \bibinfo{year}{2020}\natexlab{}.
-\newblock \showarticletitle{A JIT compiler for Julia}. In
-  \bibinfo{booktitle}{\emph{Proceedings of the ACM on Programming Languages}},
-  Vol.~\bibinfo{volume}{4}. ACM New York, NY, USA, \bibinfo{pages}{1--29}.
+\newblock \showarticletitle{Julia's world age: Soundness and performance in a
+  dynamic language}. In \bibinfo{booktitle}{\emph{Proceedings of the ACM on
+  Programming Languages}}, Vol.~\bibinfo{volume}{4}. ACM New York, NY, USA,
+  \bibinfo{pages}{1--29}.
 \newblock
 
 
@@ -63,7 +54,7 @@
 \bibfield{author}{\bibinfo{person}{Bruno Blanchet}.}
   \bibinfo{year}{2003}\natexlab{}.
 \newblock \showarticletitle{Escape analysis for object-oriented languages.
-  Application to Java}.
+  application to Java}.
 \newblock \bibinfo{journal}{\emph{ACM Transactions on Programming Languages and
   Systems (TOPLAS)}} \bibinfo{volume}{25}, \bibinfo{number}{6}
   (\bibinfo{year}{2003}), \bibinfo{pages}{713--775}.
@@ -73,12 +64,12 @@
 \bibitem[Choi et~al\mbox{.}(1999)]%
         {choi1999escape}
 \bibfield{author}{\bibinfo{person}{Jong-Deok Choi}, \bibinfo{person}{Manish
-  Gupta}, \bibinfo{person}{Mauricio Serrano}, \bibinfo{person}{VC Sreedhar},
-  {and} \bibinfo{person}{Sam Midkiff}.} \bibinfo{year}{1999}\natexlab{}.
+  Gupta}, \bibinfo{person}{Mauricio Serrano}, \bibinfo{person}{Vugranam~C
+  Sreedhar}, {and} \bibinfo{person}{Samuel Midkiff}.}
+  \bibinfo{year}{1999}\natexlab{}.
 \newblock \showarticletitle{Escape analysis for Java}. In
-  \bibinfo{booktitle}{\emph{Proceedings of the 14th ACM SIGPLAN conference on
-  Object-oriented programming, systems, languages, and applications}}.
-  \bibinfo{pages}{1--19}.
+  \bibinfo{booktitle}{\emph{Acm sigplan notices}}, Vol.~\bibinfo{volume}{34}.
+  ACM New York, NY, USA, \bibinfo{pages}{1--19}.
 \newblock
 
 
@@ -86,76 +77,41 @@
         {hickey2009clojure}
 \bibfield{author}{\bibinfo{person}{Rich Hickey}.}
   \bibinfo{year}{2009}\natexlab{}.
-\newblock \bibinfo{title}{The Clojure Programming Language}.
-\newblock \bibinfo{howpublished}{\url{https://clojure.org/}}.
+\newblock \showarticletitle{The Clojure programming language}.
+\newblock \bibinfo{journal}{\emph{Presentation at the 2009 JVM Language
+  Summit}} (\bibinfo{year}{2009}).
 \newblock
 
 
 \bibitem[Lorenzen and Leijen(2023)]%
         {lorenzen2023functional}
-\bibfield{author}{\bibinfo{person}{Nikolaj~Sidorenco Lorenzen} {and}
+\bibfield{author}{\bibinfo{person}{Christian Lorenzen} {and}
   \bibinfo{person}{Daan Leijen}.} \bibinfo{year}{2023}\natexlab{}.
-\newblock \showarticletitle{Functional but in-place: effect-based and
-  uniqueness-based borrowing}. In \bibinfo{booktitle}{\emph{Proceedings of the
-  8th ACM SIGPLAN International Symposium on Principles and Practice of
-  Declarative Programming}}. \bibinfo{pages}{1--14}.
+\newblock \showarticletitle{Functional but in-place: The case for borrowing in
+  functional languages}. In \bibinfo{booktitle}{\emph{Proceedings of the 8th
+  ACM SIGPLAN International Symposium on Principles and Practice of Declarative
+  Programming}}.
 \newblock
 
 
 \bibitem[Reinking et~al\mbox{.}(2021)]%
         {reinking2021perceus}
-\bibfield{author}{\bibinfo{person}{Alex Reinking}, \bibinfo{person}{Kostis
-  Sagonas}, {and} \bibinfo{person}{Daan Leijen}.}
-  \bibinfo{year}{2021}\natexlab{}.
+\bibfield{author}{\bibinfo{person}{Alex Reinking}, \bibinfo{person}{Daan Koka},
+  {and} \bibinfo{person}{Daan Leijen}.} \bibinfo{year}{2021}\natexlab{}.
 \newblock \showarticletitle{Perceus: Garbage free reference counting with
   reuse}. In \bibinfo{booktitle}{\emph{Proceedings of the 42nd ACM SIGPLAN
   International Conference on Programming Language Design and Implementation}}.
-  \bibinfo{pages}{764--779}.
+  \bibinfo{pages}{664--679}.
 \newblock
 
 
-\bibitem[Stadler et~al\mbox{.}(2014)]%
-        {stadler2014partial}
-\bibfield{author}{\bibinfo{person}{Lukas Stadler}, \bibinfo{person}{Christian
-  Wimmer}, {and} \bibinfo{person}{Hanspeter M{\"o}ssenb{\"o}ck}.}
-  \bibinfo{year}{2014}\natexlab{}.
-\newblock \showarticletitle{Partial escape analysis and scalar replacement for
-  Java}. In \bibinfo{booktitle}{\emph{Proceedings of the 12th annual IEEE/ACM
-  international symposium on code generation and optimization}}.
-  \bibinfo{pages}{1--11}.
-\newblock
-
-
-\bibitem[Steindorfer and Vinju(2015)]%
-        {steindorfer2015optimizing}
-\bibfield{author}{\bibinfo{person}{Michael~J Steindorfer} {and}
-  \bibinfo{person}{Jurgen~J Vinju}.} \bibinfo{year}{2015}\natexlab{}.
-\newblock \showarticletitle{Optimizing hash-array mapped tries for fast and
-  lean immutable collections}. In \bibinfo{booktitle}{\emph{Proceedings of the
-  2015 ACM SIGPLAN International Conference on Object-Oriented Programming,
-  Systems, Languages, and Applications}}. \bibinfo{pages}{783--800}.
-\newblock
-
-
-\bibitem[Wadler(1990a)]%
-        {wadler1990deforestation}
-\bibfield{author}{\bibinfo{person}{Philip Wadler}.}
-  \bibinfo{year}{1990}\natexlab{a}.
-\newblock \showarticletitle{Deforestation: transforming programs to eliminate
-  trees}.
-\newblock \bibinfo{journal}{\emph{Theoretical computer science}}
-  \bibinfo{volume}{73}, \bibinfo{number}{2} (\bibinfo{year}{1990}),
-  \bibinfo{pages}{231--248}.
-\newblock
-
-
-\bibitem[Wadler(1990b)]%
+\bibitem[Wadler(1990)]%
         {wadler1990linear}
 \bibfield{author}{\bibinfo{person}{Philip Wadler}.}
-  \bibinfo{year}{1990}\natexlab{b}.
+  \bibinfo{year}{1990}\natexlab{}.
 \newblock \showarticletitle{Linear types can change the world!}. In
   \bibinfo{booktitle}{\emph{IFIP TC 2 Working Conference on Programming
-  Concepts and Methods}}.
+  Concepts and Methods}}. North-Holland.
 \newblock
 
 

@@ -1,0 +1,37 @@
+;;; ASR Benchmark: 1D constant-velocity Kalman filter (state estimation)
+;;;
+;;; A position/velocity Kalman filter processing a noiseless constant position
+;;; measurement (z=10). It carries TWO coupled record accumulators: the state
+;;; estimate <kstate>{x, v} and the error covariance <kcov>{p00, p01, p11}
+;;; (symmetric 2x2). Each step's predict+update reads both records and rebuilds
+;;; both -- the multi-accumulator case, unboxed by the fixpoint. Baseline conses
+;;; two records per step; ASR conses none.
+
+(defclass <kstate> [] [[x] [v]])
+(defclass <kcov>   [] [[p00] [p01] [p11]])
+
+(defn run-kalman [iterations]
+  (loop [s (make-<kstate> :x 0.0 :v 0.0)
+         c (make-<kcov> :p00 1.0 :p01 0.0 :p11 1.0)
+         i 0]
+    (if (< i iterations)
+      (bind [x    (get s :x)
+             v    (get s :v)
+             p00  (get c :p00)
+             p01  (get c :p01)
+             p11  (get c :p11)
+             xp   (+ x v)
+             pp00 (+ (+ p00 (* 2.0 p01)) (+ p11 0.001))
+             pp01 (+ p01 p11)
+             pp11 (+ p11 0.001)
+             y    (- 10.0 xp)
+             sden (+ pp00 0.1)
+             k0   (/ pp00 sden)
+             k1   (/ pp01 sden)]
+        (recur (make-<kstate> :x (+ xp (* k0 y))
+                              :v (+ v (* k1 y)))
+               (make-<kcov> :p00 (* (- 1.0 k0) pp00)
+                            :p01 (* (- 1.0 k0) pp01)
+                            :p11 (- pp11 (* k1 pp01)))
+               (inc i)))
+      (get s :x))))

@@ -1,0 +1,6 @@
+# Cloned corpus (large; reproduce via `clojure -M:fetch`) and compile cache.
+# results.edn and manifest.lock.edn ARE committed: they are the evidence and
+# the pinned SHAs behind the paper's corpus-study numbers.
+/corpus/
+/selftest/results.edn
+.cpcache/

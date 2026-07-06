@@ -1,0 +1,27 @@
+;;; ASR Benchmark: Lorenz attractor (chaotic ODE integrator)
+;;;
+;;; Semi-explicit Euler integration of the Lorenz system (sigma=10, rho=28,
+;;; beta=8/3, dt=0.01). The accumulator <lvec3>{x, y, z} is a THREE-field record
+;;; rebuilt every step by an inlinable helper. The dynamics are chaotic but the
+;;; trajectory stays on the (bounded) attractor. A temporary-free integrator, so
+;;; the only allocation is the accumulator itself -- which ASR removes.
+
+(defclass <lvec3> [] [[x] [y] [z]])
+
+(defn lorenz-step [p]
+  (bind [x  (get p :x)
+         y  (get p :y)
+         z  (get p :z)
+         dx (* 10.0 (- y x))
+         dy (- (* x (- 28.0 z)) y)
+         dz (- (* x y) (* 2.6666667 z))]
+    (make-<lvec3> :x (+ x (* dx 0.01))
+                  :y (+ y (* dy 0.01))
+                  :z (+ z (* dz 0.01)))))
+
+(defn run-lorenz [iterations]
+  (loop [p (make-<lvec3> :x 1.0 :y 1.0 :z 1.0)
+         i 0]
+    (if (< i iterations)
+      (recur (lorenz-step p) (inc i))
+      (+ (+ (get p :x) (get p :y)) (get p :z)))))

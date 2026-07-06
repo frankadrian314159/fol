@@ -1,0 +1,50 @@
+;; Corpus manifest for the ASR-pattern study.
+;;
+;; A representative, reproducible set of Clojure projects spanning domains where
+;; the record-accumulator pattern is likely (numeric, geometry, graphics,
+;; data-structures, language/compilers) and domains that give an honest base rate
+;; (web, tooling). :sha nil means "fetch default-branch HEAD"; the fetch script
+;; records the resolved SHA into manifest.lock.edn for reproducibility. To pin a
+;; run, set :sha to a specific commit (or re-fetch from the lock file).
+
+{:repos
+ [;; --- numeric / scientific ---
+  {:name "fastmath"          :domain :numeric :sha nil :url "https://github.com/generateme/fastmath"}
+  {:name "neanderthal"       :domain :numeric :sha nil :url "https://github.com/uncomplicate/neanderthal"}
+  {:name "tech.ml.dataset"   :domain :numeric :sha nil :url "https://github.com/techascent/tech.ml.dataset"}
+  {:name "tablecloth"        :domain :numeric :sha nil :url "https://github.com/scicloj/tablecloth"}
+  {:name "incanter"          :domain :numeric :sha nil :url "https://github.com/incanter/incanter"}
+
+  ;; --- geometry / graphics / audio ---
+  {:name "geom"              :domain :graphics :sha nil :url "https://github.com/thi-ng/geom"}
+  {:name "quil"              :domain :graphics :sha nil :url "https://github.com/quil/quil"}
+  {:name "overtone"          :domain :graphics :sha nil :url "https://github.com/overtone/overtone"}
+  {:name "play-cljc"         :domain :games    :sha nil :url "https://github.com/oakes/play-cljc"}
+
+  ;; --- persistent data structures ---
+  {:name "datascript"        :domain :data-structures :sha nil :url "https://github.com/tonsky/datascript"}
+  {:name "data.avl"          :domain :data-structures :sha nil :url "https://github.com/clojure/data.avl"}
+  {:name "data.priority-map" :domain :data-structures :sha nil :url "https://github.com/clojure/data.priority-map"}
+  {:name "ordered"           :domain :data-structures :sha nil :url "https://github.com/clj-commons/ordered"}
+
+  ;; --- language / compilers / interpreters ---
+  {:name "core.async"        :domain :language :sha nil :url "https://github.com/clojure/core.async"}
+  {:name "core.logic"        :domain :language :sha nil :url "https://github.com/clojure/core.logic"}
+  {:name "tools.analyzer"    :domain :language :sha nil :url "https://github.com/clojure/tools.analyzer"}
+  {:name "tools.reader"      :domain :language :sha nil :url "https://github.com/clojure/tools.reader"}
+  {:name "sci"               :domain :language :sha nil :url "https://github.com/babashka/sci"}
+  {:name "clj-kondo"         :domain :language :sha nil :url "https://github.com/clj-kondo/clj-kondo"}
+
+  ;; --- web / general (base rate) ---
+  {:name "reitit"            :domain :web :sha nil :url "https://github.com/metosin/reitit"}
+  {:name "malli"             :domain :web :sha nil :url "https://github.com/metosin/malli"}
+  {:name "ring"              :domain :web :sha nil :url "https://github.com/ring-clojure/ring"}
+  {:name "compojure"         :domain :web :sha nil :url "https://github.com/weavejester/compojure"}
+  {:name "next.jdbc"         :domain :web :sha nil :url "https://github.com/seancorfield/next-jdbc"}
+  {:name "xtdb"              :domain :web :sha nil :url "https://github.com/xtdb/xtdb"}
+  {:name "pedestal"          :domain :web :sha nil :url "https://github.com/pedestal/pedestal"}
+
+  ;; --- tooling ---
+  {:name "clojure-lsp"       :domain :tools :sha nil :url "https://github.com/clojure-lsp/clojure-lsp"}
+  {:name "tools.cli"         :domain :tools :sha nil :url "https://github.com/clojure/tools.cli"}
+  {:name "aws-api"           :domain :tools :sha nil :url "https://github.com/cognitect-labs/aws-api"}]}

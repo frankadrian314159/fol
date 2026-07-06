@@ -113,6 +113,93 @@
               (nv2-y b) (+ by (* 0.01 (- ay by))))))
     (+ (nv2-x a) (nv2-y a))))
 
+;; Mandelbrot orbit z <- z^2 + c (c = rabbit).
+(defstruct (ncplx (:conc-name ncplx-))
+  (re 0.0 :type single-float) (im 0.0 :type single-float))
+(defun native-mandelbrot (n)
+  (declare (fixnum n) (optimize (speed 3) (safety 0)))
+  (let ((z (make-ncplx :re 0.0 :im 0.0)))
+    (dotimes (i n)
+      (let ((zr (ncplx-re z)) (zi (ncplx-im z)))
+        (setf (ncplx-re z) (+ (- (* zr zr) (* zi zi)) -0.123)
+              (ncplx-im z) (+ (* 2.0 (* zr zi)) 0.745))))
+    (+ (ncplx-re z) (ncplx-im z))))
+
+;; Biquad IIR filter (Direct Form I), constant input.
+(defstruct (nbq (:conc-name nbq-))
+  (x1 0.0 :type single-float) (x2 0.0 :type single-float)
+  (y1 0.0 :type single-float) (y2 0.0 :type single-float))
+(defun native-biquad (n)
+  (declare (fixnum n) (optimize (speed 3) (safety 0)))
+  (let ((st (make-nbq)))
+    (dotimes (i n)
+      (let* ((x1 (nbq-x1 st)) (x2 (nbq-x2 st))
+             (y1 (nbq-y1 st)) (y2 (nbq-y2 st))
+             (xin 1.0)
+             (y (- (+ (+ (+ (* 0.1 xin) (* 0.2 x1)) (* 0.1 x2)) (* 0.9 y1))
+                   (* 0.2 y2))))
+        (setf (nbq-x1 st) xin (nbq-x2 st) x1 (nbq-y1 st) y (nbq-y2 st) y1)))
+    (nbq-y1 st)))
+
+;; Streaming co-moments (online covariance), constant streams.
+(defstruct (ncm (:conc-name ncm-))
+  (n 0.0 :type single-float) (mx 0.0 :type single-float)
+  (my 0.0 :type single-float) (cxy 0.0 :type single-float))
+(defun native-comoments (n)
+  (declare (fixnum n) (optimize (speed 3) (safety 0)))
+  (let ((st (make-ncm)))
+    (dotimes (i n)
+      (let* ((cn (ncm-n st)) (mx (ncm-mx st)) (my (ncm-my st)) (cxy (ncm-cxy st))
+             (n1 (+ cn 1.0))
+             (dx (- 1.0 mx)) (mx1 (+ mx (/ dx n1)))
+             (dy (- 2.0 my)) (my1 (+ my (/ dy n1)))
+             (dy2 (- 2.0 my1)))
+        (setf (ncm-n st) n1 (ncm-mx st) mx1 (ncm-my st) my1
+              (ncm-cxy st) (+ cxy (* dx dy2)))))
+    (ncm-cxy st)))
+
+;; Lorenz attractor, semi-explicit Euler.
+(defstruct (nl3 (:conc-name nl3-))
+  (x 0.0 :type single-float) (y 0.0 :type single-float) (z 0.0 :type single-float))
+(defun native-lorenz (n)
+  (declare (fixnum n) (optimize (speed 3) (safety 0)))
+  (let ((p (make-nl3 :x 1.0 :y 1.0 :z 1.0)))
+    (dotimes (i n)
+      (let* ((x (nl3-x p)) (y (nl3-y p)) (z (nl3-z p))
+             (dx (* 10.0 (- y x)))
+             (dy (- (* x (- 28.0 z)) y))
+             (dz (- (* x y) (* 2.6666667 z))))
+        (setf (nl3-x p) (+ x (* dx 0.01))
+              (nl3-y p) (+ y (* dy 0.01))
+              (nl3-z p) (+ z (* dz 0.01)))))
+    (+ (+ (nl3-x p) (nl3-y p)) (nl3-z p))))
+
+;; 1D constant-velocity Kalman filter (two mutable structs, all reads first).
+(defstruct (nks (:conc-name nks-))
+  (x 0.0 :type single-float) (v 0.0 :type single-float))
+(defstruct (nkc (:conc-name nkc-))
+  (p00 1.0 :type single-float) (p01 0.0 :type single-float) (p11 1.0 :type single-float))
+(defun native-kalman (n)
+  (declare (fixnum n) (optimize (speed 3) (safety 0)))
+  (let ((s (make-nks)) (c (make-nkc)))
+    (dotimes (i n)
+      (let* ((x (nks-x s)) (v (nks-v s))
+             (p00 (nkc-p00 c)) (p01 (nkc-p01 c)) (p11 (nkc-p11 c))
+             (xp (+ x v))
+             (pp00 (+ (+ p00 (* 2.0 p01)) (+ p11 0.001)))
+             (pp01 (+ p01 p11))
+             (pp11 (+ p11 0.001))
+             (y (- 10.0 xp))
+             (sden (+ pp00 0.1))
+             (k0 (/ pp00 sden))
+             (k1 (/ pp01 sden)))
+        (setf (nks-x s) (+ xp (* k0 y))
+              (nks-v s) (+ v (* k1 y))
+              (nkc-p00 c) (* (- 1.0 k0) pp00)
+              (nkc-p01 c) (* (- 1.0 k0) pp01)
+              (nkc-p11 c) (- pp11 (* k1 pp01)))))
+    (nks-x s)))
+
 ;;; --- Statistics ----------------------------------------------------------
 (defun mean (xs) (/ (reduce #'+ xs) (float (length xs))))
 (defun stddev (xs)
@@ -239,7 +326,17 @@
                 (bench "B. Ballistic integrator <state3>{x,y,vy}"
                        "asr-projectile.fol" "run-projectile" #'native-projectile)
                 (bench "D. Two-body relaxation  2x<vec2>{x,y}"
-                       "asr-twobody.fol"    "run-twobody"    #'native-twobody))))
+                       "asr-twobody.fol"    "run-twobody"    #'native-twobody)
+                (bench "E. Mandelbrot orbit     <cplx>{re,im}"
+                       "asr-mandelbrot.fol"  "run-mandelbrot"  #'native-mandelbrot)
+                (bench "F. Kalman filter        2x<kstate>/<kcov>"
+                       "asr-kalman.fol"      "run-kalman"      #'native-kalman)
+                (bench "G. Biquad IIR filter    <biquad>{x1,x2,y1,y2}"
+                       "asr-biquad.fol"      "run-biquad"      #'native-biquad)
+                (bench "H. Streaming co-moments <comoments>{n,mx,my,cxy}"
+                       "asr-comoments.fol"   "run-co-moments"  #'native-comoments)
+                (bench "I. Lorenz attractor     <lvec3>{x,y,z}"
+                       "asr-lorenz.fol"      "run-lorenz"      #'native-lorenz))))
     (summary results)
     (format t "~%Done.~%")))
 

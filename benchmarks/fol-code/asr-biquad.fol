@@ -1,0 +1,26 @@
+;;; ASR Benchmark: Biquad IIR filter (audio DSP)
+;;;
+;;; A Direct-Form-I biquad section filtering a constant input. The filter state
+;;; <biquad>{x1, x2, y1, y2} is a FOUR-field record rebuilt every sample by an
+;;; inlinable helper. Stable coefficients (b = .1,.2,.1 ; a1 = -.9, a2 = .2), so
+;;; the output settles to a bounded DC value. Baseline conses one <biquad> per
+;;; sample; ASR conses none.
+
+(defclass <biquad> [] [[x1] [x2] [y1] [y2]])
+
+(defn biquad-step [st]
+  (bind [x1 (get st :x1)
+         x2 (get st :x2)
+         y1 (get st :y1)
+         y2 (get st :y2)
+         xin 1.0
+         y (- (+ (+ (+ (* 0.1 xin) (* 0.2 x1)) (* 0.1 x2)) (* 0.9 y1))
+              (* 0.2 y2))]
+    (make-<biquad> :x1 xin :x2 x1 :y1 y :y2 y1)))
+
+(defn run-biquad [iterations]
+  (loop [st (make-<biquad> :x1 0.0 :x2 0.0 :y1 0.0 :y2 0.0)
+         i 0]
+    (if (< i iterations)
+      (recur (biquad-step st) (inc i))
+      (get st :y1))))

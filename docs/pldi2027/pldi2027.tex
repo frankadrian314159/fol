@@ -216,11 +216,13 @@ We formalize the analysis for a core calculus. The key judgment, `Γ; Σ ⊢ e �
 states that expression `e` has usage `U` in context `Γ` given operator summaries
 `Σ`. We show that "messy" implementation features are sound elaborations of this
 core: `->` threads and `if`-branched chains desugar into nested applications
-that the core rules handle, and name-resolution faithfulness is a property of how
-`Σ` is constructed, not the rules themselves. The main theorem (proof sketched
-in an appendix) states that if an accumulator qualifies, the transient-converted
-program is observationally equivalent to the original, proven via bisimulation
-against a store semantics.
+that the core rules handle, and name-resolution faithfulness is a property of
+how `Σ` is constructed, not the rules themselves. The main theorem (proof
+sketched in an appendix) states that if an accumulator qualifies, the
+transient-converted program is observationally equivalent to the original,
+proven via bisimulation against a store semantics. The termination and
+correctness of the inter-procedural fixpoint analysis are discussed formally in
+Appendix A.
 
 \section{Transformation and Representation}
 
@@ -318,18 +320,13 @@ Our inter-procedural analysis significantly broadens the optimization's reach,
 as demonstrated by the successful conversion of the DVI benchmark. However,
 limitations remain.
 
-\textbf{Inter-procedural Analysis Scope.} Our ``Tier-2'' summary inference
-engine would automatically analyze user-defined functions. The core of this
-engine would be the same uniqueness-at-death classifier, repurposed to produce a
-usage summary for each of a function's parameters. To handle dependencies, the
-analysis would operate on a file-at-a-time basis, first building a call graph of
-all functions in the compilation unit. For recursive functions (including
-mutually recursive groups identified within the call graph's strongly connected
-components), the analysis would iterate to a fixpoint, starting with a
-conservative summary and refining it until it stabilizes. The inferred summaries
-would be attached to function metadata and, crucially, would be world-guarded:
-if an optimized loop in function `f` depends on an inferred summary for `g`,
-redefining `g` must invalidate the optimized region in `f`.
+\textbf{Inter-procedural Analysis Scope.} Our summary inference engine operates
+on a file-at-a-time basis. While it can analyze through any chain of calls
+within a single compilation unit, it cannot see across module boundaries. A
+function imported from another module is treated as a black box, and passing an
+accumulator to it will disqualify the conversion. A whole-program analysis or a
+system of explicit, checked interface contracts would be required to lift this
+limitation.
 
 \textbf{Profitability Heuristics.} As our end-to-end evaluation on LSim shows,
 the performance gain on small-N accumulations is bounded by the constant-factor
@@ -340,8 +337,11 @@ such as `(> (count accumulator) <threshold>)`, where the threshold is an
 empirically determined constant. This would ensure the optimization is only
 applied when likely to be beneficial, making it safer to enable by default.
 
-Finally, our transient representation for sets does not yet support reads,
-limiting the optimization's applicability for that collection type.
+Finally, our transient representation for sets does not yet support reads. This
+is an implementation limitation: due to the unordered nature of the underlying
+hash table, providing a consistent copy-on-write view for reads is more complex
+than for indexed collections. This restricts the optimization's applicability
+for set-based accumulators in read-heavy loops.
 
 \section{Related Work}
 

@@ -1,0 +1,9 @@
+{:deps {org.clojure/clojure       {:mvn/version "1.11.1"}
+        org.clojure/tools.reader  {:mvn/version "1.3.7"}}
+ :aliases
+ {;; clojure -M:fetch [manifest.edn] [corpus-dir]
+  :fetch   {:main-opts ["-m" "asr-corpus.fetch"]}
+  ;; clojure -M:analyze <corpus-dir> [manifest.edn] [out.edn]
+  :analyze {:main-opts ["-m" "asr-corpus.analyze"]}
+  ;; clojure -M:hits <corpus-dir> [project ...] -- print source of strong hits
+  :hits    {:main-opts ["-m" "asr-corpus.hits"]}}}

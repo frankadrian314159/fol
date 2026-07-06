@@ -1,0 +1,23 @@
+;;; ASR Benchmark: Mandelbrot orbit (image processing)
+;;;
+;;; Iterates the Mandelbrot map z <- z^2 + c for a fixed c inside the set (the
+;;; "rabbit" parameter -0.123 + 0.745i), whose critical orbit is bounded. The
+;;; accumulator <cplx>{re, im} is rebuilt every step by an inlinable helper
+;;; that reads both fields and multiplies them (coupled, quadratic update).
+;;; Baseline conses one <cplx> per iteration; ASR conses none.
+
+(defclass <cplx> [] [[re] [im]])
+
+(defn mandel-step [z]
+  (bind [zr (get z :re)
+         zi (get z :im)]
+    (make-<cplx>
+      :re (+ (- (* zr zr) (* zi zi)) -0.123)
+      :im (+ (* 2.0 (* zr zi)) 0.745))))
+
+(defn run-mandelbrot [iterations]
+  (loop [z (make-<cplx> :re 0.0 :im 0.0)
+         i 0]
+    (if (< i iterations)
+      (recur (mandel-step z) (inc i))
+      (+ (get z :re) (get z :im)))))

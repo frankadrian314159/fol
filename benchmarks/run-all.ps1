@@ -1,13 +1,12 @@
 # Run all aggregate scalar replacement (ASR) benchmarks.
 #
 # Delegates to run-asr-bench.ps1, which runs the SBCL driver over every
-# benchmark registered in run-asr-bench.lisp (currently particle, rotation,
-# ballistic, two-body).
+# benchmark registered in run-asr-bench.lisp: particle, rotation, ballistic,
+# two-body, mandelbrot, kalman, biquad, co-moments, and lorenz.
 #
-# To add a benchmark -- e.g. the planned real-world kernels lorenz, mandelbrot,
-# kalman, biquad, co-moments -- drop an asr-*.fol into fol-code/, then add a
-# native baseline and a (bench ...) call to run-asr-bench.lisp's MAIN; it will
-# run here automatically.
+# To add another benchmark, drop an asr-*.fol into fol-code/, then add a native
+# baseline and a (bench ...) call to run-asr-bench.lisp's MAIN; it will run here
+# automatically.
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 
