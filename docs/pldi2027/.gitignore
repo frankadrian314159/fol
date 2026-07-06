@@ -1,0 +1,10 @@
+# LaTeX build byproducts (regenerate with build-pdf.ps1)
+*.aux
+*.bbl
+*.blg
+*.log
+*.out
+*.pdf
+*.toc
+*.synctex.gz
+texput.log
