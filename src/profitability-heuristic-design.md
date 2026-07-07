@@ -1,6 +1,6 @@
 # Design: Profitability Heuristic for Transient Conversion
 
-**Status**: Proposed  
+**Status**: Implemented  
 **Owner**: Anonymous  
 **Depends On**: Transient Conversion (v0.1.1)
 

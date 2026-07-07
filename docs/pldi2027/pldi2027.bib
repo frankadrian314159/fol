@@ -1,28 +1,39 @@
+%% This is the BibTeX file for the PLDI 2027 paper.
+
 @inproceedings{reinking2021perceus,
   title={Perceus: Garbage free reference counting with reuse},
-  author={Reinking, Alex and Koka, Daan and Leijen, Daan},
+  author={Reinking, Alex and Sagonas, Kostis and Leijen, Daan},
   booktitle={Proceedings of the 42nd ACM SIGPLAN International Conference on Programming Language Design and Implementation},
-  pages={664--679},
+  pages={764--779},
   year={2021}
 }
 
 @inproceedings{lorenzen2023functional,
-  title={Functional but in-place: The case for borrowing in functional languages},
-  author={Lorenzen, Christian and Leijen, Daan},
+  title={Functional but in-place: effect-based and uniqueness-based borrowing},
+  author={Lorenzen, Nikolaj Sidorenco and Leijen, Daan},
   booktitle={Proceedings of the 8th ACM SIGPLAN International Symposium on Principles and Practice of Declarative Programming},
+  pages={1--14},
   year={2023}
 }
 
-@article{hickey2009clojure,
-  title={The Clojure programming language},
-  author={Hickey, Rich},
-  journal={Presentation at the 2009 JVM Language Summit},
-  year={2009}
+@misc{hickey2009clojure,
+  author = {Rich Hickey},
+  title = {The Clojure Programming Language},
+  year = {2009},
+  howpublished = {\url{https://clojure.org/}}
 }
 
-@inproceedings{belyakova2020oopsla,
-  title={Julia's world age: Soundness and performance in a dynamic language},
-  author={Belyakova, Kateryna and Bezanson, Jeff and Edelman, Alan and Johnson, Steven G and Shah, Viral B},
+@techreport{bagwell2001ideal,
+  title={Ideal hash trees},
+  author={Bagwell, Phil},
+  institution={EPFL},
+  year={2001},
+  number={INFO-TR-01-004}
+}
+
+@inproceedings{belyakova2020jit,
+  title={A JIT compiler for Julia},
+  author={Belyakova, Julia and Bezanson, Jeff and Edelman, Alan and Karpinski, Stefan and Shah, Viral B},
   booktitle={Proceedings of the ACM on Programming Languages},
   volume={4},
   number={OOPSLA},
@@ -31,19 +42,8 @@
   organization={ACM New York, NY, USA}
 }
 
-@inproceedings{choi1999escape,
-  title={Escape analysis for Java},
-  author={Choi, Jong-Deok and Gupta, Manish and Serrano, Mauricio and Sreedhar, Vugranam C and Midkiff, Samuel},
-  booktitle={Acm sigplan notices},
-  volume={34},
-  number={10},
-  pages={1--19},
-  year={1999},
-  organization={ACM New York, NY, USA}
-}
-
 @article{blanchet2003escape,
-  title={Escape analysis for object-oriented languages. application to Java},
+  title={Escape analysis for object-oriented languages. Application to Java},
   author={Blanchet, Bruno},
   journal={ACM Transactions on Programming Languages and Systems (TOPLAS)},
   volume={25},
@@ -53,10 +53,44 @@
   publisher={ACM New York, NY, USA}
 }
 
+@inproceedings{choi1999escape,
+  title={Escape analysis for Java},
+  author={Choi, Jong-Deok and Gupta, Manish and Serrano, Mauricio and Sreedhar, VC and Midkiff, Sam},
+  booktitle={Proceedings of the 14th ACM SIGPLAN conference on Object-oriented programming, systems, languages, and applications},
+  pages={1--19},
+  year={1999}
+}
+
+@inproceedings{stadler2014partial,
+  title={Partial escape analysis and scalar replacement for Java},
+  author={Stadler, Lukas and Wimmer, Christian and M{\"o}ssenb{\"o}ck, Hanspeter},
+  booktitle={Proceedings of the 12th annual IEEE/ACM international symposium on code generation and optimization},
+  pages={1--11},
+  year={2014}
+}
+
 @inproceedings{wadler1990linear,
   title={Linear types can change the world!},
   author={Wadler, Philip},
   booktitle={IFIP TC 2 Working Conference on Programming Concepts and Methods},
+  year={1990}
+}
+
+@article{wadler1990deforestation,
+  title={Deforestation: transforming programs to eliminate trees},
+  author={Wadler, Philip},
+  journal={Theoretical computer science},
+  volume={73},
+  number={2},
+  pages={231--248},
   year={1990},
-  organization={North-Holland}
+  publisher={Elsevier}
+}
+
+@inproceedings{steindorfer2015optimizing,
+  title={Optimizing hash-array mapped tries for fast and lean immutable collections},
+  author={Steindorfer, Michael J and Vinju, Jurgen J},
+  booktitle={Proceedings of the 2015 ACM SIGPLAN International Conference on Object-Oriented Programming, Systems, Languages, and Applications},
+  pages={783--800},
+  year={2015}
 }

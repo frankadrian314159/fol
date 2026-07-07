@@ -1,6 +1,6 @@
 2# Design: Tier-2 (Interprocedural) Escape Summaries
 
-**Status**: Proposed Future Work (as of PLDI 2027 paper)  
+**Status**: Implemented  
 **Owner**: Anonymous  
 **Depends On**: Tier-1 Summaries, World-Guard Machinery
 

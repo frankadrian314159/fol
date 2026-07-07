@@ -3609,23 +3609,26 @@
    skips the guard for batch snapshots."
   (multiple-value-bind (sr-node sr-assumptions) (maybe-scalar-replace-loop node)
     (cond
-      ;; --- scalar replacement applied ---
+      ;; --- 1. Scalar replacement applied ---
       ((not (eq sr-node node))
        (if fol.compiler.world:*sealed-world*
            (emit-loop-1 sr-node)
            (let ((validity-check `(cl:car (cl:load-time-value
                                            (fol.compiler.world:register-region ',sr-assumptions)
                                            cl:t))))
-             `(cl:if ,validity-check
-                     ,(emit-loop-1 sr-node)
-                     ,(emit-loop-1 node)))))
-      ;; --- transient conversion ---
+             `(cl:if ,validity-check ; world guard
+                     ,(emit-loop-1 sr-node) ; fast path
+                     ,(emit-loop-1 node)))))) ; fallback
+      ;; --- 2. Transient conversion ---
       (t
        (multiple-value-bind (converted assumptions profit-check profit-binding)
            (fol.compiler.escape-analysis:maybe-transient-loop node)
          (cond
+           ;; No conversion applicable
            ((eq converted node) (emit-loop-1 node))
+           ;; Sealed world: emit only the fast path
            (fol.compiler.world:*sealed-world* (emit-loop-1 converted))
+           ;; Open world: emit dual path with world guard and profitability check
            (t (let* ((validity-check `(cl:car (cl:load-time-value
                                                (fol.compiler.world:register-region ',assumptions)
                                                cl:t)))
@@ -4325,16 +4328,17 @@
                   (typecase ast
                     (fol.compiler.ast:defn-node
                      (fol.compiler.ast:defn-node-name ast))
-                    (fol.compiler.ast:defn-private-node
-                     (fol.compiler.ast:defn-private-node-name ast))
-                    (fol.compiler.ast:definline-node
-                     (fol.compiler.ast:definline-node-name ast))
-                    (fol.compiler.ast:defmethod-node
-                     (fol.compiler.ast:defmethod-node-name ast))))))
+                ((or fol.compiler.ast:defn-private-node
+                     fol.compiler.ast:definline-node
+                     fol.compiler.ast:defmethod-node)
+                 (fol.compiler.ast:defn-node-name ast))))))
           (make-compilation-result
            :code (if (and redef-name (symbolp redef-name))
-                     `(cl:prog1 ,code
-                        (fol.compiler.world:note-redefinition ',redef-name))
+                     `(cl:progn
+                        ;; Tier-2: Clear inferred summary on redefinition.
+                        (fol.compiler.summaries:clear-inferred-summary ',redef-name)
+                        (cl:prog1 ,code
+                          (fol.compiler.world:note-redefinition ',redef-name)))
                      code))))
     (error (e)
       (make-compilation-result

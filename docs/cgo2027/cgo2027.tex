@@ -5,7 +5,7 @@
 %% NOTE: The venue name below is set to CGO; the dates and location are
 %% placeholders (TBD) to be filled from the real call for papers.
 %%
-\documentclass[sigplan,review,anonymous]{acmart}
+\documentclass[sigplan,screen,review,anonymous]{acmart}
 
 \usepackage{listings}
 \usepackage{booktabs} %% For formal tables
@@ -21,8 +21,12 @@
   keywordstyle=\color{blue},
   commentstyle=\color{green!40!black},
   stringstyle=\color{red},
-  showstringspaces=false
+  showstringspaces=false,
+  breakatwhitespace=true
 }
+
+%% Absorb tight lines (long \texttt tokens, math, urls) to avoid overfull hboxes.
+\setlength{\emergencystretch}{3em}
 
 %%
 %% \BibTeX command to typeset BibTeX logo in the docs
@@ -59,33 +63,31 @@
 \begin{abstract}
 Persistent-first languages give programmers immutable objects, but a record
 rebuilt every iteration of a loop turns into a stream of short-lived heap
-allocations. On our benchmarks this allocation and its garbage collection make
-up the bulk of the loop's runtime---the part this paper removes---while the loop
-as a whole runs 90--250$\times$ slower than an equivalent native mutable-struct
-loop, most of that gap being generic-arithmetic overhead we do not address.
-Classic
-\emph{scalar replacement} removes such allocations by holding an object's fields
-in registers, but the textbook formulation only fires when an object is created
-and dies inside one lexical scope---the least profitable case---and it assumes a
-closed world in which a class's shape never changes. We present \emph{aggregate
-scalar replacement}, an emit-time transformation for FOL (a persistent-first
-Lisp) that unboxes a persistent-record \emph{loop accumulator}: the accumulator
-becomes one scalar loop variable per field, field reads become variable reads,
-the reconstruction that feeds the back-edge becomes per-field value expressions,
-and a single object is re-boxed only at loop exit. Two ingredients make this
-practical in a dynamic language: (1) an \emph{inlining} step that exposes the
-constructor returned by an object-producing callee at the recur position, giving
-interprocedural reach without a whole-program analysis; and (2) a
-\emph{world-guarded} dual path that keeps the optimization sound when a class is
-redefined at run time. A single classify-and-rewrite walk is aligned by
+allocations. On our benchmarks this allocation and its garbage collection make up
+the bulk of the loop's runtime---the part this paper removes---while the loop as
+a whole runs 90--250$\times$ slower than an equivalent native mutable-struct
+loop. Classic \emph{scalar replacement} removes such allocations by holding an
+object's fields in registers, but the textbook formulation only fires when an
+object is created and dies inside one lexical scope---the least profitable
+case---and it assumes a closed world in which a class's shape never changes. We
+present \emph{aggregate scalar replacement}, an emit-time transformation for FOL
+(a persistent-first Lisp) that unboxes a persistent-record \emph{loop
+accumulator}: the accumulator becomes one scalar loop variable per field, field
+reads become variable reads, the reconstruction that feeds the back-edge becomes
+per-field value expressions, and a single object is re-boxed only at loop exit.
+Two ingredients make this practical in a dynamic language: (1) an \emph{inlining}
+step that exposes the constructor returned by an object-producing callee at the
+recur position, giving interprocedural reach without a whole-program analysis;
+and (2) a \emph{world-guarded} dual path that keeps the optimization sound when a
+class is redefined at run time. A single classify-and-rewrite walk is aligned by
 construction---any use it does not recognize aborts the rewrite and yields the
 original loop---so the transformation is never unsound, only sometimes
 inapplicable. Across nine allocation-bound benchmarks the technique eliminates
 per-iteration allocation entirely for an end-to-end 2.9$\times$--6.5$\times$
 speedup---the allocation share of the 90--250$\times$ gap to native---with
-byte-identical results and no cost when disabled; the residual distance, which
-we measure and attribute to generic scalar arithmetic rather than allocation, is
-the larger factor and orthogonal to this work.
+byte-identical results and no cost when disabled. The residual distance to
+native, which we measure and attribute to generic scalar arithmetic, is the
+larger factor and is closed by a complementary numeric-specialization pass.
 \end{abstract}
 
 \begin{CCSXML}
@@ -131,18 +133,16 @@ immutable values: an ``update'' produces a new version that structurally shares
 with the old one. This is a pleasant programming model, but it has a cost. When
 a small record is updated inside a loop, every iteration allocates a fresh
 object on the heap, and the previous version becomes garbage immediately. In
-FOL---a Lisp-1 dialect with CLOS-style persistent objects, transpiled to Common
-Lisp---a loop that rebuilds a persistent record runs \textbf{90--250$\times$}
+FOL~\cite{adrian2026fol-els}---a Lisp-1 dialect with CLOS-like persistent
+objects, transpiled to Common Lisp---a loop that rebuilds a persistent record runs \textbf{90--250$\times$}
 slower than the same loop written over a native mutable \texttt{defstruct}
 (\S\ref{sec:eval}). Allocation and its garbage collection dominate that loop's
 \emph{runtime}---and are what this paper removes---but they are not the largest
-part of the gap to \emph{native}: as \S\ref{sec:eval} shows, generic arithmetic
-is, so removing allocation is necessary but not sufficient to reach native. We
-attack it first deliberately: allocation is the factor that produces
-garbage-collection pauses---which matter for latency, not merely
-throughput---and it is the enabling step for the arithmetic work, since the
-scalars it exposes are exactly what a later type-specialization pass would
-annotate.
+part of the gap to \emph{native}. As \S\ref{sec:eval} shows, generic arithmetic
+is a larger factor. We attack allocation first deliberately: it is the factor
+that produces garbage-collection pauses (which matter for latency, not merely
+throughput) and it is the enabling step for arithmetic work, since the scalars
+it exposes are exactly what a later type-specialization pass annotates.
 
 The canonical remedy in a static, closed-world setting is \emph{scalar
 replacement of aggregates} (SRA): if a compiler can prove an object does not
@@ -235,13 +235,14 @@ the emitted code this fast path sits behind a world guard on \texttt{<point>}
 \label{fig:overview}
 \end{figure}
 
-Our evaluation is deliberately focused: the technique targets one high-value
-pattern---the loop-carried record accumulator---and we measure it on four
-microbenchmarks that instantiate that pattern with different field counts, update
-shapes, and accumulator multiplicities. We make no claim here about how
-frequently the pattern arises in
-production code; a corpus study of its incidence across real FOL programs is
-future work (\S\ref{sec:eval}). What we do report is an honest picture of when
+Our evaluation is deliberately focused: the technique targets one high-value pattern---the
+loop-carried record accumulator---and we measure it on nine microbenchmarks that instantiate
+that pattern with different field counts, update shapes, and accumulator
+multiplicities. We make no claim here about how frequently the pattern arises in
+production FOL code, but as a proxy we conducted a corpus study of 29 Clojure
+projects (\S\ref{sec:discussion}): the pattern is rare (0.55\% of loop/reduce
+sites), and its scarcity suggests it is suppressed by its current cost---exactly
+the cost this paper removes. What we do report is an honest picture of when
 the transformation fires and what it buys where it does.
 
 \section{Background}
@@ -410,9 +411,11 @@ with the peeling of \S\ref{sec:loop} to turn Koka-style ``functional but in
 place'' record threading into flat scalar arithmetic.
 
 Unlike ownership- or effect-based approaches to in-place update
-\cite{reinking2021perceus,lorenzen2023functional}, this reach requires no type
-information: the inlinable table is populated purely from syntactic shape, and
-the alias-set discipline keeps the rewrite local and checkable.
+\cite{reinking2021perceus,lorenzen2023functional}, this unboxing and inlining
+requires no type information: the inlinable table is populated purely from
+syntactic shape, and the alias-set discipline keeps the rewrite local and
+checkable. This is what makes it a suitable prerequisite for a subsequent
+numeric-specialization pass (\S\ref{sec:eval}), which infers types for the scalars ASR exposes.
 
 \subsection{Alignment by construction}
 \label{sec:align}
@@ -529,10 +532,10 @@ byte-for-byte unchanged.
 We evaluate four questions. \textbf{RQ1:} does the transformation fire on the
 target pattern and eliminate allocation? \textbf{RQ2:} what speedup does it
 deliver, and is the result identical to the unoptimized program? \textbf{RQ3:}
-what does it cost when disabled or inapplicable? \textbf{RQ4:} how close does the
-optimized code come to a native mutable-struct implementation, and what accounts
-for the difference? All measurements were taken on an AMD Ryzen 5 7430U (used
-single-threaded) with 32\,GB of RAM, running SBCL 2.6.0---generational GC,
+how close does the optimized code come to a native mutable-struct implementation,
+and what accounts for the difference? \textbf{RQ4:} what does it cost when
+disabled or inapplicable? All measurements were taken on an AMD Ryzen 5 7430U
+(used single-threaded) with 32\,GB of RAM, running SBCL 2.6.0---generational GC,
 1\,GB dynamic space, 51\,MB nursery---on Windows 11. For each benchmark and
 configuration we run one warm-up call followed by five timed calls, forcing a
 full collection before each, and report the mean $\pm$ sample standard deviation.
@@ -623,46 +626,43 @@ suite of 3{,}299 checks passes with the pass enabled.
   \end{tabular}
 \end{table}
 
-\textbf{RQ4: Distance to native.} A hand-written native version---a mutable
+\textbf{RQ3: Distance to native.} A hand-written native version---a mutable
 \texttt{defstruct} updated in place---is 87$\times$--253$\times$ faster than the
 persistent baseline (Table~\ref{tab:speedup}), which is what makes the pattern
-worth attacking in the first place. Aggregate scalar replacement recovers the
-\emph{allocation} component of that gap: it removes 100\% of per-iteration
+worth attacking in the first place. Aggregate scalar replacement (ASR) recovers
+the \emph{allocation} component of that gap: it removes 100\% of per-iteration
 consing, worth the 2.9$\times$--6.5$\times$ of RQ2. It does \emph{not} close the
 gap entirely---the scalar-replaced loop remains 16$\times$--41$\times$ slower
-than native, reaching 2--6\% of native speed---and we report that rather than
-eliding it. The decomposition is consistent across all nine benchmarks: the
-allocation factor ASR removes (its speedup) times the arithmetic factor it leaves
-(its distance to native) equals the full baseline gap, and the arithmetic factor
-is always the larger of the two. This also explains the speedup spread of RQ2:
-the arithmetic-heavy kernels (Lorenz, Kalman, Mandelbrot) spend a smaller share
-of their time allocating, so removing allocation buys proportionally less. The
-residual is not allocation, of which none remains, but arithmetic: the unboxed
-loop still calls FOL's \emph{generic} operators (\texttt{+}, \texttt{*},
-\texttt{-}, \texttt{/}) on its scalar variables, whereas the native loop issues
-declared single-float machine instructions. Closing it is a matter of scalar type
-specialization, which is orthogonal to allocation and in fact complementary to
-this transformation---scalar replacement is what exposes the per-field variables
-that a type specializer would then annotate, and the two factors compose
-multiplicatively toward native. We have prototyped this second factor as an
-opt-in pass: it seeds each scalar's type from its literal initializer, propagates
-it through the arithmetic to a fixpoint, and---wherever every operand is proven
-numeric---lowers FOL's generic operators to native machine arithmetic on declared
-floats (sound, since FOL's scalar operators equal the CL operators on numbers).
-Applied on top of ASR, it delivers a \emph{further} 4.4$\times$--12.8$\times$ on
-these benchmarks, largest on the arithmetic-heavy loops (Lorenz, Mandelbrot) that
-gained least from allocation removal, and it moves the scalar-replaced loops from
-4--6\% of native to roughly a quarter to a half of native speed---confirming the
-multiplicative composition, and turning the residual from an open problem into a
-complementary pass. Attacking allocation first is nonetheless not arbitrary: it
-is the factor that produces garbage-collection pauses (the baseline triggers
-21--47 collections per call; ASR triggers none), so it removes GC from the loop
-entirely---a latency benefit, not merely the throughput factor the speedup
-measures---and it is the prerequisite for the arithmetic work, since the
-literal-seeded scalars ASR exposes are exactly what make the type inference
-tractable.
-
-\textbf{RQ3: Cost when disabled or inapplicable.} With the flag off, loop
+than native, reaching 2--6\% of native speed. The decomposition is consistent
+across all nine benchmarks: the allocation factor ASR removes (its speedup)
+times the arithmetic factor it leaves (its distance to native) equals the full
+baseline gap. The residual is not one factor but two: the per-node
+\textbf{construction overhead} of `make-instance` for a persistent object (which
+an ELS'26 paper~\cite{adrian2026fol-els} measures at 5$\times$ native for a simple object, and up to
+116$\times$ for a deep AST build) and the per-operation cost of generic
+arithmetic. The arithmetic factor is always the larger of the two. This also explains the speedup spread of RQ2: the arithmetic-heavy kernels (Lorenz,
+Kalman, Mandelbrot) spend a smaller share of their time allocating, so removing
+allocation buys proportionally less. The residual is not allocation, of which
+none remains, but arithmetic: the unboxed loop still calls FOL's \emph{generic}
+operators (\texttt{+}, \texttt{*}, \texttt{-}, \texttt{/}) on its scalar
+variables, whereas the native loop issues declared single-float machine
+instructions. Closing this second gap is the job of a complementary
+\textbf{numeric specialization pass}, which is implemented in the compiler but
+orthogonal to this work. It seeds each scalar's type from its literal
+initializer, propagates it through the arithmetic to a fixpoint, and---wherever
+every operand is proven numeric---lowers FOL's generic operators to native
+machine arithmetic on declared floats. Applied on top of ASR, it delivers a
+\emph{further} 4.4$\times$--12.8$\times$ on these benchmarks, largest on the
+arithmetic-heavy loops (Lorenz, Mandelbrot) that gained least from allocation
+removal, and it moves the scalar-replaced loops from 4--6\% of native to
+roughly a quarter to a half of native speed. Attacking allocation first is
+nonetheless not arbitrary: it is the factor that produces garbage-collection
+pauses (the baseline triggers 21--47 collections per call; ASR triggers none),
+so it removes GC from the loop entirely---a latency benefit, not merely the
+throughput factor the speedup measures---and it is the prerequisite for the
+arithmetic work, since the literal-seeded scalars ASR exposes are exactly what
+make the type inference tractable.
+\textbf{RQ4: Cost when disabled or inapplicable.} With the flag off, loop
 emission is unchanged and the output is byte-identical to the unmodified
 compiler; there is no residual cost. When the flag is on but the pattern does
 not apply---because the accumulator escapes, the reconstruction is not a
@@ -914,18 +914,18 @@ consumers rather than by unboxing a loop-carried aggregate.
 Persistent records make programs clear and allocation-heavy. We showed that a
 record rebuilt every iteration of a loop can be unboxed into scalar loop
 variables---no allocation on the back-edge, one re-box at the exit---by a single
-classify-and-rewrite walk that reaches across a call boundary through a small
-syntactic inliner and stays sound under class redefinition through a world
-guard. The pass is safe by construction: it optimizes the shapes it recognizes
-and declines the rest. Across nine allocation-bound benchmarks it eliminates
-per-iteration allocation entirely for 2.9$\times$--6.5$\times$ speedups with
-identical results, recovering the allocation component of a 90--250$\times$ gap
-to native mutable structs; the remainder---a larger factor we attribute to
-generic scalar arithmetic---is closed by a complementary type-specialization
-pass, which our prototype shows recovers a further 4.4$\times$--12.8$\times$. We
-see the transformation as the record-shaped complement to automatic transient
-conversion, and a step toward bringing the benefits of partial escape analysis
-to persistent-first languages with an open world.
+classify-and-rewrite walk that reaches across a call boundary through a
+one-level syntactic inliner and stays sound under class redefinition through a
+world guard. The pass is safe by construction: it optimizes the shapes it
+recognizes and declines the rest. Across nine allocation-bound benchmarks it
+eliminates per-iteration allocation entirely for 2.9$\times$--6.5$\times$
+speedups with identical results, recovering the allocation component of a
+90--250$\times$ gap to native mutable structs. The remainder---a larger factor
+we attribute to generic scalar arithmetic---is closed by a complementary
+numeric-specialization pass, which recovers a further 4.4$\times$--12.8$\times$.
+We see the transformation as the record-shaped complement to automatic
+transient conversion, and a step toward bringing the benefits of partial escape
+analysis to persistent-first languages with an open world.
 
 \bibliographystyle{ACM-Reference-Format}
 \bibliography{cgo2027}

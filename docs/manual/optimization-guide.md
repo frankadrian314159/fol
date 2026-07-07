@@ -151,11 +151,12 @@ loop body (`conj`, `assoc`, `disj`, `pop`, ...) is rewritten to its `!` counterp
    - `maybe-transient-reduce` handles `reduce` calls (its rewritten `init` is itself
      a `(transient ...)` form, which fails the eligibility re-check, so there is no
      re-entry hazard).
-3. **Profitability guard**: Transients only pay off once the collection is large
-   enough to make copying expensive. When the accumulator is a dict or vector the
-   compiler emits a runtime guard on its size (dict threshold 16, vector threshold
-   12) and takes the transient path only above that threshold. The guard is hoisted
-   into an outer `let` so it can name the accumulator's initial value.
+3. **Profitability guard**: Transients only pay off once the collection is large enough
+   to make copying expensive. For `dict` and `vector` accumulators, the compiler
+   emits a runtime guard on the initial collection's size (dict threshold: 16,
+   vector threshold: 12) and takes the transient path only if the collection is
+   large enough. The guard is hoisted into an outer `let` so it can name the
+   accumulator's initial value. For other collection types, no guard is emitted.
 4. **World guard**: The rewrite records the standard-library operators it assumed
    (e.g. `reduce`, `conj`) and is emitted guarded on them, so redefining one of those
    operators falls the loop back to the persistent path.
