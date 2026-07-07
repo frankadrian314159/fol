@@ -3618,7 +3618,7 @@
                                            cl:t))))
              `(cl:if ,validity-check ; world guard
                      ,(emit-loop-1 sr-node) ; fast path
-                     ,(emit-loop-1 node)))))) ; fallback
+                     ,(emit-loop-1 node))))) ; fallback
       ;; --- 2. Transient conversion ---
       (t
        (multiple-value-bind (converted assumptions profit-check profit-binding)
@@ -4275,17 +4275,30 @@
 
 (defun %maybe-infer-and-cache-summary (ast)
   "If AST is a function definition, infer its summary and cache it.
-   This is the entry point for Tier-2 interprocedural analysis."
-  (when (and fol.compiler.escape-analysis:*transient-loops*
-             (typep ast '(or fol.compiler.ast:defn-node
-                            fol.compiler.ast:defn-private-node
-                            fol.compiler.ast:definline-node
-                            fol.compiler.ast:defmethod-node)))
-    (let* ((name (fol.compiler.ast:defn-node-name ast))
-           (fn-ast (fol.compiler.ast:make-fn-node :clauses (fol.compiler.ast:defn-node-clauses ast) :name name))
-           (summary (fol.compiler.escape-analysis:infer-summary fn-ast)))
-      (when summary
-        (setf (gethash name fol.compiler.summaries:*inferred-summaries*) summary)))))
+   This is the entry point for Tier-2 interprocedural analysis.
+   Each definition node type has its own accessors (they include only
+   ast-node, not defn-node, so there is no shared NAME/CLAUSES slot)."
+  (when fol.compiler.escape-analysis:*transient-loops*
+    (multiple-value-bind (name clauses)
+        (typecase ast
+          (fol.compiler.ast:defn-node
+           (values (fol.compiler.ast:defn-node-name ast)
+                   (fol.compiler.ast:defn-node-clauses ast)))
+          (fol.compiler.ast:defn-private-node
+           (values (fol.compiler.ast:defn-private-node-name ast)
+                   (fol.compiler.ast:defn-private-node-clauses ast)))
+          (fol.compiler.ast:definline-node
+           (values (fol.compiler.ast:definline-node-name ast)
+                   (fol.compiler.ast:definline-node-clauses ast)))
+          (fol.compiler.ast:defmethod-node
+           (values (fol.compiler.ast:defmethod-node-name ast)
+                   (fol.compiler.ast:defmethod-node-clauses ast))))
+      (when name
+        (let* ((fn-ast (fol.compiler.ast:make-fn-node :clauses clauses :name name))
+               (summary (fol.compiler.escape-analysis:infer-summary fn-ast)))
+          (when summary
+            (setf (gethash name fol.compiler.summaries:*inferred-summaries*)
+                  summary)))))))
 
 (defun compile-form (form)
   "Compile a single FOL form (already read) to a Common Lisp form.
@@ -4325,13 +4338,17 @@
               (redef-name
                 (when (and fol.compiler.escape-analysis:*transient-loops*
                            (not fol.compiler.world:*sealed-world*))
+                  ;; Each node type has its own accessor (they include only
+                  ;; ast-node, not defn-node, so no shared NAME slot).
                   (typecase ast
                     (fol.compiler.ast:defn-node
                      (fol.compiler.ast:defn-node-name ast))
-                ((or fol.compiler.ast:defn-private-node
-                     fol.compiler.ast:definline-node
-                     fol.compiler.ast:defmethod-node)
-                 (fol.compiler.ast:defn-node-name ast))))))
+                    (fol.compiler.ast:defn-private-node
+                     (fol.compiler.ast:defn-private-node-name ast))
+                    (fol.compiler.ast:definline-node
+                     (fol.compiler.ast:definline-node-name ast))
+                    (fol.compiler.ast:defmethod-node
+                     (fol.compiler.ast:defmethod-node-name ast))))))
           (make-compilation-result
            :code (if (and redef-name (symbolp redef-name))
                      `(cl:progn
