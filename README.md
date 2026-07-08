@@ -3,7 +3,7 @@
 FOL is a Clojure dialect that combines **persistent data structures** (from Clojure), **CLOS-style object orientation** with persistent objects, and **array programming capabilities** (inspired by Q/APL). Every value is an object backed by persistent structures enabling efficient structural sharing and immutability. FOL transpiles to Common Lisp (currently only SBCL has been tested and is supported).
 
 ## Current version
-0.4.9
+0.4.10
 
 ## Features
 

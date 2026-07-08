@@ -551,33 +551,52 @@
                             (fol.compiler.collection-functions:get opt i)))))))
 
 (test profitability-heuristic-emitted-correctly
-  "Verifies the runtime size check is emitted for qualifying loops."
-  (let* ((dict-form '(loop (acc (dict) i 0) (if (< i 10) (recur (assoc acc i i) (inc i)) acc)))
-         (vec-form '(loop (acc (vector) i 0) (if (< i 10) (recur (conj acc i) (inc i)) acc)))
-         (fol.compiler.escape-analysis:*transient-loops* t)
+  "The runtime size check is emitted only for accumulators that START from a
+   non-empty collection (crossover thresholds: dict 16, vector 12). An
+   accumulator grown from an EMPTY literal must NOT be guarded on initial
+   size: count(empty)=0 can never exceed the threshold, which would make the
+   fast path unreachable for the most common accumulation shape."
+  (let* ((fol.compiler.escape-analysis:*transient-loops* t)
+         (dict-form '(loop (acc (dict :a 1) i 0) (if (< i 10) (recur (assoc acc i i) (inc i)) acc)))
+         (vec-form '(loop (acc (vector 1) i 0) (if (< i 10) (recur (conj acc i) (inc i)) acc)))
+         (empty-dict-form '(loop (acc (dict) i 0) (if (< i 10) (recur (assoc acc i i) (inc i)) acc)))
+         (empty-vec-form '(loop (acc (vector) i 0) (if (< i 10) (recur (conj acc i) (inc i)) acc)))
          (dict-code-str (write-to-string
                          (fol.compiler:compilation-result-code
                           (fol.compiler:compile-form dict-form))))
          (vec-code-str (write-to-string
                         (fol.compiler:compilation-result-code
-                         (fol.compiler:compile-form vec-form)))))
+                         (fol.compiler:compile-form vec-form))))
+         (empty-dict-str (write-to-string
+                          (fol.compiler:compilation-result-code
+                           (fol.compiler:compile-form empty-dict-form))))
+         (empty-vec-str (write-to-string
+                         (fol.compiler:compilation-result-code
+                          (fol.compiler:compile-form empty-vec-form)))))
     ;; The guard ANDs the world-validity cell with a size check on the
     ;; accumulator. (Package prefixes on CL:AND/CAR/LOAD-TIME-VALUE depend on
     ;; the printing package, so we check the package-stable fragments: the
     ;; assumed op region and the threshold+count comparison.)
-    ;; Dict threshold = 16.
+    ;; Non-empty dict init: threshold = 16.
     (is (search "(FOL.COMPILER.WORLD:REGISTER-REGION '(\"ASSOC\"))"
                 dict-code-str :test #'string-equal))
     (is (search "(< 16 (FOL.COMPILER.COLLECTION-FUNCTIONS:COUNT ACC))"
                 dict-code-str :test #'string-equal))
-    ;; Vector threshold = 12.
+    ;; Non-empty vector init: threshold = 12.
     (is (search "(FOL.COMPILER.WORLD:REGISTER-REGION '(\"CONJ\"))"
                 vec-code-str :test #'string-equal))
     (is (search "(< 12 (FOL.COMPILER.COLLECTION-FUNCTIONS:COUNT ACC))"
                 vec-code-str :test #'string-equal))
+    ;; Empty inits: still converted (world-guarded transient fast path), but
+    ;; with NO size check -- the fast path must be reachable.
+    (is (search "TRANSIENT" empty-dict-str :test #'string-equal))
+    (is (null (search "FOL.COMPILER.COLLECTION-FUNCTIONS:COUNT" empty-dict-str
+                      :test #'string-equal)))
+    (is (search "TRANSIENT" empty-vec-str :test #'string-equal))
+    (is (null (search "FOL.COMPILER.COLLECTION-FUNCTIONS:COUNT" empty-vec-str
+                      :test #'string-equal)))
     ;; Sets have no size threshold: a converted set loop emits no count check.
-    (let* ((fol.compiler.escape-analysis:*transient-loops* t)
-           (set-form '(loop (acc (set) i 0) (if (< i 10) (recur (conj acc i) (inc i)) acc)))
+    (let* ((set-form '(loop (acc (set) i 0) (if (< i 10) (recur (conj acc i) (inc i)) acc)))
            (set-code-str (write-to-string (fol.compiler:compilation-result-code (fol.compiler:compile-form set-form)))))
       (is (null (search "FOL.COMPILER.COLLECTION-FUNCTIONS:COUNT" set-code-str))))))
 

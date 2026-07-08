@@ -1063,9 +1063,21 @@
             (let* ((first-qname (first qnames))
                    (first-qpos (position first-qname (mapcar #'car bindings)))
                    (first-qinit (cdr (nth first-qpos bindings)))
+                   ;; Profitability guard applies only to accumulators that
+                   ;; START from a non-empty collection: for those, conversion
+                   ;; pays only above an empirically-measured initial size
+                   ;; (crossover 16 for dicts, 12 for vectors). A loop growing
+                   ;; an accumulator from an EMPTY literal must not be guarded
+                   ;; on initial size -- count(empty)=0 never exceeds the
+                   ;; threshold, which would make the fast path unreachable for
+                   ;; the most common (and most profitable) accumulation shape.
                    (threshold (cond
-                                ((fol.compiler.ast:dict-node-p first-qinit) 16)
-                                ((fol.compiler.ast:vector-node-p first-qinit) 12)
+                                ((and (fol.compiler.ast:dict-node-p first-qinit)
+                                      (fol.compiler.ast:dict-node-entries first-qinit))
+                                 16)
+                                ((and (fol.compiler.ast:vector-node-p first-qinit)
+                                      (fol.compiler.ast:vector-node-elements first-qinit))
+                                 12)
                                 (t nil)))
                    (profit-check (when threshold
                                    `(< ,threshold (fol.compiler.collection-functions:count ,first-qname)))))

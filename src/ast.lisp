@@ -382,3 +382,114 @@
    FOL does not permit mutation via rplacd; captured for a compiler error."
   (cons-form nil :read-only t)    ; raw cons argument
   (new-cdr   nil :read-only t))   ; raw new-cdr argument
+
+;;; ---------------------------------------------------------------------------
+;;; AST Traversal Helpers
+;;; ---------------------------------------------------------------------------
+
+(defgeneric node-children (node)
+  (:documentation "Return a list of all child AST nodes of NODE."))
+
+(defgeneric remake-node-with-children (node new-children)
+  (:documentation "Create a new node of the same type and with the same
+  non-child properties as NODE, but with NEW-CHILDREN."))
+
+;; Default method for nodes with no children
+(defmethod node-children ((node ast-node))
+  nil)
+
+(defmethod remake-node-with-children ((node ast-node) new-children)
+  (declare (ignore new-children))
+  node)
+
+;; --- Implementations for nodes with children ---
+
+(defmethod node-children ((node call-node))
+  (cons (call-node-operator node) (call-node-args node)))
+
+(defmethod remake-node-with-children ((node call-node) new-children)
+  (make-call-node
+   :operator (first new-children)
+   :args (rest new-children)
+   :form (ast-node-form node)))
+
+(defmethod node-children ((node if-node))
+  (list* (if-node-test node) (if-node-then node) (if-node-else node)))
+
+(defmethod remake-node-with-children ((node if-node) new-children)
+  (make-if-node
+   :test (first new-children)
+   :then (second new-children)
+   :else (cddr new-children)
+   :form (ast-node-form node)))
+
+(defmethod node-children ((node do-node))
+  (do-node-body node))
+
+(defmethod remake-node-with-children ((node do-node) new-children)
+  (make-do-node :body new-children :form (ast-node-form node)))
+
+(defmethod node-children ((node bind-node))
+  (append (mapcar #'cdr (bind-node-bindings node))
+          (bind-node-body node)))
+
+(defmethod remake-node-with-children ((node bind-node) new-children)
+  (let ((num-bindings (length (bind-node-bindings node))))
+    (make-bind-node
+     :bindings (loop for b in (bind-node-bindings node)
+                     for new-init in (subseq new-children 0 num-bindings)
+                     collect (cons (car b) new-init))
+     :body (subseq new-children num-bindings)
+     :form (ast-node-form node))))
+
+(defmethod node-children ((node fn-node))
+  (loop for clause in (fn-node-clauses node)
+        append (cdr clause)))
+
+(defmethod remake-node-with-children ((node fn-node) new-children)
+  (let ((child-ptr new-children))
+    (make-fn-node
+     :name (fn-node-name node)
+     :clauses (loop for clause in (fn-node-clauses node)
+                    for body-len = (length (cdr clause))
+                    collect (let ((new-body (subseq child-ptr 0 body-len)))
+                              (setf child-ptr (nthcdr body-len child-ptr))
+                              (cons (car clause) new-body)))
+     :form (ast-node-form node))))
+
+(defmethod node-children ((node defn-node))
+  (loop for clause in (defn-node-clauses node)
+        append (cdr clause)))
+
+(defmethod remake-node-with-children ((node defn-node) new-children)
+  (let ((child-ptr new-children))
+    (make-defn-node
+     :name (defn-node-name node)
+     :docstring (defn-node-docstring node)
+     :clauses (loop for clause in (defn-node-clauses node)
+                    for body-len = (length (cdr clause))
+                    collect (let ((new-body (subseq child-ptr 0 body-len)))
+                              (setf child-ptr (nthcdr body-len child-ptr))
+                              (cons (car clause) new-body)))
+     :form (ast-node-form node))))
+
+(defmethod node-children ((node loop-node))
+  (append (mapcar #'cdr (loop-node-bindings node))
+          (loop-node-body node)))
+
+(defmethod remake-node-with-children ((node loop-node) new-children)
+  (let ((num-bindings (length (loop-node-bindings node))))
+    (make-loop-node
+     :bindings (loop for b in (loop-node-bindings node)
+                     for new-init in (subseq new-children 0 num-bindings)
+                     collect (cons (car b) new-init))
+     :body (subseq new-children num-bindings)
+     :form (ast-node-form node))))
+
+(defmethod node-children ((node recur-node))
+  (recur-node-args node))
+
+(defmethod remake-node-with-children ((node recur-node) new-children)
+  (make-recur-node :args new-children :form (ast-node-form node)))
+
+;; Add other node types here as needed...

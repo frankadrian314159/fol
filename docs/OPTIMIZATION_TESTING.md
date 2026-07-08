@@ -73,7 +73,7 @@ Optimizations are validated through **benchmark suites** that measure actual per
 
 ### Priority 4: Aggregate Scalar Replacement (ASR)
 
-**Benchmarks**: `benchmarks/fol-code/asr-*.fol` (particle, rotation, ballistic, two-body)
+**Benchmarks**: `benchmarks/fol-code/asr-*.fol` (particle, rotation, ballistic, two-body, clamp, assoc), `benchmarks/fol-code/sr-intra-bind.fol`
 
 **Metrics**:
 - Speedup: 5.6x - 7.2x

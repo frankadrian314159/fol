@@ -78,7 +78,7 @@ and a specificity-ordered predicate dispatch model.
 
 FOL's slot reads incur 1.4--2.2$\times$ overhead; slot updates cost 40--250$\times$ in isolation.
 At idiomatic workload scales, FOL is 5--44$\times$ slower than mutable CLOS; for direct translation of fine-grained mutable algorithms (e.g., AST rewriting), overhead reaches 202$\times$.
-However, at extreme scale, persistent state maps avoid memory fragmentation that degrades the mutable baseline, yielding a 3.8$\times$ runtime advantage in our logic simulation benchmark (Section~\ref{sec:simbench}).
+A naive translation of a mutable graph algorithm like Breadth-First Search (BFS) runs 42$\times$ slower; using FOL's transient collections reduces this to 6$\times$.
 Predicate dispatch uses a level-based ordering sorted at each method-definition in $O(ND \log N)$ ($D$ = hierarchy depth), avoiding the pairwise theorem-prover overhead of subsumption systems;
 the trade-off is an $O(N)$ per-call linear scan (vs.\ $O(1)$ cached dispatch), with closed \texttt{defn} dispatch indistinguishable from hand-written \texttt{cond} cascades (${\approx}2.0{\times}$).
 \end{abstract}
@@ -126,8 +126,7 @@ CLOS is extensible, but mutable objects create three problems for speculative wo
 \textbf{P1 --- Costly structural sharing.}
 CLOS lacks native structural sharing; speculative workloads must copy objects in $O(N)$ in the number of slots for every snapshot.
 This makes fine-grained snapshotting prohibitively expensive compared to persistent alternatives (FSet~\cite{Burke2007}, Sycamore~\cite{Dantam2013}), which nonetheless lack CLOS integration.
-FOL's isolated slot updates cost 40--250$\times$, but $O(\log n)$ structural sharing bounds per-update cost;
-at sufficient scale, persistent instance state maps avoid memory fragmentation that degrades mutable baselines (Section~\ref{sec:simbench}).
+FOL's isolated slot updates cost 40--250$\times$, but $O(\log n)$ structural sharing bounds the per-update cost.
 
 \textbf{P2 --- Schema evolution labor.}
 Renaming slots requires manual \texttt{update-instance-for-redefined-class} methods.
@@ -922,9 +921,9 @@ FOL contributes a persistent metaclass system and specificity-ordered predicate 
 Hybrid storage ($T=32$) keeps reads fast while lazy migration enables transparent evolution.
 Specificity ordering handles structurally differentiated patterns, confining load-order sensitivity to structural ties.
 
-Slot updates are $40$--$250{\times}$ slower; FOL is a scale-out solution for complex architectures rather than a latency-optimized replacement for mutable slots.
-The dichotomy between the logic simulator's scale advantage and the AST rewrites' penalty provides a heuristic: persistent objects excel for "macro" structures (large maps, sparse graphs) but are inappropriate for fine-grained pointer structures due to GC pressure.
-Future work includes dispatch caching and static analysis for unreachable clause detection.
+Slot updates are $40$--$250{\times}$ slower than native mutation. The performance trade-offs are clear: the AST rewriting benchmark shows that a direct translation of a fine-grained mutable algorithm can be over 200$\times$ slower, while the BFS benchmark shows that using idiomatic features like transients can reduce a 42$\times$ slowdown to a more manageable 6$\times$.
+Persistent objects excel for "macro" structures where immutability is a design advantage, but are less suited for low-level pointer-heavy algorithms where allocation cost dominates.
+Future work includes more aggressive compiler optimizations like dispatch caching and static analysis for unreachable clause detection.
 
 FOL is publicly available~\cite{fol2026}.
 

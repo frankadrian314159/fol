@@ -1,0 +1,20 @@
+;; asr-assoc.fol
+;;
+;; A particle simulation where the particle's velocity is updated
+;; using `assoc`. This exercises the ASR pass's ability to handle
+;; generic updates, not just `make-<type>` reconstructions.
+
+(defclass <particle> ()
+  ((x :initarg :x)
+   (y :initarg :y)
+   (vx :initarg :vx)
+   (vy :initarg :vy)))
+
+(defn update-particle [p n]
+  (loop [acc p i 0]
+    (if (>= i n)
+      acc
+      (recur (assoc acc :vx (+ (:vx acc) 0.1)) (inc i)))))
+
+(defn main [n]
+  (update-particle (make-<particle> :x 0.0 :y 0.0 :vx 0.0 :vy 0.0) n))

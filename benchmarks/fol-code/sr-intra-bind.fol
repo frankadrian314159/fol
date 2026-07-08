@@ -1,0 +1,24 @@
+;; sr-intra-bind.fol
+;;
+;; Tests the intra-bind scalar replacement pass.
+;; An object is created and consumed entirely within a single `bind` scope.
+;; The old compiler would allocate this; the new pass should unbox it.
+;;
+;; The loop exists to make the allocation a hot spot for measurement. The
+;; optimization itself targets the `bind` form.
+
+(defclass <point> ()
+  ((x :initarg :x)
+   (y :initarg :y)))
+
+(defn calculate-offset [n]
+  (loop [i 0 total 0.0]
+    (if (>= i n)
+      total
+      (recur (inc i)
+             (+ total
+                (bind [p (make-<point> :x (to-float i) :y (to-float (* i 2)))]
+                  (+ (:x p) (:y p))))))))
+
+(defn main [n]
+  (calculate-offset n))

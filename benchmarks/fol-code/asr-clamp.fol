@@ -1,0 +1,22 @@
+;; asr-clamp.fol
+;;
+;; A particle simulation where the particle's position is clamped
+;; if it moves beyond a certain boundary. This exercises the ASR
+;; pass's ability to handle conditional reconstructions inside a loop.
+;; The old pass would fail on this; the new pass should unbox it.
+
+(defclass <point> ()
+  ((x :initarg :x)
+   (y :initarg :y)))
+
+(defn move-and-clamp [p-start n]
+  (loop [p p-start i 0]
+    (if (>= i n)
+      p
+      (recur (if (> (:x p) 100.0)
+                 (make-<point> :x 0.0 :y (:y p))       ; Clamp x
+                 (make-<point> :x (+ (:x p) 1.0) :y (+ (:y p) 0.5))) ; Move
+             (inc i)))))
+
+(defn main [n]
+  (move-and-clamp (make-<point> :x 0.0 :y 0.0) n))

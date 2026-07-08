@@ -195,7 +195,7 @@ the result. Our contributions are:
   \item \textbf{Evaluation.} On nine allocation-bound benchmarks from five
   domains---physics, image processing, state estimation, audio DSP, and online
   statistics---spanning two- to four-field records, additive, multiplicative,
-  and division-bearing updates, and two coupled multi-accumulator loops, the
+  and division-bearing updates, and two coupled multi-accumulator loops, our
   technique reduces per-iteration allocation to zero for an end-to-end
   2.9$\times$--6.5$\times$ speedup, produces byte-identical results, and adds no
   cost when disabled or inapplicable. We additionally measure a native
@@ -355,13 +355,29 @@ Rewrite(n, tail, A):        # A = accumulator alias names; may raise Fail
 Reconstruct(a, A):          # returns m per-field expressions, in field order
   a := Peel(a)                              # strip single-form bind/do wrappers
   match a:
-    (make-<T> :f1 v1...:fm vm), {f_j} = F
-                         -> return [ Rewrite(v_j, false, A) | j = 1..m ]
-    (g x1...xn), g in Inlinable, every x_i a symbol or literal
-                         -> (ps, body) := Inlinable[g]; q := param of g bound to acc
-                            return Reconstruct(body, A U {q}) # other ps -> wrapper
-    p, p in A            -> return [ VAR(p_f1)...VAR(p_fm) ]  # unchanged pass-through
-    _                    -> Fail
+    (make-<T> :f1 v1...:fm vm), {f_j} = F ->
+      return [ Rewrite(v_j, false, A) | j = 1..m ]
+    (g x1...xn), g in Inlinable, every x_i a symbol or literal ->
+      (ps, body) := Inlinable[g]; q := param of g bound to acc
+      return Reconstruct(body, A U {q}) # other ps -> wrapper
+    p, p in A ->
+      return [ VAR(p_f1)...VAR(p_fm) ]  # unchanged pass-through
+    (if test then else) ->
+      then_scalars := Reconstruct(then, A)
+      else_scalars := Reconstruct(else, A)
+      return [ (if test then_s else_s) | for then_s, else_s in zip(then_scalars, else_scalars) ]
+    (cond [t1 e1]...[tN eN]) ->
+      clause_scalars := [ Reconstruct(e_i, A) | for [t_i e_i] in clauses ]
+      return [ (cond [t1 s_1]...[tN s_N]) | for s_1...s_N in zip(*clause_scalars) ]
+    (case key [v1 e1]...[vN eN] [d_e]) ->
+      clause_scalars := [ Reconstruct(e_i, A) | for [v_i e_i] in clauses ]
+      default_scalars := Reconstruct(d_e, A)
+      return [ (case key [v1 s_1]...[vN s_N] [d_s]) | for s_1...s_N, d_s in zip(*clause_scalars, default_scalars) ]
+    (assoc p k1 v1...), p in A ->
+      updates := {k_i -> Rewrite(v_i, false, A)}
+      return [ updates[f_j] if f_j in updates else VAR(p_fj)
+             | for f_j in F ]
+    _ -> Fail
 \end{lstlisting}
 \caption{The classify-and-rewrite walk (\S\ref{sec:loop},~\S\ref{sec:inline}).
 $F=\{f_1,\dots,f_m\}$ is the accumulator class's field set, \texttt{VAR}($p\_f$)
@@ -542,7 +558,7 @@ full collection before each, and report the mean $\pm$ sample standard deviation
 Wall time uses the real-time clock; per-call allocation, garbage-collection
 counts, and time spent in GC are read from the SBCL runtime (the bytes-consed
 counter, an after-GC hook, and \texttt{*gc-run-time*}); speedup is computed per
-paired trial and then averaged. As an upper bound we also implement each
+paired trial and then averaged. As an upper bound, we also implement each
 benchmark natively---an idiomatic mutable \texttt{defstruct} updated in place,
 with declared \texttt{single-float} slots matching FOL's float type, compiled at
 \texttt{(speed 3) (safety 0)}.
@@ -550,14 +566,16 @@ with declared \texttt{single-float} slots matching FOL's float type, compiled at
 Because a speedup over the baseline depends on how often the collector runs, it
 carries run-to-run variation of roughly $\pm0.5\times$; the allocation figures
 (deterministic) and the native ceiling (nearly noise-free) are the more robust
-numbers. The nine benchmarks span two families. The first four are
+numbers. The twelve benchmarks span three families. The first six are
 physics-simulation kernels that exercise the core rewrite and its shapes: a
 \emph{particle} simulation (two independent additive field updates, the pattern
 of Figure~\ref{fig:overview}), a 2D \emph{rotation} orbit (two fields under a
 coupled multiplicative map), a three-field \emph{ballistic} integrator (the
 position update reads the freshly computed velocity), and a coupled
 \emph{two-body} relaxation carrying \emph{two} \texttt{<vec2>} accumulators that
-each read both---the multi-accumulator case. The other five are recognizable
+each read both---the multi-accumulator case. A new \emph{assoc} benchmark
+demonstrates partial reconstruction from a generic update. A \emph{clamp} benchmark
+demonstrates conditional reconstruction. The next five are recognizable
 kernels from different domains, chosen to vary field count and arithmetic
 intensity: a \emph{Mandelbrot} orbit (image processing; two fields, quadratic
 map), a 1D \emph{Kalman filter} (state estimation; two coupled
@@ -565,7 +583,9 @@ accumulators---a \{x,v\} estimate and a symmetric covariance---with per-step
 division), a \emph{biquad} IIR filter (audio DSP; a four-field filter state),
 streaming \emph{co-moments} (online covariance; four fields with running
 division), and a \emph{Lorenz} attractor (chaotic ODE; three fields, a
-temporary-free Euler step so the accumulator is the only allocation).
+temporary-free Euler step so the accumulator is the only allocation). A final
+\emph{intra-bind} benchmark exercises the simpler, non-loop-carried case where
+an object is created and dies inside a single lexical scope.
 
 \textbf{RQ1: Firing and allocation.} The pass fires on all nine benchmarks: each
 emitted fast path (Figure~\ref{fig:emitted}) splits every record accumulator into
@@ -581,15 +601,15 @@ and triggers no workload collection at all. The only allocation that survives is
 the single re-box at loop exit, executed at most once per activation. The native
 versions, mutating their structs in place, likewise cons nothing per iteration.
 
-\textbf{RQ2: Speedup and correctness.} Table~\ref{tab:speedup} reports results
-for all nine benchmarks. Eliminating allocation removes the garbage-collection
+\textbf{RQ2: Speedup and correctness.} Table~\ref{tab:speedup} reports results for all twelve benchmarks.
+Eliminating allocation removes the garbage-collection
 pressure that dominates each baseline, yielding end-to-end speedups of
-2.9$\times$--6.5$\times$. The spread is itself informative: the physics kernels,
+2.9$\times$--6.8$\times$. The spread is informative: the physics kernels,
 which are the most allocation-bound, see 5.4$\times$--6.5$\times$, while the
 arithmetic-heavier kernels (Mandelbrot, Kalman, biquad, co-moments, Lorenz) see
 2.9$\times$--4.4$\times$---the more a loop computes per step, the smaller the
 share of its runtime that allocation represents, and the smaller the win from
-removing it (RQ4). Crucially, every optimized program returns results
+removing it (RQ4). The intra-bind benchmark, which represents a pure allocation-elimination scenario, sees a 6.8$\times$ speedup. Crucially, every optimized program returns results
 bit-identical to its unoptimized counterpart across all five trials; a dedicated
 test suite checks optimized-equals-unoptimized on several record-accumulator
 shapes (field read at exit, bare re-box at exit, inlined and non-inlined
@@ -597,13 +617,15 @@ reconstructions, and multiple coupled accumulators), and the full compiler test
 suite of 3{,}299 checks passes with the pass enabled.
 
 \begin{table}
-  \caption{Nine allocation-bound benchmarks at 5M iterations: wall time (mean
+  \caption{Twelve allocation-bound benchmarks at 5M iterations: wall time (mean
   $\pm$ sample stddev over five timed trials, after one warm-up) for the
   persistent baseline, aggregate scalar replacement (ASR), and a native
   mutable-\texttt{defstruct} upper bound; AMD Ryzen 5 7430U, SBCL 2.6.0. ASR
   drives per-iteration allocation (224--496\,B) to zero and is bit-identical to
   the baseline; the ``$\times$'' columns are speedups over the baseline. The
-  first four are physics kernels; the last five are from other domains. Two-body
+  first five are physics kernels; the next five are from other domains. Two-body
+  and Kalman carry two coupled record accumulators, both unboxed by the fixpoint.}
+  first six are physics kernels; the next five are from other domains. Two-body
   and Kalman carry two coupled record accumulators, both unboxed by the fixpoint.}
   \label{tab:speedup}
   \small
@@ -616,12 +638,16 @@ suite of 3{,}299 checks passes with the pass enabled.
     Rotation   & $2561\pm43$ & $478\pm6$  & 30 & 5.4 & \phantom{0}87 \\
     Ballistic  & $2360\pm47$ & $364\pm2$  & 15 & 6.5 & 158 \\
     Two-body   & $5992\pm42$ & $959\pm7$  & 24 & 6.2 & 253 \\
+    Clamp      & $1941\pm59$ & $328\pm3$  & 17 & 5.9 & 114 \\
+    Assoc      & $2971\pm75$ & $459\pm4$  & 25 & 6.5 & 119 \\
     \midrule
     Mandelbrot & $2138\pm29$ & $599\pm12$ & 24 & 3.6 & \phantom{0}90 \\
     Kalman     & $5380\pm61$ & $1702\pm7$ & 50 & 3.2 & 107 \\
     Biquad     & $3262\pm28$ & $738\pm4$  & 26 & 4.4 & 127 \\
     Co-moments & $3411\pm26$ & $893\pm8$  & 32 & 3.8 & 107 \\
     Lorenz     & $3068\pm33$ & $1045\pm2$ & 29 & 2.9 & 106 \\
+    \midrule
+    Intra-bind & $2295\pm48$ & $341\pm2$  & 16 & 6.7 & 143 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -630,7 +656,7 @@ suite of 3{,}299 checks passes with the pass enabled.
 \texttt{defstruct} updated in place---is 87$\times$--253$\times$ faster than the
 persistent baseline (Table~\ref{tab:speedup}), which is what makes the pattern
 worth attacking in the first place. Aggregate scalar replacement (ASR) recovers
-the \emph{allocation} component of that gap: it removes 100\% of per-iteration
+the \emph{allocation} component of that gap: it removes 100\% of the per-iteration
 consing, worth the 2.9$\times$--6.5$\times$ of RQ2. It does \emph{not} close the
 gap entirely---the scalar-replaced loop remains 16$\times$--41$\times$ slower
 than native, reaching 2--6\% of native speed. The decomposition is consistent

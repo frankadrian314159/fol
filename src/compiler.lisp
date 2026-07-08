@@ -3327,6 +3327,137 @@
     (scan node)
     nil))
 
+;;; ============================================================================
+;;; Intra-bind Scalar Replacement (Original Proposal)
+;;; ============================================================================
+
+(defun %sr-intra-bind-non-escaping-p (var-name body-nodes)
+  "Conservatively check if VAR-NAME escapes the scope of BODY-NODES.
+   An object is non-escaping if it's only used in `(get var-name :field)` calls
+   and does not appear in tail position or get passed to other functions."
+  (let ((tail-node (car (last body-nodes))))
+    ;; 1. Must not be the return value of the scope.
+    (when (%sr-refs-alias-p tail-node (list var-name))
+      (return-from %sr-intra-bind-non-escaping-p nil))
+
+    ;; 2. Walk the body to check all other uses.
+    (labels ((scan (n)
+               (cond
+                 ;; A bare reference to the var is an escape.
+                 ((and (fol.compiler.ast:symbol-ref-node-p n)
+                       (eq (fol.compiler.ast:symbol-ref-node-name n) var-name))
+                  (return-from scan nil))
+
+                 ;; A call to (get var-name :field) is OK.
+                 ((and (fol.compiler.ast:call-node-p n)
+                       (let ((op (fol.compiler.escape-analysis:operator-symbol n))
+                             (args (fol.compiler.ast:call-node-args n)))
+                         (and op (string= (symbol-name op) "GET")
+                              (= 2 (length args))
+                              (fol.compiler.ast:symbol-ref-node-p (first args))
+                              (eq (fol.compiler.ast:symbol-ref-node-name (first args)) var-name)
+                              (fol.compiler.ast:literal-node-p (second args))
+                              (keywordp (fol.compiler.ast:literal-node-value (second args))))))
+                  t) ; This use is fine, don't recurse into its children.
+
+                 ;; For any other node, recurse. If any child fails, this fails.
+                 (t (every #'scan (fol.compiler.escape-analysis:node-children n))))))
+      (every #'scan body-nodes))))
+
+(defun %sr-intra-bind-rewrite-body (body-nodes var-name fields fvar)
+  "Rewrite the body, replacing (get var-name :field) with the scalar var."
+  (labels ((fvar-for (sk) (cdr (assoc sk fvar)))
+           (rw (n)
+             (cond
+               ;; (get var-name :field) -> scalar_var
+               ((and (fol.compiler.ast:call-node-p n)
+                     (let ((op (fol.compiler.escape-analysis:operator-symbol n))
+                           (args (fol.compiler.ast:call-node-args n)))
+                       (and op (string= (symbol-name op) "GET")
+                            (= 2 (length args))
+                            (fol.compiler.ast:symbol-ref-node-p (first args))
+                            (eq (fol.compiler.ast:symbol-ref-node-name (first args)) var-name))))
+                (let* ((key-node (second (fol.compiler.ast:call-node-args n)))
+                       (key (%sr-canon-key (fol.compiler.ast:literal-node-value key-node)))
+                       (scalar-var (fvar-for key)))
+                  (fol.compiler.ast:make-symbol-ref-node :name scalar-var :form (fol.compiler.ast:ast-node-form n))))
+
+               ;; Recursively rewrite children of other nodes.
+               (t (fol.compiler.ast:remake-node-with-children
+                   n (mapcar #'rw (fol.compiler.escape-analysis:node-children n)))))))
+    (mapcar #'rw body-nodes)))
+
+(defun sr-intra-bind-pass (node)
+  "AST-to-AST pass for intra-bind scalar replacement.
+   Walks the AST, finds qualifying bind nodes, and rewrites them."
+  (if (not fol.compiler.escape-analysis:*scalar-replacement*)
+      (return-from sr-intra-bind-pass node))
+
+  (labels ((visit (n)
+             (cond
+               ((fol.compiler.ast:bind-node-p n)
+                (let* ((bindings (fol.compiler.ast:bind-node-bindings n))
+                       (body (fol.compiler.ast:bind-node-body n))
+                       (rewritten-body body)
+                       (assumptions nil)
+                       (processed-bindings
+                         (loop for b in bindings
+                               collect
+                               (let* ((pname (car b))
+                                      (init (cdr b))
+                                      (type (and (symbolp pname) (fol.compiler.ast:call-node-p init) (infer-type-from-constructor init)))
+                                      (fields (and type (gethash type *global-type-info*)))
+                                      (ctor-fields (and fields (%sr-ctor-fields init))))
+                                 (if (and fields ctor-fields (%sr-fields-match fields ctor-fields)
+                                          (%sr-intra-bind-non-escaping-p pname body))
+                                     ;; This binding qualifies. Rewrite it and the body.
+                                     (let* ((fvar (loop for (sk . sname) in fields
+                                                        collect (cons sk (intern (format nil "~A_~A" (symbol-name pname) (symbol-name sname)) (symbol-package pname)))))
+                                            (scalar-bindings (loop for (sk . sname) in fields
+                                                                   collect (cons (cdr (assoc sk fvar)) (cdr (assoc sk ctor-fields)))))
+                                            (assumed-type (string type)))
+                                       (setf rewritten-body (%sr-intra-bind-rewrite-body rewritten-body pname fields fvar))
+                                       (pushnew assumed-type assumptions :test #'string=)
+                                       scalar-bindings)
+                                     ;; Does not qualify, keep original binding.
+                                     (list b)))))
+                       (new-bindings (apply #'append processed-bindings)))
+
+                  (if assumptions
+                      (values (fol.compiler.ast:make-bind-node
+                               :bindings new-bindings
+                               :body (mapcar #'visit rewritten-body)
+                               :form (fol.compiler.ast:ast-node-form n))
+                              assumptions)
+                      (multiple-value-bind (rewritten-children child-assumptions)
+                          (visit-children n)
+                        (values (fol.compiler.ast:remake-node-with-children n rewritten-children)
+                                child-assumptions)))))
+
+               (t (multiple-value-bind (rewritten-children child-assumptions)
+                      (visit-children n)
+                    (values (fol.compiler.ast:remake-node-with-children n rewritten-children)
+                            child-assumptions)))))
+           (visit-children (n)
+             ;; NOTE: mapcar only keeps each child's primary (rewritten-node)
+             ;; value; a nested qualifying bind's assumptions do not currently
+             ;; propagate to an enclosing non-bind-node. Only the top-level
+             ;; bind-node branch (above) accumulates and returns assumptions.
+             (values (mapcar #'visit (fol.compiler.escape-analysis:node-children n)) nil)))
+    (visit node)))
+
+(defun %sr-refs-alias-p (node aliases)
+  "True when NODE's subtree references any accumulator-alias name in ALIASES."
+  (labels ((scan (n)
+             (cond
+               ((fol.compiler.ast:symbol-ref-node-p n)
+                (when (member (fol.compiler.ast:symbol-ref-node-name n) aliases)
+                  (return-from %sr-refs-alias-p t)))
+               (t (dolist (c (fol.compiler.escape-analysis:node-children n)) (scan c))))))
+    (scan node)
+    nil))
+
+
 (defun %sr-replace-one (node)
   "Unbox the first qualifying record accumulator in loop NODE. Returns
    (values NEW-NODE ASSUMPTIONS) on success, or (values NIL NIL) if no loop
@@ -3520,6 +3651,41 @@
                  (fol.compiler.ast:do-node-body n)
                  (= 1 (length (fol.compiler.ast:do-node-body n))))
             (expand-acc (car (fol.compiler.ast:do-node-body n)) aliases wrappers))
+           ;; --- conditional reconstruction ---
+           ((fol.compiler.ast:if-node-p n)
+            (let* ((test-node (fol.compiler.ast:if-node-test n))
+                   (then-node (fol.compiler.ast:if-node-then n))
+                   (else-node (if (fol.compiler.ast:if-node-else n)
+                                  (first (fol.compiler.ast:if-node-else n))
+                                  ;; An implicit else is a pass-through of the accumulator
+                                  (fol.compiler.ast:make-symbol-ref-node :name pname :form pname)))
+                   (rewritten-test (rw test-node nil aliases)))
+              (multiple-value-bind (then-scalars then-wrappers) (expand-acc then-node aliases wrappers)
+                (multiple-value-bind (else-scalars else-wrappers) (expand-acc else-node aliases wrappers)
+                  (when (or then-wrappers else-wrappers) (fail)) ; wrappers inside branches not yet supported
+                  (values (loop for then-s in then-scalars
+                                for else-s in else-scalars
+                                collect (fol.compiler.ast:make-if-node
+                                         :test rewritten-test
+                                         :then then-s
+                                         :else (list else-s)
+                                         :form (fol.compiler.ast:ast-node-form n)))
+                          wrappers)))))
+           ((fol.compiler.ast:cond-node-p n)
+            (let ((clause-scalars-transposed
+                   (mapcar (lambda (clause)
+                             (multiple-value-bind (scalars clause-wrappers)
+                                 (expand-acc (first (cdr clause)) aliases wrappers)
+                               (when clause-wrappers (fail)) ; wrappers inside branches not yet supported
+                               scalars))
+                           (fol.compiler.ast:cond-node-clauses n))))
+              (values (loop for i from 0 below (length fields)
+                            collect (fol.compiler.ast:make-cond-node
+                                     :clauses (mapcar (lambda (clause-list clause-nodes)
+                                                        (cons (rw (car clause-nodes) nil aliases) (list (nth i clause-list))))
+                                                      clause-scalars-transposed (fol.compiler.ast:cond-node-clauses n))
+                                     :form (fol.compiler.ast:ast-node-form n)))
+                      wrappers)))
            (t (fail))))
        (rw-list (ns tailp aliases)
          (loop for rest on ns
@@ -4307,56 +4473,60 @@
       ;; Tier-2: We need to infer summaries *before* emitting code that might
       ;; depend on them. We parse, then check if it's a function definition.
       ;; If so, we infer and cache its summary. Then we run scalar replacement.
-      (let* ((parsed-ast (parse-form form))
-             (ast (if fol.compiler.escape-analysis:*scalar-replacement*
-                      (sr-transform-toplevel parsed-ast)
-                      parsed-ast)))
+      (let ((parsed-ast (parse-form form)))
+        (multiple-value-bind (intra-bind-ast sr-assumptions)
+            (sr-intra-bind-pass parsed-ast)
+          (let ((ast (if fol.compiler.escape-analysis:*scalar-replacement*
+                         (sr-transform-toplevel intra-bind-ast)
+                         intra-bind-ast)))
 
-        (%maybe-infer-and-cache-summary ast)
-        ;; Escape-analysis audit mode: observe the parsed AST, never fail the
-        ;; compile because of it. Names defined in this compilation unit are
-        ;; excluded from Tier-1 name resolution, mirroring emit-call's
-        ;; *file-function-defs* precedence.
-        (when fol.compiler.escape-analysis:*escape-audit*
-          (handler-case
-              (let ((fol.compiler.summaries:*name-exclusions*
-                      (loop for x in *file-function-defs*
-                            when (and x (symbolp x) (not (eq x t)))
-                              collect (symbol-name x)
-                            when (stringp x)
-                              collect x)))
-                (fol.compiler.escape-analysis:audit-node ast))
-            (error (e) (warn "escape-audit error on ~S: ~A"
-                             (if (consp form) (first form) form) e))))
-        (let ((code (emit-node ast))
-              ;; World machinery (step 4): a definition executing at runtime
-              ;; must invalidate optimized regions that assumed its name's
-              ;; Tier-1 meaning. The notification is part of the optimizer
-              ;; contract: it is emitted only in optimizer mode (like the
-              ;; guards themselves), so flag-off output is unchanged. Sealed
-              ;; batch snapshots emit no guards and skip it too.
-              (redef-name
-                (when (and fol.compiler.escape-analysis:*transient-loops*
-                           (not fol.compiler.world:*sealed-world*))
-                  ;; Each node type has its own accessor (they include only
-                  ;; ast-node, not defn-node, so no shared NAME slot).
-                  (typecase ast
-                    (fol.compiler.ast:defn-node
-                     (fol.compiler.ast:defn-node-name ast))
-                    (fol.compiler.ast:defn-private-node
-                     (fol.compiler.ast:defn-private-node-name ast))
-                    (fol.compiler.ast:definline-node
-                     (fol.compiler.ast:definline-node-name ast))
-                    (fol.compiler.ast:defmethod-node
-                     (fol.compiler.ast:defmethod-node-name ast))))))
-          (make-compilation-result
-           :code (if (and redef-name (symbolp redef-name))
-                     `(cl:progn
-                        ;; Tier-2: Clear inferred summary on redefinition.
-                        (fol.compiler.summaries:clear-inferred-summary ',redef-name)
-                        (cl:prog1 ,code
-                          (fol.compiler.world:note-redefinition ',redef-name)))
-                     code))))
+            (%maybe-infer-and-cache-summary ast)
+            ;; Escape-analysis audit mode: observe the parsed AST, never fail the
+            ;; compile because of it. Names defined in this compilation unit are
+            (when fol.compiler.escape-analysis:*escape-audit*
+              (handler-case
+                  (let ((fol.compiler.summaries:*name-exclusions*
+                          (loop for x in *file-function-defs*
+                                when (and x (symbolp x) (not (eq x t)))
+                                  collect (symbol-name x)
+                                when (stringp x)
+                                  collect x)))
+                    (fol.compiler.escape-analysis:audit-node ast))
+                (error (e) (warn "escape-audit error on ~S: ~A"
+                                 (if (consp form) (first form) form) e))))
+            (let* ((fast-path-code (emit-node ast))
+                   (redef-name
+                     (when (and fol.compiler.escape-analysis:*transient-loops*
+                                (not fol.compiler.world:*sealed-world*))
+                       (typecase ast
+                         (fol.compiler.ast:defn-node
+                          (fol.compiler.ast:defn-node-name ast))
+                         (fol.compiler.ast:defn-private-node
+                          (fol.compiler.ast:defn-private-node-name ast))
+                         (fol.compiler.ast:definline-node
+                          (fol.compiler.ast:definline-node-name ast))
+                         (fol.compiler.ast:defmethod-node
+                          (fol.compiler.ast:defmethod-node-name ast)))))
+                   (final-code
+                     (cond
+                       ;; --- Intra-bind SR applied: emit dual path ---
+                       ((and sr-assumptions (not fol.compiler.world:*sealed-world*))
+                        (let ((validity-check `(cl:car (cl:load-time-value
+                                                        (fol.compiler.world:register-region ',sr-assumptions)
+                                                        cl:t)))
+                              (fallback-code (emit-node parsed-ast)))
+                          `(cl:if ,validity-check
+                                  ,fast-path-code
+                                  ,fallback-code)))
+                       ;; --- No intra-bind SR: emit single path ---
+                       (t fast-path-code))))
+              (make-compilation-result
+               :code (if (and redef-name (symbolp redef-name))
+                         `(cl:progn
+                            (fol.compiler.summaries:clear-inferred-summary ',redef-name)
+                            (cl:prog1 ,final-code
+                              (fol.compiler.world:note-redefinition ',redef-name)))
+                         final-code))))))
     (error (e)
       (make-compilation-result
        :errors (list (format nil "~A" e))))))

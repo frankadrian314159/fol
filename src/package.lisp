@@ -178,6 +178,7 @@
    ;; AST node base
    ast-node ast-node-p
    ast-node-form ast-node-position
+   node-children remake-node-with-children
    ;; Literal nodes
    literal-node literal-node-p literal-node-value
    ;; Symbol reference
