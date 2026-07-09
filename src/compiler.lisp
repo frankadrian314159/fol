@@ -59,6 +59,9 @@
   "Flag to enable optimization of assoc calls in hot loops.
    When T, generates code that uses inline-assoc! instead of assoc.")
 
+(defvar *optimize-constructors* t
+  "When T, emit specialized &key constructors for defclass. When NIL, emit slower &rest constructors.")
+
 (defun enable-inline-methods (&optional (functions t))
   "Enable inline-methods optimization.
    FUNCTIONS can be:
@@ -1610,37 +1613,54 @@
      ((fol.compiler.ast:symbol-ref-node-p operator)
        (let ((sym (fol.compiler.ast:symbol-ref-node-name operator))
              (emitted-args (mapcar #'emit-node args)))
-         ;; Priority 1: Check pragma-based inline-assoc! optimization
-         (if (and (cl:string-equal (symbol-name sym) "ASSOC")
-                  *inline-methods-enabled*
-                  (cl:= (length emitted-args) 3))
-             ;; Use inline-assoc! for assoc calls when optimization is enabled
-             `(fol.compiler.collection-functions:inline-assoc! ,@emitted-args)
-             ;; Priority 2: Check for :around method optimization
-             (if (has-simple-around-methods-p sym)
-                 ;; Use optimized dispatch for functions with simple :around methods
-                 (emit-optimized-generic-call sym emitted-args)
-                 ;; Normal emit-call path
-                 (if (or (cl:member sym *file-function-defs* :test #'cl:string=)
-                         (fboundp sym)
-                         (cl:member (cl:symbol-name sym) +standard-fol-functions+ :test #'string-equal)
-                         (eq (symbol-package sym) (find-package :cl)))
-                 `(,sym ,@emitted-args)
-                 (let ((gval (gensym "VAL")))
-                   (pushnew sym *extra-special-vars*)
-                   `(if (cl:fboundp ',sym)
-                        (,sym ,@emitted-args)
-                        (let ((,gval ,sym))
-                          (cl:cond
-                            ((cl:functionp ,gval) (cl:funcall ,gval ,@emitted-args))
-                            ,@(when (cl:and emitted-args (cl:<= (cl:length emitted-args) 2))
-                                    `(((cl:typep ,gval 'fol.compiler.collections:<dict>)
-                                       (fol.compiler.collection-functions:get ,gval ,@emitted-args))
-                                      ((cl:typep ,gval 'fol.compiler.collections:<vector>)
-                                       (fol.compiler.collection-functions:nth ,gval ,@emitted-args))
-                                      ((cl:typep ,gval 'fol.compiler.collections:<set>)
-                                       (fol.compiler.collection-functions:get ,gval ,@emitted-args))))
-                            (t (cl:error "~S is not a function or collection" ',sym)))))))))))
+         ;; Priority 0: constant-keyword `get` on a value of statically known
+         ;; record type -> direct slot-value access, bypassing the generic
+         ;; dict/vector dispatch entirely.
+         (if (and (string= (symbol-name sym) "GET")
+                  (= (length args) 2)
+                  (fol.compiler.ast:literal-node-p (second args))
+                  (keywordp (fol.compiler.ast:literal-node-value (second args))))
+             (let* ((obj-node (first args))
+                    (key (fol.compiler.ast:literal-node-value (second args)))
+                    (inferred-type (infer-type-from-constructor obj-node))
+                    (slot-pair (when inferred-type
+                                 (get-slot-name-for-type inferred-type key))))
+               (if slot-pair
+                   ;; Optimization successful: emit direct slot-value
+                   `(cl:slot-value ,(first emitted-args) ',(cdr slot-pair))
+                   ;; Fallback to generic `get`
+                   `(fol.compiler.collection-functions:get ,@emitted-args)))
+             ;; Priority 1: Check pragma-based inline-assoc! optimization
+             (if (and (cl:string-equal (symbol-name sym) "ASSOC")
+                      *inline-methods-enabled*
+                      (cl:= (length emitted-args) 3))
+                 ;; Use inline-assoc! for assoc calls when optimization is enabled
+                 `(fol.compiler.collection-functions:inline-assoc! ,@emitted-args)
+                 ;; Priority 2: Check for :around method optimization
+                 (if (has-simple-around-methods-p sym)
+                     ;; Use optimized dispatch for functions with simple :around methods
+                     (emit-optimized-generic-call sym emitted-args)
+                     ;; Normal emit-call path
+                     (if (or (cl:member sym *file-function-defs* :test #'cl:string=)
+                             (fboundp sym)
+                             (cl:member (cl:symbol-name sym) +standard-fol-functions+ :test #'string-equal)
+                             (eq (symbol-package sym) (find-package :cl)))
+                         `(,sym ,@emitted-args)
+                         (let ((gval (gensym "VAL")))
+                           (pushnew sym *extra-special-vars*)
+                           `(if (cl:fboundp ',sym)
+                                (,sym ,@emitted-args)
+                                (let ((,gval ,sym))
+                                  (cl:cond
+                                    ((cl:functionp ,gval) (cl:funcall ,gval ,@emitted-args))
+                                    ,@(when (cl:and emitted-args (cl:<= (cl:length emitted-args) 2))
+                                            `(((cl:typep ,gval 'fol.compiler.collections:<dict>)
+                                               (fol.compiler.collection-functions:get ,gval ,@emitted-args))
+                                              ((cl:typep ,gval 'fol.compiler.collections:<vector>)
+                                               (fol.compiler.collection-functions:nth ,gval ,@emitted-args))
+                                              ((cl:typep ,gval 'fol.compiler.collections:<set>)
+                                               (fol.compiler.collection-functions:get ,gval ,@emitted-args))))
+                                    (t (cl:error "~S is not a function or collection" ',sym))))))))))))
 
      ;; Invalid function call - operator is not callable
      (t
@@ -2269,16 +2289,40 @@
                      (cl:when (cl:eq (cl:class-of obj) (cl:find-class ',name))
                        (cl:error "Cannot instantiate abstract class ~A" ',name)))))
          ;; Constructor — abstract classes always error; concrete classes use %make-persistent
-         ;; fast path (bypasses initialize-instance MOP overhead ~550ns/call on SBCL).
-         ;; load-time-value caches the class object, avoiding find-class on each call.
+         ;; fast path. The new implementation generates a &key constructor which is
+         ;; much faster than the old &rest version that had to parse keywords at runtime.
          ,(if abstractp
               `(cl:defun ,constructor-name (&rest %ctor-args)
                  (cl:declare (cl:ignore %ctor-args))
                  (cl:error "Cannot instantiate abstract class ~A" ',name))
-              `(cl:defun ,constructor-name (&rest %ctor-args)
-                 (cl:apply #'fol.compiler.persistent::%make-persistent
-                           (cl:load-time-value (cl:find-class ',name))
-                           %ctor-args)))
+              (if *optimize-constructors*
+                  ;; Optimized path: &key constructor with direct slot-filling.
+                  ;; Slot names are known at compile time here, so this skips
+                  ;; %make-persistent's keyword->slot-name lookup, but it must
+                  ;; otherwise match %make-persistent exactly: direct
+                  ;; (setf slot-value) on a native persistent slot is
+                  ;; intercepted by a guard that requires either
+                  ;; *initializing-persistent-object* bound, or checks
+                  ;; %transient-owner (itself unbound on a bare
+                  ;; allocate-instance) -- and %schema-version is read by
+                  ;; slot access / live-redefinition checks. Skipping either
+                  ;; would error or silently corrupt objects from this path.
+                  `(cl:defun ,constructor-name (&key ,@(loop for (sname initarg) in slot-infos
+                                                             collect `(,sname nil)))
+                     (let ((obj (cl:allocate-instance
+                                 (cl:load-time-value (cl:find-class ',name)))))
+                       (let ((fol.compiler.persistent::*initializing-persistent-object* cl:t))
+                         ,@(loop for (sname initarg) in slot-infos
+                                 collect `(cl:setf (cl:slot-value obj ',sname) ,sname))
+                         (cl:setf (fol.compiler.persistent::%schema-version obj)
+                                  (fol.compiler.persistent::persistent-class-version-counter
+                                   (cl:class-of obj))))
+                       obj))
+                  ;; Fallback path: original &rest constructor
+                  `(cl:defun ,constructor-name (&rest %ctor-args)
+                     (cl:apply #'fol.compiler.persistent::%make-persistent
+                               (cl:load-time-value (cl:find-class ',name))
+                               %ctor-args))))
          ',name))))
 
 (defun emit-defstruct (node)

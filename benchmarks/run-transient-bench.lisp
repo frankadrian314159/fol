@@ -1,12 +1,22 @@
 ;;; Transient-conversion benchmark driver (PLDI 2027 paper, RQ2).
 ;;;
 ;;; For each accumulation workload, compiles the same FOL source twice --
-;;; *transient-loops* off (baseline) and on (converted) -- verifies the
-;;; converted code actually contains the transient rewrite and produces results
-;;; equal to the baseline, then runs five timed trials of each (one warm-up,
-;;; full GC before each) reporting mean +/- sample stddev wall time and
-;;; per-call allocation. Idiomatic hand-written mutable Common Lisp versions of
-;;; the three large workloads provide a native ceiling.
+;;; ALL optimization flags off (baseline) and ALL on (converted): transient
+;;; conversion, aggregate/intra-bind scalar replacement, numeric-type
+;;; specialization, dynamic-extent closures, and optimized defclass
+;;; constructors together, i.e. the full pipeline a deployed build runs
+;;; with, not transient conversion in isolation. Verifies the converted code
+;;; actually contains the transient rewrite (the paper's subject) and
+;;; produces results equal to the baseline, then runs five timed trials of
+;;; each (one warm-up, full GC before each) reporting mean +/- sample
+;;; stddev wall time and per-call allocation. Idiomatic hand-written mutable
+;;; Common Lisp versions of the three large workloads provide a native
+;;; ceiling.
+;;;
+;;; None of these workloads use defclass, so *optimize-constructors* (which
+;;; only affects defclass constructor codegen) is inert here; it is enabled
+;;; for completeness of the "full pipeline" claim, not because it moves
+;;; these numbers.
 ;;;
 ;;; Run from the repository root:
 ;;;   sbcl --noinform --non-interactive --load benchmarks/run-transient-bench.lisp
@@ -24,12 +34,20 @@
 
 (defparameter *trials* 5)
 
-(defun compile-fol (src transients-on)
-  "Compile+eval every form in FOL SRC with *transient-loops* per flag.
+(defun compile-fol (src optimize-p)
+  "Compile+eval every form in FOL SRC with every optimization flag bound to
+   OPTIMIZE-P: transient-loops, scalar-replacement (also gates the
+   intra-bind SR pass), numeric-specialization, stack-closures, and
+   optimize-constructors. Baseline is OPTIMIZE-P=NIL (everything off);
+   converted is OPTIMIZE-P=T (everything on).
    Returns (values LAST-CODE ALL-CODE-STRING); the second value is the printed
    concatenation of every form's emitted code, so callers can detect a
    conversion that lands in any form (e.g. a helper), not just the last."
-  (let ((fol.compiler.escape-analysis:*transient-loops* transients-on)
+  (let ((fol.compiler.escape-analysis:*transient-loops* optimize-p)
+        (fol.compiler.escape-analysis:*scalar-replacement* optimize-p)
+        (fol.compiler.escape-analysis:*numeric-specialization* optimize-p)
+        (fol.compiler.escape-analysis:*stack-closures* optimize-p)
+        (fol.compiler::*optimize-constructors* optimize-p)
         (*readtable* fol.compiler.reader:*fol-readtable*)
         (*package* (find-package :fol.core))
         (code nil)
