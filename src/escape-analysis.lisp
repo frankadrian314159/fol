@@ -137,6 +137,145 @@
   (unless (eq *chain-ops* :unbound)
     (push (symbol-name op) *chain-ops*)))
 
+;;; ============================================================================
+;;; Helper inlining ("the DVI gap")
+;;;
+;;; A loop that threads its accumulator through a user-defined helper, e.g.
+;;; (recur (add-item cart price) ...) where
+;;;   (defn add-item [cart price] (assoc cart price (inc (get cart price 0))))
+;;; was previously an unconditional disqualifier: CHAIN-KIND only recognizes
+;;; direct calls to summarized stdlib ops, ->  threads, if-branches, and
+;;; linearly-threading REDUCE calls (see the module docstring at the top of
+;;; this file, and the design doc's DVI case study). ADD-ITEM's own body,
+;;; though, *is* one of those recognized shapes -- it just needs to be
+;;; substituted in at the call site before CHAIN-KIND can see it.
+;;;
+;;; MAYBE-REGISTER-INLINABLE-HELPER (defined after CHAIN-KIND, since it calls
+;;; it) checks, once per top-level defn, whether the defn's single-clause
+;;; body is itself a chain rooted at exactly one of its parameters
+;;; (referenced exactly once in the body, so substituting a call site's
+;;; actual argument -- itself possibly a further chain -- never duplicates
+;;; it). %TR-INLINE-ATTEMPT is the call-site side: given a call to a
+;;; registered helper, and safe (symbol-ref or literal) arguments at every
+;;; non-accumulator position, it substitutes actuals for formals and returns
+;;; the result for CHAIN-KIND/REWRITE-CHAIN to recurse into -- so multi-level
+;;; helper chains compose for free via that recursion, with no separate
+;;; expansion machinery. Only backward references are inlinable (a helper
+;;; can only inline helpers already registered when IT is compiled), mirroring
+;;; how Tier-2 summary inference is also scoped to already-compiled forms in
+;;; the same compilation unit; this rules out unbounded recursion by
+;;; construction, not by an iteration-count fallback.
+;;; ============================================================================
+
+(defvar *tr-inlinable-fns* (make-hash-table :test 'eq)
+  "Maps a defn name (symbol) to (PARAMS BODY-NODE ACC-POSITION): a
+   single-clause helper whose body is one expression CHAIN-KIND recognizes as
+   an update chain rooted at its ACC-POSITION-th parameter. Populated
+   incrementally, in file order, by MAYBE-REGISTER-INLINABLE-HELPER.")
+
+(defvar *inlined-helpers* :unbound
+  "When bound to a list during classification/rewriting, each helper name
+   inlined at a chain position pushes itself here (a symbol), so the
+   region's world-guard assumptions include the helper -- a redefinition of
+   the helper must invalidate the region exactly as a redefinition of ASSOC
+   or CONJ already does, even though the helper is user code, not a Tier-1
+   op. Kept separate from *CHAIN-OPS*, which specifically tracks
+   representation-affecting op names for the per-representation op-gate
+   check; a helper's own name must never appear there.")
+
+(defun %note-inlined-helper (name)
+  (unless (eq *inlined-helpers* :unbound)
+    (pushnew name *inlined-helpers*)))
+
+(defun %tr-strip-docstring (body-nodes)
+  "Drop a leading string-literal docstring from a clause body, if present."
+  (if (and (cdr body-nodes)
+           (fol.compiler.ast:literal-node-p (car body-nodes))
+           (stringp (fol.compiler.ast:literal-node-value (car body-nodes))))
+      (cdr body-nodes)
+      body-nodes))
+
+(defun %tr-symbol-ref-count (node name)
+  "Count of NODE's subtree references to variable NAME."
+  (let ((n 0))
+    (labels ((scan (x)
+               (when (and (fol.compiler.ast:symbol-ref-node-p x)
+                          (eq (fol.compiler.ast:symbol-ref-node-name x) name))
+                 (incf n))
+               (dolist (c (node-children x)) (scan c))))
+      (scan node))
+    n))
+
+(defun %tr-inline-subst (node subst)
+  "Copy NODE, substituting each formal parameter in SUBST (an alist of
+   formal-symbol . actual-node) with its actual argument. Only descends
+   through the node shapes CHAIN-KIND/REWRITE-CHAIN themselves recognize
+   (symbol-ref, call, thread-first, if); a helper body using any other shape
+   at a given point will simply fail re-classification after substitution,
+   which is safe -- it just means that helper doesn't inline."
+  (cond
+    ((fol.compiler.ast:symbol-ref-node-p node)
+     (let ((sub (assoc (fol.compiler.ast:symbol-ref-node-name node) subst)))
+       (if sub (cdr sub) node)))
+    ((fol.compiler.ast:call-node-p node)
+     (fol.compiler.ast:make-call-node
+      :operator (fol.compiler.ast:call-node-operator node)
+      :args (mapcar (lambda (a) (%tr-inline-subst a subst))
+                    (fol.compiler.ast:call-node-args node))
+      :form (fol.compiler.ast:ast-node-form node)))
+    ((fol.compiler.ast:thread-first-node-p node)
+     (fol.compiler.ast:make-thread-first-node
+      :forms (mapcar (lambda (f) (%tr-inline-subst f subst))
+                     (fol.compiler.ast:thread-first-node-forms node))
+      :form (fol.compiler.ast:ast-node-form node)))
+    ((fol.compiler.ast:if-node-p node)
+     (fol.compiler.ast:make-if-node
+      :test (%tr-inline-subst (fol.compiler.ast:if-node-test node) subst)
+      :then (%tr-inline-subst (fol.compiler.ast:if-node-then node) subst)
+      :else (mapcar (lambda (e) (%tr-inline-subst e subst))
+                    (fol.compiler.ast:if-node-else node))
+      :form (fol.compiler.ast:ast-node-form node)))
+    (t node)))
+
+(defun %tr-inline-attempt (node)
+  "If NODE is a call to a registered inlinable helper (see
+   *TR-INLINABLE-FNS*), and every argument is safe to substitute in its
+   position, return the helper's body with actual arguments substituted for
+   its formals. Otherwise NIL. An argument at a non-accumulator position
+   must be a symbol-ref or literal (cheap to relocate, and those positions
+   are never referenced more than once by construction -- MAYBE-REGISTER-
+   INLINABLE-HELPER only ever qualifies the accumulator position for
+   repeated reference). The accumulator-position argument may be an
+   arbitrary chain expression when the helper references its accumulator
+   parameter exactly once (no duplication occurs); when the helper
+   references it more than once (the read-heavy shape, e.g. \\(assoc cart
+   price (inc (get cart price 0))\\)), the actual argument must ALSO be a
+   symbol-ref or literal, or substitution would duplicate a possibly
+   complex/effectful expression.
+   Purely mechanical otherwise -- the caller is responsible for
+   re-classifying the result (e.g. CHAIN-KIND on the substituted body
+   against the name it cares about); that recursive re-check is what
+   confirms the accumulator-position argument is actually rooted at the
+   accumulator in question, and what makes multi-level helper chains
+   compose without extra machinery. Shared by CHAIN-KIND and REWRITE-CHAIN
+   so classification and rewriting stay in lock-step (the same discipline
+   the rest of this file uses for direct chain ops)."
+  (when (fol.compiler.ast:call-node-p node)
+    (let ((op (operator-symbol node)))
+      (when op
+        (let ((entry (gethash op *tr-inlinable-fns*)))
+          (when entry
+            (destructuring-bind (params body acc-pos acc-ref-count) entry
+              (let ((args (fol.compiler.ast:call-node-args node)))
+                (when (and (= (length params) (length args))
+                           (loop for a in args
+                                 for i from 0
+                                 always (or (and (= i acc-pos) (= acc-ref-count 1))
+                                            (fol.compiler.ast:symbol-ref-node-p a)
+                                            (fol.compiler.ast:literal-node-p a))))
+                  (%note-inlined-helper op)
+                  (%tr-inline-subst body (mapcar #'cons params args)))))))))))
+
 (defvar *read-ops* :unbound
   "When bound to a list during classification, sanctioned :read-ok call sites
    push their operator names here (\"GET\" for keyword accessors), so
@@ -178,7 +317,12 @@
          ;; accumulator linearly when the lambda itself qualifies (step 5).
          ((%reduce-call-p node)
           (reduce-chain-kind node name))
-         (t (values nil nil)))))
+         ;; (helper <chain> ...): a call to a registered inlinable helper --
+         ;; substitute its body in and recurse (closes the "DVI gap").
+         (t (let ((inlined (%tr-inline-attempt node)))
+              (if inlined
+                  (chain-kind inlined name)
+                  (values nil nil)))))))
     ;; (-> <chain> (assoc ...) (conj ...) ...)
     ((fol.compiler.ast:thread-first-node-p node)
      (let ((forms (fol.compiler.ast:thread-first-node-forms node)))
@@ -219,6 +363,44 @@
                                        (butlast else)
                                        o1 o2)))))))))
     (t (values nil nil))))
+
+(defun maybe-register-inlinable-helper (name clauses)
+  "If NAME is a single-clause function whose body qualifies exactly one
+   parameter as a loop-accumulator-style user (REDUCE-ACC-QUALIFIED-P: its
+   tail-position use is a real update chain, and every other use is a
+   sanctioned read) -- the same bar a reduce lambda's own accumulator must
+   clear -- register it in *TR-INLINABLE-FNS* so CHAIN-KIND/REWRITE-CHAIN
+   can inline it at call sites (see the module comment above CHAIN-KIND).
+   This deliberately allows the parameter to be referenced more than once
+   (e.g. \\(assoc cart price (inc (get cart price 0))\\), the read-heavy
+   shape edit-tagged transients exist for) -- %TR-INLINE-ATTEMPT is what
+   keeps substitution sound when that happens, by requiring the call site's
+   actual argument to be cheap to duplicate whenever the parameter is used
+   more than once. Ambiguous helpers -- more than one parameter
+   independently qualifying -- are conservatively not registered.
+   Always clears any stale entry for NAME first: a helper recompiled into a
+   non-qualifying shape must not leave its old (now-wrong) registration
+   behind for later top-level forms to inline against. (Already-compiled
+   *callers* of the old shape are separately protected by the world-guard,
+   via *INLINED-HELPERS*; this only concerns code compiled after the
+   redefinition.)"
+  (remhash name *tr-inlinable-fns*)
+  (when (and name (= 1 (length clauses)))
+    (let* ((clause (first clauses))
+           (params (%param-names (car clause)))
+           (body (%tr-strip-docstring (cdr clause))))
+      (when (and params (every #'symbolp params) (= 1 (length body)))
+        (let ((expr (first body))
+              (candidates '()))
+          (loop for p in params
+                for i from 0
+                do (when (reduce-acc-qualified-p p body)
+                     (push i candidates)))
+          (when (= 1 (length candidates))
+            (let ((acc-pos (first candidates)))
+              (setf (gethash name *tr-inlinable-fns*)
+                    (list params expr acc-pos
+                          (%tr-symbol-ref-count expr (nth acc-pos params)))))))))))
 
 ;;; ============================================================================
 ;;; Loop-accumulator classification
@@ -724,6 +906,11 @@
                              (rewrite-chain init name)
                              (rw coll nil))
                  :form (fol.compiler.ast:ast-node-form n)))))
+           ;; (helper <chain> ...): a call to a registered inlinable helper --
+           ;; substitute its body in and recurse, mirroring CHAIN-KIND's own
+           ;; case above so classification and rewriting never diverge.
+           ((and (fol.compiler.ast:call-node-p n) (%tr-inline-attempt n))
+            (rewrite-chain (%tr-inline-attempt n) name))
            ((fol.compiler.ast:call-node-p n)
             (let ((args (fol.compiler.ast:call-node-args n)))
               (fol.compiler.ast:make-call-node
@@ -962,7 +1149,8 @@
                (params (and clause (%param-names (car clause))))
                (acc (first params))
                (*chain-ops* '())
-               (*read-ops* '()))
+               (*read-ops* '())
+               (*inlined-helpers* '()))
           (if (not (and fn-ok
                         (transient-eligible-init-p init)
                         (= 2 (length params))
@@ -993,7 +1181,8 @@
                                (%call1 "TRANSIENT" init)
                                coll)
                    :form (fol.compiler.ast:ast-node-form node)))
-                 (union (union *chain-ops* *read-ops* :test #'string=)
+                 (union (union (union *chain-ops* *read-ops* :test #'string=)
+                               (mapcar #'string *inlined-helpers*) :test #'string=)
                         (list "REDUCE") :test #'string=))))))))
 
 ;;; --- Dynamic-extent closure client (step 5) --------------------------------
@@ -1049,6 +1238,7 @@
                             (transient-eligible-init-p init))
                    (let* ((*chain-ops* '())
                           (*read-ops* '())
+                          (*inlined-helpers* '())
                           (uses (classify-loop-param pname pos node)))
                      (when (and (eq :qualified (param-verdict uses))
                                 (init-supports-p init *chain-ops*
@@ -1056,7 +1246,8 @@
                        (push pname qnames)
                        (setf (aref pos-names pos) pname)
                        (setf assumptions
-                             (union (union *chain-ops* *read-ops* :test #'string=)
+                             (union (union (union *chain-ops* *read-ops* :test #'string=)
+                                           (mapcar #'string *inlined-helpers*) :test #'string=)
                                     assumptions :test #'string=))))))
         (if (null qnames)
             node

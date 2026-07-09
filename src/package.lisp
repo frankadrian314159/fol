@@ -163,6 +163,7 @@
    maybe-transient-loop
    maybe-transient-reduce
    transient-eligible-init-p
+   maybe-register-inlinable-helper
    *loops-converted*
    *params-converted*
    *reduces-converted*

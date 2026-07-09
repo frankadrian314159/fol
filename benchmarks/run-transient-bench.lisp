@@ -1,17 +1,17 @@
 ;;; Transient-conversion benchmark driver (PLDI 2027 paper, RQ2).
 ;;;
-;;; For each accumulation workload, compiles the same FOL source twice --
-;;; ALL optimization flags off (baseline) and ALL on (converted): transient
-;;; conversion, aggregate/intra-bind scalar replacement, numeric-type
-;;; specialization, dynamic-extent closures, and optimized defclass
-;;; constructors together, i.e. the full pipeline a deployed build runs
-;;; with, not transient conversion in isolation. Verifies the converted code
-;;; actually contains the transient rewrite (the paper's subject) and
-;;; produces results equal to the baseline, then runs five timed trials of
-;;; each (one warm-up, full GC before each) reporting mean +/- sample
-;;; stddev wall time and per-call allocation. Idiomatic hand-written mutable
-;;; Common Lisp versions of the three large workloads provide a native
-;;; ceiling.
+;;; For each accumulation workload, compiles the same FOL source THREE ways:
+;;; ALL optimization flags off (baseline), ONLY transient conversion on
+;;; (isolating this paper's own contribution from the rest of the pipeline),
+;;; and ALL flags on together -- transient conversion, aggregate/intra-bind
+;;; scalar replacement, numeric-type specialization, dynamic-extent closures,
+;;; and optimized defclass constructors -- i.e. the full pipeline a deployed
+;;; build actually runs with. Verifies each converted variant actually
+;;; contains the transient rewrite (the paper's subject) and produces
+;;; results equal to the baseline, then runs five timed trials of each (one
+;;; warm-up, full GC before each) reporting mean +/- sample stddev wall time
+;;; and per-call allocation. Idiomatic hand-written mutable Common Lisp
+;;; versions of the three large workloads provide a native ceiling.
 ;;;
 ;;; None of these workloads use defclass, so *optimize-constructors* (which
 ;;; only affects defclass constructor codegen) is inert here; it is enabled
@@ -54,20 +54,19 @@
    suite starts already warmed up rather than biasing the first workload
    with a cold-start ramp.")
 
-(defun compile-fol (src optimize-p)
-  "Compile+eval every form in FOL SRC with every optimization flag bound to
-   OPTIMIZE-P: transient-loops, scalar-replacement (also gates the
-   intra-bind SR pass), numeric-specialization, stack-closures, and
-   optimize-constructors. Baseline is OPTIMIZE-P=NIL (everything off);
-   converted is OPTIMIZE-P=T (everything on).
-   Returns (values LAST-CODE ALL-CODE-STRING); the second value is the printed
-   concatenation of every form's emitted code, so callers can detect a
-   conversion that lands in any form (e.g. a helper), not just the last."
-  (let ((fol.compiler.escape-analysis:*transient-loops* optimize-p)
-        (fol.compiler.escape-analysis:*scalar-replacement* optimize-p)
-        (fol.compiler.escape-analysis:*numeric-specialization* optimize-p)
-        (fol.compiler.escape-analysis:*stack-closures* optimize-p)
-        (fol.compiler::*optimize-constructors* optimize-p)
+(defun compile-fol* (src &key transient scalar-repl numeric-spec stack-closures optimize-ctors)
+  "Compile+eval every form in FOL SRC with each optimization flag bound
+   individually, rather than all-or-nothing. This is the general entry
+   point; COMPILE-FOL and COMPILE-FOL-TRANSIENT-ONLY below are convenience
+   wrappers over it. Returns (values LAST-CODE ALL-CODE-STRING); the second
+   value is the printed concatenation of every form's emitted code, so
+   callers can detect a conversion that lands in any form (e.g. a helper),
+   not just the last."
+  (let ((fol.compiler.escape-analysis:*transient-loops* transient)
+        (fol.compiler.escape-analysis:*scalar-replacement* scalar-repl)
+        (fol.compiler.escape-analysis:*numeric-specialization* numeric-spec)
+        (fol.compiler.escape-analysis:*stack-closures* stack-closures)
+        (fol.compiler::*optimize-constructors* optimize-ctors)
         (*readtable* fol.compiler.reader:*fol-readtable*)
         (*package* (find-package :fol.core))
         (code nil)
@@ -79,6 +78,23 @@
                (eval code)
                (write-string (write-to-string code) all)))
     (values code (get-output-stream-string all))))
+
+(defun compile-fol (src optimize-p)
+  "Compile+eval every form in FOL SRC with every optimization flag bound to
+   OPTIMIZE-P: transient-loops, scalar-replacement (also gates the
+   intra-bind SR pass), numeric-specialization, stack-closures, and
+   optimize-constructors. Baseline is OPTIMIZE-P=NIL (everything off);
+   converted is OPTIMIZE-P=T (everything on)."
+  (compile-fol* src :transient optimize-p :scalar-repl optimize-p
+                :numeric-spec optimize-p :stack-closures optimize-p
+                :optimize-ctors optimize-p))
+
+(defun compile-fol-transient-only (src)
+  "Compile SRC with ONLY transient conversion enabled; scalar-replacement,
+   numeric-specialization, stack-closures, and optimize-constructors stay
+   off. Isolates transient conversion's own contribution from the bundled
+   five-flag pipeline the Off/On columns measure (RQ2 ablation)."
+  (compile-fol* src :transient t))
 
 (defun converted-p (all-code) (and (search "TRANSIENT" all-code) t))
 
@@ -178,26 +194,38 @@
 
 (defun run-workload (label n template native)
   (let* ((base-name (format nil "~A" (gensym "B")))
-         (opt-name  (format nil "~A" (gensym "O"))))
+         (opt-name  (format nil "~A" (gensym "O")))
+         (tc-name   (format nil "~A" (gensym "T"))))
     (compile-fol (format nil template (string-downcase base-name)) nil)
     (multiple-value-bind (opt-code all) (compile-fol (format nil template (string-downcase opt-name)) t)
       (declare (ignore opt-code))
       (assert (converted-p all) () "workload ~A did not convert" label))
+    (multiple-value-bind (tc-code all-tc)
+        (compile-fol-transient-only (format nil template (string-downcase tc-name)))
+      (declare (ignore tc-code))
+      (assert (converted-p all-tc) () "workload ~A did not convert (transient-only)" label))
     (let* ((prefix (subseq template (length "(defn ") (position #\~ template)))
            (fb (fol-fn (concatenate 'string prefix (string base-name))))
            (fo (fol-fn (concatenate 'string prefix (string opt-name))))
-           (rb (funcall fb n)) (ro (funcall fo n)))
+           (ft (fol-fn (concatenate 'string prefix (string tc-name))))
+           (rb (funcall fb n)) (ro (funcall fo n)) (rt (funcall ft n)))
       (assert (equalp (result-key rb) (result-key ro)) ()
               "workload ~A results differ" label)
+      (assert (equalp (result-key rb) (result-key rt)) ()
+              "workload ~A results differ (transient-only)" label)
       (let* ((tb (trials (lambda () (funcall fb n))))
+             (tt (trials (lambda () (funcall ft n))))
              (to (trials (lambda () (funcall fo n))))
              (tn (when native (trials (lambda () (funcall native n)))))
-             (bt (mapcar #'car tb)) (ot (mapcar #'car to))
-             (bb (mean (mapcar #'cdr tb))) (ob (mean (mapcar #'cdr to))))
+             (bt (mapcar #'car tb)) (tct (mapcar #'car tt)) (ot (mapcar #'car to))
+             (bb (mean (mapcar #'cdr tb))) (tcb (mean (mapcar #'cdr tt))) (ob (mean (mapcar #'cdr to))))
         (format t "~&~A (n=~:D, result=~A)~%" label n (result-key rb))
-        (format t "  baseline : ~7,1F +/- ~5,1F ms   ~8,1F MB/call~%"
+        (format t "  baseline       : ~7,1F +/- ~5,1F ms   ~8,1F MB/call~%"
                 (* 1000 (mean bt)) (* 1000 (sd bt)) (/ bb 1048576.0))
-        (format t "  converted: ~7,1F +/- ~5,1F ms   ~8,1F MB/call   ~5,2Fx time  ~5,2Fx alloc~%"
+        (format t "  transient-only : ~7,1F +/- ~5,1F ms   ~8,1F MB/call   ~5,2Fx time  ~5,2Fx alloc~%"
+                (* 1000 (mean tct)) (* 1000 (sd tct)) (/ tcb 1048576.0)
+                (/ (mean bt) (mean tct)) (/ bb (max 1.0 tcb)))
+        (format t "  converted (5x) : ~7,1F +/- ~5,1F ms   ~8,1F MB/call   ~5,2Fx time  ~5,2Fx alloc~%"
                 (* 1000 (mean ot)) (* 1000 (sd ot)) (/ ob 1048576.0)
                 (/ (mean bt) (mean ot)) (/ bb (max 1.0 ob)))
         (when tn

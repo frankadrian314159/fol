@@ -3339,6 +3339,35 @@
                         (infer-type-from-constructor core))))
         (setf (gethash name *sr-inlinable-fns*) (cons params (first body)))))))
 
+(defun tr-transform-toplevel (node)
+  "COMPILE-FORM hook (transient-conversion mode). Registers helpers that
+   linearly thread an accumulator through a real update chain, so
+   escape-analysis.lisp's CHAIN-KIND/REWRITE-LOOP-BODY can inline them at a
+   loop's recur/reduce update position (closes the 'DVI gap' documented in
+   the design notes: a helper call was previously an unconditional
+   disqualifier). The registry and the inlining logic itself live in
+   escape-analysis.lisp, next to CHAIN-KIND, which is what needs to consult
+   them. Returns NODE unchanged."
+  (when fol.compiler.escape-analysis:*transient-loops*
+    (labels ((visit (n)
+               (cond
+                 ((fol.compiler.ast:defn-node-p n)
+                  (fol.compiler.escape-analysis:maybe-register-inlinable-helper
+                   (fol.compiler.ast:defn-node-name n)
+                   (fol.compiler.ast:defn-node-clauses n)))
+                 ((fol.compiler.ast:defn-private-node-p n)
+                  (fol.compiler.escape-analysis:maybe-register-inlinable-helper
+                   (fol.compiler.ast:defn-private-node-name n)
+                   (fol.compiler.ast:defn-private-node-clauses n)))
+                 ((fol.compiler.ast:definline-node-p n)
+                  (fol.compiler.escape-analysis:maybe-register-inlinable-helper
+                   (fol.compiler.ast:definline-node-name n)
+                   (fol.compiler.ast:definline-node-clauses n)))
+                 ((fol.compiler.ast:do-node-p n)
+                  (mapc #'visit (fol.compiler.ast:do-node-body n))))))
+      (visit node)))
+  node)
+
 (defun sr-transform-toplevel (node)
   "COMPILE-FORM hook (scalar-replacement mode). Registers inlinable record
    constructors found among the top-level definitions; the loop rewrite itself
@@ -4513,6 +4542,7 @@
                          intra-bind-ast)))
 
             (%maybe-infer-and-cache-summary ast)
+            (tr-transform-toplevel ast)
             ;; Escape-analysis audit mode: observe the parsed AST, never fail the
             ;; compile because of it. Names defined in this compilation unit are
             (when fol.compiler.escape-analysis:*escape-audit*
@@ -4673,4 +4703,4 @@
         (cl:when pkg (cl:delete-package pkg))))
 
     ;; Make sure to compile the generated Lisp file
-    (cl:compile-file lisp-path)))
+    (cl:compile-file lisp-path)))A

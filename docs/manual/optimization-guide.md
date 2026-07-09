@@ -141,11 +141,7 @@ loop body (`conj`, `assoc`, `disj`, `pop`, ...) is rewritten to its `!` counterp
 
 ### How It Works
 
-1. **Eligibility**: The accumulator must start from a transient-eligible initializer
-   (an empty or literal collection) and be **linearly consumed** — every use flows
-   into an update operation that has a `!` counterpart. In the current wrapper-based
-   transient implementation this is a strict rule: even a bare read of the
-   accumulator disqualifies the conversion.
+1. **Eligibility**: The accumulator must start from a transient-eligible initializer (an empty or literal collection) and be **linearly consumed**. This means every use either flows into an update operation that has a `!` counterpart (like `conj` or `assoc`) or is a read-only operation that is safe on transients (like `get` or `count`).
 2. **Two entry points**:
    - `maybe-transient-loop` handles `loop`/`recur` accumulators.
    - `maybe-transient-reduce` handles `reduce` calls (its rewritten `init` is itself

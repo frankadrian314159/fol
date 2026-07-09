@@ -602,6 +602,68 @@
 
 
 ;;; ============================================================================
+;;; Helper inlining ("the DVI gap")
+;;; ============================================================================
+
+(test transient-loop-helper-inlining
+  "The DVI shape: a loop's recur calls a user-defined helper that itself
+   linearly threads its accumulator through a real update chain (assoc/get).
+   Once the helper is compiled with *transient-loops* t (registering it as
+   inlinable), the loop converts through it -- helper calls were previously
+   an unconditional disqualifier."
+  (let ((helper-form (fol-form '(defn tc-add-item #(cart price)
+                                 (fol.compiler.collection-functions:assoc
+                                  cart price
+                                  (fol.compiler.arithmetic-functions:inc
+                                   (fol.compiler.collection-functions:get cart price 0))))))
+        (loop-form '(loop (acc (dict) i 0)
+                      (if (< i 20)
+                          (recur (tc-add-item acc i) (+ i 1))
+                          acc))))
+    ;; Plain (unoptimized) baseline for correctness comparison.
+    (let ((fol.compiler.escape-analysis:*transient-loops* nil))
+      (eval (fol.compiler:compilation-result-code (fol.compiler:compile-form helper-form))))
+    (let ((plain (eval (fol.compiler:compilation-result-code (fol.compiler:compile-form loop-form)))))
+      (let ((fol.compiler.escape-analysis:*transient-loops* t))
+        ;; Registers tc-add-item as inlinable; must precede compiling the loop.
+        (eval (fol.compiler:compilation-result-code (fol.compiler:compile-form helper-form)))
+        (let* ((result (fol.compiler:compile-form loop-form))
+               (code-str (write-to-string (fol.compiler:compilation-result-code result)))
+               (opt (eval (fol.compiler:compilation-result-code result))))
+          ;; The loop DOES convert -- proof the helper was inlined, not
+          ;; conservatively rejected as an unknown call.
+          (is (search "TRANSIENT" code-str :test #'string-equal))
+          (is (typep opt 'fol.compiler.collections:<dict>))
+          (is (= (fol.compiler.collections:collection-size plain)
+                 (fol.compiler.collections:collection-size opt)))
+          (is (loop for i below 20
+                    always (eql (fol.compiler.collection-functions:get plain i)
+                                (fol.compiler.collection-functions:get opt i))))
+          ;; The world-guard depends on the helper's own name, not just
+          ;; ASSOC: redefining tc-add-item must be able to invalidate this
+          ;; region even though ASSOC itself was never touched.
+          (is (search "TC-ADD-ITEM" code-str :test #'string-equal)))))))
+
+(test transient-loop-helper-inlining-escaping-not-inlined
+  "A helper that passes its accumulator parameter to a genuinely unknown
+   function (no summary, not itself inlinable) is never registered: that
+   use is an escape, not a sanctioned read or update-chain link, so the
+   loop must NOT convert."
+  (let ((helper-form (fol-form '(defn tc-add-item-escapes #(cart price)
+                                 (fol.compiler.collection-functions:assoc
+                                  cart price
+                                  (tc-totally-unknown-fn cart)))))
+        (loop-form '(loop (acc (dict) i 0)
+                      (if (< i 20)
+                          (recur (tc-add-item-escapes acc i) (+ i 1))
+                          acc))))
+    (let ((fol.compiler.escape-analysis:*transient-loops* t))
+      (eval (fol.compiler:compilation-result-code (fol.compiler:compile-form helper-form)))
+      (let* ((result (fol.compiler:compile-form loop-form))
+             (code-str (write-to-string (fol.compiler:compilation-result-code result))))
+        (is (null (search "TRANSIENT" code-str :test #'string-equal)))))))
+
+;;; ============================================================================
 ;;; Run the suite
 ;;; ============================================================================
 
