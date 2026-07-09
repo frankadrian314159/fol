@@ -3490,18 +3490,6 @@
              (values (mapcar #'visit (fol.compiler.escape-analysis:node-children n)) nil)))
     (visit node)))
 
-(defun %sr-refs-alias-p (node aliases)
-  "True when NODE's subtree references any accumulator-alias name in ALIASES."
-  (labels ((scan (n)
-             (cond
-               ((fol.compiler.ast:symbol-ref-node-p n)
-                (when (member (fol.compiler.ast:symbol-ref-node-name n) aliases)
-                  (return-from %sr-refs-alias-p t)))
-               (t (dolist (c (fol.compiler.escape-analysis:node-children n)) (scan c))))))
-    (scan node)
-    nil))
-
-
 (defun %sr-replace-one (node)
   "Unbox the first qualifying record accumulator in loop NODE. Returns
    (values NEW-NODE ASSUMPTIONS) on success, or (values NIL NIL) if no loop

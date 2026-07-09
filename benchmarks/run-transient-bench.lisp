@@ -18,6 +18,16 @@
 ;;; for completeness of the "full pipeline" claim, not because it moves
 ;;; these numbers.
 ;;;
+;;; Between-invocation drift: a within-run 5-trial mean +/- sd does not
+;;; capture thermal/scheduler variation ACROSS separate harness invocations
+;;; (observed up to ~5% on this machine). To reduce it: (1) a preflight
+;;; busy-loop runs once before the first measurement, so the whole suite
+;;; starts from an already-warmed-up state rather than biasing the first
+;;; workload with a cold-start ramp; (2) each workload gets *warmup-iters*
+;;; repeated warm-up calls, not just one, before timing starts; (3) an idle
+;;; *cooldown-seconds* pause follows every workload, so one workload's
+;;; thermal state cannot bias the next one's timing.
+;;;
 ;;; Run from the repository root:
 ;;;   sbcl --noinform --non-interactive --load benchmarks/run-transient-bench.lisp
 
@@ -33,6 +43,16 @@
 (in-package :fol.benchmarks.transients)
 
 (defparameter *trials* 5)
+(defparameter *warmup-iters* 3
+  "Repeated warm-up calls before timing each workload, beyond a single call,
+   so generational GC state and CPU boost clocks have settled.")
+(defparameter *cooldown-seconds* 2
+  "Idle pause (no computation) after each workload, so its thermal/boost
+   state cannot carry over and bias the next workload's timing.")
+(defparameter *preflight-seconds* 3
+  "CPU-bound busywork run once before the first measurement, so the whole
+   suite starts already warmed up rather than biasing the first workload
+   with a cold-start ramp.")
 
 (defun compile-fol (src optimize-p)
   "Compile+eval every form in FOL SRC with every optimization flag bound to
@@ -83,8 +103,8 @@
                  (float (1- n)))))))
 
 (defun trials (thunk)
-  "One warm-up + *trials* timed calls; list of (secs . bytes)."
-  (funcall thunk)
+  "*warmup-iters* warm-up calls + *trials* timed calls; list of (secs . bytes)."
+  (dotimes (_ *warmup-iters*) (funcall thunk))
   (loop repeat *trials*
         collect (progn
                   (sb-ext:gc :full t)
@@ -94,6 +114,24 @@
                     (cons (/ (- (get-internal-real-time) t0)
                              (float internal-time-units-per-second))
                           (- (sb-ext:get-bytes-consed) b0))))))
+
+(defun cooldown ()
+  "Idle pause between workloads: no computation, just wall-clock time
+   passing, so one workload's thermal/boost state decays before the next
+   workload's warm-up begins."
+  (sleep *cooldown-seconds*))
+
+(defun preflight-warmup ()
+  "Spin the CPU on generic busywork for *preflight-seconds* before the first
+   real measurement, so the whole suite starts from an already-warmed-up
+   state rather than the first workload absorbing a cold-start ramp that
+   later workloads don't see."
+  (let ((deadline (+ (get-internal-real-time)
+                      (* *preflight-seconds* internal-time-units-per-second)))
+        (acc 0))
+    (loop while (< (get-internal-real-time) deadline)
+          do (dotimes (i 100000) (setf acc (logxor acc i))))
+    acc))
 
 ;;; --- FOL workload sources (~A = function name suffix) ---------------------
 (defparameter +workloads+
@@ -166,7 +204,8 @@
           (let ((nt (mapcar #'car tn)))
             (format t "  mutable CL: ~6,1F +/- ~5,1F ms   (converted = ~,2Fx CL time)~%"
                     (* 1000 (mean nt)) (* 1000 (sd nt))
-                    (/ (mean ot) (mean nt)))))))))
+                    (/ (mean ot) (mean nt)))))
+        (cooldown)))))
 
 ;;; --- Whole-program workloads ----------------------------------------------
 ;;; Each entry drives a complete algorithm, not an isolated loop, so the
@@ -287,12 +326,16 @@
               (let ((nt (mapcar #'car tn)))
                 (format t "  native CL: ~6,1F +/- ~5,1F ms   (converted = ~,2Fx CL time)~%"
                         (* 1000 (mean nt)) (* 1000 (sd nt))
-                        (/ (mean ot) (mean nt)))))))))))
+                        (/ (mean ot) (mean nt)))))
+            (cooldown)))))))
 
 (defun main ()
   (format t "~&=== Transient conversion benchmarks ===~%")
   (format t "SBCL ~A, dynamic space ~,0F MB, ~D trials (mean +/- sd), full GC before each~%"
           (lisp-implementation-version) (/ (sb-ext:dynamic-space-size) 1048576.0) *trials*)
+  (format t "~D warm-up calls/workload, ~Ds cooldown between workloads, ~Ds preflight warm-up~%"
+          *warmup-iters* *cooldown-seconds* *preflight-seconds*)
+  (preflight-warmup)
   (format t "~%-- Microbenchmarks (isolated accumulation loops) --~%")
   (dolist (w +workloads+)
     (destructuring-bind (label n template native) w
