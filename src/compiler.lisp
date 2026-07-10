@@ -55,10 +55,6 @@
    When T, enables inlining for all functions. When a hash table or list,
    enables only for listed functions.")
 
-(defvar *optimize-assoc-calls* nil
-  "Flag to enable optimization of assoc calls in hot loops.
-   When T, generates code that uses inline-assoc! instead of assoc.")
-
 (defvar *optimize-constructors* t
   "When T, emit specialized &key constructors for defclass. When NIL, emit slower &rest constructors.")
 
