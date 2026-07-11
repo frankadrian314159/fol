@@ -428,8 +428,18 @@
   (fol.compiler:register-macro 'when (macro-function 'when))
   (fol.compiler:register-macro 'when-not (macro-function 'when-not))
   (fol.compiler:register-macro 'if-not (macro-function 'if-not))
-  (fol.compiler:register-macro 'cond (macro-function 'cond))
-  (fol.compiler:register-macro 'case (macro-function 'case))
+  ;; NOTE: "cond" is intentionally NOT registered as a macro here despite having
+  ;; a macro-function: parse-compound checks macro-p before special-form-p, and
+  ;; "cond" already has a dedicated special form (parse-cond/cond-node/emit-cond,
+  ;; compiler.lisp) that the ASR pass's reconstruction walk targets directly
+  ;; (expand-acc's cond-node-p case). Registering it as a macro too would shadow
+  ;; that special form with CL's cond-expander, same as the case bug below.
+  ;; NOTE: "case" is intentionally NOT registered as a macro, for the same
+  ;; reason "cond" isn't (see above) -- it shadowed parse-case/case-node/
+  ;; emit-case entirely. Worse than cond, CL's case-expander introduces a LET
+  ;; to avoid re-evaluating the key expression, and FOL's parser has no LET
+  ;; special form (it uses `bind`), so any case whose expansion needed that LET
+  ;; produced malformed code that crashed at compile time.
   (fol.compiler:register-macro 'condp (macro-function 'condp))
   (fol.compiler:register-macro 'when-let (macro-function 'when-let))
   (fol.compiler:register-macro 'if-let (macro-function 'if-let))

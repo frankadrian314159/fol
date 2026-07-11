@@ -427,13 +427,18 @@ Used to locate the correct starting point in the class version chain during mult
   "Construct a persistent instance bypassing initialize-instance.
    Avoids the MOP slot-iteration overhead of standard initialize-instance
    (~550 ns/call on SBCL) for the common case of no-alias non-overflow classes.
-   CLASS must be a persistent-class instance (use load-time-value (find-class ...) at call site)."
+   CLASS must be a persistent-class instance (use load-time-value (find-class ...) at call site).
+   Bypassing initialize-instance means slot initforms never run, so reserved
+   persistent-object slots read outside this function (e.g. %transient-owner,
+   checked by ASSOC/UPDATE-SLOTS) must be set explicitly here, not left to
+   their defclass initforms."
   (let ((obj (allocate-instance class)))
     (let ((*initializing-persistent-object* t))
       (loop for (key val) on initargs by #'cddr
             for slot-name = (slot-name-from-keyword class key)
             when slot-name
               do (setf (slot-value obj slot-name) val))
+      (setf (%transient-owner obj) nil)
       (setf (%schema-version obj) (persistent-class-version-counter class)))
     obj))
 

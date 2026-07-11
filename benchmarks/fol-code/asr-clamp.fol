@@ -1,22 +1,27 @@
-;; asr-clamp.fol
-;;
-;; A particle simulation where the particle's position is clamped
-;; if it moves beyond a certain boundary. This exercises the ASR
-;; pass's ability to handle conditional reconstructions inside a loop.
-;; The old pass would fail on this; the new pass should unbox it.
+;;; ASR Benchmark: particle position clamped to a boundary
+;;;
+;;; Exercises the ASR pass's if-branched reconstruction (Reconstruct's `if`
+;;; case): each iteration either resets x to 0 (boundary clamp) or advances
+;;; x/y normally, so the recur argument is `(if test (make-<point> ...)
+;;; (make-<point> ...))` rather than a single unconditional constructor call.
+;;;
+;;; Rewritten from an earlier version that routed the accumulator through a
+;;; helper taking p-start as a parameter (defn move-and-clamp [p-start n] ...)
+;;; and used `(:x p)`-style accessors. Neither shape qualifies under the
+;;; pass's stated rules: the loop's own initializer must be a literal
+;;; `(make-<t> ...)` call, not a passed-in variable (Section "Candidates and
+;;; fields"), and the classifier recognizes `(get p :field)` field reads, not
+;;; `(:field p)`. This version keeps the if-branched clamp behavior itself
+;;; unchanged but restructures it to actually route through the pass it was
+;;; written to test.
 
-(defclass <point> ()
-  ((x :initarg :x)
-   (y :initarg :y)))
+(defclass <point> [] [[x] [y]])
 
-(defn move-and-clamp [p-start n]
-  (loop [p p-start i 0]
+(defn run-clamp [n]
+  (loop [p (make-<point> :x 0.0 :y 0.0) i 0]
     (if (>= i n)
-      p
-      (recur (if (> (:x p) 100.0)
-                 (make-<point> :x 0.0 :y (:y p))       ; Clamp x
-                 (make-<point> :x (+ (:x p) 1.0) :y (+ (:y p) 0.5))) ; Move
+      (+ (get p :x) (get p :y))
+      (recur (if (> (get p :x) 100.0)
+                 (make-<point> :x 0.0 :y (get p :y))
+                 (make-<point> :x (+ (get p :x) 1.0) :y (+ (get p :y) 0.5)))
              (inc i)))))
-
-(defn main [n]
-  (move-and-clamp (make-<point> :x 0.0 :y 0.0) n))

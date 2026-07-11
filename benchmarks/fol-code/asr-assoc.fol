@@ -1,20 +1,21 @@
-;; asr-assoc.fol
-;;
-;; A particle simulation where the particle's velocity is updated
-;; using `assoc`. This exercises the ASR pass's ability to handle
-;; generic updates, not just `make-<type>` reconstructions.
+;;; ASR Benchmark: partial reconstruction via assoc
+;;;
+;;; Exercises the ASR pass's ability to handle `assoc`-based partial updates
+;;; (Reconstruct's `assoc` case) rather than a full `make-<t> ...` supplying
+;;; every field: only :vx changes each iteration, x/y/vy pass through
+;;; unchanged from the current scalar bindings.
+;;;
+;;; Rewritten from an earlier version that routed the accumulator through a
+;;; helper taking p as a parameter (defn update-particle [p n] ...) and used
+;;; `(:vx acc)`-style accessors -- neither shape qualifies under the pass's
+;;; stated rules (see asr-clamp.fol's header for why). This version keeps the
+;;; assoc-based partial-update behavior itself unchanged but restructures it
+;;; to actually route through the pass it was written to test.
 
-(defclass <particle> ()
-  ((x :initarg :x)
-   (y :initarg :y)
-   (vx :initarg :vx)
-   (vy :initarg :vy)))
+(defclass <particle> [] [[x] [y] [vx] [vy]])
 
-(defn update-particle [p n]
-  (loop [acc p i 0]
+(defn run-assoc [n]
+  (loop [acc (make-<particle> :x 0.0 :y 0.0 :vx 0.0 :vy 0.0) i 0]
     (if (>= i n)
-      acc
-      (recur (assoc acc :vx (+ (:vx acc) 0.1)) (inc i)))))
-
-(defn main [n]
-  (update-particle (make-<particle> :x 0.0 :y 0.0 :vx 0.0 :vy 0.0) n))
+      (+ (get acc :x) (+ (get acc :y) (+ (get acc :vx) (get acc :vy))))
+      (recur (assoc acc :vx (+ (get acc :vx) 0.1)) (inc i)))))

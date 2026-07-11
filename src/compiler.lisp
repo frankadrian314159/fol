@@ -2299,10 +2299,12 @@
                   ;; (setf slot-value) on a native persistent slot is
                   ;; intercepted by a guard that requires either
                   ;; *initializing-persistent-object* bound, or checks
-                  ;; %transient-owner (itself unbound on a bare
-                  ;; allocate-instance) -- and %schema-version is read by
-                  ;; slot access / live-redefinition checks. Skipping either
-                  ;; would error or silently corrupt objects from this path.
+                  ;; %transient-owner -- unbound on a bare allocate-instance,
+                  ;; so it must be explicitly initialized here rather than
+                  ;; left to a slot initform (allocate-instance runs no
+                  ;; initforms) -- and %schema-version is read by slot access
+                  ;; / live-redefinition checks. Skipping either would error
+                  ;; or silently corrupt objects from this path.
                   `(cl:defun ,constructor-name (&key ,@(loop for (sname initarg) in slot-infos
                                                              collect `(,sname nil)))
                      (let ((obj (cl:allocate-instance
@@ -2310,6 +2312,7 @@
                        (let ((fol.compiler.persistent::*initializing-persistent-object* cl:t))
                          ,@(loop for (sname initarg) in slot-infos
                                  collect `(cl:setf (cl:slot-value obj ',sname) ,sname))
+                         (cl:setf (fol.compiler.persistent::%transient-owner obj) cl:nil)
                          (cl:setf (fol.compiler.persistent::%schema-version obj)
                                   (fol.compiler.persistent::persistent-class-version-counter
                                    (cl:class-of obj))))
@@ -3693,6 +3696,29 @@
               (values (loop for (sk . sname) in fields
                             collect (rw (cdr (assoc sk cf)) nil aliases))
                       wrappers)))
+           ;; partial reconstruction via assoc: (assoc X :k1 v1 :k2 v2 ...)
+           ((and (fol.compiler.ast:call-node-p n)
+                 (let ((op (fol.compiler.escape-analysis:operator-symbol n)))
+                   (and op (string= (symbol-name op) "ASSOC")))
+                 (aliasp (first (fol.compiler.ast:call-node-args n)) aliases))
+            (let ((kvs (rest (fol.compiler.ast:call-node-args n))))
+              (unless (evenp (length kvs)) (fail))
+              (let ((updates
+                      (loop for (k v) on kvs by #'cddr
+                            collect (progn
+                                      (unless (and (fol.compiler.ast:literal-node-p k)
+                                                   (keywordp (fol.compiler.ast:literal-node-value k)))
+                                        (fail))
+                                      (let ((sk (%sr-canon-key (fol.compiler.ast:literal-node-value k))))
+                                        (unless (assoc sk fields) (fail))
+                                        (cons sk v))))))
+                (values (loop for (sk . sname) in fields
+                              collect (let ((upd (assoc sk updates)))
+                                        (if upd
+                                            (rw (cdr upd) nil aliases)
+                                            (fol.compiler.ast:make-symbol-ref-node
+                                             :name (fvar-for sk) :form (fvar-for sk)))))
+                        wrappers))))
            ;; single-form bind/do wrapper around the reconstruction
            ((and (fol.compiler.ast:bind-node-p n)
                  (= 1 (length (fol.compiler.ast:bind-node-body n))))
@@ -3741,6 +3767,25 @@
                                      :clauses (mapcar (lambda (clause-list clause-nodes)
                                                         (cons (rw (car clause-nodes) nil aliases) (list (nth i clause-list))))
                                                       clause-scalars-transposed (fol.compiler.ast:cond-node-clauses n))
+                                     :form (fol.compiler.ast:ast-node-form n)))
+                      wrappers)))
+           ((fol.compiler.ast:case-node-p n)
+            (let ((clause-scalars-transposed
+                   (mapcar (lambda (clause)
+                             (multiple-value-bind (scalars clause-wrappers)
+                                 (expand-acc (first (cdr clause)) aliases wrappers)
+                               (when clause-wrappers (fail)) ; wrappers inside branches not yet supported
+                               scalars))
+                           (fol.compiler.ast:case-node-clauses n))))
+              (values (loop for i from 0 below (length fields)
+                            collect (fol.compiler.ast:make-case-node
+                                     :expr (rw (fol.compiler.ast:case-node-expr n) nil aliases)
+                                     ;; clause keys are literal match values, not
+                                     ;; expressions -- unlike cond's tests, they
+                                     ;; are carried through unrewritten.
+                                     :clauses (mapcar (lambda (clause-list clause-nodes)
+                                                        (cons (car clause-nodes) (list (nth i clause-list))))
+                                                      clause-scalars-transposed (fol.compiler.ast:case-node-clauses n))
                                      :form (fol.compiler.ast:ast-node-form n)))
                       wrappers)))
            (t (fail))))

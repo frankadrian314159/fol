@@ -113,6 +113,30 @@
               (nv2-y b) (+ by (* 0.01 (- ay by))))))
     (+ (nv2-x a) (nv2-y a))))
 
+;; Conditional reconstruction: clamp x to 0 past a boundary, otherwise move.
+(defstruct (nclp (:conc-name nclp-))
+  (x 0.0 :type single-float) (y 0.0 :type single-float))
+(defun native-clamp (n)
+  (declare (fixnum n) (optimize (speed 3) (safety 0)))
+  (let ((p (make-nclp :x 0.0 :y 0.0)))
+    (dotimes (i n)
+      (if (> (nclp-x p) 100.0)
+          (setf (nclp-x p) 0.0)
+          (setf (nclp-x p) (+ (nclp-x p) 1.0)
+                (nclp-y p) (+ (nclp-y p) 0.5))))
+    (+ (nclp-x p) (nclp-y p))))
+
+;; Partial reconstruction via assoc: only vx changes each iteration.
+(defstruct (nasc (:conc-name nasc-))
+  (x 0.0 :type single-float) (y 0.0 :type single-float)
+  (vx 0.0 :type single-float) (vy 0.0 :type single-float))
+(defun native-assoc (n)
+  (declare (fixnum n) (optimize (speed 3) (safety 0)))
+  (let ((p (make-nasc :x 0.0 :y 0.0 :vx 0.0 :vy 0.0)))
+    (dotimes (i n)
+      (setf (nasc-vx p) (+ (nasc-vx p) 0.1)))
+    (+ (nasc-x p) (+ (nasc-y p) (+ (nasc-vx p) (nasc-vy p))))))
+
 ;; Mandelbrot orbit z <- z^2 + c (c = rabbit).
 (defstruct (ncplx (:conc-name ncplx-))
   (re 0.0 :type single-float) (im 0.0 :type single-float))
@@ -157,6 +181,16 @@
         (setf (ncm-n st) n1 (ncm-mx st) mx1 (ncm-my st) my1
               (ncm-cxy st) (+ cxy (* dx dy2)))))
     (ncm-cxy st)))
+
+;; Minimal single-field counter (the simplest possible loop-carried case).
+(defstruct (nctr (:conc-name nctr-))
+  (n 0.0 :type single-float))
+(defun native-counter (n)
+  (declare (fixnum n) (optimize (speed 3) (safety 0)))
+  (let ((c (make-nctr :n 0.0)))
+    (dotimes (i n)
+      (setf (nctr-n c) (+ (nctr-n c) 1.0)))
+    (nctr-n c)))
 
 ;; Lorenz attractor, semi-explicit Euler.
 (defstruct (nl3 (:conc-name nl3-))
@@ -327,6 +361,10 @@
                        "asr-projectile.fol" "run-projectile" #'native-projectile)
                 (bench "D. Two-body relaxation  2x<vec2>{x,y}"
                        "asr-twobody.fol"    "run-twobody"    #'native-twobody)
+                (bench "K. Clamp (conditional)  <point>{x,y}"
+                       "asr-clamp.fol"      "run-clamp"      #'native-clamp)
+                (bench "L. Assoc (partial)      <particle>{x,y,vx,vy}"
+                       "asr-assoc.fol"      "run-assoc"      #'native-assoc)
                 (bench "E. Mandelbrot orbit     <cplx>{re,im}"
                        "asr-mandelbrot.fol"  "run-mandelbrot"  #'native-mandelbrot)
                 (bench "F. Kalman filter        2x<kstate>/<kcov>"
@@ -336,7 +374,9 @@
                 (bench "H. Streaming co-moments <comoments>{n,mx,my,cxy}"
                        "asr-comoments.fol"   "run-co-moments"  #'native-comoments)
                 (bench "I. Lorenz attractor     <lvec3>{x,y,z}"
-                       "asr-lorenz.fol"      "run-lorenz"      #'native-lorenz))))
+                       "asr-lorenz.fol"      "run-lorenz"      #'native-lorenz)
+                (bench "J. Counter (minimal)    <ctr>{n}"
+                       "asr-counter.fol"     "run-counter"     #'native-counter))))
     (summary results)
     (format t "~%Done.~%")))
 

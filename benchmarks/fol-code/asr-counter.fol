@@ -1,0 +1,34 @@
+;;; ASR Benchmark: minimal single-field counter (replaces stale "Intra-bind")
+;;;
+;;; The simplest possible loop-carried record accumulator: a single-field
+;;; <ctr> rebuilt every iteration through an inlinable helper. Exercises the
+;;; same classify-and-rewrite walk and world-guard machinery as the other ASR
+;;; benchmarks with the minimum possible surface area -- a clean baseline for
+;;; the pass's fixed per-iteration cost, isolated from field count and from
+;;; any domain-specific arithmetic.
+;;;
+;;; Replaces a prior "intra-bind" benchmark (benchmarks/fol-code/sr-intra-bind.fol)
+;;; whose own header comment says it "tests the intra-bind scalar replacement
+;;; pass" and that "the optimization itself targets the `bind` form" -- i.e.
+;;; it exercises SR-INTRA-BIND-PASS, a separate, older compiler pass (hooked
+;;; at COMPILE-FORM, not EMIT-LOOP) that rewrites objects created and consumed
+;;; within a single BIND scope and has no world-guard/redefinition safety at
+;;; all. That benchmark's accumulator (`p`) was never a loop parameter and
+;;; never threaded through `recur`, so it could not route through this
+;;; paper's contribution (the EMIT-LOOP-based Aggregate Scalar Replacement)
+;;; regardless of the surrounding loop. This benchmark's accumulator (`c`) IS
+;;; the loop parameter, initialized from a record constructor and threaded
+;;; through `recur` every iteration, so it can only be optimized by
+;;; MAYBE-SCALAR-REPLACE-LOOP.
+
+(defclass <ctr> [] [[n]])
+
+(defn bump-ctr [c]
+  (make-<ctr> :n (+ (get c :n) 1.0)))
+
+(defn run-counter [iterations]
+  (loop [c (make-<ctr> :n 0.0)
+         i 0]
+    (if (< i iterations)
+      (recur (bump-ctr c) (inc i))
+      (get c :n))))
