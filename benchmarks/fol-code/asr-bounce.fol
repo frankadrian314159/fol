@@ -1,0 +1,19 @@
+;;; ASR Benchmark: cond-branched reconstruction (bounce off two walls)
+;;;
+;;; Exercises the ASR pass's cond-branched reconstruction (Reconstruct's
+;;; `cond` case, Figure 2): three clauses -- bounce off the high wall, bounce
+;;; off the low wall, or move normally -- so the recur argument is a `cond`
+;;; selecting among three distinct make-<t> reconstructions, unlike Clamp's
+;;; two-branch `if`.
+
+(defclass <bounce> [] [[x] [y]])
+
+(defn run-bounce [n]
+  (loop [p (make-<bounce> :x 0.0 :y 0.0) i 0]
+    (if (>= i n)
+      (+ (get p :x) (get p :y))
+      (recur (cond
+               ((> (get p :x) 100.0) (make-<bounce> :x 0.0 :y (get p :y)))
+               ((< (get p :x) -100.0) (make-<bounce> :x 0.0 :y (get p :y)))
+               (:else (make-<bounce> :x (+ (get p :x) 1.0) :y (+ (get p :y) 0.5))))
+             (inc i)))))

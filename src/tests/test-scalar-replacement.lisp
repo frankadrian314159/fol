@@ -102,6 +102,124 @@
     (is (sr-code-has code "<SR-PC>"))))
 
 ;;; ============================================================================
+;;; Branch-shaped reconstruction: if/cond/case at the recur position
+;;; ============================================================================
+
+(test sr-if-branched-reconstruction
+  "An if-branched reconstruction ((if test (make-<t> ...) (make-<t> ...))) at
+   the recur position is recognized directly. The threshold is crossed
+   partway through the run, so both branches are actually taken (not just
+   syntactically present), and the optimized result matches the unoptimized
+   one."
+  (let ((src "
+(defclass <sr-pf> [] [[x] [y]])
+(defn sr-pf-run [n]
+  (loop [p (make-<sr-pf> :x 0.0 :y 0.0) i 0]
+    (if (>= i n)
+      (+ (get p :x) (get p :y))
+      (recur (if (> (get p :x) 3.0)
+                 (make-<sr-pf> :x 0.0 :y (get p :y))
+                 (make-<sr-pf> :x (+ (get p :x) 1.0) :y (+ (get p :y) 0.5)))
+             (inc i)))))
+(sr-pf-run 10)"))
+    ;; x cycles 0,1,2,3,4,(clamp)0,1,2,3,4 over 10 iterations: the clamp
+    ;; branch fires at i=4 and i=9, the move branch the other eight times.
+    (is (= 4.0 (sr-fol src :sr nil)))
+    (is (= (sr-fol src :sr nil) (sr-fol src :sr t))))
+  (multiple-value-bind (val code)
+      (sr-fol "
+(defclass <sr-pf2> [] [[x] [y]])
+(defn sr-pf2-run [n]
+  (loop [p (make-<sr-pf2> :x 0.0 :y 0.0) i 0]
+    (if (>= i n)
+      (+ (get p :x) (get p :y))
+      (recur (if (> (get p :x) 3.0)
+                 (make-<sr-pf2> :x 0.0 :y (get p :y))
+                 (make-<sr-pf2> :x (+ (get p :x) 1.0) :y (+ (get p :y) 0.5)))
+             (inc i)))))"
+              :sr t)
+    (declare (ignore val))
+    (is (sr-code-has code "P_X"))
+    (is (sr-code-has code "P_Y"))
+    (is (sr-code-has code "REGISTER-REGION"))))
+
+(test sr-cond-branched-reconstruction
+  "A cond-branched reconstruction with three clauses at the recur position is
+   recognized directly. Dispatching on (mod i 3) rather than on the
+   accumulator's own value guarantees all three clauses actually fire across
+   the run, not just the syntactically-present ones."
+  (let ((src "
+(defclass <sr-pg> [] [[x] [y]])
+(defn sr-pg-run [n]
+  (loop [p (make-<sr-pg> :x 0.0 :y 0.0) i 0]
+    (if (>= i n)
+      (+ (get p :x) (get p :y))
+      (recur (cond
+               ((= (mod i 3) 0) (make-<sr-pg> :x (+ (get p :x) 1.0) :y (get p :y)))
+               ((= (mod i 3) 1) (make-<sr-pg> :x (get p :x) :y (+ (get p :y) 2.0)))
+               (:else (make-<sr-pg> :x (+ (get p :x) 0.5) :y (+ (get p :y) 0.5))))
+             (inc i)))))
+(sr-pg-run 9)"))
+    ;; Three full (0,1,2) cycles over 9 iterations: x = 3*1 + 3*0.5 = 4.5,
+    ;; y = 3*2 + 3*0.5 = 7.5, sum = 12.0.
+    (is (= 12.0 (sr-fol src :sr nil)))
+    (is (= (sr-fol src :sr nil) (sr-fol src :sr t))))
+  (multiple-value-bind (val code)
+      (sr-fol "
+(defclass <sr-pg2> [] [[x] [y]])
+(defn sr-pg2-run [n]
+  (loop [p (make-<sr-pg2> :x 0.0 :y 0.0) i 0]
+    (if (>= i n)
+      (+ (get p :x) (get p :y))
+      (recur (cond
+               ((= (mod i 3) 0) (make-<sr-pg2> :x (+ (get p :x) 1.0) :y (get p :y)))
+               ((= (mod i 3) 1) (make-<sr-pg2> :x (get p :x) :y (+ (get p :y) 2.0)))
+               (:else (make-<sr-pg2> :x (+ (get p :x) 0.5) :y (+ (get p :y) 0.5))))
+             (inc i)))))"
+              :sr t)
+    (declare (ignore val))
+    (is (sr-code-has code "P_X"))
+    (is (sr-code-has code "P_Y"))
+    (is (sr-code-has code "REGISTER-REGION"))))
+
+(test sr-case-branched-reconstruction
+  "A case-branched reconstruction with three clauses at the recur position is
+   recognized directly. (mod i 3) as the dispatch key guarantees all three
+   clauses fire across the run."
+  (let ((src "
+(defclass <sr-ph> [] [[x] [y]])
+(defn sr-ph-run [n]
+  (loop [p (make-<sr-ph> :x 0.0 :y 0.0) i 0]
+    (if (>= i n)
+      (+ (get p :x) (get p :y))
+      (recur (case (mod i 3)
+               (0 (make-<sr-ph> :x (+ (get p :x) 1.0) :y (get p :y)))
+               (1 (make-<sr-ph> :x (get p :x) :y (+ (get p :y) 2.0)))
+               (2 (make-<sr-ph> :x (+ (get p :x) 0.5) :y (+ (get p :y) 0.5))))
+             (inc i)))))
+(sr-ph-run 9)"))
+    ;; Same three-clause cycle as the cond test above: sum = 12.0.
+    (is (= 12.0 (sr-fol src :sr nil)))
+    (is (= (sr-fol src :sr nil) (sr-fol src :sr t))))
+  (multiple-value-bind (val code)
+      (sr-fol "
+(defclass <sr-ph2> [] [[x] [y]])
+(defn sr-ph2-run [n]
+  (loop [p (make-<sr-ph2> :x 0.0 :y 0.0) i 0]
+    (if (>= i n)
+      (+ (get p :x) (get p :y))
+      (recur (case (mod i 3)
+               (0 (make-<sr-ph2> :x (+ (get p :x) 1.0) :y (get p :y)))
+               (1 (make-<sr-ph2> :x (get p :x) :y (+ (get p :y) 2.0)))
+               (2 (make-<sr-ph2> :x (+ (get p :x) 0.5) :y (+ (get p :y) 0.5))))
+             (inc i)))))"
+              :sr t)
+    (declare (ignore val))
+    (is (sr-code-has code "P_X"))
+    (is (sr-code-has code "P_Y"))
+    (is (sr-code-has code "REGISTER-REGION"))))
+
+;;; ============================================================================
 ;;; Conservatism: escaping accumulators are not unboxed
 ;;; ============================================================================
 

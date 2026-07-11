@@ -1,0 +1,17 @@
+;;; ASR Benchmark: case-branched reconstruction (three-phase cycle)
+;;;
+;;; Exercises the ASR pass's case-branched reconstruction (Reconstruct's
+;;; `case` case, Figure 2): the iteration index modulo 3 selects among three
+;;; distinct make-<t> reconstructions, one per phase.
+
+(defclass <phase> [] [[x] [y]])
+
+(defn run-phase [n]
+  (loop [p (make-<phase> :x 0.0 :y 0.0) i 0]
+    (if (>= i n)
+      (+ (get p :x) (get p :y))
+      (recur (case (mod i 3)
+               (0 (make-<phase> :x (+ (get p :x) 1.0) :y (get p :y)))
+               (1 (make-<phase> :x (get p :x) :y (+ (get p :y) 2.0)))
+               (2 (make-<phase> :x (+ (get p :x) 0.5) :y (+ (get p :y) 0.5))))
+             (inc i)))))

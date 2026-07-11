@@ -65,7 +65,7 @@ Persistent-first languages give programmers immutable objects, but a record
 rebuilt every iteration of a loop turns into a stream of short-lived heap
 allocations. On our benchmarks this allocation and its garbage collection make up
 the bulk of the loop's runtime---the part this paper removes---while the loop as
-a whole runs 80--230$\times$ slower than an equivalent native mutable-struct
+a whole runs 80--240$\times$ slower than an equivalent native mutable-struct
 loop. Classic \emph{scalar replacement} removes such allocations by holding an
 object's fields in registers, but the textbook formulation only fires when an
 object is created and dies inside one lexical scope---the least profitable
@@ -82,10 +82,10 @@ and (2) a \emph{world-guarded} dual path that keeps the optimization sound when 
 class is redefined at run time. A single classify-and-rewrite walk is aligned by
 construction---any use it does not recognize aborts the rewrite and yields the
 original loop---so the transformation is never unsound, only sometimes
-inapplicable. Across twelve allocation-bound benchmarks the technique eliminates
-per-iteration allocation entirely for an end-to-end 2.8$\times$--15.2$\times$
+inapplicable. Across fourteen allocation-bound benchmarks the technique eliminates
+per-iteration allocation entirely for an end-to-end 2.8$\times$--14.5$\times$
 speedup (the top of that range from one dispatch-bound benchmark, \S\ref{sec:eval})---the
-allocation share of the 80--230$\times$ gap to native---with
+allocation share of the 80--240$\times$ gap to native---with
 byte-identical results and no cost when disabled. The residual distance to
 native, which we measure and attribute to generic scalar arithmetic, is the
 larger factor and is closed by a complementary numeric-specialization pass.
@@ -135,7 +135,7 @@ with the old one. This is a pleasant programming model, but it has a cost. When
 a small record is updated inside a loop, every iteration allocates a fresh
 object on the heap, and the previous version becomes garbage immediately. In
 FOL~\cite{adrian2026fol-els}---a Lisp-1 dialect with CLOS-like persistent
-objects, transpiled to Common Lisp---a loop that rebuilds a persistent record runs \textbf{80--230$\times$}
+objects, transpiled to Common Lisp---a loop that rebuilds a persistent record runs \textbf{80--240$\times$}
 slower than the same loop written over a native mutable \texttt{defstruct}
 (\S\ref{sec:eval}). Allocation and its garbage collection dominate that loop's
 \emph{runtime}---and are what this paper removes---but they are not the largest
@@ -193,13 +193,13 @@ the result. Our contributions are:
   yields the original loop unchanged. The transformation is therefore never
   wrong, only sometimes inapplicable---the safe default for a compiler pass
   enabled on untyped code (\S\ref{sec:align}).
-  \item \textbf{Evaluation.} On twelve allocation-bound benchmarks from five
+  \item \textbf{Evaluation.} On fourteen allocation-bound benchmarks from five
   domains---physics, image processing, state estimation, audio DSP, and online
   statistics---spanning two- to four-field records, additive, multiplicative,
   conditional, and division-bearing updates, and two coupled multi-accumulator loops, our
   technique reduces per-iteration allocation to zero for an end-to-end
-  2.8$\times$--15.2$\times$ speedup (dominated by one dispatch-bound benchmark,
-  \S\ref{sec:eval}; the rest span 2.8$\times$--6.2$\times$), produces byte-identical results, and adds no
+  2.8$\times$--14.5$\times$ speedup (dominated by one dispatch-bound benchmark,
+  \S\ref{sec:eval}; the rest span 2.8$\times$--6.4$\times$), produces byte-identical results, and adds no
   cost when disabled or inapplicable. We additionally measure a native
   mutable-\texttt{defstruct} implementation of each benchmark as an upper bound,
   and report honestly how much of the gap ASR closes and what the residual is
@@ -238,7 +238,7 @@ the emitted code this fast path sits behind a world guard on \texttt{<point>}
 \end{figure}
 
 Our evaluation is deliberately focused: the technique targets one high-value pattern---the
-loop-carried record accumulator---and we measure it on twelve microbenchmarks that instantiate
+loop-carried record accumulator---and we measure it on fourteen microbenchmarks that instantiate
 that pattern with different field counts, update shapes, and accumulator
 multiplicities. We make no claim here about how frequently the pattern arises in
 production FOL code, but as a proxy we conducted a corpus study of 29 Clojure
@@ -572,16 +572,24 @@ with declared \texttt{single-float} slots matching FOL's float type, compiled at
 Because a speedup over the baseline depends on how often the collector runs, it
 carries run-to-run variation of roughly $\pm0.5\times$; the allocation figures
 (deterministic) and the native ceiling (nearly noise-free) are the more robust
-numbers. The twelve benchmarks span three families. The first six are
-physics-simulation kernels that exercise the core rewrite and its shapes: a
-\emph{particle} simulation (two independent additive field updates, the pattern
-of Figure~\ref{fig:overview}), a 2D \emph{rotation} orbit (two fields under a
-coupled multiplicative map), a three-field \emph{ballistic} integrator (the
-position update reads the freshly computed velocity), and a coupled
-\emph{two-body} relaxation carrying \emph{two} \texttt{<vec2>} accumulators that
-each read both---the multi-accumulator case. A new \emph{assoc} benchmark
-demonstrates partial reconstruction from a generic update. A \emph{clamp} benchmark
-demonstrates conditional reconstruction. The next five are recognizable
+numbers. The fourteen benchmarks span three families. The first eight are
+physics-simulation kernels that exercise the core rewrite and its branch
+shapes: a \emph{particle} simulation (two independent additive field updates,
+the pattern of Figure~\ref{fig:overview}), a 2D \emph{rotation} orbit (two
+fields under a coupled multiplicative map), a three-field \emph{ballistic}
+integrator (the position update reads the freshly computed velocity), and a
+coupled \emph{two-body} relaxation carrying \emph{two} \texttt{<vec2>}
+accumulators that each read both---the multi-accumulator case. A \emph{clamp}
+benchmark demonstrates \texttt{if}-branched conditional reconstruction; a
+\emph{bounce} benchmark demonstrates \texttt{cond}-branched reconstruction
+with three syntactic clauses (a high-wall bounce, a low-wall bounce, and a
+normal move)---the pass must classify and rewrite all three to accept the
+loop, though this benchmark's trajectory only ever reaches the high wall and
+the normal move; a \emph{phase} benchmark demonstrates \texttt{case}-branched
+reconstruction where the iteration index modulo 3 deterministically visits
+all three clauses; and an
+\emph{assoc} benchmark demonstrates partial reconstruction from a generic
+\texttt{assoc} update rather than a full constructor call. The next five are recognizable
 kernels from different domains, chosen to vary field count and arithmetic
 intensity: a \emph{Mandelbrot} orbit (image processing; two fields, quadratic
 map), a 1D \emph{Kalman filter} (state estimation; two coupled
@@ -594,7 +602,7 @@ temporary-free Euler step so the accumulator is the only allocation). A final
 advanced through an inlinable helper, isolating the pass's fixed per-iteration
 cost from field count and domain-specific arithmetic.
 
-\textbf{RQ1: Firing and allocation.} The pass fires on all twelve benchmarks: each
+\textbf{RQ1: Firing and allocation.} The pass fires on all fourteen benchmarks: each
 emitted fast path (Figure~\ref{fig:emitted}) splits every record accumulator into
 one scalar loop variable per field, inlines any update helper, and contains
 \emph{no} constructor call on the back-edge. In the two-body and Kalman
@@ -603,15 +611,15 @@ and the parallel \texttt{recur}/\texttt{psetq} keeps the coupled update correct.
 The effect is visible directly in the runtime counters: per iteration each
 baseline conses one record (144--208\,B), or two (320\,B) in the
 multi-accumulator cases---0.7--1.6\,GB per call, triggering 14--30 collections
-costing 16--84\,ms---whereas the scalar-replaced version conses \emph{nothing}
+costing 22--84\,ms---whereas the scalar-replaced version conses \emph{nothing}
 and triggers no workload collection at all. The only allocation that survives is
 the single re-box at loop exit, executed at most once per activation. The native
 versions, mutating their structs in place, likewise cons nothing per iteration.
 
-\textbf{RQ2: Speedup and correctness.} Table~\ref{tab:speedup} reports results for all twelve benchmarks.
+\textbf{RQ2: Speedup and correctness.} Table~\ref{tab:speedup} reports results for all fourteen benchmarks.
 Eliminating allocation removes the garbage-collection
 pressure that dominates each baseline, yielding end-to-end speedups of
-2.8$\times$--15.2$\times$. One benchmark accounts for the top of that range on
+2.8$\times$--14.5$\times$. One benchmark accounts for the top of that range on
 its own. \emph{Assoc}'s update goes through FOL's generic \texttt{assoc}
 dispatch rather than a specialized \texttt{make-<t>} constructor, so its
 baseline is not merely allocation-bound but dispatch-bound: isolating the two
@@ -619,34 +627,43 @@ factors shows Assoc's unoptimized path costs \textasciitilde51\% more wall
 time than an otherwise-identical full-reconstruction baseline over the same
 four fields, on top of allocating slightly more per call (208\,B vs.\ 176\,B).
 ASR removes both costs at once---the rewrite bypasses \texttt{assoc} entirely,
-emitting direct scalar arithmetic---so Assoc reaches 15.2$\times$, more than
-double any other benchmark. Excluding it, the remaining eleven span a more
-typical 2.8$\times$--6.2$\times$: the physics kernels (Particle, Rotation,
-Ballistic, Two-body, Clamp), which are the most allocation-bound, see
-4.4$\times$--6.2$\times$, while the arithmetic-heavier kernels (Mandelbrot,
-Kalman, biquad, co-moments, Lorenz) see 2.8$\times$--4.2$\times$---the more a
+emitting direct scalar arithmetic---so Assoc reaches 14.5$\times$, more than
+double any other benchmark.
+Excluding it, the remaining thirteen span a more
+typical 2.8$\times$--6.4$\times$, with \emph{Counter}---the simplest possible
+single-field case---at the top of that range and \emph{Lorenz} at the bottom.
+Within that span, the physics-family kernels (Particle,
+Rotation, Ballistic, Two-body, Clamp, Bounce, Phase) see 3.7$\times$--6.0$\times$---\emph{Bounce}'s
+extra \texttt{cond} tests on every iteration cost more than Clamp's single
+\texttt{if}, making it the lowest of this group---while the arithmetic-heavier
+kernels (Mandelbrot, Kalman, biquad, co-moments, Lorenz) see
+2.8$\times$--4.1$\times$---the more a
 loop computes per step, the smaller the share of its runtime that allocation
-represents, and the smaller the win from removing it (RQ4). The Counter
-benchmark, the simplest possible single-field case, sees a 6.1$\times$
-speedup, in line with the other physics-family kernels. Crucially, every optimized program returns results
+represents, and the smaller the win from removing it (RQ3). Crucially, every optimized program returns results
 bit-identical to its unoptimized counterpart across all five trials; a dedicated
 test suite checks optimized-equals-unoptimized on several record-accumulator
 shapes (field read at exit, bare re-box at exit, inlined and non-inlined
+reconstructions, \texttt{if}/\texttt{cond}/\texttt{case}-branched
 reconstructions, and multiple coupled accumulators), and the full compiler test
-suite of 3{,}321 checks passes with the pass enabled.
+suite of 3{,}336 checks passes with the pass enabled.
 
 \begin{table}
-  \caption{Twelve allocation-bound benchmarks at 5M iterations: wall time (mean
+  \caption{Fourteen allocation-bound benchmarks at 5M iterations: wall time (mean
   $\pm$ sample stddev over five timed trials, after one warm-up) for the
   persistent baseline, aggregate scalar replacement (ASR), and a native
   mutable-\texttt{defstruct} upper bound; AMD Ryzen 5 7430U, SBCL 2.6.0. ASR
   drives per-iteration allocation (144--320\,B) to zero and is bit-identical to
-  the baseline; the ``$\times$'' columns are speedups over the baseline. The
-  first six are physics kernels; the next five are from other domains; Counter
-  is the simplest possible single-field case. Two-body and Kalman carry two
-  coupled record accumulators, both unboxed by the fixpoint. Assoc's outsized
-  speedup comes from a dispatch-bound baseline, not an unusually fast optimized
-  path (\S\ref{sec:eval}).}
+  the baseline. The ``$\times$'' columns are speedups over the baseline,
+  computed from full-precision per-trial timings before the Base/ASR/Native
+  columns were rounded to whole milliseconds for display; dividing the
+  rounded columns shown here will not always reproduce them exactly. The
+  first eight are physics-family kernels exercising the core rewrite and its
+  branch shapes (Clamp: \texttt{if}; Bounce: \texttt{cond}; Phase:
+  \texttt{case}; Assoc: generic \texttt{assoc}); the next five are from other
+  domains; Counter is the simplest possible single-field case. Two-body and
+  Kalman carry two coupled record accumulators, both unboxed by the fixpoint.
+  Assoc's outsized speedup comes from a dispatch-bound baseline, not an
+  unusually fast optimized path (\S\ref{sec:eval}).}
   \label{tab:speedup}
   \small
   \begin{tabular}{lrrrrr}
@@ -654,33 +671,35 @@ suite of 3{,}321 checks passes with the pass enabled.
     Benchmark & Base & ASR & Native & ASR & Native \\
               & (ms) & (ms) & (ms) & $\times$ & $\times$ \\
     \midrule
-    Particle   & $3624\pm166$ & \phantom{0}$638\pm17$  & \phantom{0}33 & \phantom{0}5.7 & 111 \\
-    Rotation   & $5246\pm177$ & \phantom{0}$992\pm14$  & \phantom{0}61 & \phantom{0}5.3 & \phantom{0}86 \\
-    Ballistic  & $4699\pm42$\phantom{0}  & \phantom{0}$754\pm16$  & \phantom{0}33 & \phantom{0}6.2 & 144 \\
-    Two-body   & $12038\pm246$ & $2067\pm75$\phantom{0} & \phantom{0}52 & \phantom{0}5.8 & 232 \\
-    Clamp      & $4435\pm119$ & $1006\pm14$ & \phantom{0}36 & \phantom{0}4.4 & 125 \\
-    Assoc      & $7504\pm204$ & \phantom{0}$494\pm17$  & \phantom{0}33 & \textbf{15.2} & 228 \\
+    Particle   & $3691\pm150$ & \phantom{0}$643\pm23$\phantom{0}  & \phantom{0}33 & \phantom{0}5.7 & 112 \\
+    Rotation   & $5185\pm75$\phantom{0}  & $1003\pm13$ & \phantom{0}62 & \phantom{0}5.2 & \phantom{0}84 \\
+    Ballistic  & $4750\pm85$\phantom{0}  & \phantom{0}$797\pm21$\phantom{0}  & \phantom{0}33 & \phantom{0}6.0 & 144 \\
+    Two-body   & $12442\pm170$ & $2092\pm32$\phantom{0} & \phantom{0}52 & \phantom{0}5.9 & 240 \\
+    Clamp      & $4583\pm48$\phantom{0}  & $1061\pm18$ & \phantom{0}35 & \phantom{0}4.3 & 130 \\
+    Bounce     & $5253\pm180$ & $1404\pm12$ & \phantom{0}37 & \phantom{0}3.7 & 144 \\
+    Phase      & $3657\pm113$ & \phantom{0}$665\pm17$\phantom{0}  & \phantom{0}24 & \phantom{0}5.5 & 150 \\
+    Assoc      & $7505\pm160$ & \phantom{0}$518\pm22$\phantom{0}  & \phantom{0}33 & \textbf{14.5} & 229 \\
     \midrule
-    Mandelbrot & $4434\pm92$\phantom{0}  & $1266\pm39$ & \phantom{0}53 & \phantom{0}3.5 & \phantom{0}84 \\
-    Kalman     & $10857\pm194$ & $3612\pm117$ & 110 & \phantom{0}3.0 & \phantom{0}99 \\
-    Biquad     & $6400\pm63$\phantom{0}  & $1542\pm45$ & \phantom{0}56 & \phantom{0}4.2 & 114 \\
-    Co-moments & $6760\pm74$\phantom{0}  & $1868\pm92$ & \phantom{0}70 & \phantom{0}3.6 & \phantom{0}96 \\
-    Lorenz     & $6273\pm288$ & $2264\pm68$\phantom{0} & \phantom{0}64 & \phantom{0}2.8 & \phantom{0}99 \\
+    Mandelbrot & $4344\pm67$\phantom{0}  & $1236\pm43$ & \phantom{0}52 & \phantom{0}3.5 & \phantom{0}84 \\
+    Kalman     & $10913\pm163$ & $3769\pm155$ & 110 & \phantom{0}2.9 & \phantom{0}99 \\
+    Biquad     & $6520\pm173$ & $1604\pm11$ & \phantom{0}56 & \phantom{0}4.1 & 116 \\
+    Co-moments & $6668\pm84$\phantom{0}  & $1832\pm64$ & \phantom{0}71 & \phantom{0}3.6 & \phantom{0}94 \\
+    Lorenz     & $6209\pm137$ & $2225\pm103$ & \phantom{0}64 & \phantom{0}2.8 & \phantom{0}97 \\
     \midrule
-    Counter    & $2673\pm45$\phantom{0}  & \phantom{0}$437\pm15$  & \phantom{0}33 & \phantom{0}6.1 & \phantom{0}82 \\
+    Counter    & $2664\pm35$\phantom{0}  & \phantom{0}$414\pm16$\phantom{0}  & \phantom{0}33 & \phantom{0}6.4 & \phantom{0}81 \\
     \bottomrule
   \end{tabular}
 \end{table}
 
 \textbf{RQ3: Distance to native.} A hand-written native version---a mutable
-\texttt{defstruct} updated in place---is 82$\times$--232$\times$ faster than the
+\texttt{defstruct} updated in place---is 81$\times$--240$\times$ faster than the
 persistent baseline (Table~\ref{tab:speedup}), which is what makes the pattern
 worth attacking in the first place. Aggregate scalar replacement (ASR) recovers
 the \emph{allocation} component of that gap: it removes 100\% of the per-iteration
-consing, worth the 2.8$\times$--15.2$\times$ of RQ2. It does \emph{not} close the
+consing, worth the 2.8$\times$--14.5$\times$ of RQ2. It does \emph{not} close the
 gap entirely---the scalar-replaced loop remains 13$\times$--40$\times$ slower
-than native, reaching 3--7\% of native speed. The decomposition is consistent
-across all twelve benchmarks: the allocation factor ASR removes (its speedup)
+than native, reaching 2--8\% of native speed. The decomposition is consistent
+across all fourteen benchmarks: the allocation factor ASR removes (its speedup)
 times the arithmetic factor it leaves (its distance to native) equals the full
 baseline gap. The residual is not one factor but two: the per-node
 \textbf{construction overhead} of `make-instance` for a persistent object (which
@@ -700,7 +719,7 @@ every operand is proven numeric---lowers FOL's generic operators to native
 machine arithmetic on declared floats. Applied on top of ASR, it delivers a
 \emph{further} 4.4$\times$--12.8$\times$ on these benchmarks, largest on the
 arithmetic-heavy loops (Lorenz, Mandelbrot) that gained least from allocation
-removal, and it moves the scalar-replaced loops from 3--7\% of native to
+removal, and it moves the scalar-replaced loops from 2--8\% of native to
 roughly a quarter to a half of native speed. Attacking allocation first is
 nonetheless not arbitrary: it is the factor that produces garbage-collection
 pauses (the baseline triggers 14--30 collections per call; ASR triggers none),
@@ -735,8 +754,9 @@ variables (counters, indices) pass through unaffected. Genuine limitations
 remain: each reconstruction must peel---through single-form
 \texttt{bind}/\texttt{do} wrappers and at most one level of inlinable call---to a
 constructor that supplies \emph{every} field; \texttt{if}-, \texttt{cond}-, and
-\texttt{case}-branched reconstructions are all recognized directly
-(\emph{Clamp}, \S\ref{sec:eval}, exercises the \texttt{if} case), but only when
+\texttt{case}-branched reconstructions are all recognized directly (Table~\ref{tab:speedup}
+exercises all three: \emph{Clamp} the \texttt{if} case, \emph{Bounce} the
+\texttt{cond} case, and \emph{Phase} the \texttt{case} case), but only when
 each branch's constructor is reached without its own \texttt{bind}/\texttt{do}
 peeling or inlinable-callee substitution---a branch that needs either aborts
 the whole reconstruction. The remaining limitation is inlinable callees whose
@@ -811,9 +831,15 @@ latently-typed language with no optimizing IR, no JIT, and no type system to lea
 on. The open world is not incidental here; it is what creates the problem the
 guard solves. A JVM language such as Clojure has the identical allocation pattern
 (a \texttt{defrecord} rebuilt through \texttt{loop}/\texttt{recur}) but compiles
-records to classes that are not redefined mid-run, and its JIT already performs
-escape analysis and deoptimizes whole frames when assumptions break; there,
-neither our inliner nor our guard would earn their keep. A statically typed
+records to classes that are not redefined mid-run, so it faces no version of
+the redefinition problem our guard solves. Its JIT's partial escape analysis
+\cite{stadler2014partial} could in principle eliminate the same allocation---but
+only if the JIT's own inliner first brings the helper call into one compilation
+unit, a heuristic decision we have not measured and that is not guaranteed for
+an arbitrary loop-carried helper call reached through a back-edge. We do not
+claim Clojure's JIT reliably eliminates this pattern in practice, only that,
+unlike FOL, it has a plausible mechanism to attempt it and no redefinition
+problem that would require a guard either way. A statically typed
 functional language such as Koka attacks the same cost from the opposite
 direction, with reference counting and borrowing
 \cite{reinking2021perceus,lorenzen2023functional} that presuppose the very type
@@ -882,7 +908,7 @@ fundamental limit) it demands.}
 \end{figure}
 
 \textbf{Threats to validity.} Two are worth stating plainly. First, external
-validity: FOL is a research vehicle without an outside user base, and our twelve
+validity: FOL is a research vehicle without an outside user base, and our fourteen
 benchmarks are authored microbenchmarks that instantiate the target pattern
 rather than programs sampled from a corpus (\S\ref{sec:eval}); the Clojure study
 above is a proxy for real-world incidence, not a measurement of FOL. We argue the
@@ -972,11 +998,11 @@ variables---no allocation on the back-edge, one re-box at the exit---by a single
 classify-and-rewrite walk that reaches across a call boundary through a
 one-level syntactic inliner and stays sound under class redefinition through a
 world guard. The pass is safe by construction: it optimizes the shapes it
-recognizes and declines the rest. Across twelve allocation-bound benchmarks it
-eliminates per-iteration allocation entirely for 2.8$\times$--15.2$\times$
+recognizes and declines the rest. Across fourteen allocation-bound benchmarks it
+eliminates per-iteration allocation entirely for 2.8$\times$--14.5$\times$
 speedups (one dispatch-bound benchmark accounts for the top of that range;
-the rest span 2.8$\times$--6.2$\times$) with identical results, recovering the allocation component of a
-80--230$\times$ gap to native mutable structs. The remainder---a larger factor
+the rest span 2.8$\times$--6.4$\times$) with identical results, recovering the allocation component of a
+80--240$\times$ gap to native mutable structs. The remainder---a larger factor
 we attribute to generic scalar arithmetic---is closed by a complementary
 numeric-specialization pass, which recovers a further 4.4$\times$--12.8$\times$.
 We see the transformation as the record-shaped complement to automatic

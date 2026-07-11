@@ -137,6 +137,33 @@
       (setf (nasc-vx p) (+ (nasc-vx p) 0.1)))
     (+ (nasc-x p) (+ (nasc-y p) (+ (nasc-vx p) (nasc-vy p))))))
 
+;; Cond-branched reconstruction: bounce off two walls, otherwise move.
+(defstruct (nbnc (:conc-name nbnc-))
+  (x 0.0 :type single-float) (y 0.0 :type single-float))
+(defun native-bounce (n)
+  (declare (fixnum n) (optimize (speed 3) (safety 0)))
+  (let ((p (make-nbnc :x 0.0 :y 0.0)))
+    (dotimes (i n)
+      (cond
+        ((> (nbnc-x p) 100.0) (setf (nbnc-x p) 0.0))
+        ((< (nbnc-x p) -100.0) (setf (nbnc-x p) 0.0))
+        (t (setf (nbnc-x p) (+ (nbnc-x p) 1.0)
+                 (nbnc-y p) (+ (nbnc-y p) 0.5)))))
+    (+ (nbnc-x p) (nbnc-y p))))
+
+;; Case-branched reconstruction: three-phase cycle on (mod i 3).
+(defstruct (nph (:conc-name nph-))
+  (x 0.0 :type single-float) (y 0.0 :type single-float))
+(defun native-phase (n)
+  (declare (fixnum n) (optimize (speed 3) (safety 0)))
+  (let ((p (make-nph :x 0.0 :y 0.0)))
+    (dotimes (i n)
+      (case (mod i 3)
+        (0 (setf (nph-x p) (+ (nph-x p) 1.0)))
+        (1 (setf (nph-y p) (+ (nph-y p) 2.0)))
+        (2 (setf (nph-x p) (+ (nph-x p) 0.5) (nph-y p) (+ (nph-y p) 0.5)))))
+    (+ (nph-x p) (nph-y p))))
+
 ;; Mandelbrot orbit z <- z^2 + c (c = rabbit).
 (defstruct (ncplx (:conc-name ncplx-))
   (re 0.0 :type single-float) (im 0.0 :type single-float))
@@ -365,6 +392,10 @@
                        "asr-clamp.fol"      "run-clamp"      #'native-clamp)
                 (bench "L. Assoc (partial)      <particle>{x,y,vx,vy}"
                        "asr-assoc.fol"      "run-assoc"      #'native-assoc)
+                (bench "M. Bounce (cond)        <bounce>{x,y}"
+                       "asr-bounce.fol"     "run-bounce"     #'native-bounce)
+                (bench "N. Phase (case)         <phase>{x,y}"
+                       "asr-phase.fol"      "run-phase"      #'native-phase)
                 (bench "E. Mandelbrot orbit     <cplx>{re,im}"
                        "asr-mandelbrot.fol"  "run-mandelbrot"  #'native-mandelbrot)
                 (bench "F. Kalman filter        2x<kstate>/<kcov>"
