@@ -38,6 +38,14 @@
   (param-effects #() :type simple-vector)
   (rest-effect nil)          ; effect keyword or nil
   (returns-fresh-p nil)      ; result is a fresh root, uniquely owned by caller
+  (returns-kind nil)         ; :dict/:vector/:set the result is built as, or NIL
+                             ; if unrecognized; lets TRANSIENT-ELIGIBLE-INIT-P
+                             ; and INIT-SUPPORTS-P (escape-analysis.lisp) treat
+                             ; a summarized constructor CALL like a collection
+                             ; literal for loop-init eligibility -- the
+                             ; Qualification Rule's "constructor call" clause
+                             ; (§sec:formal), not just RETURNS-FRESH-P alone,
+                             ; since the op-gate check also needs the kind.
   (barrier-p nil))           ; may eval/redefine -> full barrier at call sites
 
 ;;; ============================================================================
@@ -119,6 +127,9 @@
                           (t (or r1 r2))))
      :returns-fresh-p (and (escape-summary-returns-fresh-p s1)
                            (escape-summary-returns-fresh-p s2))
+     :returns-kind (and (eq (escape-summary-returns-kind s1)
+                            (escape-summary-returns-kind s2))
+                        (escape-summary-returns-kind s1))
      :barrier-p (or (escape-summary-barrier-p s1)
                     (escape-summary-barrier-p s2)))))
 

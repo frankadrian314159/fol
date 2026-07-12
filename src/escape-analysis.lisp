@@ -843,27 +843,193 @@
    :args (list arg-node)
    :form (fol.compiler.ast:ast-node-form arg-node)))
 
+(defun %init-call-summary (node)
+  "The escape-summary for a call-node's operator, or NIL. Shared by
+   TRANSIENT-ELIGIBLE-INIT-P and INIT-SUPPORTS-P so both consult the same
+   Tier-1-or-Tier-2 lookup for a constructor-call init."
+  (and (fol.compiler.ast:call-node-p node)
+       (let ((op (operator-symbol node)))
+         (and op (fol.compiler.summaries:lookup-summary op)))))
+
 (defun transient-eligible-init-p (node)
-  "True when the loop init is a collection literal ((dict ...), [..], #{..}),
-   so (transient init) is guaranteed to produce a mutable wrapper."
+  "True when the loop init is guaranteed to produce a fresh, uniquely-owned
+   root that (transient init) can safely wrap: a collection literal
+   ([..], {..}, #{..}), or a call to a function whose summary (Tier-1 or
+   Tier-2) proves RETURNS-FRESH-P -- the same freshness guarantee licensing
+   literals, generalized to summarized constructors per the Qualification
+   Rule's \"a constructor call summarized as returning an unaliased root\"
+   clause (§sec:formal), which the code previously left unimplemented: a
+   loop initialized from a user-defined 0-ary constructor call was never
+   eligible before, no matter how clean its update chain was. Freshness
+   alone doesn't establish which representation the result is (needed for
+   the op-gate check); INIT-SUPPORTS-P below handles that separately via
+   RETURNS-KIND, declining conversion when the kind is unknown."
   (or (fol.compiler.ast:vector-node-p node)
       (fol.compiler.ast:dict-node-p node)
-      (fol.compiler.ast:set-node-p node)))
+      (fol.compiler.ast:set-node-p node)
+      (let ((summary (%init-call-summary node)))
+        (and summary (fol.compiler.summaries:escape-summary-returns-fresh-p summary)))))
+
+;;; ============================================================================
+;;; Method-combination trust check (Tier-1 soundness gap closed here)
+;;; ============================================================================
+;;; A1 (§sec:formal) trusts Tier-1 summaries to bound a name's effect "even
+;;; if the library functions the table describes are redefined at runtime" --
+;;; but that is a claim about REDEFINITION, protected by NOTE-REDEFINITION
+;;; (world.lisp), which fires for every DEFMETHOD regardless of qualifier and
+;;; so correctly invalidates a region if a :before/:after/:around method on
+;;; an assumed name is added AFTER the region registers its dependency.
+;;;
+;;; What that leaves unprotected: a :before/:after/:around method on e.g.
+;;; ASSOC, specialized on the accumulator's OWN representation class, that
+;;; already existed BEFORE any region ever assumed ASSOC's meaning. There is
+;;; no redefinition event for a not-yet-registered dependent to be notified
+;;; of -- the region simply registers as valid from the start, unaware that
+;;; calling ASSOC on this class already does more than the root-rebuild
+;;; Tier-1's summary describes. ASSOC! (the bang counterpart) has no
+;;; connection whatsoever to ASSOC's method combination, so any such
+;;; extra behavior is silently dropped by the fast path -- a real
+;;; correctness gap, confirmed by reproduction: attaching a logging
+;;; :around method to ASSOC for <dict> BEFORE compiling a loop that
+;;; converts it, the converted loop calls ASSOC! 0 times through the
+;;; logger where the persistent path would have called ASSOC (and hence
+;;; the logger) N times.
+;;;
+;;; The fix: before accepting a conversion, ask the LIVE generic function
+;;; (via MOP) whether it already has any non-primary-qualified method
+;;; applicable to the accumulator's concrete representation class. This is
+;;; a compile-time check on ambient state, unlike every other check in this
+;;; file which is purely syntactic -- necessarily so, since the hazard is
+;;; ambient state (what methods already exist) that no AST walk can see.
+
+(defparameter +repr-classes+
+  '((:dict . fol.compiler.collections:<dict>)
+    (:vector . fol.compiler.collections:<vector>)
+    (:set . fol.compiler.collections:<set>))
+  "Representation kind -> the concrete FOL class its instances have.")
+
+(defun %repr-class (kind)
+  (let ((sym (cdr (assoc kind +repr-classes+))))
+    (and sym (find-class sym nil))))
+
+(defun %tier1-generic-function (op-name)
+  "The CLOS generic function bound to Tier-1 operator OP-NAME (a string) in
+   whichever FOL implementation package defines it, or NIL if not found or
+   not a generic function. Mirrors LOOKUP-SUMMARY's own package search
+   (summaries.lisp's *FOL-FUNCTION-PACKAGES*, exported under its
+   *SUMMARY-LOCKED-PACKAGES* alias since the former isn't itself external),
+   so this asks about the exact function the compiler itself would call."
+  (dolist (pkg-name fol.compiler.summaries:*summary-locked-packages*)
+    (let* ((pkg (find-package pkg-name))
+           (sym (and pkg (find-symbol op-name pkg))))
+      (when (and sym (fboundp sym))
+        (let ((fn (fdefinition sym)))
+          (when (typep fn 'standard-generic-function)
+            (return-from %tier1-generic-function fn))))))
+  nil)
+
+(defun %class-applicable-p (specializer class)
+  "True when a method specialized on SPECIALIZER would fire for an instance
+   of CLASS: SPECIALIZER is CLASS itself or one of its superclasses.
+   Non-class specializers (EQL-specializers) are conservatively skipped --
+   they only ever match one specific object's identity, not a whole
+   representation, so they cannot silently intercept every accumulator of
+   this kind the way a class-specialized method can; a known, narrow gap,
+   noted rather than handled."
+  (and (typep specializer 'class)
+       (member specializer (sb-mop:class-precedence-list class))
+       t))
+
+(defun tier1-op-customized-p (op-name kind)
+  "True when the generic function named OP-NAME has a method, applicable to
+   representation KIND's class, whose qualifiers are non-empty
+   (:before/:after/:around/any user combination qualifier) -- i.e. Tier-1's
+   summary for OP-NAME does not fully describe what calling it on this
+   representation does."
+  (let ((gf (%tier1-generic-function op-name))
+        (class (%repr-class kind)))
+    (and gf class
+         (some (lambda (m)
+                 (and (method-qualifiers m)
+                      (let ((specs (sb-mop:method-specializers m)))
+                        (and specs (%class-applicable-p (first specs) class)))))
+               (sb-mop:generic-function-methods gf)))))
+
+(defun tier1-methods-trusted-p (kind used-ops)
+  "True when none of USED-OPS (Tier-1 operator name strings actually relied
+   on by this conversion -- spine ops plus reads) has a method-combination
+   surprise (TIER1-OP-CUSTOMIZED-P) on representation KIND. KIND NIL
+   (unrecognized representation) is conservatively untrusted."
+  (and kind (notany (lambda (op) (tier1-op-customized-p op kind)) used-ops)))
+
+(defun %used-ops (chain-ops reads-p)
+  "CHAIN-OPS plus, when READS-P, the full transient-read whitelist -- the
+   set of Tier-1 operator names this conversion could actually invoke on
+   the accumulator's representation, conservative in the read case since
+   INIT-SUPPORTS-P's callers only pass a boolean (some read occurred), not
+   which whitelisted op it was."
+  (if reads-p (union chain-ops +transient-readable-ops+ :test #'string=) chain-ops))
+
+(defun %reads-forbidden-p ()
+  "True when the active transient representation for dicts/vectors cannot
+   serve mid-session reads -- normally only true for sets, but also true
+   for dicts/vectors under the RQ5 wrapper-transient ablation
+   (fol.compiler.collections:*wrapper-transients*), which simulates a
+   Clojure-style wrapper representation on the same classifier/rewriter."
+  (and (find-symbol "*WRAPPER-TRANSIENTS*" :fol.compiler.collections)
+       (symbol-value (find-symbol "*WRAPPER-TRANSIENTS*" :fol.compiler.collections))))
 
 (defun init-supports-p (init-node chain-ops reads-p)
   "True when the transient representation behind INIT-NODE's collection type
    supports every spine op in CHAIN-OPS, and reads when READS-P.
-   Dicts/vectors are edit-tagged (reads supported); sets remain wrapper
-   transients (writes only)."
-  (cond
-    ((fol.compiler.ast:dict-node-p init-node)
-     (subsetp chain-ops '("ASSOC" "DISSOC") :test #'string=))
-    ((fol.compiler.ast:vector-node-p init-node)
-     (subsetp chain-ops '("CONJ") :test #'string=))
-    ((fol.compiler.ast:set-node-p init-node)
-     (and (not reads-p)
-          (subsetp chain-ops '("CONJ" "DISJ") :test #'string=)))
-    (t nil)))
+   Dicts/vectors/sets are all edit-tagged (reads supported for all three;
+   sets are HAMT-backed exactly like dicts) -- unless the RQ5 ablation
+   forces the legacy wrapper representation (writes only), via
+   %READS-FORBIDDEN-P. A constructor-call init (see
+   TRANSIENT-ELIGIBLE-INIT-P) is supported only when its summary's
+   RETURNS-KIND is known -- freshness alone doesn't say which op-gate
+   applies, so an unrecognized-kind constructor is conservatively declined
+   rather than guessed at. Also requires TIER1-METHODS-TRUSTED-P: Tier-1's
+   summary must actually describe what the assumed ops do for this
+   representation (see the method-combination trust check above)."
+  (let ((used-ops (%used-ops chain-ops reads-p)))
+    (cond
+      ((fol.compiler.ast:dict-node-p init-node)
+       (and (not (and reads-p (%reads-forbidden-p)))
+            (subsetp chain-ops '("ASSOC" "DISSOC") :test #'string=)
+            (tier1-methods-trusted-p :dict used-ops)))
+      ((fol.compiler.ast:vector-node-p init-node)
+       (and (not (and reads-p (%reads-forbidden-p)))
+            (subsetp chain-ops '("CONJ") :test #'string=)
+            (tier1-methods-trusted-p :vector used-ops)))
+      ((fol.compiler.ast:set-node-p init-node)
+       (and (not (and reads-p (%reads-forbidden-p)))
+            (subsetp chain-ops '("CONJ" "DISJ") :test #'string=)
+            (tier1-methods-trusted-p :set used-ops)))
+      (t (let* ((summary (%init-call-summary init-node))
+                (kind (and summary (fol.compiler.summaries:escape-summary-returns-kind summary))))
+           (case kind
+             (:dict (and (not (and reads-p (%reads-forbidden-p)))
+                         (subsetp chain-ops '("ASSOC" "DISSOC") :test #'string=)
+                         (tier1-methods-trusted-p :dict used-ops)))
+             (:vector (and (not (and reads-p (%reads-forbidden-p)))
+                           (subsetp chain-ops '("CONJ") :test #'string=)
+                           (tier1-methods-trusted-p :vector used-ops)))
+             (:set (and (not (and reads-p (%reads-forbidden-p)))
+                        (subsetp chain-ops '("CONJ" "DISJ") :test #'string=)
+                        (tier1-methods-trusted-p :set used-ops)))
+             (t nil)))))))
+
+(defun %init-call-name (init-node)
+  "Operator name (string) of a constructor-call INIT-NODE, or NIL. Used to
+   add the constructor to a converted region's world-guard dependencies:
+   redefining it must invalidate the region exactly as redefining ASSOC or
+   an inlined helper already does (see *INLINED-HELPERS*), since the
+   conversion is only sound for as long as the constructor keeps returning
+   a fresh root of the same kind."
+  (and (fol.compiler.ast:call-node-p init-node)
+       (let ((op (operator-symbol init-node)))
+         (and op (symbol-name op)))))
 
 (defun %reads-present-p (uses)
   "Reads seen either directly in USES or collected from nested linear
@@ -1125,14 +1291,28 @@
    the fold consumes the chained accumulator linearly, one lambda step at a
    time, and returns it -- so the whole reduce call is an :update link.
    The lambda's spine ops and reads flow into *CHAIN-OPS*/*READ-OPS* through
-   its own classification, so the init-type gate sees them."
+   its own classification, so the init-type gate sees them.
+
+   Checks whether INIT actually roots at NAME \\emph{before} validating the
+   lambda: %LINEAR-REDUCE-LAMBDA's call to REDUCE-ACC-QUALIFIED-P has the
+   side effect of recording that reduce's own spine ops via %NOTE-CHAIN-OP
+   (through a nested CLASSIFY-LOOP-PARAM call), regardless of whether this
+   reduce turns out to be NAME's own chain link. When a loop has a second
+   accumulator with an unrelated reduce-based update (e.g. two independent
+   accumulators, one a vector grown via a nested reduce, the other a dict
+   grown via direct ASSOC), classifying the dict accumulator's uses walks
+   over the vector's reduce as an unrelated \"other\" node; without this
+   ordering, that walk would validate the vector's lambda anyway and leak
+   its ops (e.g. \"CONJ\") into the dict accumulator's *CHAIN-OPS*, wrongly
+   failing its op-gate check for an op that was never actually part of its
+   own chain. Checking the cheap, side-effect-free root test first (a bare
+   symbol-ref match has none) avoids the validation, and the leak, whenever
+   the reduce doesn't belong to NAME in the first place."
   (destructuring-bind (f init coll) (fol.compiler.ast:call-node-args node)
-    (if (not (%linear-reduce-lambda f name))
-        (values nil nil)
-        (multiple-value-bind (kind others) (chain-kind init name)
-          (if (null kind)
-              (values nil nil)
-              (values :update (cons coll others)))))))
+    (multiple-value-bind (kind others) (chain-kind init name)
+      (if (or (null kind) (not (%linear-reduce-lambda f name)))
+          (values nil nil)
+          (values :update (cons coll others))))))
 
 (defun maybe-transient-reduce (node)
   "When *TRANSIENT-LOOPS* is enabled and NODE is a convertible reduce call,
@@ -1181,8 +1361,10 @@
                                (%call1 "TRANSIENT" init)
                                coll)
                    :form (fol.compiler.ast:ast-node-form node)))
-                 (union (union (union *chain-ops* *read-ops* :test #'string=)
-                               (mapcar #'string *inlined-helpers*) :test #'string=)
+                 (union (union (union (union *chain-ops* *read-ops* :test #'string=)
+                                      (mapcar #'string *inlined-helpers*) :test #'string=)
+                               (let ((n (%init-call-name init))) (and n (list n)))
+                               :test #'string=)
                         (list "REDUCE") :test #'string=))))))))
 
 ;;; --- Dynamic-extent closure client (step 5) --------------------------------
@@ -1246,8 +1428,10 @@
                        (push pname qnames)
                        (setf (aref pos-names pos) pname)
                        (setf assumptions
-                             (union (union (union *chain-ops* *read-ops* :test #'string=)
-                                           (mapcar #'string *inlined-helpers*) :test #'string=)
+                             (union (union (union (union *chain-ops* *read-ops* :test #'string=)
+                                                  (mapcar #'string *inlined-helpers*) :test #'string=)
+                                          (let ((n (%init-call-name init))) (and n (list n)))
+                                          :test #'string=)
                                     assumptions :test #'string=))))))
         (if (null qnames)
             node
@@ -1262,6 +1446,13 @@
                    ;; on initial size -- count(empty)=0 never exceeds the
                    ;; threshold, which would make the fast path unreachable for
                    ;; the most common (and most profitable) accumulation shape.
+                   ;; A constructor-call init (TRANSIENT-ELIGIBLE-INIT-P's other
+                   ;; case) falls through to NIL here, same as an empty literal:
+                   ;; its runtime size isn't known statically, so it's treated as
+                   ;; always-profitable rather than guessed at. Sound (freshness
+                   ;; and kind are still checked separately), but a constructor
+                   ;; that happens to build a large initial collection wouldn't
+                   ;; get the size guard a literal of the same size would.
                    (threshold (cond
                                 ((and (fol.compiler.ast:dict-node-p first-qinit)
                                       (fol.compiler.ast:dict-node-entries first-qinit))
@@ -1296,6 +1487,31 @@
 ;;; ============================================================================
 ;;; Tier-2 Summary Inference (step 6)
 ;;; ============================================================================
+
+(defun %infer-returns-kind (body)
+  "Best-effort collection-kind for a single-clause function's tail
+   expression: :DICT/:VECTOR/:SET when it's a collection literal or a
+   direct call to a Tier-1 DICT/VECTOR/SET constructor, else NIL. Feeds
+   INIT-SUPPORTS-P's op-gate check when TRANSIENT-ELIGIBLE-INIT-P accepts
+   a constructor-call loop init (§sec:formal's \"constructor call summarized
+   as returning an unaliased root\" clause) -- RETURNS-FRESH-P alone proves
+   the root is unaliased, not which representation it is, and picking the
+   wrong op-gate would be unsound, not merely imprecise. Callers must treat
+   NIL as \"unknown\", not \"none\", and decline conversion rather than
+   guess -- deliberately narrow (no branching, no transitive constructor
+   calls) for exactly that reason."
+  (let ((tail (car (last body))))
+    (cond
+      ((fol.compiler.ast:dict-node-p tail) :dict)
+      ((fol.compiler.ast:vector-node-p tail) :vector)
+      ((fol.compiler.ast:set-node-p tail) :set)
+      ((fol.compiler.ast:call-node-p tail)
+       (let ((op (operator-symbol tail)))
+         (and op
+              (cond ((string= (symbol-name op) "DICT") :dict)
+                    ((string= (symbol-name op) "VECTOR") :vector)
+                    ((string= (symbol-name op) "SET") :set)))))
+      (t nil))))
 
 (defun %infer-summary-single-pass (fn-node)
   "The core single-pass analysis for inferring a function's summary.
@@ -1394,6 +1610,7 @@
      :param-effects param-effects
      :rest-effect nil ; Non-recursive version doesn't handle &rest
      :returns-fresh-p returns-fresh-p
+     :returns-kind (%infer-returns-kind body)
      :barrier-p barrier-p)))
 
 
@@ -1409,24 +1626,36 @@
     (when (or (not name) (%contains-recur-p fn-node))
       (return-from infer-summary (%infer-summary-single-pass fn-node)))
 
-    (let* ((params (%param-names (car (first (fol.compiler.ast:fn-node-clauses fn-node)))))
+    (let* ((clause (first (fol.compiler.ast:fn-node-clauses fn-node)))
+           (params (%param-names (car clause)))
            (param-count (length params))
+           ;; RETURNS-KIND is a static fact about the tail form, not something
+           ;; the iteration refines -- seed it here so it's identical on every
+           ;; round. Otherwise the placeholder's NIL and the first round's
+           ;; real answer (e.g. :dict) look like a genuine GF-method conflict
+           ;; to SUMMARY-JOIN, and the join collapses a known kind to unknown.
+           (returns-kind (%infer-returns-kind (cdr clause)))
            ;; Start with the most optimistic summary: nothing escapes, returns fresh.
            (current-summary
              (fol.compiler.summaries:make-escape-summary
               :name (string name)
               :param-effects (make-array param-count :initial-element :none)
-              :returns-fresh-p t))
+              :returns-fresh-p t
+              :returns-kind returns-kind))
            (iteration-count 0)
            (max-iterations 5)) ; Safety break
 
       (loop
         (when (> (incf iteration-count) max-iterations)
           (warn "infer-summary for ~S did not converge after ~D iterations." name max-iterations)
-          ;; Return a conservative summary on failure to converge.
+          ;; Return a conservative summary on failure to converge. RETURNS-KIND
+          ;; is still reported (it's a static fact, independent of the
+          ;; non-convergent param effects), but RETURNS-FRESH-P defaults to
+          ;; NIL, so consumers checking freshness first won't act on it.
           (return (fol.compiler.summaries:make-escape-summary
                    :name (string name)
-                   :param-effects (make-array param-count :initial-element :retained))))
+                   :param-effects (make-array param-count :initial-element :retained)
+                   :returns-kind returns-kind)))
 
         ;; Temporarily place the current assumption in the cache so recursive calls find it.
         (setf (gethash name fol.compiler.summaries:*inferred-summaries*) current-summary)

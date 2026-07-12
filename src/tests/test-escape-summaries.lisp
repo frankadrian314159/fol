@@ -132,6 +132,20 @@
     (is (not (fol.compiler.summaries:escape-summary-returns-fresh-p j)))
     (is (eq t (fol.compiler.summaries:escape-summary-barrier-p j)))))
 
+(test summary-join-returns-kind-agreement-and-conflict
+  "Join keeps RETURNS-KIND only when both methods agree; a generic function
+   whose methods build different representations has an unknown kind."
+  (let* ((d1 (fol.compiler.summaries:make-escape-summary
+              :name "F" :param-effects #(:none) :returns-kind :dict))
+         (d2 (fol.compiler.summaries:make-escape-summary
+              :name "F" :param-effects #(:none) :returns-kind :dict))
+         (v (fol.compiler.summaries:make-escape-summary
+             :name "F" :param-effects #(:none) :returns-kind :vector)))
+    (is (eq :dict (fol.compiler.summaries:escape-summary-returns-kind
+                   (fol.compiler.summaries:summary-join d1 d2))))
+    (is (null (fol.compiler.summaries:escape-summary-returns-kind
+               (fol.compiler.summaries:summary-join d1 v))))))
+
 ;;; ============================================================================
 ;;; Tier-1 table lookup semantics
 ;;; ============================================================================

@@ -87,3 +87,104 @@ The printed summary reports, over all `loop`+`reduce` sites:
 The headline number for the paper is **(a) as a fraction of loop/reduce sites,
 and per KLOC**, reported per domain and overall, with the caveats above stated
 explicitly and (d) reported alongside as the suppression signal.
+
+## A second, gate-faithful pass (`classify.clj`) — for the PLDI 2027 paper
+
+`analyze.clj` above (and the (b)/(c) categories it reports) is a **syntactic-
+shape** proxy: it checks whether a loop/reduce accumulator's *init* looks
+like a map/vector/set and its *update* looks like an `assoc`/`conj` call. It
+does not check freshness, does not check that every use of the accumulator
+is sanctioned, and does not check the per-representation op-gate. The PLDI
+2027 paper ("Transients Without Tears") originally cited this proxy's (b)+(c)
+total — 34.6% of 1,442 sites — as an *upper-bound, necessary-condition*
+estimate of how often the transient-conversion pattern occurs in real code,
+with the explicit caveat that "the qualifying fraction is smaller, by an
+unmeasured amount."
+
+`classify.clj` ports the actual gates `src/escape-analysis.lisp` and
+`src/summaries.lisp` apply — chain recognition (`chain-kind`), tail-position-
+sensitive usage classification (`classify-loop-param`), per-representation
+op-gates, and the freshness rule (`transient-eligible-init-p`) — as closely
+as reader-level (non-macroexpanded) Clojure analysis allows, and reports what
+fraction of sites the *real* rules would actually accept. It is self-tested
+(`selftest/classify_selftest.clj`) against cases mirroring the paper's own
+worked examples, including a hand-check that its verdict on the paper's own
+DVI-style helper-threading example matches §7's admission that FOL itself
+does not convert that pattern.
+
+```bash
+clojure -M:classify corpus manifest.edn results-classify.edn
+```
+
+Run against the same locked corpus (29 projects, 2,905 files, manifest.lock.edn),
+this measures — not merely bounds — the qualifying fraction:
+
+| granularity | sites | qualified | vs. syntactic-shape proxy |
+|---|---|---|---|
+| per loop/reduce **form** (comparable to analyze.clj's 1,442) | 1,166 | 102 (8.75%) | proxy said 34.6% |
+| per accumulator **binding** (finer-grained) | 1,830 | 105 (5.74%) | — |
+
+The dominant disqualifying reason by far is **freshness**, not chain shape or
+op-gate mismatch (0% op-gate failures): 76–84% of syntactically map/vector/
+set-shaped accumulators fail because their init is not a literal or a known-
+fresh stdlib constructor call — they are threaded from an existing
+collection (a function parameter, a `vec`/`into`/`merge` result, a helper
+call), which the technique's freshness precondition cannot reach regardless
+of how clean the update chain is. This is a real, corpus-measured version of
+the "quicksort-swap"-style refusal the paper demonstrates by hand in §6.
+
+**Not all of that 76–84% means the same thing, though.** `init-nonfresh-reason`
+(`classify.clj`) categorizes *why* each no-fresh-init binding failed:
+
+- **`:aliased-reference`** — the init is a bare variable/parameter (exactly
+  the quicksort-swap shape). This is **structurally unfixable**: the value
+  comes from outside the loop by construction, so no amount of extending
+  *this* analysis could ever prove it fresh.
+- **`:nonfresh-stdlib-call`** / **`:helper-call`** — the init is a call FOL's
+  Tier-1 table doesn't credit as fresh (`vec`, `into`, `merge`, ...) or a
+  project-local constructor. These are **analysis gaps**: the value may well
+  *be* fresh at runtime, just not provably so by this classifier — headroom
+  for a more thorough Tier-1 table or Tier-2 inference (§`sec:tier2`), not a
+  fundamental limit.
+- **`:other`** — neither of the above; mostly non-collection scalar loop
+  counters swept up by classifying every binding in a loop form (e.g. the
+  `i` in `(loop [acc {} i 0] ...)`), noise for this question, not a failed
+  accumulation attempt.
+
+Excluding `:other` (425 of 1,537 no-fresh-init bindings, 28%) as noise, the
+remaining 1,112 genuine collection-init failures split roughly in half:
+**574 (51.6%) are truly aliased** — the real structural ceiling — and
+**538 (48.4%) are analysis gaps** (439 helper calls, 99 non-fresh stdlib
+calls). Read together: aliased-mutation code is real and irreducible, but
+it's roughly half of what freshness rules out, not the whole 76–84% — the
+other half is headroom a more capable (not fundamentally different)
+analysis could still capture.
+
+**Read this number as a lower bound, for reasons documented in
+`classify.clj`'s header, all pushing toward undercount (never overcount):**
+1. No macroexpansion (same constraint as `analyze.clj`) — `when-let`/`if-let`
+   bodies and macro-generated loops are invisible.
+2. No helper inlining — a loop threading its accumulator through a
+   project-local helper function is scored `:usage-disqualified` exactly as
+   an un-inlined FOL loop would be (§`sec:chains`'s "DVI gap"), even though
+   full FOL with helper inlining enabled might convert it.
+3. No Tier-2 (inferred-summary) freshness for user-defined 0-ary
+   constructors — only literals and stdlib constructors with a direct FOL
+   Tier-1 analogue (`hash-map`, `vector`, `hash-set`) count as fresh, so
+   `(loop [acc (make-thing) ...] ...)` is always scored `:no-fresh-init`
+   here even though FOL's Tier-2 path (§`sec:tier2`, RQ3) can convert it.
+4. Multi-arity `fn` literals, destructuring loop/reduce params, and
+   `reduce-kv`'s 3-argument callback are treated as unrecognized shapes
+   (conservatively non-qualifying), matching FOL's own `:pattern-param`/
+   shadowed-bind conservatism — this is also why the per-form site count
+   (1,166) is lower than `analyze.clj`'s 1,442: those forms are excluded
+   from the denominator entirely rather than scored `:no-fresh-init`.
+
+So the honest bracket for "how much of real Clojure code does the *actual*
+classifier accept," given this corpus: **at least 5.7–8.75%, and at most
+34.6%** (the syntactic-shape necessary condition). Both numbers are proxies
+for FOL, not measurements of it (§`analyze.clj`'s caveat 1 applies equally
+here); the FOL-specific mechanisms this port omits (helper inlining, Tier-2
+constructor freshness) are exactly the mechanisms items 2–3 above describe,
+so the true FOL-side fraction likely sits somewhat above 8.75% but well
+below 34.6%.

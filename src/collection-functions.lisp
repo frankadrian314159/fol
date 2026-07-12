@@ -2043,3 +2043,28 @@
     ((coll fol.compiler.collections:<transient-vector>))
   (zerop (fol.compiler.collection-primitives:trans-%vec-t-count
           (fol.compiler.collections:transient-vector-tv coll))))
+
+;; <SET> is HAMT-backed exactly like <DICT> (collections.lisp), so
+;; <TRANSIENT-SET> reuses the same primitives; only the read's return value
+;; differs, matching <SET>'s own persistent REF (collections.lisp): the
+;; ELEMENT itself on a hit (sets store key=element/val=T, never the raw T).
+(defmethod get ((coll fol.compiler.collections:<transient-set>) element &optional default)
+  (multiple-value-bind (val foundp)
+      (fol.compiler.collection-primitives:hamt-get-transient
+       (fol.compiler.collections:transient-set-th coll) element default)
+    (declare (ignore val))
+    (if foundp (values element t) (values default nil))))
+
+(defmethod count ((coll fol.compiler.collections:<transient-set>))
+  (fol.compiler.collection-primitives:transient-hamt-count
+   (fol.compiler.collections:transient-set-th coll)))
+
+(defmethod fol.compiler.collection-primitives:size
+    ((coll fol.compiler.collections:<transient-set>))
+  (fol.compiler.collection-primitives:transient-hamt-count
+   (fol.compiler.collections:transient-set-th coll)))
+
+(defmethod fol.compiler.collection-primitives:empty?
+    ((coll fol.compiler.collections:<transient-set>))
+  (zerop (fol.compiler.collection-primitives:transient-hamt-count
+          (fol.compiler.collections:transient-set-th coll))))

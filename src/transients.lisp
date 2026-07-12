@@ -82,8 +82,10 @@
 ;;; session (token-checked copy-on-write in collection-primitives), and
 ;;; PERSISTENT! freezes in time proportional to the nodes actually edited.
 ;;; Reads (get/nth/count/size/empty?) are supported mid-session -- see the
-;;; methods in collection-functions.lisp. Sets remain on the legacy wrapper
-;;; representation below.
+;;; methods in collection-functions.lisp. <SET> is "backed by a HAMT"
+;;; (collections.lisp) exactly like <DICT> -- the same underlying storage,
+;;; key=element/val=T -- so it gets the identical edit-tagged treatment
+;;; below, not a separate representation.
 
 (defclass <transient-dict> (standard-object)
     ((th :initarg :th :accessor transient-dict-th
@@ -95,13 +97,38 @@
          :documentation "The underlying transient-%vec-t struct."))
   (:documentation "An edit-tagged in-place transient vector."))
 
+(defclass <transient-set> (standard-object)
+    ((th :initarg :th :accessor transient-set-th
+         :documentation "The underlying transient-hamt struct (key=element,
+          val=T, exactly <SET>'s own persistent storage convention)."))
+  (:documentation "An edit-tagged in-place transient set."))
+
+(defvar *wrapper-transients* nil
+  "Ablation flag (PLDI 2027 paper, RQ5): when true, TRANSIENT on <dict>/
+   <vector>/<set> constructs the legacy wrapper representation below (O(n)
+   at both TRANSIENT and PERSISTENT!, no mid-session reads) instead of the
+   edit-tagged one, so the two boundary-cost models can be compared on
+   identical source under the identical classifier/rewriter -- the only
+   variable is which representation TRANSIENT hands back. Off by default:
+   normal builds always get edit-tagged transients for all three.")
+
 (defmethod transient ((d <dict>))
-  (make-instance '<transient-dict>
-    :th (fol.compiler.collection-primitives:api-transient-hamt (dict-storage d))))
+  (if *wrapper-transients*
+      (let ((tw (%make-transient-dict (make-hash-table :test 'equal))))
+        (fol.compiler.collection-primitives:do-hamt (k v (dict-storage d))
+          (setf (gethash k (cdr tw)) v))
+        tw)
+      (make-instance '<transient-dict>
+        :th (fol.compiler.collection-primitives:api-transient-hamt (dict-storage d)))))
 
 (defmethod transient ((v <vector>))
-  (make-instance '<transient-vector>
-    :tv (fol.compiler.collection-primitives:transient-%vec-t (storage v))))
+  (if *wrapper-transients*
+      (let* ((n (collection-size v))
+             (arr (make-array n :adjustable t :fill-pointer n)))
+        (dotimes (i n) (setf (aref arr i) (ref v i)))
+        (%make-transient-vector arr))
+      (make-instance '<transient-vector>
+        :tv (fol.compiler.collection-primitives:transient-%vec-t (storage v)))))
 
 (defmethod persistent! ((td <transient-dict>))
   (make-instance '<dict>
@@ -126,17 +153,34 @@
    (transient-vector-tv tv) val)
   tv)
 
-;;; ===========================================================================
-;;; Legacy wrapper transients (sets only)
-;;; ===========================================================================
-
 (defmethod transient ((s <set>))
-  (let ((ts (%make-transient-set (make-hash-table :test 'equal))))
-    ;; Copy existing elements from set to hash-table
-    (fol.compiler.collection-primitives:do-hamt (k v (dict-storage s))
-                                                (declare (ignore v))
-                                                (setf (gethash k (cdr ts)) t))
-    ts))
+  (if *wrapper-transients*
+      (let ((ts (%make-transient-set (make-hash-table :test 'equal))))
+        (fol.compiler.collection-primitives:do-hamt (k v (dict-storage s))
+          (declare (ignore v))
+          (setf (gethash k (cdr ts)) t))
+        ts)
+      (make-instance '<transient-set>
+        :th (fol.compiler.collection-primitives:api-transient-hamt (dict-storage s)))))
+
+(defmethod persistent! ((ts <transient-set>))
+  (make-instance '<set>
+    :dict-storage (fol.compiler.collection-primitives:hamt-persistent!
+                   (transient-set-th ts))))
+
+(defmethod conj! ((ts <transient-set>) val)
+  (fol.compiler.collection-primitives:hamt-assoc! (transient-set-th ts) val t)
+  ts)
+
+(defmethod disj! ((ts <transient-set>) val)
+  (fol.compiler.collection-primitives:hamt-dissoc! (transient-set-th ts) val)
+  ts)
+
+;;; ===========================================================================
+;;; Legacy wrapper transients (RQ5 ablation only -- fol.compiler.collections:
+;;; *wrapper-transients*; see TRANSIENT ((s <set>)) above. Never reached by
+;;; normal builds.)
+;;; ===========================================================================
 
 (defmethod persistent! ((tv cons))
   (case (car tv)

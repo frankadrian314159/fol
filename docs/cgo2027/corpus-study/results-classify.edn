@@ -1,0 +1,3172 @@
+{:generated "2026-07-12T14:16:27.261243Z",
+ :projects
+ [{:project "aws-api",
+   :domain :tools,
+   :files 71,
+   :read-errors 3,
+   :binding-verdicts
+   [{:verdict :qualified, :repr :dict}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :qualified, :repr :dict}],
+   :form-verdicts
+   [{:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? true, :reason :qualified}]}
+  {:project "clj-kondo",
+   :domain :language,
+   :files 426,
+   :read-errors 12,
+   :binding-verdicts
+   [{:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :qualified, :repr :vector}
+    {:verdict :qualified, :repr :vector}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :qualified, :repr :vector}
+    {:verdict :qualified, :repr :vector}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :qualified, :repr :vector}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :usage-disqualified}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :usage-disqualified}
+    {:verdict :usage-disqualified}
+    {:verdict :usage-disqualified}
+    {:verdict :usage-disqualified}
+    {:verdict :usage-disqualified}
+    {:verdict :qualified, :repr :vector}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :qualified, :repr :vector}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :usage-disqualified}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}],
+   :form-verdicts
+   [{:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}]}
+  {:project "clojure-lsp",
+   :domain :tools,
+   :files 220,
+   :read-errors 7,
+   :binding-verdicts
+   [{:verdict :no-fresh-init, :reason :other}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :qualified, :repr :vector}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :usage-disqualified}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :usage-disqualified}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :usage-disqualified}
+    {:verdict :usage-disqualified}],
+   :form-verdicts
+   [{:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}]}
+  {:project "compojure",
+   :domain :web,
+   :files 12,
+   :read-errors 0,
+   :binding-verdicts
+   [{:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}],
+   :form-verdicts
+   [{:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}]}
+  {:project "core.async",
+   :domain :language,
+   :files 46,
+   :read-errors 1,
+   :binding-verdicts
+   [{:verdict :no-fresh-init, :reason :other}
+    {:verdict :qualified, :repr :vector}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :qualified, :repr :vector}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :qualified, :repr :vector}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :usage-disqualified}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :qualified, :repr :vector}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :usage-disqualified}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :qualified, :repr :set}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}],
+   :form-verdicts
+   [{:qualified? true, :reason :qualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}]}
+  {:project "core.logic",
+   :domain :language,
+   :files 19,
+   :read-errors 4,
+   :binding-verdicts
+   [{:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}],
+   :form-verdicts
+   [{:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}]}
+  {:project "data.avl",
+   :domain :data-structures,
+   :files 9,
+   :read-errors 0,
+   :binding-verdicts
+   [{:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}],
+   :form-verdicts
+   [{:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}]}
+  {:project "data.priority-map",
+   :domain :data-structures,
+   :files 2,
+   :read-errors 0,
+   :binding-verdicts
+   [{:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}],
+   :form-verdicts
+   [{:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}]}
+  {:project "datascript",
+   :domain :data-structures,
+   :files 68,
+   :read-errors 2,
+   :binding-verdicts
+   [{:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :usage-disqualified}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :usage-disqualified}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :qualified, :repr :set}
+    {:verdict :qualified, :repr :set}
+    {:verdict :qualified, :repr :set}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}],
+   :form-verdicts
+   [{:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}]}
+  {:project "fastmath",
+   :domain :numeric,
+   :files 92,
+   :read-errors 6,
+   :binding-verdicts
+   [{:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :usage-disqualified}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :qualified, :repr :vector}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :usage-disqualified}],
+   :form-verdicts
+   [{:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}]}
+  {:project "geom",
+   :domain :graphics,
+   :files 120,
+   :read-errors 0,
+   :binding-verdicts
+   [{:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :qualified, :repr :vector}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :qualified, :repr :vector}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :usage-disqualified}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :qualified, :repr :vector}
+    {:verdict :usage-disqualified}
+    {:verdict :usage-disqualified}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :usage-disqualified}
+    {:verdict :usage-disqualified}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :qualified, :repr :vector}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}],
+   :form-verdicts
+   [{:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}]}
+  {:project "incanter",
+   :domain :numeric,
+   :files 102,
+   :read-errors 0,
+   :binding-verdicts
+   [{:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :qualified, :repr :vector}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :qualified, :repr :vector}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :qualified, :repr :vector}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :qualified, :repr :vector}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :usage-disqualified}],
+   :form-verdicts
+   [{:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}]}
+  {:project "malli",
+   :domain :web,
+   :files 93,
+   :read-errors 26,
+   :binding-verdicts
+   [{:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :usage-disqualified}
+    {:verdict :usage-disqualified}
+    {:verdict :usage-disqualified}
+    {:verdict :usage-disqualified}
+    {:verdict :usage-disqualified}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :usage-disqualified}
+    {:verdict :qualified, :repr :vector}],
+   :form-verdicts
+   [{:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? true, :reason :qualified}]}
+  {:project "neanderthal",
+   :domain :numeric,
+   :files 75,
+   :read-errors 0,
+   :binding-verdicts
+   [{:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}],
+   :form-verdicts
+   [{:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}]}
+  {:project "next.jdbc",
+   :domain :web,
+   :files 44,
+   :read-errors 0,
+   :binding-verdicts
+   [{:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :qualified, :repr :vector}],
+   :form-verdicts
+   [{:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}]}
+  {:project "ordered",
+   :domain :data-structures,
+   :files 10,
+   :read-errors 0,
+   :binding-verdicts
+   [{:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}],
+   :form-verdicts
+   [{:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}]}
+  {:project "overtone",
+   :domain :graphics,
+   :files 302,
+   :read-errors 2,
+   :binding-verdicts
+   [{:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :qualified, :repr :vector}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :qualified, :repr :vector}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :qualified, :repr :vector}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :qualified, :repr :vector}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :qualified, :repr :vector}
+    {:verdict :qualified, :repr :vector}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :qualified, :repr :vector}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :qualified, :repr :vector}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :qualified, :repr :vector}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :qualified, :repr :vector}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :usage-disqualified}
+    {:verdict :usage-disqualified}
+    {:verdict :qualified, :repr :vector}
+    {:verdict :qualified, :repr :vector}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :qualified, :repr :vector}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :usage-disqualified}
+    {:verdict :qualified, :repr :dict}],
+   :form-verdicts
+   [{:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? true, :reason :qualified}]}
+  {:project "pedestal",
+   :domain :web,
+   :files 246,
+   :read-errors 88,
+   :binding-verdicts
+   [{:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}],
+   :form-verdicts
+   [{:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}]}
+  {:project "play-cljc",
+   :domain :games,
+   :files 39,
+   :read-errors 12,
+   :binding-verdicts
+   [{:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}],
+   :form-verdicts
+   [{:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}]}
+  {:project "quil",
+   :domain :graphics,
+   :files 83,
+   :read-errors 1,
+   :binding-verdicts
+   [{:verdict :qualified, :repr :dict}
+    {:verdict :no-fresh-init, :reason :aliased-reference}],
+   :form-verdicts
+   [{:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-fresh-init}]}
+  {:project "reitit",
+   :domain :web,
+   :files 170,
+   :read-errors 35,
+   :binding-verdicts
+   [{:verdict :no-fresh-init, :reason :other}
+    {:verdict :usage-disqualified}
+    {:verdict :usage-disqualified}
+    {:verdict :qualified, :repr :set}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}],
+   :form-verdicts
+   [{:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}]}
+  {:project "ring",
+   :domain :web,
+   :files 81,
+   :read-errors 2,
+   :binding-verdicts
+   [{:verdict :usage-disqualified}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :qualified, :repr :dict}],
+   :form-verdicts
+   [{:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}]}
+  {:project "sci",
+   :domain :language,
+   :files 98,
+   :read-errors 12,
+   :binding-verdicts
+   [{:verdict :qualified, :repr :dict}
+    {:verdict :usage-disqualified}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :qualified, :repr :vector}
+    {:verdict :qualified, :repr :vector}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :qualified, :repr :vector}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :usage-disqualified}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}],
+   :form-verdicts
+   [{:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}]}
+  {:project "tablecloth",
+   :domain :numeric,
+   :files 55,
+   :read-errors 0,
+   :binding-verdicts
+   [{:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}],
+   :form-verdicts
+   [{:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}]}
+  {:project "tech.ml.dataset",
+   :domain :numeric,
+   :files 109,
+   :read-errors 0,
+   :binding-verdicts
+   [{:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :qualified, :repr :vector}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}],
+   :form-verdicts
+   [{:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}]}
+  {:project "tools.analyzer",
+   :domain :language,
+   :files 22,
+   :read-errors 0,
+   :binding-verdicts
+   [{:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :qualified, :repr :set}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :qualified, :repr :vector}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :qualified, :repr :vector}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}],
+   :form-verdicts
+   [{:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}]}
+  {:project "tools.cli",
+   :domain :tools,
+   :files 3,
+   :read-errors 0,
+   :binding-verdicts
+   [{:verdict :usage-disqualified}
+    {:verdict :usage-disqualified}
+    {:verdict :usage-disqualified}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}],
+   :form-verdicts
+   [{:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}]}
+  {:project "tools.reader",
+   :domain :language,
+   :files 25,
+   :read-errors 0,
+   :binding-verdicts
+   [{:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :usage-disqualified}],
+   :form-verdicts
+   [{:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}]}
+  {:project "xtdb",
+   :domain :web,
+   :files 263,
+   :read-errors 58,
+   :binding-verdicts
+   [{:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :usage-disqualified}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :qualified, :repr :vector}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :nonfresh-stdlib-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :usage-disqualified}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :qualified, :repr :dict}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :aliased-reference}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :helper-call}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :other}
+    {:verdict :usage-disqualified}
+    {:verdict :no-fresh-init, :reason :helper-call}],
+   :form-verdicts
+   [{:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-fresh-init}]}]}

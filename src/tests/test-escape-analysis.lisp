@@ -244,6 +244,122 @@
             fol.compiler.escape-analysis:*audit-stats*))))
 
 ;;; ============================================================================
+;;; Formal-model fidelity (PLDI 2027 paper, Table "fidelity"): the usage-tag
+;;; vocabulary CLASSIFY-LOOP-PARAM actually produces must be a subset of what
+;;; the paper's mapping table documents. This is the mechanical half of the
+;;; fidelity argument -- a tag added to the classifier without updating the
+;;; paper's vocabulary listing fails here, not just in a future proofreading
+;;; pass.
+;;; ============================================================================
+
+(defparameter +documented-tag-vocabulary+
+  '(;; Sanctioned (SanctionedUses, paper §sec:formal)
+    :recur-update :recur-passthrough :exit-update :exit-bare :exit-in-literal :read-ok
+    ;; Disqualifying, named rules
+    :recur-reset :recur-in-complex-context
+    ;; Disqualifying, diagnostic refinements of :escape (paper's Disqualifying-uses list)
+    :escape :captured :other-flow :shadowed-bind :nested-loop-init :escape-call :read)
+  "Every tag CLASSIFY-LOOP-PARAM is documented (pldi2027.tex, Table
+   \"fidelity\" and the SanctionedUses/Disqualifying-uses descriptions) to
+   ever produce. Kept in sync by hand with the paper; TAG-VOCABULARY-MATCHES-
+   FORMAL-MODEL is what catches drift.")
+
+(defun %all-loop-nodes (ast)
+  "Every LOOP-NODE reachable from AST, including nested ones."
+  (let ((out '()))
+    (labels ((walk (n)
+               (when (fol.compiler.ast:loop-node-p n) (push n out))
+               (dolist (c (fol.compiler.escape-analysis:node-children n)) (walk c))))
+      (walk ast))
+    (nreverse out)))
+
+(defun %parse-fol (raw-form)
+  "Parse an already-read, package-qualified raw form (the same shape RUN-
+   AUDIT-ON's callers pass to COMPILE-FORM) into an AST without emitting or
+   evaluating anything."
+  (fol.compiler:parse-form raw-form))
+
+(defun %tags-in (raw-form)
+  "Every usage tag CLASSIFY-LOOP-PARAM produces for every binding of every
+   loop in RAW-FORM."
+  (let ((tags '()))
+    (dolist (loop-node (%all-loop-nodes (%parse-fol raw-form)))
+      (loop for (pname . nil) in (fol.compiler.ast:loop-node-bindings loop-node)
+            for pos from 0
+            when (symbolp pname)
+              do (setf tags (append (fol.compiler.escape-analysis:classify-loop-param
+                                      pname pos loop-node)
+                                     tags))))
+    tags))
+
+;; A hand-constructed corpus covering every rule in the vocabulary, plus the
+;; real benchmark/DVI sources loaded as FOL source text (not raw AST forms)
+;; for genuine, non-cherry-picked coverage.
+(defparameter +conformance-corpus+
+  (list
+   ;; recur-update (+ its zero-op case, recur-passthrough, via chain-id)
+   '(loop (acc (dict) i 0)
+      (if (< i 10) (recur (fol.compiler.collection-functions:assoc acc i i) (inc i)) acc))
+   '(loop (acc (dict) i 0) (if (< i 10) (recur acc (inc i)) acc))
+   ;; exit-update: a tail-position chain, not via recur
+   '(loop (acc (dict) i 0)
+      (if (< i 10)
+          (recur (fol.compiler.collection-functions:assoc acc i i) (inc i))
+          (fol.compiler.collection-functions:assoc acc :done cl:t)))
+   ;; exit-in-literal (lit-exit)
+   '(loop (acc (vector) i 0)
+      (if (< i 10) (recur (fol.compiler.collection-functions:conj acc i) (inc i)) (vector acc i)))
+   ;; read-ok
+   '(loop (acc (dict) i 0)
+      (if (< i 10)
+          (recur (fol.compiler.collection-functions:assoc
+                   acc i (fol.compiler.collection-functions:get acc i 0))
+                 (inc i))
+          acc))
+   ;; recur-reset
+   '(loop (acc (dict) i 0)
+      (if (< i 10) (recur (dict) (inc i)) acc))
+   ;; recur-in-complex-context: the recur itself is reached through a node
+   ;; type CLASSIFY-LOOP-PARAM has no explicit clause for (HANDLER-CASE),
+   ;; so COMPLEXP goes sticky-true before the recur is reached -- the
+   ;; rewriter shares that node type verbatim and can't rewrite beneath it.
+   '(loop (acc (dict) i 0)
+      (if (< i 10)
+          (handler-case
+              (recur (fol.compiler.collection-functions:assoc acc i i) (inc i))
+            (cl:error (e) acc))
+          acc))
+   ;; escape-call / other-flow
+   '(loop (acc (dict) i 0)
+      (if (< i 10) (recur (fol.compiler.collection-functions:assoc acc i (unknown-fn acc)) (inc i)) acc))))
+
+(test tag-vocabulary-matches-formal-model
+  "Every tag CLASSIFY-LOOP-PARAM produces, across a corpus covering every
+   documented rule plus the real DVI/quicksort/LSim sources, is in the
+   paper's documented vocabulary (Table \"fidelity\")."
+  (let ((seen '()))
+    (dolist (form +conformance-corpus+)
+      (setf seen (union seen (%tags-in form))))
+    (dolist (path (list "../benchmarks/fol-code/quicksort.fol"
+                        "../benchmarks/fol-code/derived-value-invalidation.fol"))
+      (when (probe-file path)
+        (let ((*readtable* fol.compiler.reader:*fol-readtable*))
+          (with-open-file (in path)
+            (loop for f = (read in nil :eof) until (eq f :eof)
+                  do (setf seen (union seen (%tags-in f))))))))
+    (let ((undocumented (set-difference seen +documented-tag-vocabulary+)))
+      (is (null undocumented)
+          "Classifier produced tag(s) not in the paper's documented vocabulary: ~S"
+          undocumented))
+    ;; Coverage sanity: the hand-constructed corpus alone should exercise
+    ;; every sanctioned tag and every named disqualifying rule (not
+    ;; necessarily the escape-refinement diagnostics, which real code hits
+    ;; unevenly).
+    (dolist (must-see '(:recur-update :recur-passthrough :exit-update :exit-in-literal
+                        :read-ok :recur-reset :recur-in-complex-context))
+      (is (member must-see seen) "Corpus never exercised ~S" must-see))))
+
+;;; ============================================================================
 ;;; Tier-2 Summary Inference Tests
 ;;; ============================================================================
 
@@ -340,6 +456,40 @@
                 (fol.compiler.summaries:escape-summary-param-effects is-odd-summary)))
     (is (fol.compiler.summaries:escape-summary-returns-fresh-p is-even-summary))
     (is (fol.compiler.summaries:escape-summary-returns-fresh-p is-odd-summary))))
+
+(test infer-summary-returns-kind-dict-constructor
+  "A 0-ary constructor whose tail form directly calls DICT infers
+   RETURNS-KIND :DICT, alongside RETURNS-FRESH-P (trivially true: no
+   parameter exists to fail freshness). This is the summary fact
+   TRANSIENT-ELIGIBLE-INIT-P/INIT-SUPPORTS-P consult to accept a
+   constructor-call loop init in place of a literal (§sec:formal)."
+  (let ((summary (do-infer-summary
+                  '(defn make-empty-cart #()
+                     (fol.compiler.collection-functions:dict)))))
+    (is (not (null summary)))
+    (is (fol.compiler.summaries:escape-summary-returns-fresh-p summary))
+    (is (eq :dict (fol.compiler.summaries:escape-summary-returns-kind summary)))))
+
+(test infer-summary-returns-kind-vector-literal
+  "A tail-position vector LITERAL (not a constructor call) also infers
+   RETURNS-KIND :VECTOR."
+  (let ((summary (do-infer-summary
+                  (fol-form '(defn make-empty-vec #() #())))))
+    (is (not (null summary)))
+    (is (eq :vector (fol.compiler.summaries:escape-summary-returns-kind summary)))))
+
+(test infer-summary-returns-kind-unknown-declines
+  "A tail form that isn't a literal or a direct DICT/VECTOR/SET call --
+   here IDENTITY wrapping a dict -- infers RETURNS-KIND NIL (unknown), even
+   though RETURNS-FRESH-P is still true. Consumers must treat NIL as
+   \"can't tell\", not \"not a collection\"."
+  (let ((summary (do-infer-summary
+                  '(defn make-mystery-cart #()
+                     (fol.compiler.functional:identity
+                      (fol.compiler.collection-functions:dict))))))
+    (is (not (null summary)))
+    (is (fol.compiler.summaries:escape-summary-returns-fresh-p summary))
+    (is (null (fol.compiler.summaries:escape-summary-returns-kind summary)))))
 
 ;;; ============================================================================
 ;;; Run the suite

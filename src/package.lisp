@@ -80,6 +80,7 @@
    escape-summary-param-effects
    escape-summary-rest-effect
    escape-summary-returns-fresh-p
+   escape-summary-returns-kind
    escape-summary-barrier-p
    ;; Effect lattice
    +effect-order+
@@ -577,8 +578,10 @@
    collection-metadata
    ;; Transient protocol
    transient persistent! conj! pop! assoc! dissoc! disj!
-   <transient-dict> <transient-vector> transient-dict-th transient-vector-tv
-   transfer-ownership!))
+   <transient-dict> <transient-vector> <transient-set>
+   transient-dict-th transient-vector-tv transient-set-th
+   transfer-ownership!
+   *wrapper-transients*))
 
 (defpackage fol.compiler.string-functions
   (:use cl)

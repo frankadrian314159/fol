@@ -6,4 +6,6 @@
   ;; clojure -M:analyze <corpus-dir> [manifest.edn] [out.edn]
   :analyze {:main-opts ["-m" "asr-corpus.analyze"]}
   ;; clojure -M:hits <corpus-dir> [project ...] -- print source of strong hits
-  :hits    {:main-opts ["-m" "asr-corpus.hits"]}}}
+  :hits    {:main-opts ["-m" "asr-corpus.hits"]}
+  ;; clojure -M:classify <corpus-dir> [manifest.edn] [out.edn]
+  :classify {:main-opts ["-m" "asr-corpus.classify"]}}}

@@ -18,6 +18,14 @@
     (let ((result (fol.compiler:compile-form form)))
       (eval (fol.compiler:compilation-result-code result)))))
 
+(defun compile-eval-fol-source (src &key transient)
+  "Compile+eval FOL SOURCE TEXT (as opposed to a raw AST-shaped form), with
+   *package* bound to :fol.core so stdlib name resolution (§sec:nameres)
+   works the way it does for real FOL programs and benchmarks."
+  (let ((fol.compiler.escape-analysis:*transient-loops* transient)
+        (*package* (find-package :fol.core)))
+    (eval (fol.compiler:compilation-result-code (fol.compiler:compile-string src)))))
+
 (defun conversion-counts ()
   (list fol.compiler.escape-analysis:*loops-converted*
         fol.compiler.escape-analysis:*params-converted*
@@ -144,8 +152,10 @@
                 always (eql (fol.compiler.collection-functions:get plain i)
                             (fol.compiler.collection-functions:get opt i)))))))
 
-(test transient-set-still-converts-via-wrapper
-  "Set-init accumulator with conj chain converts on the legacy wrapper"
+(test transient-set-write-only-converts
+  "Set-init accumulator with a write-only conj chain converts (edit-tagged
+   by default, PLDI 2027 weakness-6 fix: <set> is HAMT-backed exactly like
+   <dict>, so it gets the same treatment, not a separate representation)."
   (let ((form '(loop (acc (set) i 0)
                  (if (cl:< i 6)
                      (recur (fol.compiler.collection-functions:conj acc i)
@@ -156,9 +166,12 @@
           (opt (compile-eval-fol form :transient t)))
       (is (= (+ before 1) fol.compiler.escape-analysis:*loops-converted*))
       (is (= (fol.compiler.collections:collection-size plain)
-             (fol.compiler.collections:collection-size opt)))))
-  ;; ...but a set accumulator that is READ does not convert (wrapper has no
-  ;; read methods).
+             (fol.compiler.collections:collection-size opt))))))
+
+(test transient-set-with-reads-converts
+  "A set accumulator that is READ (via COUNT) now converts too, since sets
+   are edit-tagged by default -- this used to be refused when sets were
+   wrapper-only (no mid-session reads)."
   (let ((form '(loop (acc (set) i 0)
                  (if (cl:< i 6)
                      (recur (if (cl:evenp (fol.compiler.collection-functions:count acc))
@@ -169,9 +182,37 @@
         (before fol.compiler.escape-analysis:*loops-converted*))
     (let ((plain (compile-eval-fol form))
           (opt (compile-eval-fol form :transient t)))
-      (is (= before fol.compiler.escape-analysis:*loops-converted*))
+      (is (= (+ before 1) fol.compiler.escape-analysis:*loops-converted*))
       (is (= (fol.compiler.collections:collection-size plain)
              (fol.compiler.collections:collection-size opt))))))
+
+(test transient-set-wrapper-ablation-forbids-reads
+  "Under the RQ5 wrapper-transients ablation flag, a read-containing set
+   loop is refused, matching wrapper's structural read limitation -- the
+   op-gate check this flag exists to exercise. Write-only set loops still
+   convert under the flag, using the legacy wrapper representation."
+  (let ((fol.compiler.collections:*wrapper-transients* t))
+    (let ((form '(loop (acc (set) i 0)
+                   (if (cl:< i 6)
+                       (recur (if (cl:evenp (fol.compiler.collection-functions:count acc))
+                                  (fol.compiler.collection-functions:conj acc i)
+                                  acc)
+                              (cl:+ i 1))
+                       acc)))
+          (before fol.compiler.escape-analysis:*loops-converted*))
+      (compile-eval-fol form :transient t)
+      (is (= before fol.compiler.escape-analysis:*loops-converted*)))
+    (let ((form '(loop (acc (set) i 0)
+                   (if (cl:< i 6)
+                       (recur (fol.compiler.collection-functions:conj acc i)
+                              (cl:+ i 1))
+                       acc)))
+          (before fol.compiler.escape-analysis:*loops-converted*))
+      (let ((plain (compile-eval-fol form))
+            (opt (compile-eval-fol form :transient t)))
+        (is (= (+ before 1) fol.compiler.escape-analysis:*loops-converted*))
+        (is (= (fol.compiler.collections:collection-size plain)
+               (fol.compiler.collections:collection-size opt)))))))
 
 ;;; ============================================================================
 ;;; Edit-tagged ownership soundness (step 3.5)
@@ -213,6 +254,35 @@
       (is (loop for i below 100
                 always (eql i (fol.compiler.collection-functions:get p2 i)))))))
 
+(test transient-source-preservation-set
+  "Set transient conj!/disj! across tail boundaries preserves the source
+   (PLDI 2027 weakness-6 fix: <set> is HAMT-backed like <dict>, so it gets
+   the identical edit-tagged treatment and the same source-preservation
+   guarantee, not the wrapper-only behavior an earlier draft described)."
+  (let* ((p (fol.compiler.collection-functions:set 1 2 3))
+         (ts (fol.compiler.collections:transient p)))
+    (fol.compiler.collections:conj! ts 4)
+    (fol.compiler.collections:conj! ts 5)
+    (fol.compiler.collections:disj! ts 2)
+    ;; mid-session reads
+    (is (= 4 (fol.compiler.collection-functions:count ts)))
+    (is (eql 4 (fol.compiler.collection-functions:get ts 4 :absent)))
+    (is (eql :absent (fol.compiler.collection-functions:get ts 2 :absent)))
+    (let ((p2 (fol.compiler.collections:persistent! ts)))
+      ;; source untouched
+      (is (eql 2 (fol.compiler.collection-functions:get p 2 :absent)))
+      (is (eql :absent (fol.compiler.collection-functions:get p 4 :absent)))
+      (is (= 3 (fol.compiler.collections:collection-size p)))
+      ;; result correct
+      (is (= 4 (fol.compiler.collections:collection-size p2)))
+      (is (eql :absent (fol.compiler.collection-functions:get p2 2 :absent)))
+      (is (eql 5 (fol.compiler.collection-functions:get p2 5 :absent)))
+      ;; second generation: freezing really froze the edited nodes
+      (let ((ts2 (fol.compiler.collections:transient p2)))
+        (fol.compiler.collections:disj! ts2 4)
+        (fol.compiler.collections:persistent! ts2)
+        (is (eql 4 (fol.compiler.collection-functions:get p2 4 :absent)))))))
+
 (test transient-loop-reset-not-converted
   "A recur that resets the accumulator to a fresh value is not converted"
   (let ((form '(loop (acc (dict) i 0)
@@ -238,6 +308,120 @@
                                     (cl:+ i 1))
                              acc)))
     (is (equal before (conversion-counts)))))
+
+;;; ============================================================================
+;;; Tier-1 method-combination trust (A1's gap: a :before/:after/:around
+;;; method on an assumed name, predating any region's registration, cannot
+;;; be caught by NOTE-REDEFINITION -- there is no redefinition event for a
+;;; not-yet-registered dependent to observe). TIER1-METHODS-TRUSTED-P
+;;; (escape-analysis.lisp) closes it via MOP introspection at conversion
+;;; time. Reproduces the exact scenario found during review: a pre-existing
+;;; :around method's side effect was previously silently dropped by the
+;;; bang-op fast path.
+;;; ============================================================================
+
+(test transient-loop-refuses-when-tier1-op-customized
+  "A pre-existing :around method on ASSOC for <dict> blocks conversion, and
+   the persistent (unconverted) path correctly still runs it."
+  (let ((log nil))
+    (defmethod fol.compiler.collection-functions:assoc :around
+        ((d fol.compiler.collections:<dict>) key val &rest kvs)
+      (declare (ignore kvs))
+      (push (cons key val) log)
+      (call-next-method))
+    (unwind-protect
+        (let ((form '(loop (acc (dict) i 0)
+                       (if (cl:< i 5)
+                           (recur (fol.compiler.collection-functions:assoc acc i i)
+                                  (cl:+ i 1))
+                           acc)))
+              (before fol.compiler.escape-analysis:*loops-converted*))
+          (let ((opt (compile-eval-fol form :transient t)))
+            ;; Not converted: the counter must not move.
+            (is (= before fol.compiler.escape-analysis:*loops-converted*))
+            ;; The :around method's side effect ran exactly 5 times -- proof
+            ;; the persistent (not bang) path executed, not merely that the
+            ;; counter didn't move for some unrelated reason.
+            (is (= 5 (length log)))
+            (is (= 5 (fol.compiler.collections:collection-size opt)))))
+      (remove-method #'fol.compiler.collection-functions:assoc
+                      (find-method #'fol.compiler.collection-functions:assoc
+                                   '(:around)
+                                   (list (find-class 'fol.compiler.collections:<dict>) t t)
+                                   nil)))))
+
+(test transient-loop-unaffected-by-method-on-other-representation
+  "A customized ASSOC method on <vector>'s representation must not block a
+   <dict> accumulator's conversion -- the check is representation-specific,
+   not a blanket refusal whenever ASSOC has any :around method anywhere."
+  (defclass tc-unrelated-marker () ())
+  (defmethod fol.compiler.collection-functions:assoc :around
+      ((d tc-unrelated-marker) key val &rest kvs)
+    (declare (ignore kvs))
+    (call-next-method))
+  (unwind-protect
+      (let ((form '(loop (acc (dict) i 0)
+                     (if (cl:< i 5)
+                         (recur (fol.compiler.collection-functions:assoc acc i i)
+                                (cl:+ i 1))
+                         acc)))
+            (before fol.compiler.escape-analysis:*loops-converted*))
+        (compile-eval-fol form :transient t)
+        (is (= (1+ before) fol.compiler.escape-analysis:*loops-converted*)))
+    (remove-method #'fol.compiler.collection-functions:assoc
+                    (find-method #'fol.compiler.collection-functions:assoc
+                                 '(:around)
+                                 (list (find-class 'tc-unrelated-marker) t t)
+                                 nil))))
+
+;;; ============================================================================
+;;; RQ5 wrapper-transient ablation (fol.compiler.collections:*wrapper-transients*)
+;;; ============================================================================
+
+(test wrapper-ablation-write-only-still-converts
+  "Under the RQ5 ablation flag, a write-only dict loop still converts, using
+   the legacy wrapper representation instead of edit-tagged, and produces
+   the same result as the persistent baseline."
+  (let ((fol.compiler.collections:*wrapper-transients* t)
+        (form '(loop (acc (dict) i 0)
+                (if (cl:< i 20)
+                    (recur (fol.compiler.collection-functions:assoc acc i i)
+                           (cl:+ i 1))
+                    acc))))
+    (let ((before fol.compiler.escape-analysis:*loops-converted*)
+          (opt (compile-eval-fol form :transient t)))
+      (is (= (1+ before) fol.compiler.escape-analysis:*loops-converted*))
+      (is (= 20 (fol.compiler.collections:collection-size opt)))
+      (is (loop for i below 20
+                always (eql i (fol.compiler.collection-functions:get opt i)))))))
+
+(test wrapper-ablation-read-containing-not-converted
+  "Under the RQ5 ablation flag, a read-containing dict loop is refused --
+   wrapper transients (unlike edit-tagged) forbid mid-session reads."
+  (let ((fol.compiler.collections:*wrapper-transients* t)
+        (form '(loop (acc (dict) i 0)
+                (if (cl:< i 5)
+                    (recur (fol.compiler.collection-functions:assoc
+                            acc i (fol.compiler.collection-functions:get acc i 0))
+                           (cl:+ i 1))
+                    acc)))
+        (before fol.compiler.escape-analysis:*loops-converted*))
+    (compile-eval-fol form :transient t)
+    (is (= before fol.compiler.escape-analysis:*loops-converted*))))
+
+(test wrapper-ablation-flag-off-uses-edit-tagged
+  "With the ablation flag off (the default), the same read-containing loop
+   converts normally via the edit-tagged representation."
+  (let ((form '(loop (acc (dict) i 0)
+                (if (cl:< i 5)
+                    (recur (fol.compiler.collection-functions:assoc
+                            acc i (fol.compiler.collection-functions:get acc i 0))
+                           (cl:+ i 1))
+                    acc)))
+        (before fol.compiler.escape-analysis:*loops-converted*))
+    (is (not fol.compiler.collections:*wrapper-transients*))
+    (compile-eval-fol form :transient t)
+    (is (= (1+ before) fol.compiler.escape-analysis:*loops-converted*))))
 
 ;;; ============================================================================
 ;;; Reduce accumulator conversion
@@ -465,6 +649,32 @@
     (is (= 1 (getf (fol.compiler.world:world-stats) :redefinitions-noted)))
     (is (= 1 (getf (fol.compiler.world:world-stats) :regions-invalidated)))))
 
+(test world-defmethod-emits-redefinition-note
+  "In optimizer mode, compiling+evaluating a defmethod notifies the world --
+   mirrors world-defn-emits-redefinition-note above, but for 'a generic
+   function gains a new method' (§sec:soundness), the invalidation trigger
+   RQ8's existing evidence didn't exercise (Threats to Validity: 'no
+   benchmark executes a defmethod against a name a converted region
+   depends on'). Uses a fresh class/generic-function name, not ASSOC
+   itself: ASSOC is shared by every other test in this suite, and unlike a
+   dynamic-variable rebinding, a real CLOS method addition outlives the
+   test's dynamic extent, so touching it here would leak into later tests."
+  (fol.compiler.world:reset-world)
+  (fol.compiler.world:register-region '("MY-WORLD-TEST-METHOD-FN"))
+  (compile-eval-fol-source
+   "(defclass <world-test-class> [] [[v :initform 0]])"
+   :transient t)
+  (let ((code (let ((fol.compiler.escape-analysis:*transient-loops* t)
+                     (*package* (find-package :fol.core)))
+                (fol.compiler:compilation-result-code
+                 (fol.compiler:compile-string
+                  "(defmethod my-world-test-method-fn [(x <world-test-class>) y] y)")))))
+    ;; The note fires at eval/load time, not compile time.
+    (is (= 0 (getf (fol.compiler.world:world-stats) :redefinitions-noted)))
+    (let ((*package* (find-package :fol.core))) (eval code))
+    (is (= 1 (getf (fol.compiler.world:world-stats) :redefinitions-noted)))
+    (is (= 1 (getf (fol.compiler.world:world-stats) :regions-invalidated)))))
+
 (test world-flag-off-defn-shape-unchanged
   "Outside optimizer mode, defn output has no world wrapper"
   (let ((code (fol.compiler:compilation-result-code
@@ -662,6 +872,163 @@
       (let* ((result (fol.compiler:compile-form loop-form))
              (code-str (write-to-string (fol.compiler:compilation-result-code result))))
         (is (null (search "TRANSIENT" code-str :test #'string-equal)))))))
+
+;;; ============================================================================
+;;; Tier-2-summarized constructor-call loop inits (§sec:formal's "constructor
+;;; call summarized as returning an unaliased root" clause)
+;;; ============================================================================
+
+(test transient-loop-tier2-fresh-constructor-init
+  "A loop initialized from a user-defined 0-ary constructor call, not a
+   literal: TRANSIENT-ELIGIBLE-INIT-P previously required a literal
+   ([..]/{..}/#{..}) init, so (loop [acc (tc-make-empty-cart) i 0] ...) was
+   never eligible for conversion regardless of how clean its update chain
+   was. Tier-2 inference gives TC-MAKE-EMPTY-CART a RETURNS-FRESH-P summary
+   (it has no parameters, so no parameter effect can ever fail freshness)
+   and a RETURNS-KIND of :DICT (its tail form is a direct DICT call), both
+   of which TRANSIENT-ELIGIBLE-INIT-P/INIT-SUPPORTS-P now consult -- the
+   loop converts.
+
+   Both forms are COMPILED before either is EVALUATED, mirroring a real
+   compile-file/load: the world-guard's NOTE-REDEFINITION (called by the
+   emitted code for any defn, including its very first definition) clears
+   the constructor's Tier-2 cache entry as soon as its code runs, since a
+   redefinition and a first definition look identical to that mechanism.
+   In a real file, every form compiles before any of them load, so this
+   never matters; interleaving compile-form with an immediate EVAL (as
+   other tests in this file do, harmlessly, since they don't depend on
+   *INFERRED-SUMMARIES*) would clear the summary before the loop's
+   compilation ever consulted it."
+  (let ((ctor-form (fol-form '(defn tc-make-empty-cart #()
+                                (fol.compiler.collection-functions:dict))))
+        (loop-form '(loop (acc (tc-make-empty-cart) i 0)
+                      (if (< i 20)
+                          (recur (fol.compiler.collection-functions:assoc acc i i) (+ i 1))
+                          acc))))
+    (let ((fol.compiler.escape-analysis:*transient-loops* nil))
+      (eval (fol.compiler:compilation-result-code (fol.compiler:compile-form ctor-form))))
+    (let ((plain (eval (fol.compiler:compilation-result-code (fol.compiler:compile-form loop-form)))))
+      (let* ((fol.compiler.escape-analysis:*transient-loops* t)
+             ;; Compile BOTH forms (Tier-2 inference caches the constructor's
+             ;; summary as a side effect of compiling it) before evaluating
+             ;; either.
+             (ctor-result (fol.compiler:compile-form ctor-form))
+             (loop-result (fol.compiler:compile-form loop-form))
+             (code-str (write-to-string (fol.compiler:compilation-result-code loop-result))))
+        (eval (fol.compiler:compilation-result-code ctor-result))
+        (let ((opt (eval (fol.compiler:compilation-result-code loop-result))))
+          ;; The loop DOES convert -- proof the constructor's summary was
+          ;; consulted, not conservatively rejected as an unknown init.
+          (is (search "TRANSIENT" code-str :test #'string-equal))
+          (is (typep opt 'fol.compiler.collections:<dict>))
+          (is (= (fol.compiler.collections:collection-size plain)
+                 (fol.compiler.collections:collection-size opt)))
+          (is (loop for i below 20
+                    always (eql (fol.compiler.collection-functions:get plain i)
+                                (fol.compiler.collection-functions:get opt i))))
+          ;; The world-guard depends on the constructor's own name: redefining
+          ;; tc-make-empty-cart to return something aliased (or a different
+          ;; kind) must be able to invalidate this region.
+          (is (search "TC-MAKE-EMPTY-CART" code-str :test #'string-equal)))))))
+
+(test transient-loop-fresh-constructor-summary-absent-not-converted
+  "The SAME loop shape, but with the constructor's inferred summary absent
+   when the loop is compiled: without Tier-2, TRANSIENT-ELIGIBLE-INIT-P sees
+   a bare call node with no known freshness, so the init isn't eligible and
+   the loop must NOT convert. Isolates Tier-2's causal contribution -- same
+   source, only the summary's presence differs.
+
+   Two independent ways the summary ends up absent, both exercised here: (1)
+   EVALuating the constructor's compiled code (rather than just compiling
+   it) runs NOTE-REDEFINITION, which clears any inferred summary for that
+   name -- a first definition looks identical to a redefinition to that
+   mechanism, so the natural compile+eval order used elsewhere in this file
+   already clears it; (2) CLEAR-INFERRED-SUMMARY makes that outcome
+   explicit and deterministic regardless of (1)."
+  (let ((ctor-form (fol-form '(defn tc-make-empty-cart-2 #()
+                                (fol.compiler.collection-functions:dict))))
+        (loop-form '(loop (acc (tc-make-empty-cart-2) i 0)
+                      (if (< i 20)
+                          (recur (fol.compiler.collection-functions:assoc acc i i) (+ i 1))
+                          acc))))
+    (let ((fol.compiler.escape-analysis:*transient-loops* t))
+      (eval (fol.compiler:compilation-result-code (fol.compiler:compile-form ctor-form)))
+      (fol.compiler.summaries:clear-inferred-summary
+       (find-symbol "TC-MAKE-EMPTY-CART-2" :fol.compiler.tests))
+      (let* ((result (fol.compiler:compile-form loop-form))
+             (code-str (write-to-string (fol.compiler:compilation-result-code result))))
+        (is (null (search "TRANSIENT" code-str :test #'string-equal)))))))
+
+(test transient-loop-fresh-constructor-unknown-kind-not-converted
+  "A constructor proven RETURNS-FRESH-P but whose RETURNS-KIND is unknown
+   (its tail form is a call to something other than a direct DICT/VECTOR/SET
+   constructor -- here IDENTITY wrapping a dict) must NOT be treated as
+   eligible: INIT-SUPPORTS-P has no way to pick the right op-gate, and
+   guessing would be unsound, not merely imprecise. The loop must NOT
+   convert, confirming the analysis declines rather than guesses.
+
+   Both forms are compiled before either is evaluated (see
+   TRANSIENT-LOOP-TIER2-FRESH-CONSTRUCTOR-INIT's docstring): otherwise
+   evaluating the constructor would clear its summary via
+   NOTE-REDEFINITION before the loop compiles, and this test would pass
+   for the wrong reason -- no summary at all, rather than a summary with
+   freshness proven but kind unknown."
+  (let ((ctor-form (fol-form '(defn tc-make-mystery-cart #()
+                                (fol.compiler.functional:identity
+                                 (fol.compiler.collection-functions:dict)))))
+        (loop-form '(loop (acc (tc-make-mystery-cart) i 0)
+                      (if (< i 20)
+                          (recur (fol.compiler.collection-functions:assoc acc i i) (+ i 1))
+                          acc))))
+    (let ((fol.compiler.escape-analysis:*transient-loops* t))
+      (let* ((ctor-result (fol.compiler:compile-form ctor-form))
+             (loop-result (fol.compiler:compile-form loop-form))
+             (code-str (write-to-string (fol.compiler:compilation-result-code loop-result))))
+        (eval (fol.compiler:compilation-result-code ctor-result))
+        (is (null (search "TRANSIENT" code-str :test #'string-equal)))))))
+
+;;; ============================================================================
+;;; Independent accumulators, one via a nested reduce (chain-ops leak)
+;;; ============================================================================
+
+(test transient-loop-independent-accumulators-one-via-nested-reduce
+  "Two independent accumulators in one loop -- a vector QUEUE grown through a
+   nested reduce placed directly in the recur position, and a dict RANKS
+   grown by a plain direct assoc -- must both convert.
+
+   Regression test for a bug in REDUCE-CHAIN-KIND: classifying RANKS's uses
+   walks over QUEUE's reduce as an unrelated node; validating that reduce's
+   lambda (%LINEAR-REDUCE-LAMBDA's call to REDUCE-ACC-QUALIFIED-P) has the
+   side effect of recording its spine op (CONJ) via %NOTE-CHAIN-OP, and
+   this used to happen unconditionally -- before confirming the reduce's
+   init actually roots at RANKS, the accumulator currently being classified.
+   That leaked CONJ into RANKS's *CHAIN-OPS*, and INIT-SUPPORTS-P rejects a
+   dict whose chain-ops include an op outside {ASSOC, DISSOC}, so RANKS
+   never qualified even though its own chain (an ASSOC) was clean. Checking
+   whether the reduce's init roots at the name being classified before
+   validating the lambda (§sec:discussion's corrected DVI paragraph turns on
+   this same kind of ordering) avoids the leak."
+  (let ((src "(defn tc-indep-accs [] (loop [queue [0] ranks {} i 0]
+                (if (< i (count queue))
+                  (bind [node (get queue i)
+                         kids (get {0 [1 2] 1 [] 2 []} node [])]
+                    (recur (reduce (fn [acc k] (conj acc k)) queue kids)
+                           (assoc ranks node i)
+                           (inc i)))
+                  ranks)))"))
+    (let ((before (conversion-counts)))
+      (compile-eval-fol-source src)
+      (let* ((plain-result (funcall (fdefinition (find-symbol "TC-INDEP-ACCS" :fol.core))))
+             (opt (progn (compile-eval-fol-source src :transient t)
+                         (funcall (fdefinition (find-symbol "TC-INDEP-ACCS" :fol.core))))))
+        (is (= (fol.compiler.collections:collection-size plain-result)
+               (fol.compiler.collections:collection-size opt)))
+        (is (loop for k below 3
+                  always (eql (fol.compiler.collection-functions:get plain-result k)
+                              (fol.compiler.collection-functions:get opt k))))
+        ;; One loop, two params converted (queue AND ranks), not one.
+        (is (equal (list (+ (first before) 1) (+ (second before) 2) (third before))
+                   (conversion-counts)))))))
 
 ;;; ============================================================================
 ;;; Run the suite

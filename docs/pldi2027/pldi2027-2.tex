@@ -1,0 +1,627 @@
+%%
+%% PLDI 2027 submission for "Transients Without Tears" -- condensed version.
+%%
+\documentclass[sigplan,review,anonymous]{acmart}
+
+\usepackage{listings}
+\usepackage{booktabs}
+\usepackage{seqsplit}
+\usepackage{mathpartir}
+\usepackage{tabularx}
+
+\lstset{
+  language=Lisp,
+  basicstyle=\small\ttfamily,
+  breaklines=true,
+  frame=single,
+  numbers=left,
+  numberstyle=\tiny,
+  keywordstyle=\color{blue},
+  commentstyle=\color{green!40!black},
+  stringstyle=\color{red},
+  showstringspaces=false,
+  breakatwhitespace=true
+}
+
+\setlength{\emergencystretch}{3em}
+
+\AtBeginDocument{%
+  \providecommand\BibTeX{{%
+    \normalfont B\kern-0.5em{\scshape i\kern-0.25em b}\kern-0.8em\TeX}}}
+
+\setcopyright{acmlicensed}
+\copyrightyear{2027}
+\acmYear{2027}
+\acmDOI{XXXXXXX.XXXXXXX}
+
+\acmConference[PLDI '27]{Proceedings of the 48th ACM SIGPLAN Conference on Programming Language Design and Implementation}{June 2027}{Somewhere, USA}
+\acmBooktitle{Proceedings of the 48th ACM SIGPLAN Conference on Programming Language Design and Implementation (PLDI '27), June 2027, Somewhere, USA}
+\acmPrice{15.00}
+\acmISBN{978-1-4503-XXXX-X/27/06}
+
+\title[Transients Without Tears]{Transients Without Tears: Automatic In-Place Conversion of Persistent Updates}
+
+\author{Anonymous Author(s)}
+\affiliation{%
+  \institution{Anonymous Institution}
+  \city{Anonymous City}
+  \country{Anonymous Country}
+}
+\email{anonymous@example.com}
+
+\renewcommand{\shortauthors}{Anonymous Author(s)}
+
+\begin{abstract}
+Persistent-first languages pay a large allocation tax on accumulation loops. Languages like Koka eliminate it with ownership types (Perceus/FBIP); Clojure asks the programmer to opt in manually with transients. We show the optimization can be made \emph{automatic and sound} in a latently-typed language with open-world CLOS dispatch and live redefinition---with no type system---via (1) a tail-position-sensitive \emph{usage classification} that establishes uniqueness-at-death of loop and fold accumulators, (2) a rewriter aligned with the classifier \emph{by construction}, targeting edit-tagged in-place transients, and (3) \emph{world-guarded regions} that keep the optimization sound when definitions change at runtime. On large accumulation-bound loops, conversion delivers 3.4--4.3$\times$ wall-time and 8.7--11$\times$ allocation improvements, closing 72--79\% of the gap to handwritten mutable Common Lisp; whole programs see 1.6--3.5$\times$, small-N accumulations a modest but real 1.3$\times$. A real-representation ablation---exercising an actual alternative implementation, not a simulated cost model---shows wrapper-style transients match ours on write-only workloads at every scale, losing only where they structurally cannot compete: read-heavy accumulation, which they cannot serve at all. We report negative results with the same rigor as positive ones: a nontrivial event simulator produces byte-identical output but \emph{regresses} under conversion, a measured instance of our own cost model's small-N caveat rather than a soundness issue, and the technique costs nothing when disabled or inapplicable.
+\end{abstract}
+
+\begin{CCSXML}
+<ccs2012>
+   <concept>
+       <concept_id>10011007.10011006.10011008</concept_id>
+       <concept_desc>Software and its engineering~General programming languages</concept_desc>
+       <concept_significance>300</concept_significance>
+       </concept>
+   <concept>
+       <concept_id>10011007.10011006.10011041.10011045</concept_id>
+       <concept_desc>Software and its engineering~Dynamic compilers</concept_desc>
+       <concept_significance>500</concept_significance>
+       </concept>
+   <concept>
+       <concept_id>10003752.10003753.10003757</concept_id>
+       <concept_desc>Theory of computation~Program analysis</concept_desc>
+       <concept_significance>500</concept_significance>
+       </concept>
+   <concept>
+       <concept_id>10011007.10010940.10010941.10010942.10010943</concept_id>
+       <concept_desc>Software and its engineering~Compilers</concept_desc>
+       <concept_significance>500</concept_significance>
+       </concept>
+   <concept>
+       <concept_id>10002944.10011122.10011123</concept_id>
+       <concept_desc>General and reference~Performance</concept_desc>
+       <concept_significance>500</concept_significance>
+       </concept>
+ </ccs2012>
+\end{CCSXML}
+
+\ccsdesc[500]{Software and its engineering~Compilers}
+\ccsdesc[500]{Software and its engineering~Dynamic compilers}
+\ccsdesc[500]{Theory of computation~Program analysis}
+\ccsdesc[500]{General and reference~Performance}
+
+\keywords{persistent data structures, compilers, optimization, escape analysis, dynamic languages, lisp}
+
+\begin{document}
+\maketitle
+
+\section{Introduction}
+
+Persistent data structures offer immutability and thread-safety at a "persistence tax": every update allocates a new version from the root, turning accumulation loops into excessive allocation and GC pressure.
+
+In FOL, the cost is stark: simple accumulation loops run up to 114× slower than handwritten, mutable Common Lisp (55× more memory), worse for loops threading an accumulator through user-defined helpers---our Derived Value Invalidation (DVI) benchmark: 20× slower, \textbf{900×} higher in memory, from O(N\textsuperscript{2}) GC pressure. This paper presents a sound, automatic optimization eliminating the tax for a large class of \emph{intraprocedural} accumulation loops, using interprocedural DVI as an unsolved boundary condition delineating scope and motivating future work.
+
+The pattern suffering this tax: the accumulation loop, common to \texttt{loop/recur} and \texttt{reduce}:
+
+\begin{lstlisting}
+;; Loop-based accumulation
+(loop [acc {}]
+  ...
+  (recur (assoc acc k v)))
+
+;; Fold-based accumulation
+(reduce (fn [acc x] (conj acc ...))
+        [] coll)
+\end{lstlisting}
+
+Each iteration's \texttt{assoc} or \texttt{conj} call allocates a new map or vector, discarding the old: if the old \texttt{acc} produces only the new \texttt{acc}---unique at its point of death---the update can happen in-place.
+
+Existing solutions don't transfer to FOL. Perceus/FBIP \cite{reinking2021perceus} and its relatives \cite{lorenzen2023functional} rely on ownership and uniqueness types, absent here. Clojure \cite{hickey2009clojure} offers a manual, unsafe escape hatch---\texttt{transient} structures and \texttt{assoc!}-style updates---where misuse corrupts data. FOL also supports live redefinition, so an optimized loop's assumptions may be invalidated \emph{mid-run}.
+
+We present a fully automatic, sound system converting persistent accumulation loops to in-place transients. Contributions:
+
+\begin{enumerate}
+    \item \textbf{Uniqueness-at-death by usage classification.} A flow- and tail-position-sensitive classification of accumulator uses establishing in-place convertibility---without ownership or linear types---including \texttt{->} threads, if-branches, and \emph{reduce init-threading}.
+    \item \textbf{Alignment-by-construction between analysis and transformation.} The classifier refuses anything the rewriter can't reach or that changes representation mid-loop; per-representation \emph{op gates} are classification-time, not runtime, so converted code never hits an unsupported operation.
+    \item \textbf{Name-resolution-faithful, two-tier summaries.} Tier-1 matches operators exactly as the compiler resolves them (by name)---no less sound than the language's own resolution model. Tier-2 extends coverage to user functions via a bounded fixed point, invalidated on redefinition (§\ref{sec:tier2}).
+    \item \textbf{Soundness under live redefinition without world-age infrastructure.} Converted regions compile to guarded dual paths; validity cells register at load time; definitions notify at execution time, invalidating dependents---and, closing a gap on the \emph{other} side of that mechanism, a compile-time check on the live method table catches a hazard no redefinition event can (§\ref{sec:formal}): a \texttt{:before}/\texttt{:after}/\texttt{:around} method already present on an assumed name before any region depends on it, which a bang-op path would otherwise silently skip.
+    \item \textbf{An honest cost model} quantifying when conversion pays, backed by a \emph{real-representation} ablation rather than a simulated one: wrapper transients match our edit-tagged design on write-only workloads at every scale, and lose only where they structurally cannot compete---read-heavy accumulation. Validated on DVI (§\ref{sec:discussion}) and an end-to-end system bounded by factors this technique doesn't address.
+\end{enumerate}
+
+Our contribution is not a new escape analysis but assembling name-resolution-faithful summaries and world-guards into automatic, sound transient conversion for a \emph{dynamic, open-world, JIT-less} language---distinct from static-language (closed-world, typed) and JIT-based approaches (infrastructure FOL lacks). §\ref{sec:eval} reports 3.4--4.3× wall-time and 8.7--11× allocation on large accumulation-bound microbenchmarks, closing 72--79\% of the gap to handwritten CL; 1.6--3.5× on whole programs, with the inconvertible quicksort style correctly refused; and a nontrivial event simulator that regresses under conversion, an honest instance of the cost model's own small-N caveat rather than a soundness issue.
+
+\section{Background and a Motivating Walk-through}
+\label{sec:background}
+
+\textbf{Terms at a glance.} \emph{Uniqueness-at-death}: no alias to an accumulator's value survives past its use, the property licensing in-place mutation. \emph{Chain/spine}: a syntactic sequence of update operations threaded onto an accumulator; the spine is the set of operator names in it. \emph{Tier-1/Tier-2}: the hand-verified stdlib summary table, vs.\ inferred summaries for user functions. \emph{Op gate}: the per-representation table of which spine operators a transient supports. \emph{Edit-tagged}: our transient design---trie nodes carry a per-session ownership token, enabling O(1)/O(32) writes and mid-session reads. \emph{World guard}: the runtime validity-cell mechanism keeping conversion sound under live redefinition. Each is defined again in full where first used below.
+
+\textbf{FOL in one column.} FOL is a Lisp-1 transpiled to Common Lisp, with persistent data structures: vectors are 32-way tries; dictionaries are Hash Array Mapped Tries (HAMTs) \cite{bagwell2001ideal}. \texttt{(loop [bindings] ... (recur new-vals))} gives tail-call-optimized looping; \texttt{->} threads an expression through forms; \texttt{reduce} folds a function over an accumulator and successive items. The compiler resolves standard-library calls by name at emit time---load-bearing for our analysis (§\ref{sec:nameres}).
+
+\textbf{Worked Example.} \texttt{lh-pop-batch}, from LSim, builds a priority queue via \texttt{conj}.
+
+\begin{lstlisting}
+(defn lh-pop-batch [q n]
+  (loop [acc [] i 0]
+    (if (< i n)
+      (let [[v new-q] (pop q)]
+        (recur (conj acc v) (inc i)))
+      [acc q]))) ; Exit with acc in a literal
+\end{lstlisting}
+Each \texttt{conj} call creates a new persistent vector, copying the root path. Our analysis identifies \texttt{acc} as a candidate: fresh (\texttt{[]}), never escaping, used in the \texttt{recur} call and exit literal (sanctioned). The compiler emits a dual-path version:
+\begin{lstlisting}
+(defn lh-pop-batch [q n]
+  (if (is-valid? *lh-pop-batch-region-1*)
+    (loop [acc-t (transient []) i 0]      ; Fast path
+      (if (< i n)
+        (let [[v new-q] (pop q)]
+          (recur (conj! acc-t v) (inc i)))
+        [(persistent! acc-t) q]))
+    (loop [acc [] i 0] ...)))             ; Slow/fallback path
+\end{lstlisting}
+The fast path uses \texttt{transient}/\texttt{conj!}/\texttt{persistent!} for O(1) conversion, guarded by \texttt{is-valid?}---redefining \texttt{conj} triggers the fallback.
+
+\textbf{Clojure Transient Recap.} Clojure's transients give a mutable, in-place view over a collection, but reads are problematic: a read might miss an update. "Wrapper" transients forbid reads; "edit-tagged" ones (ours) support reads too (§\ref{sec:edittagged}), suiting read-heavy algorithms like folds.
+
+\section{The Analysis}
+\label{sec:analysis}
+
+We aim to prove \emph{uniqueness-at-death}: each iteration's accumulator value produces only the next iteration's value, and the final value shares identity with nothing else live---stronger than escape analysis, which only asks whether a value \emph{may} escape. An object is \emph{unique at death} if: (1) \textbf{Freshness}---the initial value is fresh, unaliased; (2) \textbf{No-aliasing}---no new aliases outlive the iteration; (3) \textbf{Last-use}---the \texttt{recur}/\texttt{reduce} update is the value's final use in the iteration. If these hold, mutation is safe.
+
+\subsection{Tier-1 Summaries: The Effect Lattice}
+\label{sec:tier1}
+
+Tier-1 summaries cover the standard library, classifying each function's effect on its arguments over a lattice \texttt{:none} $<$ \texttt{:invoked} $<$ \texttt{:shared-with-result} $<$ \texttt{:retained} (unused; called-not-retained; may appear in the result; escapes to a persistent location, a disqualifier). We hand-verified \textasciitilde75 core-function summaries. The key insight, \textbf{root-level convention}: persistent operations like \texttt{assoc}/\texttt{conj} return a fresh root that may reference unchanged children. Since our protocol is copy-on-write and never mutates elements, this holds for all clients, including transients.
+
+\subsection{Name-Resolution Faithfulness}
+\label{sec:nameres}
+
+A summary for \texttt{assoc} is useless if shadowable: \texttt{fol.core} exports nothing, so a user's \texttt{assoc} may be local or another library's---resolved via a lookup list (\texttt{+standard-fol-functions+}) unless shadowed. Our analysis mirrors this, consulting the Tier-1 table only for identically-resolved names, with per-compilation-unit exclusions.
+
+\begin{lemma}[Name-Resolution Faithfulness]
+\label{lem:nameres}
+Any program for which the analysis misjudges a function's effect is a program where the compiler itself would have resolved the name to the same, wrong function. The analysis is no less sound than the language's own resolution model.
+\end{lemma}
+\begin{proof}
+The emitter and the analysis gate on the same predicate: a name $n$ resolves to the standard library iff $n$ appears in \texttt{+standard-fol-functions+} and isn't locally excluded. Hence any summary applied to the wrong function was resolved to that same wrong function by the emitter too---the divergence lies in the program's shadowing, not the analysis.
+\end{proof}
+
+\subsection{Tier-2: Inferred Summaries for User Functions}
+\label{sec:tier2}
+
+Accumulators thread through user-defined helpers, e.g.\ \texttt{(recur (add-item acc x) ...)}; without a summary, the analysis must treat the call as \texttt{:retained}. Tier-2 closes this \emph{knowledge} gap by inferring summaries for user functions over the same lattice---but not the \emph{update-chain} gap (§\ref{sec:discussion}, RQ3). A second path isn't gated on this: the Qualification Rule's "constructor call returning an unaliased root" clause (§\ref{sec:formal}) accepts a loop initializer that's a call, not only a literal, whenever the callee's summary proves \texttt{:returns-fresh-p} with a known result kind---Tier-2 alone converts loops a literal-only check would reject.
+
+Compiling a definition walks its body once, joining an effect per parameter; calls to not-yet-summarized functions (including recursion) iterate to a fixed point, converging since the lattice is finite and joins monotone, with a bound guarding pathologies. Inferred summaries inherit name-resolution faithfulness; redefinition both flips dependent validity cells and evicts the redefined name's inferred summary.
+
+\subsection{The Classifier}
+
+FOL macros expand during parsing, so the classifier sees exactly the code that runs---aliasing hidden in a macro expansion needs no separate handling. It walks the loop body assigning each accumulator appearance a usage kind: tail position propagates through \texttt{if}/\texttt{do}/\texttt{let}/\texttt{case}/\texttt{cond}; an accumulator inside a tail-position literal is a sanctioned exit; a \texttt{recur}-argument accumulator is \texttt{:recur-update} if part of a sanctioned chain; argument position~0 of a whitelisted read-only function is \texttt{:read-ok} (a map-lookup \emph{key} disqualifies, since mutation would violate value semantics). Disqualifiers include \texttt{:recur\_reset} (reset to a value not derived from the old one, requiring a mid-loop representation change) and \texttt{:recur\_in\_complex\_context} (the \texttt{recur} is reached through an AST node type the classifier shares no clause with the rewriter for, e.g.\ inside \texttt{handler-case}---an if-branched chain, \texttt{(recur (if p (assoc acc k v) acc) ...)}, is \emph{not} this case: §\ref{sec:formal}'s \textsc{chain-if} plus \textsc{chain-id} accept it directly).
+
+\subsection{Chains}
+\label{sec:chains}
+
+Update chains thread the accumulator linearly; the classifier recognizes direct calls (\texttt{(assoc acc k v)}), \texttt{->} threads, if-branched chains (both branches valid), and \emph{reduce init-threading}: \texttt{(reduce f init coll)} is a chain link when \texttt{init} chains on the outer accumulator and \texttt{f} qualifies under fold rules. \textbf{Helper inlining}: a call \texttt{(helper acc k)}, where \texttt{helper} is a previously-compiled, single-clause function whose body is itself a chain rooted at its accumulator-position parameter, is substituted and re-classified, so \texttt{(recur (add-item acc x) ...)} converts as if inlined. A parameter referenced more than once inlines when the actual argument is cheap to duplicate (a bare variable or literal); the helper's name becomes a world-guard dependency. Inlining only fires where the classifier already looks for a chain---a recur argument or the loop's tail position (§\ref{sec:discussion} discusses this limit).
+
+\subsection{Formal Core}
+\label{sec:formal}
+
+The lemma and theorem below are hand-checked, not machine-mechanized. The analysis works over a judgment $\Gamma; \Sigma \vdash e \Downarrow U$: in context $\Gamma = (\tau, acc)$, $\tau \in \{\mathsf{Tail}, \mathsf{NonTail}\}$ tracks whether $e$'s value flows to the loop's exit; $e$ has usage set $U$ given operator summaries $\Sigma$. $\Gamma_{\mathsf{NT}}$ forces $\tau$ to $\mathsf{NonTail}$. Figure~\ref{fig:side-conditions} gives inductive definitions for the side-condition predicates $\mathrm{Chain}$, $\mathrm{RefersTo}$, $\mathrm{OpGate}$; $\mathrm{Chain}$ is syntactic pattern recognition deriving the \emph{spine} of update operations, $\mathrm{OpGate}$ the one representation-specific, semantic check. \texttt{let}/\texttt{case}/\texttt{cond} desugar like \textsc{if}/\textsc{do} (omitted for space). Rules are tried in order (Figure~\ref{fig:formal-rules}); \textsc{none}/\textsc{escape} are fallbacks, making the judgment total and deterministic.
+
+\begin{figure*}[t]
+\begin{mathpar}\footnotesize
+\inferrule*[Right=refers-hit]
+ { }
+ { \mathrm{RefersTo}(acc, acc) }
+
+\inferrule*[Right=refers-app]
+ { \exists i.\ \mathrm{RefersTo}(e_i, acc) }
+ { \mathrm{RefersTo}((f~e_1 \ldots e_n), acc) }
+\\
+\inferrule*[Right=chain-id]
+ { }
+ { \mathrm{Chain}(acc, acc, \emptyset) }
+\\
+\inferrule*[Right=chain-op]
+ { e_0 \in \{acc\} \cup \{e_0 : \mathrm{Chain}(e_0, acc, S_0)\} \\ \neg\,\mathrm{RefersTo}(a_i, acc) \ (i > 1) }
+ { \mathrm{Chain}((op~e_0~a_2 \ldots a_n),\ acc,\ \{op\} \cup S_0) }
+\\
+\inferrule*[Right=chain-if]
+ { \neg\,\mathrm{RefersTo}(e_t, acc) \\ \mathrm{Chain}(e_c, acc, S_c) \\ \mathrm{Chain}(e_a, acc, S_a) }
+ { \mathrm{Chain}((\text{if}~e_t~e_c~e_a),\ acc,\ S_c \cup S_a) }
+\\
+\inferrule*[Right=chain-reduce]
+ { e_0 \in \{acc\} \cup \{e_0 : \mathrm{Chain}(e_0, acc, S_0)\} \\ \mathrm{Chain}(\mathrm{body}(f), \mathrm{param}(f), S_f) \\ \neg\,\mathrm{RefersTo}(\mathrm{body}(f), acc) \text{ except via } \mathrm{param}(f) }
+ { \mathrm{Chain}((\text{reduce}~f~e_0~\mathit{coll}),\ acc,\ S_0 \cup S_f) }
+
+\inferrule*[Right=chain-inline]
+ { \mathit{helper} \text{ previously-compiled, single-clause, param } p \text{ at } acc\text{'s call-site position} \\ \mathrm{Chain}(\mathrm{body}(\mathit{helper}), p, S) \\ \text{other actuals free of } acc \text{ or cheap to duplicate} }
+ { \mathrm{Chain}((\mathit{helper} \ldots acc \ldots),\ acc,\ S) }
+\end{mathpar}
+\caption{Side-condition predicates. $\mathrm{Chain}$ is 3-place, additionally deriving the spine $S$; $\mathrm{Chain}(e', acc)$ abbreviates $\exists S.\ \mathrm{Chain}(e', acc, S)$. \textsc{chain-id} is the base case, making $\mathrm{Chain}(acc, acc, \emptyset)$ derivable---without it \textsc{recur-update} could never fire on a bare passthrough recur (\texttt{(recur acc (inc i))}); the implementation's \texttt{:recur-passthrough} tag is this degenerate instance. $\mathrm{OpGate}(e', acc) \iff \mathrm{Chain}(e', acc, S)$ for some $S \subseteq \mathrm{Gate}(\mathrm{repr}(acc))$ and $\mathrm{Trusted}(\mathrm{repr}(acc), S)$, where $\mathrm{repr}(acc) \in \{\mathrm{Dict}, \mathrm{Vector}, \mathrm{Set}\}$ is fixed at $acc$'s initializer and $\mathrm{Gate}$ is tabulated in §\ref{sec:opgates}. $\mathrm{Trusted}(r, S) \iff$ no operator in $S$ has a non-primary-qualified (\texttt{:before}/\texttt{:after}/\texttt{:around}) method applicable to $r$'s class, checked via MOP introspection on the live generic function at conversion time---the one predicate here that is not purely syntactic, since the hazard it guards is ambient state (§\ref{sec:formal}, Trusted assumptions).}
+\label{fig:side-conditions}
+\end{figure*}
+
+\begin{figure*}[t]
+\begin{mathpar}\footnotesize
+\inferrule*[Right=lit-exit]
+ { \Gamma.\tau = \mathsf{Tail} \\ acc \in \mathrm{elements}(v) \\ \Gamma_{\mathsf{NT}}; \Sigma \vdash e_j \Downarrow U_j \ (e_j \in \mathrm{elements}(v),\, e_j \neq acc) }
+ { \Gamma; \Sigma \vdash v \Downarrow \{\texttt{:exit-in-literal}\} \cup \bigcup_j U_j }
+
+\inferrule*[Right=var-exit]
+ { \Gamma.\tau = \mathsf{Tail} }
+ { \Gamma; \Sigma \vdash acc \Downarrow \{\texttt{:exit-bare}\} }
+
+\inferrule*[Right=read]
+ { \Sigma(f) = \text{read-only} \\ e_1 = acc \\ \Gamma_{\mathsf{NT}}; \Sigma \vdash e_i \Downarrow U_i \ (i>1) }
+ { \Gamma; \Sigma \vdash (f~e_1 \dots e_n) \Downarrow \{\texttt{:read-ok}\} \cup \bigcup_{i>1} U_i }
+
+\inferrule*[Right=recur-update]
+ { e' \text{ is } acc\text{'s recur-slot argument} \\ \mathrm{Chain}(e', acc) \\ \mathrm{OpGate}(e', acc) \\ \Gamma_{\mathsf{NT}}; \Sigma \vdash e_i \Downarrow U_i \ (i \neq acc\text{'s slot}) }
+ { \Gamma; \Sigma \vdash (\texttt{recur} \ldots e' \ldots) \Downarrow \{\texttt{:recur-update}\} \cup \bigcup_i U_i }
+
+\inferrule*[Right=recur-reset]
+ { e' \text{ is } acc\text{'s recur-slot argument} \\ \neg\,\mathrm{RefersTo}(e', acc) \\ \Gamma_{\mathsf{NT}}; \Sigma \vdash e_i \Downarrow U_i \ (i \neq acc\text{'s slot}) }
+ { \Gamma; \Sigma \vdash (\texttt{recur} \ldots e' \ldots) \Downarrow \{\texttt{:recur-reset}\} \cup \bigcup_i U_i }
+
+\inferrule*[Right=recur-complex]
+ { \begin{array}{c} e' \text{ is } acc\text{'s recur-slot argument} \cr \mathrm{RefersTo}(e', acc) \quad \neg\,(\mathrm{Chain}(e', acc) \wedge \mathrm{OpGate}(e', acc)) \quad \Gamma_{\mathsf{NT}}; \Sigma \vdash e_i \Downarrow U_i \ (i \neq acc\text{'s slot}) \end{array} }
+ { \Gamma; \Sigma \vdash (\texttt{recur} \ldots e' \ldots) \Downarrow \{\texttt{:recur-in-complex-context}\} \cup \bigcup_i U_i }
+
+\inferrule*[Right=exit-update]
+ { \Gamma.\tau = \mathsf{Tail} \\ \mathrm{Chain}(e, acc) \\ \mathrm{OpGate}(e, acc) }
+ { \Gamma; \Sigma \vdash e \Downarrow \{\texttt{:exit-update}\} }
+
+\inferrule*[Right=if]
+ { \Gamma_{\mathsf{NT}}; \Sigma \vdash e_t \Downarrow U_t \\ \Gamma; \Sigma \vdash e_c \Downarrow U_c \\ \Gamma; \Sigma \vdash e_a \Downarrow U_a }
+ { \Gamma; \Sigma \vdash (\text{if}~e_t~e_c~e_a) \Downarrow U_t \cup U_c \cup U_a }
+
+\inferrule*[Right=do]
+ { \Gamma_{\mathsf{NT}}; \Sigma \vdash e_i \Downarrow U_i \ (i<n) \\ \Gamma; \Sigma \vdash e_n \Downarrow U_n }
+ { \Gamma; \Sigma \vdash (\text{do}~e_1 \ldots e_n) \Downarrow \bigcup_{i \le n} U_i }
+
+\inferrule*[Right=none]
+ { \neg\,\mathrm{RefersTo}(e, acc) }
+ { \Gamma; \Sigma \vdash e \Downarrow \emptyset }
+
+\inferrule*[Right=escape]
+ { \text{no rule above applies to } e }
+ { \Gamma; \Sigma \vdash e \Downarrow \{\texttt{:escape}\} }
+\end{mathpar}
+\caption{Inference rules for the usage judgment (§\ref{sec:formal}). \textsc{read}/\textsc{recur} are the only rules inspecting a specific argument position; $acc$ occurring anywhere else falls through to \textsc{escape}.}
+\label{fig:formal-rules}
+\end{figure*}
+
+\emph{Use vocabulary.} \textbf{Sanctioned}: \texttt{:recur-update} (chain result flows to $acc$'s \texttt{recur} position; the zero-op case is tagged \texttt{:recur-passthrough} for diagnostics, licensed by \textsc{chain-id}); \texttt{:exit-update} (the chain is itself in tail position, not via \texttt{recur}---a \texttt{reduce} callback's body, or word-count's own qualification, §\ref{sec:eval}); \texttt{:exit-bare}; \texttt{:exit-in-literal}; \texttt{:read-ok}. \textbf{Disqualifying}: \texttt{:recur-reset}; \texttt{:recur-in-complex-context} (an absent op-gate operation also lands here, e.g.\ \texttt{assoc} on a vector); \texttt{:escape} (an unsummarized call argument, closure capture, storage outside a sanctioned exit, or a map key/set element---the implementation further labels several diagnostic sub-cases for the audit report, §\ref{sec:implementation}).
+
+\emph{Qualification Rule:}
+\[
+\frac{\Gamma \vdash \text{init fresh} \quad \forall u \in \text{uses}(\text{body}, acc),\ u \in \text{SanctionedUses}}{\text{Qualifies}(\texttt{loop [acc init] body})}
+\]
+where \emph{init fresh} holds when the initializer is a collection literal or a constructor summarized as returning an unaliased root, and $\mathrm{uses}(\mathrm{body}, acc)$ is the judgment above with $\Gamma_0.\tau = \mathsf{Tail}$.
+
+\textbf{Trusted assumptions.} \textbf{(A1) Summary soundness:} each Tier-1 summary correctly bounds its argument effects (\textasciitilde75 hand-verified, package-lock-protected entries; Tier-2 inherits this via §\ref{sec:tier2}'s monotone inference). A summary describes only a generic function's \emph{primary} method; CLOS permits \texttt{:before}/\texttt{:after}/\texttt{:around} methods specialized on a particular representation, injecting behavior the summary says nothing about, invisible to \texttt{ASSOC!}. §\ref{sec:soundness}'s redefinition guard catches such a method added \emph{after} a region depends on the name, but not one already present beforehand---no redefinition event exists for a not-yet-registered dependent to observe. $\mathrm{Trusted}$ (Figure~\ref{fig:side-conditions}) closes this: before accepting a conversion, \textsc{recur-update}'s $\mathrm{OpGate}$ premise requires, via MOP introspection on the live generic function, that the resolved representation have no non-primary-qualified method on any assumed name---the one point where a formally "syntactic" side condition must consult mutable ambient state. \textbf{(A2) Transient-protocol correctness:} each \texttt{op!} on an unaliased collection is observationally equivalent to \texttt{op} plus discarding the input, and \texttt{persistent!}$\circ$\texttt{transient} is the identity---each live transient region mints a globally-unique token, so \texttt{ensure-editable}'s copy-on-mismatch rule never lets two live regions mutate the same interior node; Lemma~\ref{lem:classifier} supplies root uniqueness, A2 extends it to interior nodes. \textbf{(A3) Resolution faithfulness:} Lemma~\ref{lem:nameres}.
+
+\begin{lemma}[Classifier Soundness]
+\label{lem:classifier}
+Assume A1 and A3. If \emph{Qualifies}(\texttt{loop [acc init] body}), then at each \texttt{recur} the current accumulator value is referenced only by the loop binding, and at each exit the escaping value is referenced only by the exit expression.
+\end{lemma}
+\emph{Proof sketch.} Induction on iterations, invariant: the loop binding is the accumulator's sole live reference. Base case is the freshness premise. A \texttt{:read-ok} use passes $acc$ to an operation whose summary (A1, A3) guarantees the argument is neither retained nor shared with the result. A \texttt{:recur-update}/\texttt{:exit-update} consumes $acc$ in a chain whose every link returns a fresh root without retaining its input; the invariant re-establishes on the chain's result (trivially for the zero-op case). Exits terminate the loop, transferring the sole reference to the exit expression. Qualification excludes disqualifying uses and the vocabulary is exhaustive, so no alias-creating use exists. $\square$ A non-local exit mid-chain doesn't threaten the invariant: any handler observing the transient would need a use outside \emph{SanctionedUses}, which qualification already excludes; an unwound loop simply abandons its transient.
+
+\begin{theorem}[Soundness of Conversion]
+\label{thm:sound}
+Assume A1--A3. If \emph{Qualifies}(\texttt{loop [acc init] body}), replacing persistent operations on \texttt{acc} with their transient counterparts and inserting \texttt{persistent!} at all exits yields a program observationally equivalent to the original.
+\end{theorem}
+
+The proof is a bisimulation (Appendix~\ref{app:proof}): Lemma~\ref{lem:classifier} supplies the uniqueness invariant, A2 the per-step equivalence. $\mathrm{OpGate}$ guarantees "their transient counterparts" is well-defined for every \emph{Qualifies}-accepted occurrence, so the replacement is total, not merely where available.
+
+\section{The Transformation and the Transient Representation}
+\label{sec:transformation}
+
+\textbf{The Rewriter.} Once qualified: the binding is wrapped in \texttt{(transient ...)}; each \texttt{recur} update becomes its "bang" equivalent; every exit is wrapped in \texttt{(persistent! ...)}; in \texttt{:reduce} mode the transient threads through without per-iteration \texttt{persistent!} boundaries. It preserves sharing for unmodified subtrees.
+
+\subsection{Per-representation Op Gates}
+\label{sec:opgates}
+Not all persistent collections have full-featured transients. Op gates check the accumulator's operations against its type's allowed set before converting: \textbf{Dicts} \texttt{\{assoc!, dissoc!\}} + reads; \textbf{Vectors} \texttt{\{conj!\}} + reads; \textbf{Sets} \texttt{\{conj!, disj!\}} + reads---\texttt{<set>} is HAMT-backed exactly like \texttt{<dict>}, not a separate representation, so it gets the identical edit-tagged treatment. An unsupported operation is never classified \texttt{:recur-update}; it falls to \texttt{:recur-in-complex-context}, by construction of $\mathrm{OpGate}$ (§\ref{sec:formal}), so converted code never hits an unsupported operation.
+
+\subsection{Edit-tagged Transients}
+\label{sec:edittagged}
+Inspired by Clojure. \textbf{HAMT (dicts/sets):} trie nodes carry an "edit" token; a write's \texttt{ensure-editable} checks the tag---a match updates in-place, otherwise the node is copied, tagged, mutated; \texttt{persistent!} freezes by clearing the token. \textbf{Vectors:} an owned, mutable tail array; \texttt{conj!} appends to it, and overflow allocates a new tail via HAMT copy-on-write, giving O(1) appends at O(32) boundary-crossing cost. \textbf{Transient-aware reads:} a persistent lookup would silently misread an edited transient, skipping copied-on-write nodes; our reads (\texttt{get}, \texttt{count}, etc.) dispatch to transient-aware primitives.
+
+\textbf{Dynamic-extent closures.} A literal \texttt{fn} passed to a verified non-retaining higher-order function (\texttt{map}, \texttt{reduce}) can be stack-allocated; world-guarded, since redefining \texttt{map} as retaining would leave a dangling pointer.
+
+\section{Soundness under Live Redefinition}
+\label{sec:soundness}
+\textbf{Threat Model.} A converted loop assumes Tier-1 summaries hold. A subsequent runtime definition---\texttt{(defn assoc [c k v] (log! c) ...)} or \texttt{(defmethod assoc :around ...)}---invalidates this.
+
+\textbf{Mechanism.} The compiler emits dual paths. At load time, each converted region calls \texttt{register-region}, returning a validity cell, and registers as dependent on every assumed name. Definitions for names like \texttt{assoc} are wrapped with \texttt{note-redefinition}, flipping dependent cells to invalid---firing whether a name is redefined outright or a generic function gains a new method, both treated conservatively since a definition's execution point can't distinguish them. The fast path checks the cell once at entry.
+
+\textbf{Visibility.} The guard gives \emph{entry-level} consistency: a region entered while valid runs to completion under entry-fixed definitions, becoming visible to a redefinition only at its next entry---Julia's world-age rule \cite{belyakova2020jit}. The invalidation write is monotonic, so a racing entry observes old or new validity, never torn. Under either outcome the region can't crash or corrupt state: the accumulator is touched only through compiler-owned transient operations. FOL is single-threaded, so no separate synchronization is needed for the mutation itself; were it not, uniqueness-at-death already rules out a second live reference from any thread.
+
+\textbf{Corollary (soundness of the deployed system).} Every activation is either (a) entered under a valid cell, so Theorem~\ref{thm:sound}'s assumptions held at compile time continue to hold by the entry-snapshot contract, or (b) finds the cell invalid and takes the always-sound original path. These cases are exhaustive and mutually exclusive, so the deployed system is observationally equivalent to the original at every call, for any interleaving.
+
+This provides per-name dependency tracking with no runtime recompilation---differing from Julia's world-age counter in granularity (region vs.\ method) and invalidation (dependency tracking vs.\ a monotonic counter). A panic switch disabling all optimizations serves as a first line of defense; in batch mode (\texttt{*sealed\_world*}) the world is assumed closed and no guards are emitted.
+
+\section{Implementation}
+\label{sec:implementation}
+The system comprises \textasciitilde2,545 lines of Common Lisp, covered by 307 checks (summary, analysis, inference, conversion suites); the project suite (3,390 checks) passes at 100\%. Every rule in §\ref{sec:formal} maps to specific, verified code (Appendix~\ref{app:fidelity}), and a regression test collects every usage tag the classifier actually produces across the full test and benchmark corpus, asserting it is a subset of the documented vocabulary---a tag added without updating the mapping fails CI, not just a future paper revision; auditing this mapping is what surfaced \textsc{chain-id} and \textsc{exit-update} as genuinely missing rules before we added them.
+
+\textbf{Audit mode} runs the analysis against any codebase, collecting convertible-site counts and disqualification reasons without emitting code; it sized the opportunity and guided precision before we wrote the rewriter. On LSim's core (614 lines): 5 loops, 3 accumulator candidates, all qualifying; Tier-1 summaries covered 61.3\% of 447 call sites.
+
+\textbf{Compile-time overhead.} A single-pass, per-form cost, not a whole-program fixed point. Compiling the same 614-line LSim source with all five flags off takes $2.58\pm0.09$\,ms of \texttt{compile-form} time; with all five on, $10.22\pm0.76$\,ms (8 trials)---front-end-only, excluding SBCL's native-code compilation, and unnoticeable (\textasciitilde8\,ms) in an edit-compile-test loop.
+
+\section{Evaluation}
+\label{sec:eval}
+We evaluate via nine research questions, all measured on an AMD Ryzen 5 7430U (single-threaded), SBCL 2.6.0 (1\,GB dynamic space). A three-second preflight warm-up, three warm-up calls per workload, and a two-second idle cooldown mitigate between-invocation drift. Microbenchmarks (Table~\ref{tab:microbenchmarks}) use 30 timed calls per row; whole-program workloads (Table~\ref{tab:programs}) use five, except LSim, which also uses 30. Each timed call is preceded by a forced collection, reported as mean $\pm$ sample stddev, with per-call allocation from the bytes-consed counter. "Off" disables every optimization flag; "On" enables all five (transient conversion, scalar replacement, numeric specialization, dynamic-extent closures, optimized constructors)---the deployed pipeline, not transient conversion alone. We inspected emitted code to avoid misattribution: scalar replacement/optimized constructors never fire (no record classes); numeric specialization fires on every workload but word-count, unboxing the loop counter, never the accumulator; dynamic-extent closures fire on the two \texttt{reduce} workloads.
+
+\textbf{RQ1: Correctness.} The 3,390-check suite passes, including ownership tests, regression tests for the method-combination trust check (§\ref{sec:formal}), and edit-tagged-set correctness tests mirroring the existing dict/vector suite. LSim produces byte-identical output (876 and 281,248 gate evaluations) with baseline and optimized compilers.
+
+\textbf{RQ2: Speedup on accumulation-bound code.}
+
+\begin{table}[h]
+  \caption{Accumulation-bound microbenchmarks: mean $\pm$ sample stddev, 30 timed runs/row. ``CL'' is handwritten mutable Common Lisp. Alloc is the Off/On ratio computed from per-call bytes-consed; the underlying byte counts themselves are not tabulated.}
+  \label{tab:microbenchmarks}
+  \footnotesize
+  \setlength{\tabcolsep}{2.5pt}
+  \begin{tabular}{@{}lrrrrr@{}}
+    \toprule
+    Workload & Off (ms) & On (ms) & CL (ms) & Time & Alloc \\
+    \midrule
+    dict loop, 200k assocs  & $208.9\pm3.4$ & $62.1\pm1.3$ & $6.3\pm0.5$ & \textbf{3.36$\times$} & \textbf{8.7$\times$} \\
+    vector loop, 1M conjs   & $221.6\pm2.5$ & $58.1\pm1.2$ & $11.3\pm0.5$ & \textbf{3.81$\times$} & \textbf{11.0$\times$} \\
+    reduce, 500k conjs      & $259.3\pm3.7$ & $59.7\pm1.4$ & $7.3\pm0.2$ & \textbf{4.34$\times$} & \textbf{9.1$\times$} \\
+    small-N (3 assocs/bdry) & $44.0\pm1.4$  & $33.1\pm1.1$ & ---         & \textbf{1.33$\times$} & 1.4$\times$ \\
+    small-N with reads      & $49.3\pm1.4$  & $36.3\pm0.9$ & ---         & \textbf{1.36$\times$} & 1.4$\times$ \\
+  \bottomrule
+\end{tabular}
+\end{table}
+
+Isolating transient conversion alone (Appendix~\ref{app:ablation}) shows it delivers 89--97\% of the pipeline's wall-time ratio on the large workloads and 90--92\% on small-N, and is responsible for \emph{all} the allocation reduction---numeric specialization changes wall time but not allocation, since SBCL never heap-allocates loop-counter fixnums.
+
+Conversion closes 72--79\% of the wall-time gap to hand-written CL (the dict loop goes from 33.2$\times$ to 9.9$\times$ slower than a hash-table loop; the residual is generic dispatch/boxing). Against real Clojure (200k dict assocs, 1M vector conjs, persistent vs.\ transient, OpenJDK/GraalVM 25, 5 trials): hand-written transients get 4.5--5.5$\times$ (dict) and 3.2--4.5$\times$ (vector). FOL's automatic 3.36--3.81$\times$ falls squarely inside the vector range, but trails the dict range by 20--30\%---plausibly the manual port's lack of an entry guard, though FOL's dispatch/boxing residual (above) is a more likely cause given its similar size---so automatic conversion lands near manual on vectors and behind it on dicts, not uniformly "near" across both.
+
+\textbf{RQ3: Tier-2 inference.} The fixed-point inference converges for self-recursive and mutually-recursive patterns; for \emph{recursive-helper threading} we still report no end-to-end speedup, since an update chain must consist of rewriter-replaceable operations and a helper has none (future work, §\ref{sec:discussion}). The constructor-call loop-initializer path does have a measured effect: a loop initialized from a user-defined 0-ary constructor, previously ineligible regardless of chain quality, converts once Tier-2's summary is available---$3.20\times$ wall-time, $8.7\times$ allocation on the same dict-assoc workload as RQ2. Allocation matches the literal-init row exactly; time trails it slightly (3.20$\times$ vs.\ 3.36$\times$), plausibly the constructor call's own overhead, not present in a bare literal. Withholding the inferred summary reproduces the Off baseline almost exactly ($0.97\times$ the ablated time), isolating Tier-2 as the cause.
+
+\textbf{RQ4: Profitability heuristic.} Two axes. \emph{Operations per boundary}: edit-tagged transients make even three-update boundaries modest wins (1.33--1.36$\times$, Table~\ref{tab:microbenchmarks}). \emph{Initial size} of an already-populated accumulator: entering/leaving the protocol has constant cost, amortized once enough structure is touched; a crossover sweep locates it at size 16 (dicts), 12 (vectors), so populated accumulators below threshold get a runtime size guard ANDed with the world guard. Accumulators grown from an empty literal---the common, most profitable case---are always converted unguarded: their count never exceeds threshold, and measured worst cases are break-even to modest. A Tier-2-summarized constructor-call init gets the same unguarded treatment for a weaker reason: its size isn't known to be zero, just unknown; extending the guard to this path is future work.
+
+\textbf{RQ5: Ablation: wrapper vs.\ edit-tagged transients.} FOL's runtime contains a wrapper-style transient implementation for dicts/vectors/sets (hash-table/array-backed, O(n) at both \texttt{transient} and \texttt{persistent!}, no mid-session reads), reachable via an ablation flag that switches which representation \texttt{transient} constructs, so the identical classifier, rewriter, and source compare two real representations (Table~\ref{tab:rq5-ablation}). On every \emph{write-only} workload---large and small-N, all three representations---wrapper and edit-tagged overlap within one sample stddev in both time (large: 3.30--3.39$\times$; small-N: 1.24$\times$ for both) and allocation (identical to three figures in every pair). The O(n) cost the wrapper pays amortizes across a single session's operations to roughly the same total work edit-tagged does, and doesn't reappear at small-N either, since 40,000 independent 3-op sessions cross the boundary only 40,000 times. The decisive edit-tagged advantage is structural: wrapper transients cannot serve a read at all, so a read-containing workload stays at baseline (refused, 1.00$\times$) under the wrapper while edit-tagged converts it---1.26$\times$ (dict) and 1.30$\times$ (set). Lowering boundary cost from O(n) to O(1)/O(32) matters for what it \emph{enables}---read-heavy conversion, unavailable to wrapper transients by construction---more than for raw write throughput.
+
+\begin{table}[h]
+  \caption{Wrapper vs.\ edit-tagged transients (RQ5): Off/Edit-tag/Wrapper in ms, mean $\pm$ sample stddev, 30 timed runs/row, all six workloads measured together in one session (same machine/protocol as Table~\ref{tab:microbenchmarks}). Alloc is identical between Edit-tag and Wrapper in every row where both apply.}
+  \label{tab:rq5-ablation}
+  \footnotesize
+  \setlength{\tabcolsep}{2.3pt}
+  \begin{tabular}{@{}lrrrrrr@{}}
+    \toprule
+    Workload & Off & Edit-tag & Wrapper & Edit$\times$ & Wrap$\times$ & Alloc$\times$ \\
+    \midrule
+    dict 200k      & 204.2 & $61.9\pm4.3$ & $61.2\pm1.5$ & 3.30 & 3.34 & 8.69 \\
+    vector 1M      & 220.5 & $65.6\pm1.2$ & $65.1\pm1.0$ & 3.36 & 3.39 & 10.96 \\
+    set 200k       & 209.2 & $61.8\pm0.9$ & $61.8\pm1.2$ & 3.38 & 3.38 & 8.69 \\
+    small-N        & 45.1  & $36.4\pm0.9$ & $36.5\pm0.8$ & 1.24 & 1.24 & 1.37 \\
+    small-N+reads  & 49.7  & $39.4\pm0.9$ & refused      & 1.26 & ---  & 1.37 \\
+    set small-N+reads & 47.4 & $36.5\pm0.9$ & refused   & 1.30 & ---  & 1.42 \\
+  \bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{RQ6: Whole-program benchmarks.} Five programs spanning accumulation-dominated to -incidental (Table~\ref{tab:programs}).
+
+\begin{table}[h]
+  \caption{Whole-program benchmarks (mean of five runs; LSim: mean of three 30-trial runs, 8bit-100 circuit). ``CL (ms)'' is hand-written mutable CL; ``vs native'' is On/CL. CL is the \emph{same} algorithm for word-count/bfs-ranks/aws-api, \emph{different} for quicksort (destructive \texttt{cl:sort}). LSim's Time/Alloc are $<1\times$: a regression, not a speedup. $\dagger$: externally-sourced (\texttt{cognitect/aws-api}), not authored by us, not chosen for convertibility (§\ref{sec:eval}, Benchmark provenance).}
+  \label{tab:programs}
+  \footnotesize
+  \setlength{\tabcolsep}{2pt}
+  \begin{tabular}{@{}lrrrrrl@{}}
+    \toprule
+    Program & Off (ms) & On (ms) & Time & Alloc & CL (ms) & vs native \\
+    \midrule
+    word-count (200k) & $118.8$ & $34.1$ & \textbf{3.5$\times$} & \textbf{17.1$\times$} & $8.4$ & 4.1$\times$ (hash) \\
+    quicksort (50k)   & $304.2$ & $176.8$ & \textbf{1.7$\times$} & \textbf{3.3$\times$} & $10.8$ & 16.3$\times$ (\texttt{sort}) \\
+    quicksort-swap    & \multicolumn{6}{l}{refused: freshness + vector op-gate} \\
+    bfs-ranks (100k)  & $242.1$ & $151.6$ & \textbf{1.6$\times$} & \textbf{3.9$\times$} & $73.6$ & 2.1$\times$ (same) \\
+    aws-api\textsuperscript{$\dagger$} & $225.2$ & $92.4$ & \textbf{2.44$\times$} & \textbf{8.89$\times$} & $21.1$ & 4.38$\times$ (hash) \\
+    LSim (8-bit)      & \multicolumn{3}{r}{$0.75$--$0.89\times$ (\emph{regression})} & 0.78$\times$ & --- & --- \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\emph{Word-count} (a \texttt{reduce} reading and updating the accumulator each step) is accumulation-dominated: 3.5$\times$/17.1$\times$, within 4.1$\times$ of a hand-written hash-table loop---the read-heavy fold edit-tagged transients enable. \emph{Quicksort} (two fresh child vectors per level): 1.7$\times$/3.3$\times$, with conversion firing at every recursion level; a destructive array sort is 16.3$\times$ faster still, locating the residual cost in representation. The \emph{same} algorithm in the in-place-swap style---threading the caller's input vector and updating it with \texttt{assoc}---is \emph{refused}: freshness fails (not a fresh allocation) and \texttt{assoc} isn't in the vector op-gate. \emph{Bfs-ranks} (a nested \texttt{reduce} in recur position, two independently-typed accumulators converting at once): 1.6$\times$/3.9$\times$, within 2.1$\times$ of a hand-written BFS; getting both accumulators to convert surfaced and fixed a genuine analysis imprecision (one accumulator's op-gate check was leaking a spine op from the other, §\ref{sec:chains}).
+
+\emph{LSim}, the accumulation-incidental end, \emph{regresses} under conversion in both wall-time (0.75--0.89$\times$, three independent runs) and allocation (0.78--0.89$\times$, deterministic across runs). Isolating transient conversion alone shows this is not a confound from the other four flags: it already regresses on its own, and the other flags make it worse. LSim's accumulators are small-N (2--3 operations per boundary) and called with high frequency; per-call construction of an edit-tagged transient instance evidently costs more than it saves at this scale---exactly the residual exposure RQ4 already names ("break-even to modest" for an unguarded empty-init loop with few updates), now shown to tip negative on a real application. Output remains byte-identical to baseline; soundness is unaffected, only profitability.
+
+\textbf{Benchmark provenance.} Two workloads (\texttt{quicksort.fol}, \texttt{lsim.fol}) predate this project by several months and were not written to showcase transient conversion; \texttt{word-count}, \texttt{bfs-ranks}, and the microbenchmarks were authored specifically to evaluate it. To bound that risk, the fifth row of Table~\ref{tab:programs} has provenance outside our control entirely: \texttt{read-element}'s \texttt{:attrs} loop from \texttt{cognitect/aws-api}, an independently-maintained open-source Clojure library, ported with its loop shape unchanged and not hand-picked---one of 102 sites our gate-faithful corpus classifier (RQ9) flagged \texttt{:qualified} out of a 29-project corpus. At its realistic scale (5 attributes, matching typical XML elements, not shown in the table since both arms run in well under a millisecond) it converts for 0.95--0.98$\times$ (indistinguishable from noise)---an even more honest small-N floor than our own synthetic small-N row.
+
+\textbf{RQ7: Cost when off/inapplicable.} Emitted code with the flag off is byte-stable against the pre-work compiler (\texttt{v0.1.1}); timing corroborates at power (30 trials each): $388.1\pm18.0$\,ms off vs.\ $392.1\pm11.4$\,ms on \texttt{v0.1.1}, a $-4.0$\,ms difference (95\% CI $\pm7.6$\,ms) comfortably including zero. The guard's own marginal cost, isolated directly (identical converted body compiled guarded vs.\ sealed, $2\times10^7$ calls/trial, zero loop iterations): 0.93$\times$ for a 1-dependency region, 1.13$\times$ for a 6-dependency region---both within noise of 1.0$\times$ and bouncing in opposite directions, consistent with the mechanism: one validity cell regardless of dependency-set size.
+
+\textbf{RQ8: Live invalidation.} Redefining \texttt{assoc} with side effects mid-run falls the converted loop back to the slow path on its next entry, producing identical results, with world-stats confirming only dependent regions invalidate. A \texttt{defmethod} specializing an assumed name on an unseen class---the mechanism's other trigger, distinct from a \texttt{defn} redefinition---behaves identically, confirming the two triggers share one code path.
+
+\textbf{RQ9: Applicability beyond FOL.} A reader-level syntactic-shape analyzer over 29 open-source Clojure projects (2,905 files) finds 34.6\% of 1,442 loop/reduce accumulator sites match the targeted shape (map/vector/set rebuild)---a \emph{necessary}-condition proxy only. A second, gate-faithful analyzer ports \textsc{chain-kind}, the usage walk, op-gates, and the freshness rule directly to reader-level Clojure and \emph{measures} rather than bounds the fraction: 8.75\% of loop/reduce forms actually qualify (5.74\% per-binding). The dominant disqualifier is freshness, not chain shape (0\% op-gate failures)---but categorizing \emph{why} freshness fails matters: of 1,112 genuine collection-init failures (excluding non-collection scalar bindings swept up by the site enumeration), only 51.6\% are aliased references, a true structural ceiling; 48.4\% are analysis gaps (calls to \texttt{vec}/\texttt{into}/helpers not credited as fresh) a more thorough Tier-1/Tier-2 could still close. Both analyzers are proxies for FOL, and the gate-faithful one specifically undercounts (no macroexpansion, no helper inlining, no Tier-2 constructor freshness); reading them together, 5.7--8.75\% is a measured lower bound and 34.6\% a necessary-condition upper bound on real-world applicability (full methodology and self-tests in the artifact).
+
+\textbf{Threats to Validity.} \emph{Construct:} microbenchmarks are synthetic; small-N rows bound the worst case, not realistic mixes. \emph{Internal:} timings are wall-clock on a desktop OS; between-invocation drift on this laptop-class machine can exceed 70\% across sessions hours apart, far larger than typical assumptions for mitigated harnesses (Appendix~\ref{app:threats}), so every table's figures were measured together within that table's own session; comparisons \emph{across} tables (e.g.\ RQ2 vs.\ RQ5, or either vs.\ the aws-api row) should be read as order-of-magnitude, not precise. Allocation ratios, which reproduce exactly regardless of session, are more load-bearing. \emph{External:} one language, one end-to-end application, which regresses under conversion by design of its accumulators rather than serving as a positive proof point; most whole-program benchmarks are ours, though the one workload with fully external provenance (Table~\ref{tab:programs}, aws-api) lands within our own microbenchmarks' allocation range (8.89$\times$ vs.\ 8.7--11.0$\times$) and below their time range (2.44$\times$ vs.\ 3.36--4.34$\times$)---generic dispatch overhead is a larger fraction of this workload's smaller per-key payload ($n=1$ bounds how far either observation generalizes). The region-invalidation mechanism has been exercised by hand in plain Common Lisp with no FOL compiler involvement (§\ref{sec:discussion}), corroborating its generality, but the classifier itself has not been ported to a second language, so that portability claim remains argued, not demonstrated. We haven't estimated what fraction of real accumulation-heavy code is interprocedural like DVI vs.\ the intraprocedural pattern converted here.
+
+\section{Discussion and Limitations}
+\label{sec:discussion}
+\textbf{DVI does not convert---and why.} DVI accumulates through a user-defined helper, \texttt{(add-item cart price)}, called inside a \texttt{bind}, not at \texttt{cart}'s own recur or exit position: the value that actually recurs is a different local variable, so the classifier assigns \texttt{cart} two disqualifying uses even though \texttt{add-item}'s own body qualifies for helper inlining---inlining only fires where the classifier already looks for a chain, and \texttt{cart}'s use is neither. Closing this alone would not convert DVI: \texttt{cart} is a \texttt{<cart>} \texttt{defclass} instance, and our transient protocol has no representation for arbitrary CLOS objects; more fundamentally, \texttt{<cart>} defines a custom \texttt{:around} method on \texttt{assoc}---the "automatic derived-value invalidation" the benchmark is named for---which a bang-op path would silently skip, exactly the A1 hazard §\ref{sec:formal}'s $\mathrm{Trusted}$ now catches. DVI is thus not merely unconverted by an incomplete implementation: trusting a name-resolution-faithful summary table rather than re-deriving each call's full method combination structurally cannot convert an accumulator whose defining behavior \emph{is} a custom method combination, without abandoning the black-box summary approach this technique's open-world tractability rests on. The chain-through-\texttt{bind} extension remains future work independent of DVI, since it would still benefit ordinary accumulators threaded through helpers via intermediate locals.
+
+\textbf{Novelty, and why an open world.} We claim no new escape analysis \cite{hudak1985aggregate}; new is the assembly and its target---automatic transient conversion in a transpiled, latently-typed language with no optimizing IR, JIT, or type system. Automatic approaches (Perceus, Koka) require static types; the dynamic-language approach (Clojure) requires manual, unchecked opt-in; JIT-based escape analysis licenses stack allocation within a frame, not in-place mutation of an aliasable, escapes-by-default persistent root. The open world creates the problem the world guard solves: a JVM language like Clojure shares the allocation pattern but doesn't redefine classes mid-run, so our guard wouldn't earn its keep there. The mechanisms, not FOL itself, transfer to similarly-positioned languages---corroborated directly for the region-invalidation half: a hand-written Common Lisp program (no FOL compiler pass touches it) applies the dual-path rewrite and register-region/note-redefinition protocol by hand against FOL's persistent-collection library used as ordinary CL packages, exhibiting the same register$\to$redefine$\to$invalidate$\to$fallback sequence as RQ8. This shows the guard is general CLOS machinery, not an artifact of code generation; it does not port the classifier, addressed instead for Clojure by the corpus study above.
+
+\textbf{Profitability.} Small-N wins are modest, bounded by the transient machinery's constant-factor costs (§\ref{sec:eval}, RQ4). The residual exposure---an empty-init loop with few updates, unguarded since guarding it would make the fast path unreachable where it pays most---is not merely theoretical: RQ6's LSim measurement shows it can tip negative on a real application whose accumulators are exactly this shape. We still accept it over an unconditional guard, since LSim's own qualifying loops are few and the guard would cost every empty-init loop a runtime check to protect a minority, but this is now a considered trade-off against a measured cost. A Tier-2-summarized constructor-call init has no size check at all, since its size is unknown rather than known-zero; a large pre-populated result would convert unconditionally.
+
+\textbf{Completeness.} Transient vectors support only \texttt{conj!}: the vector-trie representation has no O(1)/O(32) in-place update-by-index counterpart, a genuine representation limit. Sets get the identical edit-tagged treatment as dicts, since \texttt{<set>} is HAMT-backed exactly like \texttt{<dict>}---not a separate representation, so no separate design was needed. Op gates make remaining limitations completeness issues, not correctness ones: unsupported operations are refused, never miscompiled.
+
+\section{Related Work}
+\label{sec:related}
+\textbf{Perceus/FBIP.} Reinking et al.\ \cite{reinking2021perceus} and Lorenzen \& Leijen \cite{lorenzen2023functional} introduced compile-time lifetime analysis and ownership types enabling FBIP; we achieve this without type-system annotations, in a live, redefinable image. At the mechanism level they converge more than the type-system framing suggests: Perceus's reuse-token check and our edit tag both decide mutate-vs-copy at each write, but where the check lives differs---Perceus pairs a static \emph{may-reuse} analysis with a per-cell runtime check, we pair a static \emph{must-be-unique} proof with a token minted per region, never rechecked per write.
+
+\textbf{Clojure.} Our transient protocol builds on Hickey's edit-token design \cite{hickey2009clojure}; the difference is that Clojure's transients are manual and potentially unsafe, ours automatic and sound. We draw on the persistent-data-structure literature of Bagwell \cite{bagwell2001ideal} and Steindorfer \& Vinju \cite{steindorfer2015optimizing}.
+
+\textbf{World Age.} Julia's world age \cite{belyakova2020jit} invalidates code on method-table changes; we differ in what's protected (uniqueness facts vs.\ dispatch), granularity (region vs.\ method), and invalidation (dependency tracking vs.\ a monotonic counter), avoiding runtime recompilation.
+
+\textbf{Escape Analysis.} We descend from escape analysis \cite{blanchet2003escape, choi1999escape, stadler2014partial}, but target uniqueness-at-death to enable mutation, not stack allocation; our boundary policy relies on trusted, name-resolution-faithful summaries rather than interprocedural analysis, more practical where whole-program analysis is infeasible.
+
+\textbf{Linear and Uniqueness Types.} Unique, unaliased values date to linear/uniqueness types \cite{wadler1990linear}; Clean and Rust enforce them via the type system, while we provide the same benefit for a common pattern without type-system obligations.
+
+\textbf{Runtime uniqueness.} Hudak and Bloss's \emph{aggregate update problem} \cite{hudak1985aggregate} predates persistent tries. Swift's \texttt{isKnownUniquelyReferenced} \cite{swift2023cow} and Lean's reset/reuse pairs \cite{ullrich2019beans} make the uniqueness check dynamic; our classifier is the static counterpart, trading a per-operation runtime check for world-guard conservatism. The "reduce init-threading" concept (§\ref{sec:chains}) is a form of deforestation \cite{wadler1990deforestation}.
+
+\section{Conclusion}
+\label{sec:conclusion}
+We present a system for automatically and safely converting accumulation loops into in-place updates in a dynamic, persistent-first language. Combining uniqueness-at-death analysis, a construction-aligned rewriter, and a lightweight live-redefinition guard, we achieve performance gains on targeted workloads. Our honest cost model and negative results mark the technique's boundaries: edit-tagged transients are crucial for profitability. The two-tier summary design reaches into user code, including helpers; future work extends inference to multi-clause, higher-order functions, plus monotonic-redefinition/tripwire-recompilation.
+
+\section*{Artifact Availability}
+The compiler, full test suite, audit-mode tool, all benchmarks (including the externally-sourced \texttt{cognitect/aws-api} port), both Clojure corpus analyzers, and the hand-written Common Lisp world-guard portability demo will be released as an anonymized artifact upon publication.
+
+\begin{acks}
+This work was supported by anonymous funding sources.
+\end{acks}
+
+\bibliographystyle{ACM-Reference-Format}
+\bibliography{pldi2027}
+
+\appendix
+
+\section{Proof Sketch for the Soundness of Conversion Theorem}
+\label{app:proof}
+
+The proof of Theorem~\ref{thm:sound} proceeds by bisimulation. We define an operational semantics for the original (Source) and transformed (Target) programs, showing their observational equivalence. Throughout we assume A1--A3 (§\ref{sec:formal}): A2 justifies each per-operation step below; Lemma~\ref{lem:classifier} supplies the uniqueness invariant the relation maintains.
+
+\subsection{Semantics}
+
+We model program execution with a state $\langle e, \rho, \sigma \rangle$, where $e$ is the expression, $\rho$ is an environment from names to locations, and $\sigma$ maps locations to values.
+
+\begin{itemize}
+    \item \textbf{Values:} $v ::= l | n | \dots$ where $l$ is a location in the store.
+    \item \textbf{Store:} $\sigma: l \mapsto v$. Collections are heap-allocated objects: a persistent map is $\text{Map}(\text{root})$; a transient map $\text{TMap}(\text{root}, \text{tok})$, where $\text{tok}$ is a unique ownership token.
+    \item \textbf{Source Semantics (Persistent):} An update \texttt{(assoc m k v)} evaluates to a \emph{new} location $l'$ for a new map: the store $\sigma$ extends to $\sigma' = \sigma \cup \{l' \mapsto \text{Map}(\text{new\_root})\}$, leaving the original map at $\rho(m)$ unchanged.
+    \item \textbf{Target Semantics (Transient):} An update \texttt{(assoc! m k v)} \emph{mutates} the map at $\rho(m)$: if the node to change has the correct token, it's modified in-place; otherwise it's copied, tagged, mutated. The store $\sigma$ becomes $\sigma'$, with the object at $\rho(m)$ modified. \texttt{(persistent! m)} "freezes" the transient, creating a new persistent map and clearing the token.
+\end{itemize}
+
+\subsection{Bisimulation Relation}
+
+We define a bisimulation relation $\approx$ between a Source state $S = \langle e_S, \rho_S, \sigma_S \rangle$ and a Target state $T = \langle e_T, \rho_T, \sigma_T \rangle$. We write $S \approx T$ if:
+
+\begin{enumerate}
+    \item $e_S$ is syntactically identical to $e_T$ outside the converted loop; inside it, $e_S$ and $e_T$ correspond via transformation rules (e.g., \texttt{assoc} vs. \texttt{assoc!}).
+    \item The environments $\rho_S$ and $\rho_T$ map the same variables to corresponding locations, except for the accumulator $acc$.
+    \item The stores $\sigma_S$ and $\sigma_T$ are equivalent for locations reachable from $\rho_S$ and $\rho_T$, according to a value relation $\approx_v$.
+\end{enumerate}
+
+The value relation $v_S \approx_v v_T$ holds if:
+\begin{itemize}
+    \item $v_S$ and $v_T$ are identical scalars.
+    \item $v_S$ is a persistent collection $\text{Map}(r_S)$, $v_T$ a persistent collection $\text{Map}(r_T)$, structurally identical.
+    \item $v_S$ is the persistent accumulator $\text{Map}(r_S)$ at location $l_{acc\_S}$, $v_T$ the transient accumulator $\text{TMap}(r_T, \text{tok})$ at $l_{acc\_T}$, structurally identical (ignoring the token).
+\end{itemize}
+
+Crucially, for the accumulator $acc$, $\rho_S(acc)$ must be the \emph{only} reference to the map there---guaranteed by the uniqueness-at-death analysis.
+
+\subsection{Proof Sketch by Induction on Evaluation Steps}
+
+If $S \approx T$ and the Source program takes a step $S \rightarrow S'$, then the Target program can take a step $T \rightarrow T'$ such that $S' \approx T'$.
+
+\textbf{Base Case: Loop Initialization.}
+\begin{itemize}
+    \item Source: \texttt{(loop [acc (hash-map)] ...)} evaluates to a state where $\rho_S(acc)$ points to a fresh, unaliased map $m_S$.
+    \item Target: \texttt{(loop [acc (transient (hash-map))] ...)} evaluates to a state where $\rho_T(acc)$ points to a fresh transient map $m_T$ with a new token.
+    \item States related: $m_S \approx_v m_T$, uniqueness holding in the Source.
+\end{itemize}
+
+\textbf{Inductive Step: Inside the Loop.} Consider the loop body's evaluation.
+
+\begin{itemize}
+    \item \textbf{Case 1: Read operation \texttt{(get acc k)}.}
+    \begin{itemize}
+        \item Source: Reads from the persistent map at $\rho_S(acc)$.
+        \item Target: Reads from the transient map at $\rho_T(acc)$; transient-aware reads correctly interpret the mix of original/copied-on-write nodes.
+        \item Equivalent structures return equivalent values, leaving $S'$ and $T'$ in relation.
+    \end{itemize}
+    \item \textbf{Case 2: Update operation \texttt{(recur (assoc acc k v))}.}
+    \begin{itemize}
+        \item Source: \texttt{(assoc acc k v)} evaluates to a \emph{new} location $l_S'$ with a new map $m_S'$; the old map at $\rho_S(acc)$ is now garbage (last-use property), and \texttt{recur} rebinds $acc$ to $l_S'$, maintaining uniqueness for the new value.
+        \item Target: \texttt{(assoc! acc k v)} \emph{mutates} the transient map at $\rho_T(acc)$ in-place; \texttt{recur} rebinds $acc$ to the same location.
+        \item The new map $m_S'$ and mutated map at $\rho_T(acc)$ are structurally equivalent, so $S'$ and $T'$ remain in relation, invariant maintained.
+    \end{itemize}
+    \item \textbf{Case 3: Exhaustiveness (no other use forms need a case).}
+    \begin{itemize}
+        \item This is a \emph{corollary} of Lemma~\ref{lem:classifier}, not an independent claim proved here: the bisimulation is defined only for \emph{Qualifies}-satisfying programs, and \emph{Qualifies} requires every occurrence of $acc$ to be a sanctioned use---each of which Lemma~\ref{lem:classifier} already places into Case 1 (read), Case 2 (update), or a loop exit. Concretely, an unsanctioned use like \texttt{(some-func acc)} with an unknown \texttt{some-func} would already violate \emph{Qualifies}'s premise, so such a loop is never accepted by the classifier in the first place---there is no transformation, and hence no bisimulation, for which Case 3 would need to say anything.
+    \end{itemize}
+\end{itemize}
+
+\textbf{Inductive Step: Loop Exit.}
+\begin{itemize}
+    \item Source: The loop exits, returning the final persistent accumulator $m_S$.
+    \item Target: The expression is wrapped with \texttt{(persistent! acc)}, which evaluates the transient $m_T$ to a new persistent map $m_T'$.
+    \item Since $m_S \approx_v m_T$ before the exit, final results $m_S$, $m_T'$ are structurally identical, observationally equivalent to the rest of the program.
+\end{itemize}
+
+\textbf{Conclusion.} By induction, for any number of evaluation steps, Source and Target programs remain in relation. Since the initial states are related and the relation preserves termination and values, the transformed program is observationally equivalent to the original. Soundness rests on the uniqueness-at-death classifier's guarantees.
+
+\section{Formal Rule to Implementation Mapping}
+\label{app:fidelity}
+
+\begin{table}[h]
+  \caption{Formal rule $\to$ implementing code, \texttt{escape-analysis.lisp} (verified line numbers). \texttt{walk} is \texttt{classify-loop-param}'s inner function; \texttt{ck} is \texttt{chain-kind}.}
+  \label{tab:fidelity}
+  \footnotesize
+  \setlength{\tabcolsep}{2.5pt}
+  \begin{tabularx}{\columnwidth}{@{}lX@{}}
+    \toprule
+    Rule & Implementation \\
+    \midrule
+    \textsc{refers-hit/app} & fused into \texttt{walk}'s fallthrough (395--406) \\
+    \textsc{chain-id/op/if} & \texttt{ck} base case, calls (302--344) \\
+    \textsc{chain-reduce} & \texttt{reduce-chain-kind} (1189--1215) \\
+    \textsc{chain-inline} & \texttt{\%tr-inline-attempt} (240--277) \\
+    OpGate/Trusted & \texttt{init-supports-p}, \texttt{tier1-methods-trusted-p} (920--1011) \\
+    \textsc{lit-exit} & \texttt{vector/set/dict-node-p} clauses (553--574) \\
+    \textsc{var-exit} & \texttt{symbol-ref-node-p} clause, tail case (454--458) \\
+    \textsc{read} & \texttt{call-node-p} clause, read-ok case (588--591) \\
+    \textsc{recur-update/reset/complex} & \texttt{recur-node-p} clause (460--483) \\
+    \textsc{exit-update} & \texttt{call}/\texttt{thread-first} clauses, tail case (540--549, 576--580) \\
+    \textsc{if} & \texttt{if-node-p} clause (485--488) \\
+    \textsc{do} & \texttt{do-node-p} clause (489--490) \\
+    \textsc{none/escape} & generic fallthrough (595--599) \\
+    Qualification Rule & \texttt{param-verdict} (607--615) + freshness \\
+  \bottomrule
+\end{tabularx}
+\end{table}
+
+Figures~\ref{fig:side-conditions}--\ref{fig:formal-rules} describe \texttt{escape-analysis.lisp}, not an independent specification checked against it after the fact, so the correspondence needs an argument. Table~\ref{tab:fidelity} maps every rule to the code implementing it, verified against the current source. Auditing this mapping directly surfaced \textsc{chain-id} and \textsc{exit-update} as genuinely missing from an earlier draft of the figures before we added them, and a stale worked example for \texttt{:recur\_in\_complex\_context} that we corrected---evidence the exercise catches real gaps, not just typos.
+
+The single-\texttt{walk} implementation fuses $\mathrm{RefersTo}$-checking into the main judgment rather than computing it as a separate pass: a node either matches a rule or recurses, and the generic fallback is \textsc{none}/\textsc{escape} together, distinguished only by whether $acc$ occurs in the unmatched subtree---a fusion optimization, not a fidelity gap, since $\mathrm{RefersTo}$'s own definition is exactly "occurs syntactically," which the fallthrough re-derives structurally.
+
+One asymmetry the audit found and left as-is, since it only strengthens soundness: \textsc{recur-reset}'s premise is $\neg\mathrm{RefersTo}(e',acc)$, but the implementation tags \texttt{:recur-reset} whenever $e'$ fails $\mathrm{Chain}(e',acc)$, whether or not $acc$ occurs in $e'$---broader than the formal rule, not narrower---and \texttt{:recur\_in\_complex\_context}'s own trigger (an unhandled AST path to the \texttt{recur}, not $e'$'s shape) is independent of both, so the two tags can co-occur on the same node. Both remain disqualifying either way, so \emph{Qualifies} is unaffected: the implementation simply collapses what would be two proof obligations into one more conservative check.
+
+This mapping is not merely asserted: a regression test (\texttt{escape-analysis-suite}, \texttt{tag-vocabulary-matches-\allowbreak formal-model}) collects every usage tag \texttt{classify-loop-param} actually produces across the full test and benchmark corpus and asserts the set is a subset of Table~\ref{tab:fidelity}'s vocabulary.
+
+\section{RQ2 Ablation: Isolating Transient Conversion}
+\label{app:ablation}
+
+To attribute RQ2's headline numbers, we re-ran the microbenchmarks with \emph{only} transient conversion enabled (Table~\ref{tab:tc-ablation}: same machine/protocol as Table~\ref{tab:microbenchmarks}, Off/TC-only/All-five measured in one session). Transient conversion alone delivers 89--97\% of the pipeline's wall-time ratio on the three large workloads and 90--92\% on the small-N rows; the remainder is numeric specialization unboxing the loop counter. Allocation ratios are \emph{identical} between TC-only and All-five for every workload, confirming transient conversion is responsible for all the allocation reduction and the majority of the wall-time reduction.
+
+\begin{table}[h]
+  \caption{Isolating transient conversion (``TC'': every other flag off) from the five-flag pipeline (``All-5''). Off/TC/All-5 are milliseconds, means only (relative sd under 4\%). Alloc, identical for TC and All-5, is reported once.}
+  \label{tab:tc-ablation}
+  \footnotesize
+  \setlength{\tabcolsep}{2pt}
+  \begin{tabular}{@{}lrrrrrr@{}}
+    \toprule
+    Workload & Off & TC & All-5 & TC$\times$ & All-5$\times$ & Alloc$\times$ \\
+    \midrule
+    dict, 200k assoc  & 208.9 & 64.1 & 62.1 & 3.26 & 3.36 & 8.7 \\
+    vector, 1M conj    & 221.6 & 65.2 & 58.1 & 3.40 & 3.81 & 11.0 \\
+    reduce, 500k conj  & 259.3 & 62.6 & 59.7 & 4.14 & 4.34 & 9.1 \\
+    small-N            & 44.0  & 36.7 & 33.1 & 1.20 & 1.33 & 1.4 \\
+    small-N+reads      & 49.3  & 39.7 & 36.3 & 1.24 & 1.36 & 1.4 \\
+  \bottomrule
+\end{tabular}
+\end{table}
+
+\section{Extended Threats to Validity}
+\label{app:threats}
+
+Re-measuring the identical dict-loop workload later in the same overall evaluation, after several hours of continuous compilation work on the same machine, returned a baseline 77\% higher than an earlier pass ($389.0$\,ms vs.\ $220.9$\,ms)---a far larger swing than the $\sim$5\% typically assumed for a mitigated benchmarking harness with warm-up/cooldown protocols. Every absolute-time figure in this paper was therefore re-measured together in one session for mutual consistency, rather than assembled piecemeal across sessions; the swing itself means single-decimal time ratios should be read as indicative, not precise, beyond what the reported stddevs convey. Allocation ratios reproduce exactly regardless of session and are correspondingly more load-bearing. The profitability thresholds (16/12, §\ref{sec:eval} RQ4) come from a separate crossover-finding sweep not re-run alongside this pass, and inherit the same session-dependence caveat: they are constants observed on this machine, not claimed universal.
+
+LSim's own regression magnitude was itself session-noisy across three re-measurement runs (0.75--0.89$\times$ time, though allocation reproduced exactly at 0.78$\times$/0.89$\times$ across runs)---a smaller-scale echo of the same drift phenomenon, expected given its sub-15\,ms absolute scale; the direction (regression) is robust across all three runs even though the magnitude is not.
+
+RQ8 confirms the \texttt{defmethod} invalidation trigger is mechanically sound, but exercises one method addition, not a frequency or cost distribution under organic, sustained redefinition traffic in a real running program. All numbers in this paper come from one x86-64/SBCL machine; we claim nothing about other architectures or Lisp implementations.
+
+\end{document}

@@ -154,19 +154,19 @@
   ;; label            n        source template                        native
   `(("dict 200k assoc" 200000
      "(defn tb-dict~A [n] (loop [acc {} i 0] (if (< i n) (recur (assoc acc i i) (inc i)) acc)))"
-     native-dict)
+     native-dict 30)
     ("vector 1M conj"  1000000
      "(defn tb-vec~A [n] (loop [acc [] i 0] (if (< i n) (recur (conj acc i) (inc i)) acc)))"
-     native-vec)
+     native-vec 30)
     ("reduce 500k conj" 500000
      "(defn tb-red~A [n] (reduce (fn [a x] (conj a x)) [] (loop [v [] i 0] (if (< i n) (recur (conj v i) (inc i)) v))))"
-     native-red)
+     native-red 30)
     ("small-N (3 assoc/boundary)" 40000
      "(defn tb-sn~A [m] (loop [tot 0 i 0] (if (< i m) (recur (+ tot (count (loop [acc {} j 0] (if (< j 3) (recur (assoc acc j j) (inc j)) acc)))) (inc i)) tot)))"
-     nil)
+     nil 30)
     ("small-N with reads" 40000
      "(defn tb-snr~A [m] (loop [tot 0 i 0] (if (< i m) (recur (+ tot (count (loop [acc {} j 0] (if (< j 3) (recur (assoc acc j (get acc j)) (inc j)) acc)))) (inc i)) tot)))"
-     nil)))
+     nil 30)))
 
 ;;; --- Native mutable CL ceilings -------------------------------------------
 (defun native-dict (n)
@@ -192,7 +192,10 @@
   "Comparable summary of a workload result (count for collections, value for numbers)."
   (if (numberp v) v (fol.compiler.collection-functions:count v)))
 
-(defun run-workload (label n template native)
+(defun run-workload (label n template native &optional (trial-count *trials*))
+  "TRIAL-COUNT overrides *TRIALS* for this workload only -- the small-N rows
+   sit closest to 1x (Table 1's caption), so they use more trials (30) than
+   the large workloads (5) to tighten the CI enough to rule out noise."
   (let* ((base-name (format nil "~A" (gensym "B")))
          (opt-name  (format nil "~A" (gensym "O")))
          (tc-name   (format nil "~A" (gensym "T"))))
@@ -213,7 +216,8 @@
               "workload ~A results differ" label)
       (assert (equalp (result-key rb) (result-key rt)) ()
               "workload ~A results differ (transient-only)" label)
-      (let* ((tb (trials (lambda () (funcall fb n))))
+      (let* ((*trials* trial-count)
+             (tb (trials (lambda () (funcall fb n))))
              (tt (trials (lambda () (funcall ft n))))
              (to (trials (lambda () (funcall fo n))))
              (tn (when native (trials (lambda () (funcall native n)))))
@@ -300,6 +304,44 @@
                 (mod (+ (* s 1103515245) 12345) 2147483648))
          v)))")
 
+(defparameter +bfs-ranks+
+  ;; BFS/level-order rank assignment over a tree (adjacency dict node ->
+  ;; children vector, root 0): two accumulators converting independently in
+  ;; one loop -- the FIFO queue (vector, via CONJ) grows through a nested
+  ;; REDUCE placed DIRECTLY in the recur position, and the rank map (dict,
+  ;; via ASSOC) grows in the same recur. Placing the reduce directly in the
+  ;; recur position (not through an intermediate bind) is exactly the
+  ;; distinction the corrected DVI discussion (§sec:discussion) turns on:
+  ;; the same reduce bound to a bind variable first, then recur'd, does not
+  ;; convert (chain recognition only fires at a recur argument or the loop's
+  ;; tail position).
+  "(defn entry%F% [children]
+     (loop [queue [0] ranks {} i 0]
+       (if (< i (count queue))
+         (bind [node (get queue i)
+                kids (get children node [])]
+           (recur (reduce (fn [acc k] (conj acc k)) queue kids)
+                  (assoc ranks node i)
+                  (inc i)))
+         ranks)))")
+
+(defparameter +mk-tree+
+  ;; Deterministic N-node, BRANCHING-ary tree, heap-style numbering: node i's
+  ;; children are i*branching+1 .. i*branching+branching, when < n. Dict
+  ;; mapping node -> vector of child ids; root is always 0.
+  "(defn mk-tree [n branching]
+     (loop [children {} i 0]
+       (if (< i n)
+         (bind [kids (loop [ks [] b 0]
+                       (if (< b branching)
+                         (bind [child (+ (* i branching) b 1)]
+                           (if (< child n)
+                             (recur (conj ks child) (inc b))
+                             (recur ks (inc b))))
+                         ks))]
+           (recur (assoc children i kids) (inc i)))
+         children)))")
+
 (defun native-quicksort (v)
   "Sort a copy of the FOL input vector with CL SORT (native ceiling)."
   (let* ((n (fol.compiler.collection-functions:count v))
@@ -319,6 +361,28 @@
 (defun build-input (n m)
   (compile-fol +mk-vec+ nil)
   (funcall (fol-fn "mk-input") n m))
+
+(defun build-tree (n branching)
+  (compile-fol +mk-tree+ nil)
+  (funcall (fol-fn "mk-tree") n branching))
+
+(defun native-bfs-ranks (children)
+  "BFS/level-order rank assignment over CHILDREN (a FOL dict) into a native
+   hash table, root 0 (native ceiling for +bfs-ranks+)."
+  (declare (optimize (speed 3)))
+  (let* ((n (fol.compiler.collection-functions:count children))
+         (ranks (make-hash-table :size (max 16 (* 2 n))))
+         (queue (make-array (max 1 n) :adjustable t :fill-pointer 0)))
+    (vector-push-extend 0 queue)
+    (let ((i 0))
+      (loop while (< i (fill-pointer queue))
+            do (let* ((node (aref queue i))
+                      (kids (fol.compiler.collection-functions:get children node)))
+                 (setf (gethash node ranks) i)
+                 (dotimes (j (fol.compiler.collection-functions:count kids))
+                   (vector-push-extend (fol.compiler.collection-functions:get kids j) queue))
+                 (incf i))))
+    ranks))
 
 (defun run-program (label input template expect native)
   "Compile TEMPLATE off and on, verify conversion matches EXPECT, and (when it
@@ -366,14 +430,16 @@
   (preflight-warmup)
   (format t "~%-- Microbenchmarks (isolated accumulation loops) --~%")
   (dolist (w +workloads+)
-    (destructuring-bind (label n template native) w
-      (run-workload label n template (and native (symbol-function native)))))
+    (destructuring-bind (label n template native &optional (trial-count *trials*)) w
+      (run-workload label n template (and native (symbol-function native)) trial-count)))
   (format t "~%-- Whole-program benchmarks --~%")
   (let ((qinput (build-input 50000 100000))
-        (winput (build-input 200000 997)))
+        (winput (build-input 200000 997))
+        (tinput (build-tree 100000 4)))
     (run-program "quicksort (conj-partition, 50k)" qinput +quicksort-conj+ t #'native-quicksort)
     (run-program "quicksort (in-place-swap, 50k)"  qinput +quicksort-swap+ nil nil)
-    (run-program "word-count (200k tokens, 997 keys)" winput +word-count+ t #'native-word-count))
+    (run-program "word-count (200k tokens, 997 keys)" winput +word-count+ t #'native-word-count)
+    (run-program "bfs-ranks (100k-node tree, branching 4)" tinput +bfs-ranks+ t #'native-bfs-ranks))
   (format t "~&Done.~%"))
 
 (main)
