@@ -26,6 +26,21 @@
         (*package* (find-package :fol.core)))
     (eval (fol.compiler:compilation-result-code (fol.compiler:compile-string src)))))
 
+(defun compile-eval-fol-source-multi (src &key transient)
+  "Like COMPILE-EVAL-FOL-SOURCE, but SRC may contain multiple top-level
+   forms (e.g. a defclass, a defmethod, and one or more defns), which
+   COMPILE-STRING (and hence COMPILE-EVAL-FOL-SOURCE) can't handle since it
+   reads only one form. Returns the value of the LAST form evaluated."
+  (let ((fol.compiler.escape-analysis:*transient-loops* transient)
+        (*package* (find-package :fol.core))
+        (*readtable* fol.compiler.reader:*fol-readtable*)
+        (result nil))
+    (with-input-from-string (in src)
+      (loop for f = (read in nil :eof) until (eq f :eof)
+            do (setf result (eval (fol.compiler:compilation-result-code
+                                   (fol.compiler:compile-form f))))))
+    result))
+
 (defun conversion-counts ()
   (list fol.compiler.escape-analysis:*loops-converted*
         fol.compiler.escape-analysis:*params-converted*
@@ -661,6 +676,14 @@
    test's dynamic extent, so touching it here would leak into later tests."
   (fol.compiler.world:reset-world)
   (fol.compiler.world:register-region '("MY-WORLD-TEST-METHOD-FN"))
+  ;; RESET-WORLD only clears world.lisp-level state (the redefinitions-noted
+  ;; counter, region deps), not compiler.lisp's *GLOBAL-TYPE-INFO* class
+  ;; registry -- this file's own trailing (fiveam:run! ...) call means this
+  ;; test's suite can execute more than once in the same image (once at file
+  ;; load, once via the aggregate RUN-COMPILER-TESTS), so without this the
+  ;; second run would see <WORLD-TEST-CLASS> as already-registered and (now
+  ;; correctly) count its DEFCLASS as a real redefinition.
+  (remhash (intern "<WORLD-TEST-CLASS>" :fol.core) fol.compiler::*global-type-info*)
   (compile-eval-fol-source
    "(defclass <world-test-class> [] [[v :initform 0]])"
    :transient t)
@@ -874,6 +897,497 @@
         (is (null (search "TRANSIENT" code-str :test #'string-equal)))))))
 
 ;;; ============================================================================
+;;; Chain-through-bind: a named temporary hiding a chain (simple case of
+;;; the Discussion section's "chain-through-bind extension" future work)
+;;; ============================================================================
+
+(test transient-loop-chain-through-single-binding-bind
+  "(bind [new-acc (chain-expr acc ...)] (recur new-acc ...)): NAME's only
+   appearance is inside the bind's init (an ordinary, non-tail call
+   argument -- previously always :escape-call), and the recur references a
+   *different* symbol the walk never ties back to NAME. With exactly one
+   binding and the bind's sole body form the recur that consumes it
+   exactly once, this is unambiguously safe to treat as if the chain
+   expression had been written at the recur site directly -- the loop must
+   now convert."
+  (let ((helper-form (fol-form '(defn tc-cb-helper #(cart price)
+                                 (fol.compiler.collection-functions:assoc
+                                  cart price
+                                  (fol.compiler.arithmetic-functions:inc
+                                   (fol.compiler.collection-functions:get cart price 0))))))
+        (loop-form '(loop (acc (dict) i 0)
+                      (if (< i 20)
+                          (bind (new-acc (tc-cb-helper acc i))
+                            (recur new-acc (+ i 1)))
+                          acc))))
+    (let ((fol.compiler.escape-analysis:*transient-loops* nil))
+      (eval (fol.compiler:compilation-result-code (fol.compiler:compile-form helper-form))))
+    (let ((plain (eval (fol.compiler:compilation-result-code (fol.compiler:compile-form loop-form)))))
+      (let ((fol.compiler.escape-analysis:*transient-loops* t))
+        (eval (fol.compiler:compilation-result-code (fol.compiler:compile-form helper-form)))
+        (let* ((result (fol.compiler:compile-form loop-form))
+               (code-str (write-to-string (fol.compiler:compilation-result-code result)))
+               (opt (eval (fol.compiler:compilation-result-code result))))
+          (is (search "TRANSIENT" code-str :test #'string-equal))
+          (is (typep opt 'fol.compiler.collections:<dict>))
+          (is (= (fol.compiler.collections:collection-size plain)
+                 (fol.compiler.collections:collection-size opt)))
+          (is (loop for i below 20
+                    always (eql (fol.compiler.collection-functions:get plain i)
+                                (fol.compiler.collection-functions:get opt i)))))))))
+
+(test transient-loop-chain-through-bind-multi-binding-unrelated-sibling-converts
+  "The same shape but with a SECOND, wholly UNRELATED binding in the same
+   bind (an intermediate local computed alongside the chain-producing one,
+   never referencing the running alias at all) now converts.
+   %VALIDATE-READ-TOLERANT-CHAIN (escape-analysis.lisp) does not fold the
+   BIND away the way %FOLD-LET-CHAIN's strict, single/multi-binding-chain
+   path does -- it rebuilds the BIND with every original binding kept in
+   its original position and evaluation order, rewriting only the
+   chain-extending one. Nothing is dropped or reordered, so the concern
+   that disqualified this shape before (silently dropping the sibling
+   binding's evaluation once the BIND was eliminated by folding) does not
+   apply here. Correctness verified directly against the unconverted
+   baseline, not just that conversion happened."
+  (let ((helper-form (fol-form '(defn tc-cb-helper2 #(cart price)
+                                 (fol.compiler.collection-functions:assoc cart price price))))
+        (loop-form '(loop (acc (dict) i 0)
+                      (if (< i 20)
+                          (bind (new-acc (tc-cb-helper2 acc i)
+                                 unused  i)
+                            (recur new-acc (+ i 1)))
+                          acc))))
+    (let ((fol.compiler.escape-analysis:*transient-loops* nil))
+      (eval (fol.compiler:compilation-result-code (fol.compiler:compile-form helper-form))))
+    (let ((plain (eval (fol.compiler:compilation-result-code (fol.compiler:compile-form loop-form)))))
+      (let ((fol.compiler.escape-analysis:*transient-loops* t))
+        (eval (fol.compiler:compilation-result-code (fol.compiler:compile-form helper-form)))
+        (let* ((result (fol.compiler:compile-form loop-form))
+               (code-str (write-to-string (fol.compiler:compilation-result-code result)))
+               (opt (eval (fol.compiler:compilation-result-code result))))
+          (is (search "TRANSIENT" code-str :test #'string-equal))
+          (is (= (fol.compiler.collections:collection-size plain)
+                 (fol.compiler.collections:collection-size opt)))
+          (is (loop for i below 20
+                    always (eql (fol.compiler.collection-functions:get plain i)
+                                (fol.compiler.collection-functions:get opt i)))))))))
+
+(test transient-loop-chain-through-bind-var-used-twice-unaffected
+  "The bind-bound variable used more than once (once as the recur
+   argument, once elsewhere) must not be simplified either: substituting
+   the chain expression in would duplicate it. Falls back to ordinary
+   classification, which disqualifies via the second, non-chain use."
+  (let ((helper-form (fol-form '(defn tc-cb-helper3 #(cart price)
+                                 (fol.compiler.collection-functions:assoc cart price price))))
+        (loop-form '(loop (acc (dict) i 0)
+                      (if (< i 20)
+                          (bind (new-acc (tc-cb-helper3 acc i))
+                            (recur new-acc
+                                   (fol.compiler.collection-functions:count new-acc)))
+                          acc))))
+    (let ((fol.compiler.escape-analysis:*transient-loops* t))
+      (eval (fol.compiler:compilation-result-code (fol.compiler:compile-form helper-form)))
+      (let* ((result (fol.compiler:compile-form loop-form))
+             (code-str (write-to-string (fol.compiler:compilation-result-code result))))
+        (is (null (search "TRANSIENT" code-str :test #'string-equal)))))))
+
+(test transient-loop-chain-through-bind-multi-binding-chain-of-chains
+  "A genuine chain-of-chains: (bind [c1 (chain1 acc x) c2 (chain2 c1 y)]
+   (recur c2 ...)) -- EVERY binding extends the running alias (first NAME,
+   then each binding's own var), so the whole bind folds into one
+   expression rooted at NAME and converts, unlike the two-binding
+   unaffected test above where the second binding does not extend the
+   chain at all."
+  (let ((loop-form '(loop (acc (dict) i 0)
+                      (if (< i 20)
+                          (bind (c1 (fol.compiler.collection-functions:assoc acc i i)
+                                 c2 (fol.compiler.collection-functions:assoc c1 :extra i))
+                            (recur c2 (+ i 1)))
+                          acc))))
+    (let ((plain (compile-eval-fol loop-form))
+          (opt (compile-eval-fol loop-form :transient t)))
+      (let* ((result (fol.compiler:compile-form loop-form))
+             (code-str nil))
+        (let ((fol.compiler.escape-analysis:*transient-loops* t))
+          (setf result (fol.compiler:compile-form loop-form))
+          (setf code-str (write-to-string (fol.compiler:compilation-result-code result))))
+        (is (search "TRANSIENT" code-str :test #'string-equal))
+        (is (typep opt 'fol.compiler.collections:<dict>))
+        (is (= (fol.compiler.collections:collection-size plain)
+               (fol.compiler.collections:collection-size opt)))
+        (is (loop for i below 20
+                  always (eql (fol.compiler.collection-functions:get plain i)
+                              (fol.compiler.collection-functions:get opt i))))
+        (is (eql (fol.compiler.collection-functions:get plain :extra)
+                 (fol.compiler.collection-functions:get opt :extra)))))))
+
+(test transient-loop-chain-through-bind-multi-binding-alias-used-twice-unaffected
+  "An intermediate alias referenced more than once across the chain (once
+   to extend it, once elsewhere) must not be folded: substituting it in
+   would duplicate the first link's expression. Falls back to ordinary
+   classification, which disqualifies since C1's second reference is a
+   non-chain use the walk cannot connect back to NAME."
+  (let ((loop-form '(loop (acc (dict) i 0)
+                      (if (< i 20)
+                          (bind (c1 (fol.compiler.collection-functions:assoc acc i i)
+                                 c2 (fol.compiler.collection-functions:assoc c1 :extra
+                                     (fol.compiler.collection-functions:count c1)))
+                            (recur c2 (+ i 1)))
+                          acc))))
+    (let ((fol.compiler.escape-analysis:*transient-loops* t))
+      (let* ((result (fol.compiler:compile-form loop-form))
+             (code-str (write-to-string (fol.compiler:compilation-result-code result))))
+        (is (null (search "TRANSIENT" code-str :test #'string-equal)))))))
+
+(test transient-loop-chain-through-bind-multi-binding-intervening-read-converts
+  "DVI's actual shape, in miniature: an intermediate binding that READS the
+   running alias through a helper (not itself a chain extension) sitting
+   between two chain-extending bindings. This is the fourth obstacle
+   closed after Approach A: %VALIDATE-READ-TOLERANT-CHAIN (escape-
+   analysis.lisp) classifies TC-CB-READER's binding as a safe read rather
+   than a disqualifying use, via %SAFE-READ-OF-P/CALL-ARG-READ-P proving
+   (through TC-CB-READER's Tier-2-inferred summary) that its CART
+   parameter is only read (a keyword-accessor GET), never retained. The
+   BIND is rewritten in place -- C1's and C2's bindings get their chain
+   ops rewritten to the transient form, R's stays completely untouched --
+   rather than folded away, so the read's relative evaluation order to the
+   chain step it depends on is preserved exactly, unlike substitution,
+   which the paper's Discussion previously argued could reorder it.
+
+   Compiles the helper and the loop fully before evaluating either
+   (mirroring TRANSIENT-LOOP-TIER2-FRESH-CONSTRUCTOR-INIT's documented
+   pattern): interleaving compile with an immediate EVAL would trigger
+   NOTE-REDEFINITION on TC-CB-READER's very first definition, clearing its
+   just-cached Tier-2 summary before the loop's own compilation ever
+   consults it."
+  (let ((helper-form (fol-form '(defn tc-cb-reader #(cart)
+                                 (fol.compiler.collection-functions:get cart 0))))
+        (loop-form '(loop (acc (dict) i 0)
+                      (if (< i 20)
+                          (bind (c1 (fol.compiler.collection-functions:assoc acc i i)
+                                 r  (tc-cb-reader c1)
+                                 c2 (fol.compiler.collection-functions:assoc c1 :extra r))
+                            (recur c2 (+ i 1)))
+                          acc))))
+    (let ((fol.compiler.escape-analysis:*transient-loops* nil))
+      (eval (fol.compiler:compilation-result-code (fol.compiler:compile-form helper-form))))
+    (let ((plain (eval (fol.compiler:compilation-result-code (fol.compiler:compile-form loop-form)))))
+      (let ((fol.compiler.escape-analysis:*transient-loops* t))
+        (let* ((helper-result (fol.compiler:compile-form helper-form))
+               (loop-result (fol.compiler:compile-form loop-form))
+               (code-str (write-to-string (fol.compiler:compilation-result-code loop-result))))
+          (eval (fol.compiler:compilation-result-code helper-result))
+          (let ((opt (eval (fol.compiler:compilation-result-code loop-result))))
+            (is (search "TRANSIENT" code-str :test #'string-equal))
+            (is (= (fol.compiler.collections:collection-size plain)
+                   (fol.compiler.collections:collection-size opt)))
+            (is (loop for i below 20
+                      always (eql (fol.compiler.collection-functions:get plain i)
+                                  (fol.compiler.collection-functions:get opt i))))
+            (is (eql (fol.compiler.collection-functions:get plain :extra)
+                     (fol.compiler.collection-functions:get opt :extra)))))))))
+
+;;; ============================================================================
+;;; CLOS-object (<persistent-object>) accumulators
+;;; ============================================================================
+;;; (make 'X), X a <persistent-object> subclass, as a loop init: closes the
+;;; second of DVI's two remaining obstacles (§sec:discussion) -- a
+;;; representation for arbitrary CLOS objects, using the existing but
+;;; previously-unreached %TRANSIENT-OWNER/%TRANSIENT-BUFFER mechanism in
+;;; persistence.lisp. ASSOC is the only spine op (no dissoc/conj/disj
+;;; analogue for CLOS slots); reads go through the same GET method
+;;; persistent-objects already have (transients.lisp adds no special
+;;; read path for this representation, unlike dicts/vectors/sets, since
+;;; plain SLOT-VALUE already sees in-place mutation once owned).
+
+(test transient-loop-persistent-object-correctness
+  "A loop accumulating into a plain <persistent-object> instance via ASSOC,
+   with no method-combination hazard on MAKE or ASSOC for this class,
+   converts, and produces results identical to the unconverted baseline."
+  (let ((src "(defclass <tc-po-basket> []
+                [[items :initarg :items :initform []]])
+              (defn tc-po-add [b price]
+                (fol.compiler.collection-functions:assoc
+                 b :items
+                 (fol.compiler.collection-functions:conj
+                  (fol.compiler.collection-functions:get b :items) price)))
+              (defn tc-po-run [n]
+                (loop [i 0 b (make '<tc-po-basket>)]
+                  (if (< i n)
+                    (recur (inc i) (tc-po-add b i))
+                    b)))"))
+    (let ((before (conversion-counts)))
+      (compile-eval-fol-source-multi src)
+      (let* ((plain (funcall (fdefinition (find-symbol "TC-PO-RUN" :fol.core)) 20))
+             (opt (progn (compile-eval-fol-source-multi src :transient t)
+                         (funcall (fdefinition (find-symbol "TC-PO-RUN" :fol.core)) 20))))
+        (is (equal (fol.compiler.collections:collection-seq
+                    (fol.compiler.collection-functions:get plain :items))
+                   (fol.compiler.collections:collection-seq
+                    (fol.compiler.collection-functions:get opt :items))))
+        ;; One loop, one param converted.
+        (is (equal (list (+ (first before) 1) (+ (second before) 1) (third before))
+                   (conversion-counts)))))))
+
+(test transient-loop-persistent-object-around-now-converts
+  "Approach A: a :around method on ASSOC -- DVI's own shape, guard-refined
+   and all (the (slot (= :items)) guard alongside the (cart <class>) type
+   specializer) -- no longer blocks conversion. ASSOC's own PRIMARY method
+   for <persistent-object> (collection-functions.lisp) already calls
+   UPDATE-SLOT, whose in-place fast path (persistence.lisp) already
+   branches on %TRANSIENT-OWNER regardless of caller -- it's the general
+   update primitive, not something built only for the transient bypass.
+   INIT-SUPPORTS-P's second return value (escape-analysis.lisp) now signals
+   this accumulator needs 'dispatch-through' mode, and the rewriter
+   (*DISPATCH-THROUGH-NAMES*) routes its spine-op calls through the REAL
+   ASSOC generic instead of the ASSOC! bypass, so the :around still fires.
+
+   :_TOTAL's initform is a sentinel, never NIL on its own -- if the
+   :around had been silently skipped (the old, pre-Approach-A hazard this
+   test used to exist to catch, back when it asserted refusal), :_TOTAL
+   would still read as the sentinel after conversion. It doesn't: this is
+   direct proof real dispatch ran on the converted path, not just that
+   conversion happened.
+
+   Compiled as ordinary FOL source (defmethod assoc :around [...] ...),
+   the same path DVI's own benchmark file goes through, now that two
+   pre-existing compiler bugs this test used to work around are fixed:
+   (1) COMPILE-DEFMETHOD-CLAUSES's fixed-arity path used to collapse EVERY
+   parameter's CLOS specializer to T as soon as any one parameter in the
+   clause needed a non-CLOS-representable guard check, which would have
+   made TIER1-OP-CUSTOMIZED-P's MOP-based check see this method as
+   applying to every representation rather than just this class; (2)
+   registering a simple :around method used to corrupt later, unrelated
+   call sites sharing the same generic function name with a malformed
+   (locally (declare (optimize (inline 3))) ...) wrapper, which is what
+   previously forced this test onto a raw CL DEFMETHOD instead of real FOL
+   source. See COMPILE-DEFMETHOD-GUARD-PLUS-TYPE-KEEPS-CLOS-SPECIALIZER and
+   COMPILE-DEFMETHOD-AROUND-REGISTRATION-DOES-NOT-CORRUPT-LATER-CALLS in
+   test-oop.lisp for focused regression tests of each bug.
+
+   Note: DVI's own benchmark file still does not convert even with this
+   fix -- its actual accumulation loop threads the cart through a BIND
+   chain (c1/t1/c2/reads) where t1 = (cart-total c1) READS c1 rather than
+   extending it, which chain-through-bind's %FOLD-LET-CHAIN still declines
+   (a separate, pre-existing scope boundary, not touched by this test)."
+  (let ((class-src "(defclass <tc-po-cached> []
+                       [[items  :initarg :items  :initform []]
+                        [_total :initarg :_total :initform :tc-untouched]])
+                     (defn tc-po-cached-add [g price]
+                       (fol.compiler.collection-functions:assoc
+                        g :items
+                        (fol.compiler.collection-functions:conj
+                         (fol.compiler.collection-functions:get g :items) price)))
+                     (defn tc-po-cached-run [n]
+                       (loop [i 0 g (make '<tc-po-cached>)]
+                         (if (< i n)
+                           (recur (inc i) (tc-po-cached-add g i))
+                           g)))")
+        (method-src "(defmethod fol.compiler.collection-functions:assoc :around
+                       [(g <tc-po-cached>) (slot (= :items)) val]
+                       (fol.compiler.collection-functions:assoc
+                        (call-next-method) :_total nil))"))
+    (compile-eval-fol-source-multi class-src)
+    (let ((class (find-class (intern "<TC-PO-CACHED>" :fol.core))))
+      (compile-eval-fol-source-multi method-src)
+      (unwind-protect
+          (let ((before (conversion-counts))
+                (plain (funcall (fdefinition (find-symbol "TC-PO-CACHED-RUN" :fol.core)) 20)))
+            (compile-eval-fol-source-multi class-src :transient t)
+            (let ((opt (funcall (fdefinition (find-symbol "TC-PO-CACHED-RUN" :fol.core)) 20)))
+              ;; Converted, not refused -- this is the behavior change.
+              (is (equal (list (+ (first before) 1) (+ (second before) 1) (third before))
+                         (conversion-counts)))
+              ;; The :around fired on both paths: :_total moved off the
+              ;; sentinel to nil, proof real dispatch ran on the converted
+              ;; path too, not the bypass.
+              (is (eq :tc-untouched (fol.compiler.collection-functions:get
+                                     (fol.compiler.primitives:make (intern "<TC-PO-CACHED>" :fol.core))
+                                     :_total)))
+              (is (null (fol.compiler.collection-functions:get plain :_total)))
+              (is (null (fol.compiler.collection-functions:get opt :_total)))
+              (is (equal (fol.compiler.collections:collection-seq
+                          (fol.compiler.collection-functions:get plain :items))
+                         (fol.compiler.collections:collection-seq
+                          (fol.compiler.collection-functions:get opt :items))))))
+        (let ((m (find-method #'fol.compiler.collection-functions:assoc
+                               '(:around) (list class t t) nil)))
+          (when m (remove-method #'fol.compiler.collection-functions:assoc m)))))))
+
+(test transient-loop-persistent-object-make-hazard-still-refused
+  "Approach A's exception is narrow: it applies only to ASSOC. A :around
+   method on MAKE for this class must still refuse conversion outright, the
+   same as before -- INIT-SUPPORTS-P's persistent-object clause checks
+   every non-ASSOC used op (MAKE included) via the ordinary, unexceptioned
+   TIER1-OP-CUSTOMIZED-P, so a hijacked constructor can't silently hand
+   back something other than a fresh instance regardless of what ASSOC
+   itself allows.
+
+   Writing this test surfaced a real, separate, pre-existing gap: MAKE's
+   OWN dispatch parameter is always an EQL-specializer on the class-name
+   symbol -- (defmethod make ((class (eql '<name>)) &rest args)) is how
+   EVERY class's constructor method, including this test's hostile
+   :around, selects a representation -- and %CLASS-APPLICABLE-P
+   unconditionally skipped ALL EQL-specializers (a deliberate, documented
+   choice for the general case: they usually match one object's identity,
+   not a whole representation). That made TIER1-OP-CUSTOMIZED-P a silent
+   no-op for MAKE specifically, contradicting this file's and the paper's
+   existing claim that MAKE is checked. Fixed alongside this test by
+   giving %CLASS-APPLICABLE-P an optional KIND parameter so it also
+   recognizes an EQL-specializer whose object is exactly KIND's own
+   class-name symbol -- a narrow, well-defined exception, not a general
+   EQL-specializer handler."
+  (let ((class-src "(defclass <tc-po-make-guarded> []
+                       [[items :initarg :items :initform []]])
+                     (defn tc-po-make-guarded-add [g price]
+                       (fol.compiler.collection-functions:assoc
+                        g :items
+                        (fol.compiler.collection-functions:conj
+                         (fol.compiler.collection-functions:get g :items) price)))
+                     (defn tc-po-make-guarded-run [n]
+                       (loop [i 0 g (make '<tc-po-make-guarded>)]
+                         (if (< i n)
+                           (recur (inc i) (tc-po-make-guarded-add g i))
+                           g)))")
+        (class-name nil))
+    (compile-eval-fol-source-multi class-src)
+    (setf class-name (intern "<TC-PO-MAKE-GUARDED>" :fol.core))
+    (eval `(defmethod fol.compiler.primitives:make :around ((c (eql ',class-name)) &rest args)
+             (apply #'call-next-method c args)))
+    (unwind-protect
+        (let ((before (conversion-counts)))
+          (compile-eval-fol-source-multi class-src :transient t)
+          (is (equal before (conversion-counts))))
+      (let ((m (find-if (lambda (m)
+                           (let ((s (first (sb-mop:method-specializers m))))
+                             (and (typep s 'sb-mop:eql-specializer)
+                                  (eql (sb-mop:eql-specializer-object s) class-name))))
+                         (sb-mop:generic-function-methods #'fol.compiler.primitives:make))))
+        (when m (remove-method #'fol.compiler.primitives:make m))))))
+
+(test transient-loop-persistent-object-make-with-initargs-not-fresh
+  "(make 'X val1 val2 ...) -- a constructor call passing initargs, not the
+   bare 0-ary (make 'X) -- is deliberately outside %PERSISTENT-OBJECT-MAKE-
+   CLASS's narrow recognition (it would need its own aliasing analysis of
+   the initarg values), so the loop must not convert."
+  (let ((src "(defclass <tc-po-seeded> []
+                [[items :initarg :items :initform []]])
+              (defn tc-po-seeded-add [b price]
+                (fol.compiler.collection-functions:assoc
+                 b :items
+                 (fol.compiler.collection-functions:conj
+                  (fol.compiler.collection-functions:get b :items) price)))
+              (defn tc-po-seeded-run [n]
+                (loop [i 0 b (make '<tc-po-seeded> :items [])]
+                  (if (< i n)
+                    (recur (inc i) (tc-po-seeded-add b i))
+                    b)))"))
+    (let ((before (conversion-counts)))
+      (compile-eval-fol-source-multi src :transient t)
+      (is (equal before (conversion-counts))))))
+
+(test transient-loop-persistent-object-dispatch-through-with-read-tolerant-chain
+  "DVI's actual full shape, combining both mechanisms it needs at once: a
+   :around-customized persistent-object accumulator (Approach A's
+   dispatch-through routing, §sec:discussion) threaded through a BIND chain
+   with an intervening read (the fourth obstacle,
+   %VALIDATE-READ-TOLERANT-CHAIN, tested in isolation above) -- add an
+   item, read the (now-cleared) cached total through a helper, write the
+   recomputed total back, exactly mirroring
+   benchmarks/fol-code/derived-value-invalidation.fol's own RUN-BENCH.
+
+   Neither mechanism alone is exercised by any other test: the persistent-
+   object dispatch-through tests above use a plain RECUR chain (no BIND,
+   no read), and the read-tolerant chain tests above use a plain <dict>
+   (no :around, no dispatch-through). This is the first test where a
+   chain-extending BIND binding's rewritten call must ALSO be checked
+   against *DISPATCH-THROUGH-NAMES* using its OWN local alias (C1, not the
+   loop's own qualified name) -- see TRY-READ-TOLERANT-CHAIN-RW's comment
+   on why that lookup needs the locally-rebound extension.
+
+   Compiles every form before evaluating any of it (mirroring DVI's own
+   compile-file-free loading and TRANSIENT-LOOP-TIER2-FRESH-CONSTRUCTOR-
+   INIT's documented reasoning): interleaving compile with an immediate
+   EVAL, as COMPILE-EVAL-FOL-SOURCE-MULTI does, would trigger NOTE-
+   REDEFINITION on the read helper's very first definition, clearing its
+   just-cached Tier-2 summary before RUN's own compilation ever consults
+   it -- exactly the failure mode discovered while first testing this
+   against the real DVI benchmark file."
+  (let* ((class-src "(defclass <tc-po-dvi> []
+                        [[items  :initarg :items  :initform []]
+                         [_total :initarg :_total :initform :tc-po-dvi-untouched]])")
+         (method-src "(defmethod fol.compiler.collection-functions:assoc :around
+                        [(g <tc-po-dvi>) (slot (= :items)) val]
+                        (fol.compiler.collection-functions:assoc
+                         (call-next-method) :_total nil))")
+         (add-src "(defn tc-po-dvi-add [g price]
+                     (fol.compiler.collection-functions:assoc
+                      g :items
+                      (fol.compiler.collection-functions:conj
+                       (fol.compiler.collection-functions:get g :items) price)))")
+         (total-src "(defn tc-po-dvi-total [g]
+                       (if (nil? (fol.compiler.collection-functions:get g :_total))
+                         (fol.compiler.seq-functions:reduce
+                          fol.compiler.arithmetic-functions:+ 0
+                          (fol.compiler.collection-functions:get g :items))
+                         (fol.compiler.collection-functions:get g :_total)))")
+         (run-src "(defn tc-po-dvi-run [n]
+                     (loop [i 0 g (make '<tc-po-dvi>)]
+                       (if (< i n)
+                         (bind [c1 (tc-po-dvi-add g i)
+                                t1 (tc-po-dvi-total c1)
+                                c2 (fol.compiler.collection-functions:assoc c1 :_total t1)]
+                           (recur (inc i) c2))
+                         g)))")
+         (class nil))
+    (flet ((compile-all (transient)
+             (let ((fol.compiler.escape-analysis:*transient-loops* transient)
+                   (*package* (find-package :fol.core))
+                   (*readtable* fol.compiler.reader:*fol-readtable*)
+                   (deferred '()) (last-code-str nil))
+               (dolist (src (list class-src method-src add-src total-src run-src))
+                 (with-input-from-string (in src)
+                   (loop for f = (read in nil :eof) until (eq f :eof)
+                         do (let* ((result (fol.compiler:compile-form f))
+                                   (code (fol.compiler:compilation-result-code result)))
+                              (setf last-code-str (write-to-string code))
+                              (if (and (consp f) (symbolp (car f))
+                                       (string-equal (symbol-name (car f)) "DEFN"))
+                                  (push code deferred)
+                                  (eval code))))))
+               (dolist (code (nreverse deferred)) (eval code))
+               last-code-str)))
+      (compile-all nil)
+      (setf class (find-class (intern "<TC-PO-DVI>" :fol.core)))
+      (let ((plain (funcall (fdefinition (find-symbol "TC-PO-DVI-RUN" :fol.core)) 20)))
+        (unwind-protect
+            (let ((before (conversion-counts))
+                  (code-str (compile-all t)))
+              (let ((opt (funcall (fdefinition (find-symbol "TC-PO-DVI-RUN" :fol.core)) 20)))
+                (is (search "TRANSIENT" code-str :test #'string-equal))
+                (is (equal (list (+ (first before) 1) (+ (second before) 1) (third before))
+                           (conversion-counts)))
+                ;; The :around fires on every :items write, clearing :_total
+                ;; to nil; the NEXT binding (T1) then recomputes it and C2
+                ;; writes the recomputed value back -- so the final
+                ;; :_total is the last iteration's real total, not the
+                ;; sentinel and not nil, on EITHER path. Equality between
+                ;; the two paths (rather than a fixed value) is what proves
+                ;; the :around fired identically on both, since a bypass
+                ;; that skipped it would have left the sentinel in place.
+                (is (not (eq :tc-po-dvi-untouched
+                             (fol.compiler.collection-functions:get plain :_total))))
+                (is (eql (fol.compiler.collection-functions:get plain :_total)
+                         (fol.compiler.collection-functions:get opt :_total)))
+                (is (equal (fol.compiler.collections:collection-seq
+                            (fol.compiler.collection-functions:get plain :items))
+                           (fol.compiler.collections:collection-seq
+                            (fol.compiler.collection-functions:get opt :items))))))
+          (let ((m (find-method #'fol.compiler.collection-functions:assoc
+                                 '(:around) (list class t t) nil)))
+            (when m (remove-method #'fol.compiler.collection-functions:assoc m))))))))
+
+;;; ============================================================================
 ;;; Tier-2-summarized constructor-call loop inits (§sec:formal's "constructor
 ;;; call summarized as returning an unaliased root" clause)
 ;;; ============================================================================
@@ -1029,6 +1543,75 @@
         ;; One loop, two params converted (queue AND ranks), not one.
         (is (equal (list (+ (first before) 1) (+ (second before) 2) (third before))
                    (conversion-counts)))))))
+
+;;; ============================================================================
+;;; GET slot-lookup inline cache (persistence.lisp SLOT-NAME-FROM-KEYWORD)
+;;; ============================================================================
+;;; Profiling the DVI benchmark (§sec:discussion) found GET on a persistent
+;;; object dominating time (~59% of a read-heavy run), most of it a hash
+;;; lookup (SLOT-NAME-FROM-KEYWORD) mapping a literal keyword to a slot name
+;;; on every call. A single-entry, per-class inline cache skips that lookup
+;;; on a repeat (keyword, class) hit -- correctness, not just speed, is what
+;;; these tests check: a stale entry must never survive a redefinition, and
+;;; a cache miss on a different keyword must still return the right slot.
+
+(test tc-slot-lookup-cache-hit-returns-correct-slot
+  "A cache HIT (the same keyword looked up twice in a row on the same
+   class) returns the same slot name a fresh, uncached lookup would."
+  (let ((src "(defclass <tc-cache-basket> []
+                [[items :initarg :items :initform []]
+                 [_total :initarg :_total :initform :tc-cache-sentinel]])"))
+    (compile-eval-fol-source-multi src)
+    (let* ((class (find-class (intern "<TC-CACHE-BASKET>" :fol.core)))
+           (obj (fol.compiler.primitives:make (intern "<TC-CACHE-BASKET>" :fol.core))))
+      ;; First call populates the cache; second call must hit it and agree.
+      (is (eq (fol.compiler.persistent::slot-name-from-keyword class :items)
+              (fol.compiler.persistent::slot-name-from-keyword class :items)))
+      (is (eq (intern "ITEMS" :fol.core)
+              (fol.compiler.persistent::slot-name-from-keyword class :items)))
+      ;; GET itself (the actual caller) must still read correctly, both
+      ;; before and after the cache is warmed on that keyword.
+      (is (eq :tc-cache-sentinel (fol.compiler.collection-functions:get obj :_total))))))
+
+(test tc-slot-lookup-cache-miss-on-different-keyword-still-correct
+  "Looking up a SECOND keyword after the cache is warmed on a first one is a
+   cache miss (single-entry cache, not associative) but must still return
+   the right slot, not the first keyword's cached answer."
+  (let ((src "(defclass <tc-cache-two-slots> []
+                [[items :initarg :items :initform []]
+                 [_total :initarg :_total :initform nil]])"))
+    (compile-eval-fol-source-multi src)
+    (fol.compiler.primitives:make (intern "<TC-CACHE-TWO-SLOTS>" :fol.core)) ; force finalization
+    (let ((class (find-class (intern "<TC-CACHE-TWO-SLOTS>" :fol.core))))
+      (fol.compiler.persistent::slot-name-from-keyword class :items) ; warm on :items
+      (is (eq (intern "_TOTAL" :fol.core)
+              (fol.compiler.persistent::slot-name-from-keyword class :_total)))
+      ;; Swap back: warmed on :_total now, :items must still resolve right.
+      (is (eq (intern "ITEMS" :fol.core)
+              (fol.compiler.persistent::slot-name-from-keyword class :items))))))
+
+(test tc-slot-lookup-cache-invalidated-by-redefinition
+  "A class redefinition that changes slot layout must not leave a stale
+   cache entry from the OLD layout answering lookups against the NEW one:
+   COMPUTE-SLOTS resets the cache unconditionally on every redefinition."
+  (let ((src1 "(defclass <tc-cache-redef> []
+                 [[old-slot :initarg :old-slot :initform nil]])")
+        (src2 "(defclass <tc-cache-redef> []
+                 [[new-slot :initarg :new-slot :initform nil]])"))
+    (compile-eval-fol-source-multi src1)
+    (fol.compiler.primitives:make (intern "<TC-CACHE-REDEF>" :fol.core)) ; force finalization
+    (let ((class (find-class (intern "<TC-CACHE-REDEF>" :fol.core))))
+      ;; Warm the cache on a keyword valid in the OLD layout.
+      (is (eq (intern "OLD-SLOT" :fol.core)
+              (fol.compiler.persistent::slot-name-from-keyword class :old-slot)))
+      (compile-eval-fol-source-multi src2)
+      (fol.compiler.primitives:make (intern "<TC-CACHE-REDEF>" :fol.core)) ; re-finalize
+      ;; Same class object (REINITIALIZE-INSTANCE, not a fresh one); its
+      ;; cache must have been reset, or this would still (wrongly) answer
+      ;; OLD-SLOT for :old-slot instead of NIL, and fail to find NEW-SLOT.
+      (is (null (fol.compiler.persistent::slot-name-from-keyword class :old-slot)))
+      (is (eq (intern "NEW-SLOT" :fol.core)
+              (fol.compiler.persistent::slot-name-from-keyword class :new-slot))))))
 
 ;;; ============================================================================
 ;;; Run the suite

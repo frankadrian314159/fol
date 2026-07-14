@@ -136,9 +136,14 @@
 
    Examples:
      (reduce + 0 [1 2 3 4])                     => 10
-     (reduce (fn [acc x] (conj acc (* x 2))) [] [1 2 3]) => [2 4 6]"
-  (let ((seq (fol.compiler.collections:collection-seq coll)))
-    (cl:reduce fn seq :initial-value init)))
+     (reduce (fn [acc x] (conj acc (* x 2))) [] [1 2 3]) => [2 4 6]
+
+   Delegates to COLLECTION-REDUCE (fol.compiler.collections), whose default
+   method matches this function's previous behavior exactly (materialize
+   COLLECTION-SEQ, fold via CL:REDUCE) for any collection type; some
+   representations (e.g. <VECTOR>) override it to fold without that
+   intermediate allocation."
+  (collection-reduce coll fn init))
 
 ;;; ---------------------------------------------------------------------------
 ;;; pmapcat - parallel map followed by concatenation using thread pool

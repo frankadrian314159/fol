@@ -1082,3 +1082,67 @@
     (is (= 2 (size* result)))
     (is (eql 10 (nth* result 0)))
     (is (eql 15 (nth* result 1)))))
+
+;;; ---------------------------------------------------------------------------
+;;; reduce / collection-reduce (fol.compiler.collections)
+;;; ---------------------------------------------------------------------------
+;;; <VECTOR> has its own COLLECTION-REDUCE method folding directly over
+;;; %VEC-T-ITERATOR instead of materializing COLLECTION-SEQ's list first
+;;; (profiling found this list the dominant source of allocation in a fold
+;;; repeated many times over a growing vector). These tests check the fast
+;;; path agrees with the old, still-present default method (materialize
+;;; then CL:REDUCE) exactly, not just that some plausible-looking number
+;;; comes out.
+
+(test reduce-vector-basic
+  "reduce sums a small vector correctly."
+  (is (= 10 (fol.compiler.seq-functions:reduce #'+ 0 (v 1 2 3 4)))))
+
+(test reduce-vector-empty
+  "reduce over an empty vector returns INIT unchanged."
+  (is (= 0 (fol.compiler.seq-functions:reduce #'+ 0 (v))))
+  (is (eq :init (fol.compiler.seq-functions:reduce #'+ :init (v)))))
+
+(test reduce-vector-single-element
+  "reduce over a one-element vector applies FN exactly once."
+  (is (= 15 (fol.compiler.seq-functions:reduce #'+ 10 (v 5)))))
+
+(test reduce-vector-crosses-leaf-boundaries
+  "A vector spanning multiple %VEC-T-ITERATOR leaf chunks (32 elements each)
+   still visits every element exactly once, in order -- the fast path's
+   leaf-advance logic is what this exercises; a 4-element vector never
+   would."
+  (let* ((n 100)
+         (vec (apply #'fol.compiler.collection-functions:vector
+                      (loop for i below n collect i))))
+    (is (= (/ (* n (1- n)) 2) (fol.compiler.seq-functions:reduce #'+ 0 vec)))
+    ;; Order matters: build a list via reduce/conj and check it's [0 1 2 ...].
+    (let ((rebuilt (fol.compiler.seq-functions:reduce
+                     (lambda (acc x) (fol.compiler.collection-functions:conj acc x))
+                     (fol.compiler.collection-functions:vector)
+                     vec)))
+      (is (= n (fol.compiler.collection-functions:size rebuilt)))
+      (is (loop for i below n
+                always (eql i (fol.compiler.collection-functions:nth rebuilt i)))))))
+
+(test reduce-vector-fast-path-matches-default-method
+  "COLLECTION-REDUCE's <VECTOR> fast path must agree with what the default
+   method (materialize COLLECTION-SEQ, fold via CL:REDUCE -- <VECTOR>'s own
+   behavior before this optimization existed) would have produced, for a
+   vector large enough to span several leaf chunks."
+  (let* ((n 75)
+         (vec (apply #'fol.compiler.collection-functions:vector
+                      (loop for i below n collect (* i i)))))
+    (is (= (cl:reduce #'+ (fol.compiler.collections:collection-seq vec) :initial-value 0)
+           (fol.compiler.collections:collection-reduce vec #'+ 0)))))
+
+(test reduce-non-vector-collection-still-correct
+  "The default COLLECTION-REDUCE method (unchanged for any type without its
+   own override) still works for a non-vector collection, e.g. a set."
+  (is (= 6 (fol.compiler.seq-functions:reduce
+            #'+ 0 (fol.compiler.collection-functions:set 1 2 3)))))
+
+(test reduce-plain-cl-list-still-correct
+  "reduce over a plain CL list (not a FOL collection at all) still works,
+   via COLLECTION-SEQ's own (T) default method for lists."
+  (is (= 6 (fol.compiler.seq-functions:reduce #'+ 0 (list 1 2 3)))))

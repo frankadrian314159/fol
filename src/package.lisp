@@ -480,6 +480,7 @@
    collection-ref
    collection-seq
    collection-lazy-seq
+   collection-reduce
    count
    empty?
    ;; High-level accessors
@@ -727,7 +728,7 @@
                 take-nth interpose partition-by partition-all
                 reduced reduced? unreduced ensure-reduced)
   (:import-from fol.compiler.collections
-                collection-seq collection-conj make
+                collection-seq collection-conj collection-reduce make
                 <vector> <list> <lazy-seq> <collection>
                 <dict> <ordered-dict> <sorted-dict> <priority-dict>
                 storage-items ordered-dict-key-order

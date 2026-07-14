@@ -57,6 +57,15 @@ persistent vector trie.  See file header for threshold rationale.")
      (%keyword-to-slot :accessor persistent-class-keyword-to-slot
                        :initform (make-hash-table :test 'eq)
                        :documentation "Hash table mapping keywords to slot name symbols.")
+     (%last-keyword-lookup :accessor persistent-class-last-keyword-lookup
+                           :initform nil
+                           :documentation "Single-entry inline cache for SLOT-NAME-FROM-KEYWORD: a
+   fresh, never-mutated (keyword . slot-name) cons, or NIL. Read/replaced as a
+   single pointer (never mutated in place), so a concurrent reader always
+   sees either the old, fully-consistent pair or the new one, never a torn
+   mix -- safe without locking. Reset to NIL on every COMPUTE-SLOTS
+   (redefinition), so a stale entry from a prior schema version can never
+   survive past it.")
      (%slot-aliases :accessor persistent-class-slot-aliases
                     :initform (make-hash-table :test 'eq)
                     :documentation "Maps slot name symbols to their old-name aliases.")
@@ -121,6 +130,7 @@ persistent vector trie.  See file header for threshold rationale.")
          (kw-map (make-hash-table :test 'eq)))
 
     (setf (persistent-class-slot-count class) count)
+    (setf (persistent-class-last-keyword-lookup class) nil)
 
     ;; Populate keyword to slot name map and alias map
     (let ((alias-map (make-hash-table :test 'eq)))
@@ -456,8 +466,22 @@ Used to locate the correct starting point in the class version chain during mult
         nil)))
 
 (defun slot-name-from-keyword (class keyword)
-  "Map a keyword back to a slot name symbol using the class's cached map."
-  (gethash keyword (persistent-class-keyword-to-slot class)))
+  "Map a keyword back to a slot name symbol using the class's cached map.
+   Checks a single-entry inline cache first (see PERSISTENT-CLASS-LAST-
+   KEYWORD-LOOKUP): a hot loop reading the same keyword off the same class
+   repeatedly -- GET's own dominant use, profiled at ~59% of a read-heavy
+   benchmark's runtime -- skips the hash lookup on every repeat. The cache
+   holds a full (keyword . slot-name) pair rather than a single slot value
+   for the miss to overwrite: a lock-free single-pointer swap, so a
+   concurrent reader can only ever see the old, fully-consistent pair or
+   the new one, never one field from each."
+  (let* ((cached (persistent-class-last-keyword-lookup class))
+         (hit (and cached (eq (car cached) keyword))))
+    (if hit
+        (cdr cached)
+        (let ((slot-name (gethash keyword (persistent-class-keyword-to-slot class))))
+          (setf (persistent-class-last-keyword-lookup class) (cons keyword slot-name))
+          slot-name))))
 
 (defun update-slot (object key new-value)
   "Return a new persistent object with KEY (slot name or keyword) updated to NEW-VALUE."
@@ -536,6 +560,33 @@ Used to locate the correct starting point in the class version chain during mult
             (setf (%persistent-metadata new-obj) (%persistent-metadata object)))
 
       new-obj)))
+
+;;; ============================================================================
+;;; Transient Protocol (fol.compiler.collections:transient/assoc!/persistent!)
+;;; ============================================================================
+;;; %TRANSIENT-OWNER/%TRANSIENT-BUFFER above (and UPDATE-SLOTS's fast path)
+;;; already implement the mutation mechanics; nothing previously set
+;;; %TRANSIENT-OWNER to a non-NIL value, so TRANSIENT on a <persistent-object>
+;;; fell through to the generic no-op and this path was dead. The methods
+;;; live in transients.lisp (fol.compiler.collections owns those generics);
+;;; these two helpers do the actual work so persistence.lisp's own package
+;;; owns the %TRANSIENT-OWNER accessor and BT:CURRENT-THREAD reference.
+
+(defun %persistent-object-transient (object)
+  "Return a shallow copy of OBJECT, owned by the current thread, ready for
+   in-place mutation via UPDATE-SLOT/UPDATE-SLOTS (whose fast path checks
+   exactly this ownership) or direct (setf (slot-value copy ...) ...).
+   Reuses UPDATE-SLOTS's own copy path (called with no slot updates) rather
+   than duplicating its native/overflow-slot copying logic."
+  (let ((copy (update-slots object)))
+    (setf (%transient-owner copy) (bt:current-thread))
+    copy))
+
+(defun %persistent-object-persistent! (object)
+  "Freeze OBJECT, clearing transient ownership so further slot writes go
+   through the copy-on-write path again. Returns OBJECT."
+  (setf (%transient-owner object) nil)
+  object)
 
 (defun dissoc-slots (object &rest keys)
   "Return a new persistent object with the specified slots removed (unbound).

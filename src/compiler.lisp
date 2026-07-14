@@ -143,61 +143,25 @@
   "Check if generic function has registered simple :around methods."
   (not (null (gethash gf-name *simple-around-methods*))))
 
-(defun get-simple-around-methods (gf-name)
-  "Get list of simple :around method info for a generic function.
-   Returns ((specializers . body-length) ...) or nil."
-  (gethash gf-name *simple-around-methods*))
-
-(defun analyze-simple-around-optimization (gf-name)
-  "Analyze whether a generic function's :around methods can be optimized.
-
-   Returns:
-   - NIL if no optimization possible
-   - :type-dispatch if first argument has type specializers
-   - :generic if all methods are generic (no specializers)"
-  (let ((methods (get-simple-around-methods gf-name)))
-    (when methods
-      (let* ((has-type-specs (some (lambda (m) (car m)) methods))
-             (first-param-specs (mapcar (lambda (m)
-                                         (when (car m)
-                                           (car (car m))))
-                               methods)))
-        (cond
-          (has-type-specs :type-dispatch)
-          ((every #'null methods) :generic)
-          (t nil))))))
-
 (defun emit-optimized-generic-call (gf-name emitted-args)
-  "Emit optimized dispatch code for generic functions with simple :around methods.
+  "Emit dispatch code for a call to GF-NAME, a generic function with at least
+   one registered simple :around method (see HAS-SIMPLE-AROUND-METHODS-P).
 
-   Optimization Strategy:
-   1. Analyze method signatures to find optimization opportunities
-   2. For type-specialized methods: emit runtime type-check dispatch
-   3. For generic methods: use specialized calling convention
-   4. Always fall back to normal dispatch for unmatched types
-
-   This avoids method lookup overhead while preserving correctness."
-  (let ((optimization (analyze-simple-around-optimization gf-name)))
-    (case optimization
-      ;; Type-specialized first parameter: emit type-aware dispatch
-      (:type-dispatch
-        (let ((generic-sym (intern (symbol-name gf-name) :fol.core))
-              (first-arg (first emitted-args)))
-          ;; Emit type-aware dispatch: check class-of first-arg
-          ;; For now, emit generic call but mark for SBCL inline expansion
-          (if (null emitted-args)
-              `(,generic-sym)
-              ;; Add a hint for SBCL to inline based on type info
-              `(locally (declare (optimize (inline 3)))
-                 (,generic-sym ,@emitted-args)))))
-      ;; Generic methods: use fast-path generic dispatch
-      (:generic
-        (let ((generic-sym (intern (symbol-name gf-name) :fol.core)))
-          `(,generic-sym ,@emitted-args)))
-      ;; No optimization: use standard dispatch
-      (otherwise
-        (let ((generic-sym (intern (symbol-name gf-name) :fol.core)))
-          `(,generic-sym ,@emitted-args))))))
+   This used to branch on method shape and, for type-specialized methods,
+   wrap the call in (locally (declare (optimize (inline 3))) ...) as a
+   compiler 'hint'. INLINE is not a real CL optimize quality, so it never
+   inlined anything -- and because registration is keyed only on GF-NAME
+   (not on the specific class the :around method specializes on), any
+   earlier compilation that defined a simple :around method on some
+   GF-NAME, anywhere, in any file compiled into the same image, caused
+   every later, unrelated call site sharing that name to be wrapped too.
+   When such a call site's emitted form was later re-walked as source by
+   another compiler pass, the unrecognized DECLARE inside LOCALLY was
+   parsed as a call to a function named DECLARE and failed with \"no
+   function named DECLARE\". Emitting a plain call unconditionally avoids
+   both the meaningless hint and the cross-compilation-unit hazard."
+  (let ((generic-sym (intern (symbol-name gf-name) :fol.core)))
+    `(,generic-sym ,@emitted-args)))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Around Method Specialization Code Generation
@@ -1404,6 +1368,41 @@
         "Set of lexically bound variable names. Used to detect when a function call
    needs funcall (Lisp-2 semantics). Bound dynamically during code emission.")
 
+(defvar *current-defn-name* nil
+        "Name of the single-clause, simple-positional-params top-level function
+   currently being emitted, or NIL (multi-clause functions, letfn bindings,
+   and top-level non-defn forms leave this unbound). Paired with
+   *CURRENT-DEFN-PARAM-INDEX*; together they let INFER-TYPE-FROM-EXPR
+   (interprocedural-types.lisp) resolve a bare parameter reference inside
+   the function body back to its interprocedurally-proven class, if any.
+   Bound in EMIT-DEFN/EMIT-DEFN-PRIVATE/EMIT-DEFINLINE around their
+   COMPILE-FN call.")
+
+(defvar *current-defn-param-index* nil
+        "Alist of (param-symbol . position-index) for *CURRENT-DEFN-NAME*'s
+   positional parameters, or NIL. See *CURRENT-DEFN-NAME*.")
+
+(defun %defn-context-param-index (clauses)
+  "Alist of (param-symbol . index) when CLAUSES is a single clause with a
+   flat, unspecialized positional parameter list (the same eligibility
+   condition INFER-INTERPROCEDURAL-TYPES uses to track a function); NIL
+   otherwise. Relies on %SR-PARAM-LIST/%SR-SYMBOL-LIST-P defined later in
+   this file (forward reference to a plain function is fine in CL)."
+  (when (= 1 (length clauses))
+    (let ((params (%sr-param-list (car (first clauses)))))
+      (when (%sr-symbol-list-p params)
+        (loop for p in params for i from 0 collect (cons p i))))))
+
+(defmacro %with-current-defn-context (name clauses &body body)
+  "Bind *CURRENT-DEFN-NAME*/*CURRENT-DEFN-PARAM-INDEX* for BODY -- see
+   *CURRENT-DEFN-NAME*. NAME and CLAUSES are each evaluated once."
+  (let ((n (gensym "NAME")) (c (gensym "CLAUSES")))
+    `(let* ((,n ,name) (,c ,clauses)
+            (*current-defn-param-index* (%defn-context-param-index ,c))
+            (*current-defn-name* (and *current-defn-param-index* ,n)))
+       (declare (ignorable ,n))
+       ,@body)))
+
 (defvar *letfn-fns* nil
         "Set of function names bound in an enclosing letfn (CL labels) form.
    Calls to these names are emitted as direct function calls since labels
@@ -1553,15 +1552,22 @@
        (let ((keyword (fol.compiler.ast:literal-node-value operator))
              (dict-arg-node (first args))
              (dict-arg (emit-node (first args))))
-         ;; Try to infer type from constructor call
-         (let* ((inferred-type (infer-type-from-constructor dict-arg-node))
+         ;; Try to infer type: literal constructor call, or (interprocedurally)
+         ;; a call/parameter whose class was proven from all its call sites.
+         (let* ((inferred-type (infer-type-from-expr dict-arg-node))
                 (slot-pair (when inferred-type
-                             (get-slot-name-for-type inferred-type keyword))))
+                             (get-slot-name-for-type inferred-type keyword)))
+                (fallback `(fol.compiler.collection-functions:get ,dict-arg ,keyword)))
            (if slot-pair
-               ;; Emit optimized direct slot-value access
-               `(cl:slot-value ,dict-arg ',(cl:cdr slot-pair))
-               ;; Fall back to generic get
-               `(fol.compiler.collection-functions:get ,dict-arg ,keyword)))))
+               ;; World-guarded: the type proof may rest on other functions'
+               ;; code (not just literal text right here), so guard the fast
+               ;; path against INFERRED-TYPE being redefined at runtime.
+               `(cl:if (cl:car (cl:load-time-value
+                                (fol.compiler.world:register-region '(,(string inferred-type)))
+                                cl:t))
+                       (cl:slot-value ,dict-arg ',(cl:cdr slot-pair))
+                       ,fallback)
+               fallback))))
 
      ;; Pattern: (letfn-fn ...) - function bound by an enclosing letfn (labels)
      ;; These are in the function slot, so emit a direct function call.
@@ -1618,14 +1624,20 @@
                   (keywordp (fol.compiler.ast:literal-node-value (second args))))
              (let* ((obj-node (first args))
                     (key (fol.compiler.ast:literal-node-value (second args)))
-                    (inferred-type (infer-type-from-constructor obj-node))
+                    (inferred-type (infer-type-from-expr obj-node))
                     (slot-pair (when inferred-type
-                                 (get-slot-name-for-type inferred-type key))))
+                                 (get-slot-name-for-type inferred-type key)))
+                    (fallback `(fol.compiler.collection-functions:get ,@emitted-args)))
                (if slot-pair
-                   ;; Optimization successful: emit direct slot-value
-                   `(cl:slot-value ,(first emitted-args) ',(cdr slot-pair))
-                   ;; Fallback to generic `get`
-                   `(fol.compiler.collection-functions:get ,@emitted-args)))
+                   ;; Optimization successful: emit direct slot-value,
+                   ;; world-guarded since the proof may rest on other
+                   ;; functions' code (see the (:keyword obj) branch above).
+                   `(cl:if (cl:car (cl:load-time-value
+                                    (fol.compiler.world:register-region '(,(string inferred-type)))
+                                    cl:t))
+                           (cl:slot-value ,(first emitted-args) ',(cdr slot-pair))
+                           ,fallback)
+                   fallback))
              ;; Priority 1: Check pragma-based inline-assoc! optimization
              (if (and (cl:string-equal (symbol-name sym) "ASSOC")
                       *inline-methods-enabled*
@@ -2104,7 +2116,8 @@
    Same as defn; privacy is by convention only."
   (let* ((name (fol.compiler.ast:defn-private-node-name node))
          (clauses (fol.compiler.ast:defn-private-node-clauses node))
-         (lambda-form (compile-fn clauses)))
+         (lambda-form (%with-current-defn-context name clauses
+                        (compile-fn clauses))))
     (let ((params (second lambda-form))
           (body (cddr lambda-form)))
       `(cl:defun ,name ,params ,@body))))
@@ -2114,7 +2127,8 @@
    Declares the function inline before defining it."
   (let* ((name (fol.compiler.ast:definline-node-name node))
          (clauses (fol.compiler.ast:definline-node-clauses node))
-         (lambda-form (compile-fn clauses)))
+         (lambda-form (%with-current-defn-context name clauses
+                        (compile-fn clauses))))
     (let ((params (second lambda-form))
           (body (cddr lambda-form)))
       `(cl:progn
@@ -2260,9 +2274,17 @@
                                      (remf (cdr result) :accessor)
                                      result))
                   collect processed)))
-      ;; World-guard integration for scalar replacement: a redefinition of
-      ;; this class must invalidate any functions that scalar-replaced it.
-      (when (and fol.compiler.escape-analysis:*scalar-replacement*
+      ;; World-guard integration: a redefinition of this class must
+      ;; invalidate any function that assumed its old shape -- scalar
+      ;; replacement (fields unboxed at compile time) or the interprocedural
+      ;; GET-bypass (compiler.lisp EMIT-CALL-1, ~line 1550/1620, guarded via
+      ;; REGISTER-REGION regardless of *SCALAR-REPLACEMENT*). Only fires when
+      ;; NAME already has a *GLOBAL-TYPE-INFO* entry, i.e. this is a genuine
+      ;; redefinition, not NAME's first DEFCLASS -- nothing could have
+      ;; assumed a shape for a class that didn't exist yet, and callers of
+      ;; WORLD-STATS (tests, diagnostics) treat :REDEFINITIONS-NOTED as
+      ;; counting real redefinitions.
+      (when (and (gethash name *global-type-info*)
                  (not fol.compiler.world:*sealed-world*))
         (fol.compiler.world:note-redefinition name))
 
@@ -2643,6 +2665,7 @@
         ;; Fixed-arity path with smart parameter naming (Bug #4 fix)
         (let* (;; For each parameter position, check if all clauses use same name
                (all-stripped (mapcar (lambda (c) (getf c :stripped)) sorted))
+               (all-signatures (mapcar (lambda (c) (getf c :signature)) sorted))
                (param-syms
                 (loop for i below uniform-arity
                       for names-at-pos = (mapcar (lambda (stripped) (nth i stripped))
@@ -2655,13 +2678,46 @@
                       collect (if all-same
                                   (first names-at-pos) ; Use the shared name
                                   (intern (format nil "A~D" i))))) ; Use intern
+               ;; A position can carry a real CLOS specializer -- rather than
+               ;; collapsing to an implicit T and enforcing the type via a
+               ;; runtime COND check -- when every clause names the same bare
+               ;; parameter there AND every clause's signature there is an
+               ;; identical (:type ClassName). This keeps CLOS specializers
+               ;; visible to MOP-based introspection (e.g. escape-analysis's
+               ;; Trusted/tier1-op-customized-p hazard check) for the common
+               ;; case of a type-specialized parameter that shares a clause
+               ;; with an EQL/guard/predicate specializer on another
+               ;; parameter, instead of every position silently becoming T
+               ;; the moment any parameter in the clause needs a runtime
+               ;; check. Positions where clauses disagree on type, or that
+               ;; use a non-type pattern, are unaffected and still dispatch
+               ;; via the COND below exactly as before.
+               (clos-specializer-classes
+                (loop for i below uniform-arity
+                      for names-at-pos = (mapcar (lambda (stripped) (nth i stripped))
+                                             all-stripped)
+                      for sigs-at-pos = (mapcar (lambda (sig) (nth i sig)) all-signatures)
+                      for shared-sym-p = (and (every #'symbolp names-at-pos)
+                                               (every (lambda (n) (eq n (first names-at-pos)))
+                                                   names-at-pos))
+                      for uniform-type-p = (and (every (lambda (s) (eq (first s) :type)) sigs-at-pos)
+                                                 (every (lambda (s)
+                                                          (string= (symbol-name (second s))
+                                                                   (symbol-name (second (first sigs-at-pos)))))
+                                                     sigs-at-pos))
+                      collect (and shared-sym-p uniform-type-p (second (first sigs-at-pos)))))
                (cond-clauses
                 (loop for c in sorted
                       for signature = (getf c :signature)
                       for stripped = (getf c :stripped)
                       for body-nodes = (getf c :body-nodes)
+                        ;; Positions already enforced by a CLOS specializer need
+                        ;; no runtime check; treat them as :any for the COND.
+                      for checked-signature = (loop for sig in signature
+                                                    for cls in clos-specializer-classes
+                                                    collect (if cls (list :any) sig))
                       for base-check = (fol.compiler.destructure:emit-fixed-arity-pattern-check
-                                        signature param-syms)
+                                        checked-signature param-syms)
                         ;; Include inner dict predicate checks (e.g. nested :keys eql patterns)
                         ;; Priority 2: Extract type from signature for type-aware optimization
                       for inner-checks = (loop for param in stripped
@@ -2688,7 +2744,11 @@
                                        emitted-body)))))
           (let* ((variadic-p (member (symbol-name name) '("ASSOC" "DISSOC" "CONJ" "MERGE" "LIST" "LIST*" "VECTOR" "DICT" "SET") :test #'string-equal))
                  (rest-sym (when variadic-p (cl:gensym "REST")))
-                 (final-lambda-list (if variadic-p (append param-syms (list '&rest rest-sym)) param-syms)))
+                 (specialized-params
+                  (loop for sym in param-syms
+                        for cls in clos-specializer-classes
+                        collect (if cls (list sym cls) sym)))
+                 (final-lambda-list (if variadic-p (append specialized-params (list '&rest rest-sym)) specialized-params)))
             `(cl:defmethod ,name ,@(when qualifier (list qualifier)) ,final-lambda-list
                ,@(when variadic-p `((cl:declare (cl:ignore ,rest-sym))))
                ,@(when *extra-special-vars*
@@ -3163,8 +3223,12 @@
          (type-metadata-form (cl:get name :defn-type-metadata))
          ;; AST-level analysis (robust, format-independent)
          (cache-mode (cacheable-clauses-p clauses))
-         ;; Compile regardless (needed for emit)
-         (lambda-form (compile-fn clauses))
+         ;; Compile regardless (needed for emit). Bind the current-defn
+         ;; context (see *CURRENT-DEFN-NAME*) so INFER-TYPE-FROM-EXPR can
+         ;; resolve bare parameter references to interprocedurally-proven
+         ;; types while this function's body is being emitted.
+         (lambda-form (%with-current-defn-context name clauses
+                        (compile-fn clauses)))
          ;; Fallback: post-compile check catches edge cases
          (cache-mode (or cache-mode (cacheable-defn-p lambda-form))))
     ;; Track this function for Lisp-1 compatibility in compile-file
@@ -4664,78 +4728,107 @@
   "Read and compile a FOL source file.
    If OUTPUT is given, writes the generated CL code to that path.
    Otherwise writes to a temporary .lisp file and calls CL:COMPILE-FILE.
-   Returns the pathname of the compiled file (fasl)."
+   Returns the pathname of the compiled file (fasl).
+
+   Three passes over the file's forms:
+     1. Read every form (exactly today's IN-PACKAGE bookkeeping, since a
+        later form's reading can depend on an earlier IN-PACKAGE's package-
+        creation/import side effects -- see the loop below) and PARSE-FORM
+        it, without emitting anything yet. Collects (FORM AST PACKAGE),
+        PACKAGE being the *PACKAGE* value in effect when FORM was read.
+     2. INFER-INTERPROCEDURAL-TYPES over all the parsed ASTs from pass 1 --
+        pure analysis, no I/O, no side effects. Needs every form's AST in
+        hand up front, which is exactly what pass 1 produced.
+     3. Emit: iterate the same collected forms in order, rebinding *PACKAGE*
+        to each entry's stored snapshot, and call today's COMPILE-FORM +
+        PRIN1 logic unchanged. COMPILE-FORM re-parses the form internally
+        (a second PARSE-FORM call per form) -- deliberate: this keeps
+        COMPILE-FORM's own internals (Tier-2 summary timing, scalar
+        replacement, redefinition handling) completely untouched by this
+        restructuring.
+   Package creation/cleanup (CREATED-PACKAGES) spans both passes now,
+   deleted only once emission has finished."
   (let* ((source-path (truename path))
          (lisp-path (make-pathname :type "lisp" :defaults (if output output source-path)))
-         (created-packages nil))
+         (created-packages nil)
+         (collected nil)
+         (*file-function-defs* (list t)))
 
+    ;; --- Pass 1: read + package bookkeeping + parse (no emission) ---
     (with-open-file (in source-path :direction :input)
-      (with-open-file (out lisp-path :direction :output :if-exists :supersede)
-        ;; Bind readtable and package for reading
-        (let ((*readtable* *fol-readtable*)
-              (*package* (find-package :fol.core))
-              (*print-circle* t)
-              (*file-function-defs* (list t)))
-          ;; Emit package declaration so cl:compile-file uses correct package
-          (format out "~&;;; Transpiled from ~A~%" (file-namestring source-path))
-          (format out "(in-package :fol.core)~%")
+      (let ((*readtable* *fol-readtable*)
+            (*package* (find-package :fol.core)))
+        (loop for form = (fol-read in nil :eof)
+              until (eq form :eof)
+              do (progn
+                  (when (cl:and (cl:consp form)
+                          (cl:symbolp (cl:car form))
+                          (cl:string-equal (cl:symbol-name (cl:car form)) "IN-PACKAGE"))
+                        (cl:let ((raw-name (cl:second form)))
+                          (cl:when (cl:or (cl:stringp raw-name) (cl:symbolp raw-name))
+                            (cl:let ((pkg-name (cl:string-upcase (cl:string raw-name))))
+                              (cl:let ((existing (cl:find-package pkg-name)))
+                                (cl:unless existing
+                                  (cl:push pkg-name created-packages))
+                                (cl:let ((pkg (cl:or existing
+                                                (cl:let ((new-pkg (cl:make-package pkg-name :use cl:nil)))
+                                                  ;; Shadow-import FOL.CORE symbols that conflict with CL
+                                                  (cl:let ((fol-core (cl:find-package :fol.core)))
+                                                    (cl:loop for s being the external-symbols of fol-core
+                                                      when (cl:find-symbol (cl:symbol-name s) :common-lisp)
+                                                    do (cl:shadowing-import s new-pkg))
+                                                    (cl:use-package (cl:list fol-core (cl:find-package :cl)) new-pkg))
+                                                  new-pkg))))
+                                  ;; Import all fol.core symbols from this form into the new package.
+                                  ;; This ensures prin1 outputs them without package qualification,
+                                  ;; so at load time they resolve correctly in the target package.
+                                  (cl:let ((fol-syms (collect-fol-core-symbols form)))
+                                    (cl:dolist (s fol-syms)
+                                      (cl:multiple-value-bind (existing status)
+                                        (cl:find-symbol (cl:symbol-name s) pkg)
+                                        (cl:when (cl:or (cl:null status)
+                                                   (cl:eq existing s))
+                                          (cl:import s pkg)))))
+                                  ;; Export symbols from :export clause so subsequent modules inherit them
+                                  (cl:let ((export-opt (cl:find-if
+                                                         (cl:lambda (x)
+                                                           (cl:and (cl:consp x)
+                                                             (cl:string-equal (cl:car x) :export)))
+                                                         (cl:cddr form))))
+                                    (cl:when export-opt
+                                      (cl:dolist (s (cl:cdr export-opt))
+                                        (cl:when (cl:symbolp s)
+                                          (cl:let ((found (cl:find-symbol (cl:symbol-name s) pkg)))
+                                            (cl:when found
+                                              (cl:export found pkg)))))))
+                                  (cl:setf cl:*package* pkg)))))))
+                  (push (list form (parse-form form) cl:*package*) collected)))))
+    (setf collected (nreverse collected))
 
-          (loop for form = (fol-read in nil :eof)
-                until (eq form :eof)
-                do (progn
-                    (when (cl:and (cl:consp form)
-                            (cl:symbolp (cl:car form))
-                            (cl:string-equal (cl:symbol-name (cl:car form)) "IN-PACKAGE"))
-                          (cl:let ((raw-name (cl:second form)))
-                            (cl:when (cl:or (cl:stringp raw-name) (cl:symbolp raw-name))
-                              (cl:let ((pkg-name (cl:string-upcase (cl:string raw-name))))
-                                (cl:let ((existing (cl:find-package pkg-name)))
-                                  (cl:unless existing
-                                    (cl:push pkg-name created-packages))
-                                  (cl:let ((pkg (cl:or existing
-                                                  (cl:let ((new-pkg (cl:make-package pkg-name :use cl:nil)))
-                                                    ;; Shadow-import FOL.CORE symbols that conflict with CL
-                                                    (cl:let ((fol-core (cl:find-package :fol.core)))
-                                                      (cl:loop for s being the external-symbols of fol-core
-                                                        when (cl:find-symbol (cl:symbol-name s) :common-lisp)
-                                                      do (cl:shadowing-import s new-pkg))
-                                                      (cl:use-package (cl:list fol-core (cl:find-package :cl)) new-pkg))
-                                                    new-pkg))))
-                                    ;; Import all fol.core symbols from this form into the new package.
-                                    ;; This ensures prin1 outputs them without package qualification,
-                                    ;; so at load time they resolve correctly in the target package.
-                                    (cl:let ((fol-syms (collect-fol-core-symbols form)))
-                                      (cl:dolist (s fol-syms)
-                                        (cl:multiple-value-bind (existing status)
-                                          (cl:find-symbol (cl:symbol-name s) pkg)
-                                          (cl:when (cl:or (cl:null status)
-                                                     (cl:eq existing s))
-                                            (cl:import s pkg)))))
-                                    ;; Export symbols from :export clause so subsequent modules inherit them
-                                    (cl:let ((export-opt (cl:find-if
-                                                           (cl:lambda (x)
-                                                             (cl:and (cl:consp x)
-                                                               (cl:string-equal (cl:car x) :export)))
-                                                           (cl:cddr form))))
-                                      (cl:when export-opt
-                                        (cl:dolist (s (cl:cdr export-opt))
-                                          (cl:when (cl:symbolp s)
-                                            (cl:let ((found (cl:find-symbol (cl:symbol-name s) pkg)))
-                                              (cl:when found
-                                                (cl:export found pkg)))))))
-                                    (cl:setf cl:*package* pkg)))))))
-                    (let ((result (compile-form form)))
-                      (if (compilation-result-errors result)
-                          (error "Compilation error in ~A: ~A" path (compilation-result-errors result))
-                          (let ((code (compilation-result-code result)))
-                            (labels ((emit-flat (form)
-                                                (if (and (consp form) (eq (car form) 'cl:progn))
-                                                    (mapc #'emit-flat (cdr form))
-                                                    (progn
-                                                     (terpri out)
-                                                     (prin1 form out)
-                                                     (terpri out)))))
-                              (emit-flat code))))))))))
+    ;; --- Pass 2: whole-program interprocedural type inference ---
+    (infer-interprocedural-types (mapcar #'second collected))
+
+    ;; --- Pass 3: emission (COMPILE-FORM unchanged; re-parses internally) ---
+    (with-open-file (out lisp-path :direction :output :if-exists :supersede)
+      (let ((*print-circle* t))
+        (format out "~&;;; Transpiled from ~A~%" (file-namestring source-path))
+        (format out "(in-package :fol.core)~%")
+        (dolist (entry collected)
+          (destructuring-bind (form ast pkg) entry
+            (declare (ignore ast))
+            (let ((*package* pkg))
+              (let ((result (compile-form form)))
+                (if (compilation-result-errors result)
+                    (error "Compilation error in ~A: ~A" path (compilation-result-errors result))
+                    (let ((code (compilation-result-code result)))
+                      (labels ((emit-flat (form)
+                                          (if (and (consp form) (eq (car form) 'cl:progn))
+                                              (mapc #'emit-flat (cdr form))
+                                              (progn
+                                               (terpri out)
+                                               (prin1 form out)
+                                               (terpri out)))))
+                        (emit-flat code))))))))))
 
     ;; Delete packages created during transpilation to avoid name-conflicts
     ;; when cl:compile-file processes the defpackage in the generated output

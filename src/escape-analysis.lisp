@@ -433,6 +433,100 @@
              (fol.compiler.summaries:lookup-summary op)
              t))))
 
+(defun %fold-let-chain (bindings alias)
+  "Validate that BINDINGS (a bind-node's (var . init) pairs, in order) forms
+   an unbroken chain rooted at ALIAS: each binding's init must be a chain
+   (CHAIN-KIND) rooted at the running alias -- ALIAS itself for the first
+   binding, then each binding's own var in turn -- referencing that alias
+   exactly once (so folding it in cannot duplicate a possibly-effectful
+   expression, the same invariant %TR-INLINE-ATTEMPT enforces for helper
+   inlining). A binding that is unrelated to the running alias, or touches
+   it without extending the chain (e.g. a helper call that only READS it --
+   DVI's actual shape, see the paper's Discussion), breaks the chain rather
+   than being skipped: skipping it could drop an effectful binding's
+   evaluation entirely once the BIND is eliminated by the caller.
+   Returns (values final-alias folded-expr) on success, where FOLDED-EXPR
+   is BINDINGS folded into one expression rooted at the original ALIAS by
+   repeated substitution (%TR-INLINE-SUBST); (values nil nil) if any
+   binding breaks the chain. Shared by CLASSIFY-LOOP-PARAM's TRY-LET-CHAIN
+   and REWRITE-LOOP-BODY's TRY-LET-CHAIN-RW so classification and rewriting
+   stay in lock-step."
+  (let ((cur alias) (steps '()))
+    (dolist (b bindings)
+      (let ((var (car b)) (raw-init (cdr b)))
+        (if (and (chain-kind raw-init cur)
+                 (= 1 (%tr-symbol-ref-count raw-init cur)))
+            (progn (push (cons var raw-init) steps) (setf cur var))
+            (return-from %fold-let-chain (values nil nil)))))
+    (let* ((ordered (reverse steps))
+           (expanded (cdr (first ordered)))
+           (prev-var (car (first ordered))))
+      (dolist (s (rest ordered))
+        (setf expanded (%tr-inline-subst (cdr s) (list (cons prev-var expanded))))
+        (setf prev-var (car s)))
+      (values cur expanded))))
+
+(defun %safe-read-of-p (raw-init cur)
+  "True when RAW-INIT is a call that references CUR exactly once, as a
+   direct (bare) argument at a position CALL-ARG-READ-P proves is only
+   read, never retained -- a Tier-1 primitive or keyword accessor, or a
+   Tier-2-inferred user function (e.g. DVI's CART-TOTAL, whose CART
+   parameter only flows through keyword-accessor reads and REDUCE, never
+   retained). Used by %VALIDATE-READ-TOLERANT-CHAIN to recognize a BIND
+   binding that reads the running alias without extending it."
+  (and (fol.compiler.ast:call-node-p raw-init)
+       (= 1 (%tr-symbol-ref-count raw-init cur))
+       (loop for arg in (fol.compiler.ast:call-node-args raw-init)
+             for i from 0
+             thereis (and (fol.compiler.ast:symbol-ref-node-p arg)
+                          (eq (fol.compiler.ast:symbol-ref-node-name arg) cur)
+                          (call-arg-read-p raw-init i)))))
+
+(defun %validate-read-tolerant-chain (bindings alias)
+  "A more permissive sibling of %FOLD-LET-CHAIN: validates a BIND whose
+   bindings mix chain-extending steps with plain reads of the running
+   alias, or values wholly unrelated to it -- DVI's own shape, where
+   CART-TOTAL reads the running alias (through a Tier-2-summarized helper)
+   rather than extending it, and the next chain-extending step two
+   bindings later still uses the SAME alias as its base, not the read's
+   result. Where %FOLD-LET-CHAIN requires every binding to extend the
+   chain (rejecting DVI's shape outright), this instead classifies each
+   binding as:
+     - chain-extending: identical criterion to %FOLD-LET-CHAIN (CHAIN-KIND
+       rooted at the running alias, referenced exactly once) -- the alias
+       advances to this binding's own var, exactly as before.
+     - a safe read (%SAFE-READ-OF-P) or wholly unrelated to the running
+       alias (does not reference it at all) -- always safe, and the alias
+       does NOT advance.
+   A binding that touches the running alias any other way -- a bare
+   reference, a retaining call argument, or an unsummarized call -- still
+   breaks the whole match rather than being silently skipped, for the same
+   reason %FOLD-LET-CHAIN's stricter version gives: once the caller treats
+   the BIND as a single classified unit, silently dropping a binding could
+   drop or reorder an effectful evaluation.
+   Unlike %FOLD-LET-CHAIN, this does NOT fold BINDINGS into one flattened
+   expression: a read's result (e.g. DVI's T1) has no meaningful position
+   in a chain expression, since it isn't itself an updated accumulator --
+   it must remain its own BIND binding in the rewritten code. Returns
+   (values final-alias extend-p-list) on success, where EXTEND-P-LIST has
+   one boolean per binding (T for chain-extending, NIL for read/unrelated,
+   in BINDINGS' order) telling REWRITE-LOOP-BODY's TRY-LET-CHAIN-RW which
+   bindings need rewriting to their bang-op/dispatch-through form and
+   which are emitted completely unchanged; (values nil nil) on failure."
+  (let ((cur alias) (extend-flags '()))
+    (dolist (b bindings)
+      (let ((raw-init (cdr b)))
+        (cond
+          ((and (chain-kind raw-init cur)
+                (= 1 (%tr-symbol-ref-count raw-init cur)))
+           (push t extend-flags)
+           (setf cur (car b)))
+          ((or (zerop (%tr-symbol-ref-count raw-init cur))
+               (%safe-read-of-p raw-init cur))
+           (push nil extend-flags))
+          (t (return-from %validate-read-tolerant-chain (values nil nil))))))
+    (values cur (nreverse extend-flags))))
+
 (defun classify-loop-param (name pos loop-node)
   "Classify every use of loop parameter NAME (at binding position POS) in
    LOOP-NODE's body. Returns the list of use classifications."
@@ -447,6 +541,107 @@
          (walk-chain-others (others infn recurp complexp)
            (dolist (n others) (walk n nil infn recurp complexp)))
          (shadows-p (pattern) (tree-contains-symbol-p pattern name))
+         (try-let-chain (node)
+           ;; (bind [c1 (f acc x) c2 (g c1 y) ...] (recur ... c2 ...)) hides
+           ;; a chain-of-chains behind named temporaries: NAME appears only
+           ;; inside c1's binding (a non-tail call argument, ordinarily
+           ;; :escape-call), each subsequent binding extends the PREVIOUS
+           ;; temporary rather than NAME directly, and the final temporary
+           ;; in the recur is a symbol the walk never ties back to NAME.
+           ;; Walks the bindings in order, requiring EVERY one to be a
+           ;; chain rooted at the running alias (initially NAME, then each
+           ;; binding's own var in turn) with that alias referenced exactly
+           ;; once (no duplication when substituted) -- a binding that is
+           ;; unrelated to the alias, or touches it without extending the
+           ;; chain (e.g. a helper call that only READS it, DVI's actual
+           ;; shape, see §discussion), fails the whole match rather than
+           ;; being silently skipped: skipping could drop an effectful
+           ;; binding's evaluation entirely once the BIND is eliminated.
+           ;; When every binding qualifies and the final alias is the sole
+           ;; (single-referenced) content of one recur argument, folds the
+           ;; chain into one expression rooted at NAME and classifies the
+           ;; resulting recur -- exactly as safe as if that expression had
+           ;; been written at the call site directly, since nothing in the
+           ;; BIND is reordered, only relocated as a unit.
+           ;; Returns the synthesized recur node, or NIL if the shape
+           ;; doesn't match, in which case the caller falls back to
+           ;; ordinary let handling. Mirrored by REWRITE-LOOP-BODY's
+           ;; TRY-LET-CHAIN-RW so classification and rewriting stay in
+           ;; lock-step (the same discipline %TR-INLINE-ATTEMPT documents
+           ;; for helper inlining).
+           (let ((bindings (fol.compiler.ast:bind-node-bindings node))
+                 (body (fol.compiler.ast:bind-node-body node)))
+             (when (and bindings
+                        (= 1 (length body))
+                        (fol.compiler.ast:recur-node-p (first body))
+                        (every (lambda (b) (symbolp (car b))) bindings)
+                        (notany (lambda (b) (eq (car b) name)) bindings))
+               (multiple-value-bind (alias expanded) (%fold-let-chain bindings name)
+                 (when alias
+                   (let* ((rnode (first body))
+                          (args (fol.compiler.ast:recur-node-args rnode))
+                          (p (position-if
+                              (lambda (a)
+                                (and (fol.compiler.ast:symbol-ref-node-p a)
+                                     (eq (fol.compiler.ast:symbol-ref-node-name a) alias)))
+                              args)))
+                     (when (and p (= 1 (%tr-symbol-ref-count rnode alias)))
+                       (fol.compiler.ast:make-recur-node
+                        :args (loop for a in args
+                                    for i from 0
+                                    collect (if (= i p) expanded a))
+                        :form (fol.compiler.ast:ast-node-form rnode)))))))))
+         (try-read-tolerant-chain (node infn recurp complexp)
+           ;; Sibling of TRY-LET-CHAIN for %VALIDATE-READ-TOLERANT-CHAIN's
+           ;; more permissive shape: chain-extending steps interleaved with
+           ;; plain reads of the running alias (DVI's own shape, where
+           ;; CART-TOTAL reads the alias rather than extending it). Unlike
+           ;; TRY-LET-CHAIN, this does NOT fold BINDINGS into a synthesized
+           ;; recur to re-walk -- a read's result has no place in a folded
+           ;; expression, since it isn't itself an updated accumulator, and
+           ;; must remain its own BIND binding. Consequently it can't reuse
+           ;; the normal recur-node walk to pick up stray uses of NAME the
+           ;; way TRY-LET-CHAIN's re-walk of its synthesized node does, so
+           ;; it establishes that safety differently: requiring NAME to
+           ;; appear EXACTLY ONCE across every binding's init (the one
+           ;; chain-root reference the validator itself checks) rules out
+           ;; NAME leaking into a chain-extending step's non-spine argument
+           ;; or any other binding, and the recur's own non-accumulator
+           ;; arguments are still walked explicitly below, matching what
+           ;; the normal per-argument recur walk (WALK's RECUR-NODE-P case)
+           ;; would do for them.
+           ;; Records :RECUR-UPDATE directly (mirroring what the normal
+           ;; recur-handling path would record for a plain, non-BIND
+           ;; qualifying chain) and returns T on success, in which case the
+           ;; caller must not fall through to ordinary BIND handling for
+           ;; this node; NIL on failure, in which case it must.
+           (let ((bindings (fol.compiler.ast:bind-node-bindings node))
+                 (body (fol.compiler.ast:bind-node-body node)))
+             (when (and bindings
+                        (= 1 (length body))
+                        (fol.compiler.ast:recur-node-p (first body))
+                        (every (lambda (b) (symbolp (car b))) bindings)
+                        (notany (lambda (b) (eq (car b) name)) bindings)
+                        (= 1 (loop for b in bindings
+                                   sum (%tr-symbol-ref-count (cdr b) name))))
+               (multiple-value-bind (alias extend-flags)
+                   (%validate-read-tolerant-chain bindings name)
+                 (declare (ignore extend-flags))
+                 (when alias
+                   (let* ((rnode (first body))
+                          (args (fol.compiler.ast:recur-node-args rnode))
+                          (p (position-if
+                              (lambda (a)
+                                (and (fol.compiler.ast:symbol-ref-node-p a)
+                                     (eq (fol.compiler.ast:symbol-ref-node-name a) alias)))
+                              args)))
+                     (when (and p (= 1 (%tr-symbol-ref-count rnode alias)))
+                       (record :recur-update)
+                       (loop for a in args
+                             for i from 0
+                             unless (= i p)
+                             do (walk a nil infn recurp complexp))
+                       t)))))))
          (walk (node tailp infn recurp &optional complexp)
            (cond
              ((null node) nil)
@@ -489,14 +684,18 @@
              ((fol.compiler.ast:do-node-p node)
               (walk-last-tail (fol.compiler.ast:do-node-body node) tailp infn recurp complexp))
              ((fol.compiler.ast:bind-node-p node)
-              (let ((shadowed nil))
-                (dolist (b (fol.compiler.ast:bind-node-bindings node))
-                  (walk (cdr b) nil infn recurp complexp)
-                  (when (shadows-p (car b)) (setf shadowed t)))
-                (if shadowed
-                    (record :shadowed-bind)
-                    (walk-last-tail (fol.compiler.ast:bind-node-body node)
-                                    tailp infn recurp complexp))))
+              (let ((synth (try-let-chain node)))
+                (cond
+                  (synth (walk synth tailp infn recurp complexp))
+                  ((try-read-tolerant-chain node infn recurp complexp) nil)
+                  (t (let ((shadowed nil))
+                       (dolist (b (fol.compiler.ast:bind-node-bindings node))
+                         (walk (cdr b) nil infn recurp complexp)
+                         (when (shadows-p (car b)) (setf shadowed t)))
+                       (if shadowed
+                           (record :shadowed-bind)
+                           (walk-last-tail (fol.compiler.ast:bind-node-body node)
+                                           tailp infn recurp complexp)))))))
              ((fol.compiler.ast:case-node-p node)
               (walk (fol.compiler.ast:case-node-expr node) nil infn recurp complexp)
               (dolist (clause (fol.compiler.ast:case-node-clauses node))
@@ -851,22 +1050,59 @@
        (let ((op (operator-symbol node)))
          (and op (fol.compiler.summaries:lookup-summary op)))))
 
+(defun %quoted-symbol-value (node)
+  "The symbol NODE evaluates to, when NODE is a quote-node wrapping a bare
+   symbol ('x) or a literal-node whose value is a symbol/keyword. NIL
+   otherwise."
+  (cond
+    ((and (fol.compiler.ast:quote-node-p node)
+          (symbolp (fol.compiler.ast:quote-node-value node)))
+     (fol.compiler.ast:quote-node-value node))
+    ((and (fol.compiler.ast:literal-node-p node)
+          (symbolp (fol.compiler.ast:literal-node-value node)))
+     (fol.compiler.ast:literal-node-value node))
+    (t nil)))
+
+(defun %persistent-object-make-class (node)
+  "When NODE is (make 'X) -- a call to FOL's MAKE generic with exactly one
+   argument, a quoted class-name symbol, where X names a class deriving
+   from FOL.COMPILER.PERSISTENT:<PERSISTENT-OBJECT> -- return X. NIL
+   otherwise. Deliberately narrow: no support for constructors passing
+   initargs (make takes &rest args), which would need their own
+   freshness/aliasing analysis, and X's class must already be defined (the
+   same requirement Tier-2 inference has for a constructor it summarizes)."
+  (when (fol.compiler.ast:call-node-p node)
+    (let ((op (operator-symbol node))
+          (args (fol.compiler.ast:call-node-args node)))
+      (when (and op (string= (symbol-name op) "MAKE") (= 1 (length args)))
+        (let ((class-sym (%quoted-symbol-value (first args))))
+          (when class-sym
+            (let ((c (find-class class-sym nil)))
+              (when (and c (find-class 'fol.compiler.persistent:<persistent-object> nil)
+                         (subtypep c (find-class 'fol.compiler.persistent:<persistent-object>)))
+                class-sym))))))))
+
 (defun transient-eligible-init-p (node)
   "True when the loop init is guaranteed to produce a fresh, uniquely-owned
    root that (transient init) can safely wrap: a collection literal
-   ([..], {..}, #{..}), or a call to a function whose summary (Tier-1 or
+   ([..], {..}, #{..}), a call to a function whose summary (Tier-1 or
    Tier-2) proves RETURNS-FRESH-P -- the same freshness guarantee licensing
    literals, generalized to summarized constructors per the Qualification
    Rule's \"a constructor call summarized as returning an unaliased root\"
    clause (§sec:formal), which the code previously left unimplemented: a
    loop initialized from a user-defined 0-ary constructor call was never
-   eligible before, no matter how clean its update chain was. Freshness
-   alone doesn't establish which representation the result is (needed for
-   the op-gate check); INIT-SUPPORTS-P below handles that separately via
-   RETURNS-KIND, declining conversion when the kind is unknown."
+   eligible before, no matter how clean its update chain was -- or (make
+   'X) for a <persistent-object> subclass X, since MAKE-INSTANCE always
+   allocates a genuinely new instance (barring a hazard INIT-SUPPORTS-P's
+   Trusted check below catches). Freshness alone doesn't establish which
+   representation the result is (needed for the op-gate check);
+   INIT-SUPPORTS-P below handles that separately via RETURNS-KIND (or
+   %PERSISTENT-OBJECT-MAKE-CLASS for the persistent-object case),
+   declining conversion when the kind is unknown."
   (or (fol.compiler.ast:vector-node-p node)
       (fol.compiler.ast:dict-node-p node)
       (fol.compiler.ast:set-node-p node)
+      (and (%persistent-object-make-class node) t)
       (let ((summary (%init-call-summary node)))
         (and summary (fol.compiler.summaries:escape-summary-returns-fresh-p summary)))))
 
@@ -906,11 +1142,17 @@
   '((:dict . fol.compiler.collections:<dict>)
     (:vector . fol.compiler.collections:<vector>)
     (:set . fol.compiler.collections:<set>))
-  "Representation kind -> the concrete FOL class its instances have.")
+  "Fixed representation kind -> the concrete FOL class its instances have.
+   Persistent-object accumulators don't have a single fixed class -- every
+   user DEFCLASS is its own representation -- so their kind is instead the
+   cons (:PERSISTENT-OBJECT . class-name-symbol), handled directly by
+   %REPR-CLASS below rather than added here.")
 
 (defun %repr-class (kind)
-  (let ((sym (cdr (assoc kind +repr-classes+))))
-    (and sym (find-class sym nil))))
+  (if (and (consp kind) (eq (car kind) :persistent-object))
+      (find-class (cdr kind) nil)
+      (let ((sym (cdr (assoc kind +repr-classes+))))
+        (and sym (find-class sym nil)))))
 
 (defun %tier1-generic-function (op-name)
   "The CLOS generic function bound to Tier-1 operator OP-NAME (a string) in
@@ -928,17 +1170,37 @@
             (return-from %tier1-generic-function fn))))))
   nil)
 
-(defun %class-applicable-p (specializer class)
+(defun %class-applicable-p (specializer class &optional kind)
   "True when a method specialized on SPECIALIZER would fire for an instance
    of CLASS: SPECIALIZER is CLASS itself or one of its superclasses.
    Non-class specializers (EQL-specializers) are conservatively skipped --
    they only ever match one specific object's identity, not a whole
    representation, so they cannot silently intercept every accumulator of
    this kind the way a class-specialized method can; a known, narrow gap,
-   noted rather than handled."
-  (and (typep specializer 'class)
-       (member specializer (sb-mop:class-precedence-list class))
-       t))
+   noted rather than handled -- EXCEPT for KIND a (:persistent-object
+   . class-name) cons (optional; only meaningful for MAKE): MAKE's own
+   dispatch convention specializes its class-selecting parameter with
+   (EQL '<name>), not a class specializer, and class-name symbols are how
+   EVERY method on MAKE -- the class's own legitimate constructor method
+   as much as a hostile customization -- selects a representation, so the
+   general 'matches one object's identity' argument for skipping
+   EQL-specializers doesn't hold here. Recognized as this one specific,
+   well-defined shape rather than attempting to handle EQL-specializers in
+   general. CLASS-PRECEDENCE-LIST is only valid on a finalized class;
+   dict/vector/set are always finalized by the time this runs
+   (long-instantiated builtins), but a user's <persistent-object> subclass
+   may not be -- CLOS finalizes lazily, and this check can run at compile
+   time, before the loop that would (make 'X) ever executes. Force it
+   explicitly rather than have this signal an UNBOUND-SLOT error the first
+   time a brand-new class is used."
+  (when (typep class 'class) (closer-mop:ensure-finalized class))
+  (or (and (typep specializer 'class)
+           (member specializer (sb-mop:class-precedence-list class))
+           t)
+      (and (consp kind) (eq (car kind) :persistent-object)
+           (typep specializer 'sb-mop:eql-specializer)
+           (eql (sb-mop:eql-specializer-object specializer) (cdr kind))
+           t)))
 
 (defun tier1-op-customized-p (op-name kind)
   "True when the generic function named OP-NAME has a method, applicable to
@@ -952,7 +1214,7 @@
          (some (lambda (m)
                  (and (method-qualifiers m)
                       (let ((specs (sb-mop:method-specializers m)))
-                        (and specs (%class-applicable-p (first specs) class)))))
+                        (and specs (%class-applicable-p (first specs) class kind)))))
                (sb-mop:generic-function-methods gf)))))
 
 (defun tier1-methods-trusted-p (kind used-ops)
@@ -991,7 +1253,17 @@
    applies, so an unrecognized-kind constructor is conservatively declined
    rather than guessed at. Also requires TIER1-METHODS-TRUSTED-P: Tier-1's
    summary must actually describe what the assumed ops do for this
-   representation (see the method-combination trust check above)."
+   representation (see the method-combination trust check above).
+
+   Second return value: T when conversion is supported only in
+   'dispatch-through' mode -- currently only reachable for a
+   <persistent-object> accumulator whose ASSOC (and no other used op) has a
+   method-combination customization. Conversion is still allowed, but
+   MAYBE-TRANSIENT-LOOP must route this accumulator's spine-op calls
+   through the real ASSOC generic rather than the ASSOC! bypass, so the
+   customization keeps firing (see *DISPATCH-THROUGH-NAMES* below).
+   NIL (every other case, including the ordinary fully-trusted path) means
+   the fast bypass is safe, exactly as before this exception existed."
   (let ((used-ops (%used-ops chain-ops reads-p)))
     (cond
       ((fol.compiler.ast:dict-node-p init-node)
@@ -1006,6 +1278,47 @@
        (and (not (and reads-p (%reads-forbidden-p)))
             (subsetp chain-ops '("CONJ" "DISJ") :test #'string=)
             (tier1-methods-trusted-p :set used-ops)))
+      ;; (make 'X), X a <persistent-object> subclass: ASSOC is the only
+      ;; spine op (no DISSOC/CONJ/DISJ analogue for CLOS slots); reads are
+      ;; supported (GET on a persistent-object reads via plain SLOT-VALUE,
+      ;; which already sees in-place mutation once %TRANSIENT-OWNER is set
+      ;; -- no dirty-node traversal needed the way HAMT reads require).
+      ;; Freshness (TRANSIENT-ELIGIBLE-INIT-P) is purely structural, so
+      ;; MAKE itself must be checked here for a method-combination hazard,
+      ;; same as any spine/read op -- otherwise a customized MAKE could
+      ;; silently hand back something other than a fresh instance. Only
+      ;; FOL's own MAKE generic is checked; a raw CL:INITIALIZE-INSTANCE/
+      ;; CL:ALLOCATE-INSTANCE :around method bypassing it is a known,
+      ;; unhandled gap, the same kind already noted for EQL-specializers
+      ;; above.
+      ;;
+      ;; ASSOC gets a narrower exception than MAKE/reads (Approach A): a
+      ;; method-combination customization on ASSOC alone doesn't have to
+      ;; refuse conversion outright. ASSOC's own PRIMARY method for
+      ;; <persistent-object> (collection-functions.lisp) already calls
+      ;; UPDATE-SLOT, whose in-place fast path (persistence.lisp) already
+      ;; branches on %TRANSIENT-OWNER regardless of caller -- it's the
+      ;; general update primitive, not something built only for the
+      ;; transient bypass. So routing the rewritten call through the REAL
+      ;; ASSOC generic instead of the ASSOC! bypass costs only CLOS
+      ;; dispatch (measured ~10ns/call over the bypass), not the in-place
+      ;; mutation itself: the customization's :before/:after/:around
+      ;; methods fire via ordinary method combination, and CALL-NEXT-METHOD
+      ;; still reaches the same ownership-aware primary. The second return
+      ;; value signals this to MAYBE-TRANSIENT-LOOP, which routes the
+      ;; rewriter accordingly (see *DISPATCH-THROUGH-NAMES*). Every OTHER
+      ;; used op (MAKE, or any read op) must still be fully trusted -- this
+      ;; is not a blanket amnesty for the representation, only for ASSOC.
+      ((%persistent-object-make-class init-node)
+       (let* ((class-name (%persistent-object-make-class init-node))
+              (kind (cons :persistent-object class-name))
+              (all-used-ops (union used-ops '("MAKE") :test #'string=))
+              (non-assoc-used-ops (remove "ASSOC" all-used-ops :test #'string=)))
+         (and (subsetp chain-ops '("ASSOC") :test #'string=)
+              (notany (lambda (op) (tier1-op-customized-p op kind)) non-assoc-used-ops)
+              (values t (and (member "ASSOC" all-used-ops :test #'string=)
+                             (tier1-op-customized-p "ASSOC" kind)
+                             t)))))
       (t (let* ((summary (%init-call-summary init-node))
                 (kind (and summary (fol.compiler.summaries:escape-summary-returns-kind summary))))
            (case kind
@@ -1037,18 +1350,37 @@
   (or (member :read-ok uses)
       (and (not (eq *read-ops* :unbound)) (consp *read-ops*))))
 
+(defvar *dispatch-through-names* '()
+  "Qualified accumulator names (a subset of MAYBE-TRANSIENT-LOOP's QNAMES)
+   whose spine-op calls must be rewritten to the REAL Tier-1 generic
+   function (e.g. ASSOC) rather than the transient bypass (e.g. ASSOC!).
+   Populated when INIT-SUPPORTS-P's second return value is T for a given
+   accumulator: a <persistent-object> class whose ASSOC has a legitimate
+   method-combination customization (Approach A, see INIT-SUPPORTS-P's
+   docstring). The rewritten call still lands on a transient (owned)
+   object, so ASSOC's own primary method's existing ownership-aware fast
+   path (persistence.lisp's UPDATE-SLOT) still does the in-place mutation
+   -- real dispatch is used only so the customization keeps firing, not to
+   give up in-place mutation. Bound per-loop by MAYBE-TRANSIENT-LOOP;
+   empty (the ordinary case) means every accumulator in this loop uses the
+   fast bypass exactly as before this exception existed.")
+
 (defun rewrite-loop-body (body qnames pos-names &optional (mode :loop))
   "Rewrite BODY (list of nodes) converting the qualified accumulators QNAMES
    (POS-NAMES maps recur position -> qualified name or NIL) to transient ops.
    MODE :loop wraps tail exits in (persistent! ...); MODE :reduce leaves tail
-   values as transients (the reduce wrapper applies persistent! once, outside)."
+   values as transients (the reduce wrapper applies persistent! once, outside).
+   Names in *DISPATCH-THROUGH-NAMES* get their spine-op calls routed through
+   the real generic function instead of the bypass; see that variable."
   (labels
       ((qref-p (n)
          (and (fol.compiler.ast:symbol-ref-node-p n)
               (member (fol.compiler.ast:symbol-ref-node-name n) qnames)))
-       (bang-ref (call)
-         (%ref (%collections-symbol
-                (fol.compiler.summaries:transient-op-for (operator-symbol call)))))
+       (bang-ref (call name)
+         (if (member name *dispatch-through-names*)
+             (fol.compiler.ast:call-node-operator call)
+             (%ref (%collections-symbol
+                    (fol.compiler.summaries:transient-op-for (operator-symbol call))))))
        (rewrite-chain (n name)
          (cond
            ((fol.compiler.ast:symbol-ref-node-p n) n) ; the accumulator itself
@@ -1080,7 +1412,7 @@
            ((fol.compiler.ast:call-node-p n)
             (let ((args (fol.compiler.ast:call-node-args n)))
               (fol.compiler.ast:make-call-node
-               :operator (bang-ref n)
+               :operator (bang-ref n name)
                :args (cons (rewrite-chain (first args) name)
                            (mapcar (lambda (a) (rw a nil)) (rest args)))
                :form (fol.compiler.ast:ast-node-form n))))
@@ -1090,7 +1422,7 @@
                :forms (cons (rewrite-chain (first forms) name)
                             (mapcar (lambda (f)
                                       (fol.compiler.ast:make-call-node
-                                       :operator (bang-ref f)
+                                       :operator (bang-ref f name)
                                        :args (mapcar (lambda (a) (rw a nil))
                                                      (fol.compiler.ast:call-node-args f))
                                        :form (fol.compiler.ast:ast-node-form f)))
@@ -1117,6 +1449,106 @@
                                     (t (rw arg nil)))
                                   (rw arg nil)))
           :form (fol.compiler.ast:ast-node-form n)))
+       (try-let-chain-rw (n)
+         ;; Mirrors CLASSIFY-LOOP-PARAM's TRY-LET-CHAIN via the shared
+         ;; %FOLD-LET-CHAIN, so a loop that qualifies via that path always
+         ;; has a matching rewrite here; see its comment for the safety
+         ;; argument. Unlike the classifier (called once per known
+         ;; parameter name), this tries each recur position with a
+         ;; qualified name in turn, since any of them could be the chain's
+         ;; root.
+         (let ((bindings (fol.compiler.ast:bind-node-bindings n))
+               (body (fol.compiler.ast:bind-node-body n)))
+           (when (and bindings
+                      (= 1 (length body))
+                      (fol.compiler.ast:recur-node-p (first body))
+                      (every (lambda (b) (symbolp (car b))) bindings))
+             (let* ((rnode (first body))
+                    (args (fol.compiler.ast:recur-node-args rnode)))
+               (loop for i from 0 below (min (length args) (length pos-names))
+                     for qname = (aref pos-names i)
+                     when (and qname (notany (lambda (b) (eq (car b) qname)) bindings))
+                       do (multiple-value-bind (alias expanded) (%fold-let-chain bindings qname)
+                            (when (and alias
+                                       (fol.compiler.ast:symbol-ref-node-p (nth i args))
+                                       (eq (fol.compiler.ast:symbol-ref-node-name (nth i args)) alias)
+                                       (= 1 (%tr-symbol-ref-count rnode alias)))
+                              (return-from try-let-chain-rw
+                                (rewrite-recur
+                                 (fol.compiler.ast:make-recur-node
+                                  :args (loop for a in args
+                                              for j from 0
+                                              collect (if (= j i) expanded a))
+                                  :form (fol.compiler.ast:ast-node-form rnode)))))))))))
+       (try-read-tolerant-chain-rw (n)
+         ;; Mirrors CLASSIFY-LOOP-PARAM's TRY-READ-TOLERANT-CHAIN via the
+         ;; shared %VALIDATE-READ-TOLERANT-CHAIN. Unlike TRY-LET-CHAIN-RW,
+         ;; does not fold BINDINGS into one expression at the recur site --
+         ;; a read's result (DVI's T1) has no place there, since it isn't
+         ;; itself an updated accumulator. Instead rebuilds the BIND with
+         ;; the SAME bindings in the SAME order: a chain-extending binding's
+         ;; init is rewritten via REWRITE-CHAIN, rooted at whatever the
+         ;; running alias was immediately before it (CUR, advanced after
+         ;; each such binding); a read/unrelated binding's init is emitted
+         ;; via RW, completely unchanged. The accumulator-position recur
+         ;; argument becomes a bare reference to the final alias -- no
+         ;; rewriting needed, since it's just a variable reference, not a
+         ;; new call -- and every OTHER recur argument is rewritten via RW
+         ;; as usual.
+         ;; *DISPATCH-THROUGH-NAMES* is keyed on the loop's OWN qualified
+         ;; name (QNAME, e.g. CART), but REWRITE-CHAIN/BANG-REF check
+         ;; whatever LOCAL alias a given step is rooted at (e.g. C1 for
+         ;; C2's binding) -- unlike TRY-LET-CHAIN-RW's folded expression,
+         ;; where every nested call is still structurally reached via
+         ;; QNAME itself (substitution never introduces a NEW loose
+         ;; variable name), this BIND-preserving rewrite genuinely
+         ;; introduces new local alias names BANG-REF must also recognize.
+         ;; When QNAME itself needs dispatch-through, every chain-extending
+         ;; binding's own var is added to a locally-rebound
+         ;; *DISPATCH-THROUGH-NAMES* for the duration of rewriting this
+         ;; BIND, so BANG-REF's membership check succeeds regardless of
+         ;; which alias in the chain it's asked about.
+         (let ((bindings (fol.compiler.ast:bind-node-bindings n))
+               (body (fol.compiler.ast:bind-node-body n)))
+           (when (and bindings
+                      (= 1 (length body))
+                      (fol.compiler.ast:recur-node-p (first body))
+                      (every (lambda (b) (symbolp (car b))) bindings))
+             (let* ((rnode (first body))
+                    (args (fol.compiler.ast:recur-node-args rnode)))
+               (loop for i from 0 below (min (length args) (length pos-names))
+                     for qname = (aref pos-names i)
+                     when (and qname (notany (lambda (b) (eq (car b) qname)) bindings))
+                       do (multiple-value-bind (alias extend-flags)
+                              (%validate-read-tolerant-chain bindings qname)
+                            (when (and alias
+                                       (fol.compiler.ast:symbol-ref-node-p (nth i args))
+                                       (eq (fol.compiler.ast:symbol-ref-node-name (nth i args)) alias)
+                                       (= 1 (%tr-symbol-ref-count rnode alias)))
+                              (return-from try-read-tolerant-chain-rw
+                                (let* ((cur qname)
+                                       (extend-vars (loop for b in bindings
+                                                           for e in extend-flags
+                                                           when e collect (car b)))
+                                       (*dispatch-through-names*
+                                         (if (member qname *dispatch-through-names*)
+                                             (append extend-vars *dispatch-through-names*)
+                                             *dispatch-through-names*)))
+                                  (fol.compiler.ast:make-bind-node
+                                   :bindings (loop for b in bindings
+                                                    for extend-p in extend-flags
+                                                    collect (let ((rewritten
+                                                                    (if extend-p
+                                                                        (rewrite-chain (cdr b) cur)
+                                                                        (rw (cdr b) nil))))
+                                                              (when extend-p (setf cur (car b)))
+                                                              (cons (car b) rewritten)))
+                                   :body (list (fol.compiler.ast:make-recur-node
+                                                :args (loop for a in args
+                                                            for j from 0
+                                                            collect (if (= j i) a (rw a nil)))
+                                                :form (fol.compiler.ast:ast-node-form rnode)))
+                                   :form (fol.compiler.ast:ast-node-form n)))))))))))
        (finish (n)
          ;; What happens to a transient value leaving via a tail position.
          (if (eq mode :loop) (%call1 "PERSISTENT!" n) n))
@@ -1148,11 +1580,13 @@
              :body (rw-list (fol.compiler.ast:do-node-body n) tailp)
              :form (fol.compiler.ast:ast-node-form n)))
            ((fol.compiler.ast:bind-node-p n)
-            (fol.compiler.ast:make-bind-node
-             :bindings (mapcar (lambda (b) (cons (car b) (rw (cdr b) nil)))
-                               (fol.compiler.ast:bind-node-bindings n))
-             :body (rw-list (fol.compiler.ast:bind-node-body n) tailp)
-             :form (fol.compiler.ast:ast-node-form n)))
+            (or (try-let-chain-rw n)
+                (try-read-tolerant-chain-rw n)
+                (fol.compiler.ast:make-bind-node
+                 :bindings (mapcar (lambda (b) (cons (car b) (rw (cdr b) nil)))
+                                   (fol.compiler.ast:bind-node-bindings n))
+                 :body (rw-list (fol.compiler.ast:bind-node-body n) tailp)
+                 :form (fol.compiler.ast:ast-node-form n))))
            ((fol.compiler.ast:case-node-p n)
             (fol.compiler.ast:make-case-node
              :expr (rw (fol.compiler.ast:case-node-expr n) nil)
@@ -1330,18 +1764,23 @@
                (acc (first params))
                (*chain-ops* '())
                (*read-ops* '())
-               (*inlined-helpers* '()))
-          (if (not (and fn-ok
-                        (transient-eligible-init-p init)
-                        (= 2 (length params))
-                        (symbolp acc)
-                        (symbolp (second params))
-                        (not (eq acc (second params)))
-                        (not (%contains-recur-p f))
-                        (multiple-value-bind (ok uses)
-                            (reduce-acc-qualified-p acc (cdr clause))
-                          (and ok (init-supports-p init *chain-ops*
-                                                   (%reads-present-p uses))))))
+               (*inlined-helpers* '())
+               (basic-ok (and fn-ok
+                              (transient-eligible-init-p init)
+                              (= 2 (length params))
+                              (symbolp acc)
+                              (symbolp (second params))
+                              (not (eq acc (second params)))
+                              (not (%contains-recur-p f))))
+               (supports-p nil)
+               (needs-dispatch-p nil))
+          (when basic-ok
+            (multiple-value-bind (ok uses) (reduce-acc-qualified-p acc (cdr clause))
+              (when ok
+                (multiple-value-bind (sp ndp)
+                    (init-supports-p init *chain-ops* (%reads-present-p uses))
+                  (setf supports-p sp needs-dispatch-p ndp)))))
+          (if (not supports-p)
               node
               (progn
                 (incf *reduces-converted*)
@@ -1353,9 +1792,11 @@
                    :args (list (fol.compiler.ast:make-fn-node
                                 :name (fol.compiler.ast:fn-node-name f)
                                 :clauses (list (cons (car clause)
-                                                     (rewrite-loop-body
-                                                      (cdr clause) (list acc)
-                                                      #() :reduce)))
+                                                     (let ((*dispatch-through-names*
+                                                            (when needs-dispatch-p (list acc))))
+                                                       (rewrite-loop-body
+                                                        (cdr clause) (list acc)
+                                                        #() :reduce))))
                                 :docstring nil
                                 :form (fol.compiler.ast:ast-node-form f))
                                (%call1 "TRANSIENT" init)
@@ -1412,6 +1853,7 @@
       (let* ((bindings (fol.compiler.ast:loop-node-bindings node))
              (pos-names (make-array (length bindings) :initial-element nil))
              (qnames '())
+             (dispatch-qnames '())
              (assumptions '()))
         (loop for (pname . init) in bindings
               for i from 0
@@ -1422,17 +1864,19 @@
                           (*read-ops* '())
                           (*inlined-helpers* '())
                           (uses (classify-loop-param pname pos node)))
-                     (when (and (eq :qualified (param-verdict uses))
-                                (init-supports-p init *chain-ops*
-                                                 (%reads-present-p uses)))
-                       (push pname qnames)
-                       (setf (aref pos-names pos) pname)
-                       (setf assumptions
-                             (union (union (union (union *chain-ops* *read-ops* :test #'string=)
-                                                  (mapcar #'string *inlined-helpers*) :test #'string=)
-                                          (let ((n (%init-call-name init))) (and n (list n)))
-                                          :test #'string=)
-                                    assumptions :test #'string=))))))
+                     (when (eq :qualified (param-verdict uses))
+                       (multiple-value-bind (supports-p needs-dispatch-p)
+                           (init-supports-p init *chain-ops* (%reads-present-p uses))
+                         (when supports-p
+                           (push pname qnames)
+                           (setf (aref pos-names pos) pname)
+                           (when needs-dispatch-p (push pname dispatch-qnames))
+                           (setf assumptions
+                                 (union (union (union (union *chain-ops* *read-ops* :test #'string=)
+                                                      (mapcar #'string *inlined-helpers*) :test #'string=)
+                                              (let ((n (%init-call-name init))) (and n (list n)))
+                                              :test #'string=)
+                                        assumptions :test #'string=))))))))
         (if (null qnames)
             node
             (let* ((first-qname (first qnames))
@@ -1473,8 +1917,9 @@
                                                 (if (member pname qnames)
                                                     (%call1 "TRANSIENT" init)
                                                     init)))
-                  :body (rewrite-loop-body (fol.compiler.ast:loop-node-body node)
-                                           qnames pos-names)
+                  :body (let ((*dispatch-through-names* dispatch-qnames))
+                          (rewrite-loop-body (fol.compiler.ast:loop-node-body node)
+                                             qnames pos-names))
                   :form (fol.compiler.ast:ast-node-form node))
                  assumptions
                  profit-check
@@ -1550,6 +1995,7 @@
 
                  ((fol.compiler.ast:call-node-p node)
                   (let* ((op (operator-symbol node))
+                         (kw-p (keyword-operator-p node))
                          (summary (and op (fol.compiler.summaries:lookup-summary op))))
                     (when (and op (member (symbol-name op) +barrier-names+ :test #'string=))
                       (setf barrier-p t))
@@ -1560,9 +2006,25 @@
                           do (if (fol.compiler.ast:symbol-ref-node-p arg)
                                  (let ((idx (param-index (fol.compiler.ast:symbol-ref-node-name arg))))
                                    (when idx
-                                     (update-effect idx (if summary
-                                                            (fol.compiler.summaries:effect-for-arg summary i)
-                                                            :retained))))
+                                     (update-effect
+                                      idx
+                                      (cond
+                                        ;; (:key obj) / (:key obj default): a keyword
+                                        ;; used as the operator is always a pure read
+                                        ;; of its object argument (position 0) -- no
+                                        ;; user-definable method-combination hazard on
+                                        ;; a keyword literal the way a named generic
+                                        ;; has, so this is unconditionally :none rather
+                                        ;; than gated behind a summary lookup (there is
+                                        ;; none: OPERATOR-SYMBOL returns NIL for a
+                                        ;; keyword operator, which previously made this
+                                        ;; default to :retained, the same trust
+                                        ;; boundary CLASSIFY-LOOP-PARAM's own walker
+                                        ;; and CALL-ARG-READ-P already extend to
+                                        ;; keyword accessors).
+                                        ((and kw-p (= i 0)) :none)
+                                        (summary (fol.compiler.summaries:effect-for-arg summary i))
+                                        (t :retained)))))
                                  (walk arg nil)))))
 
                  ((fol.compiler.ast:if-node-p node)

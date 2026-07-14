@@ -92,6 +92,21 @@
                    For dicts, returns lazy-seq of (key . value) cons pairs.
                    For vectors/sets, returns lazy-seq of elements."))
 
+(defgeneric collection-reduce (coll fn init)
+  (:documentation "Reduce COLL to a single value: repeatedly apply FN to an
+   accumulator (initially INIT) and each element in order, FN taking
+   (accumulator element) and returning the new accumulator. The default
+   method materializes COLLECTION-SEQ and folds via CL:REDUCE, correct for
+   any collection type. A representation with a direct, non-materializing
+   iterator (e.g. <VECTOR>'s HAMT trie) overrides this to fold without ever
+   allocating an intermediate list, which matters most for a fold repeated
+   many times over a growing collection (each call paying for a fresh list
+   the size of the collection at that point, even though CL:REDUCE only
+   ever walks it once and discards it)."))
+
+(defmethod collection-reduce ((coll t) fn init)
+  (cl:reduce fn (collection-seq coll) :initial-value init))
+
 
 ;;; ============================================================================
 ;;; Comparator Interface
@@ -471,6 +486,17 @@
 
 (defmethod collection-conj ((coll <vector>) val)
   (fol.compiler.collection-primitives:conj coll val))
+
+(defmethod collection-reduce ((coll <vector>) fn init)
+  ;; Same iterator COLLECTION-SEQ (above) uses to build its list, folded
+  ;; directly instead: no intermediate list, no allocation proportional to
+  ;; COLL's size at all beyond the iterator closure itself.
+  (let ((iter (fol.compiler.collection-primitives::%vec-t-iterator (storage coll)))
+        (acc init))
+    (loop for val = (funcall iter)
+          until (eq val :eof)
+          do (setf acc (funcall fn acc val)))
+    acc))
 
 ;;; ============================================================================
 ;;; fix64-vector

@@ -332,6 +332,61 @@
     (is (member '&rest (third code)))))
 
 ;;; ---------------------------------------------------------------------------
+;;; defmethod - guard/type mix preserves CLOS specializers (regression)
+;;; ---------------------------------------------------------------------------
+
+(test compile-defmethod-guard-plus-type-keeps-clos-specializer
+  "A clause mixing a guard/EQL specializer, (slot (= :items)), with a plain
+   class specializer, (g <dict>), on another parameter -- DVI's own :around
+   method shape -- must not collapse the type-specialized position to an
+   implicit T. Regression test for a pre-existing bug: COMPILE-DEFMETHOD-
+   CLAUSES's fixed-arity path used to emit every parameter as a bare symbol
+   (enforcing types only via a runtime COND check) as soon as ANY parameter
+   in the clause needed a non-CLOS-representable check, discarding CLOS
+   specializer information that MOP-based introspection (e.g.
+   escape-analysis's TIER1-OP-CUSTOMIZED-P hazard check) relies on. Verified
+   directly via SB-MOP:METHOD-SPECIALIZERS rather than just checking that
+   dispatch fires correctly, since the bug was specifically about MOP
+   visibility, not runtime correctness."
+  (eval (fol.compiler:compilation-result-code
+         (fol.compiler:compile-form
+          (fol-form '(defmethod tc-guard-plus-type :around
+                      #((g fol.compiler.collections:<dict>) (slot (= :items)) val)
+                      (call-next-method))))))
+  (let ((m (find-method #'tc-guard-plus-type '(:around)
+                         (list (find-class 'fol.compiler.collections:<dict>) t t)
+                         nil)))
+    (is (not (null m)))
+    (is (eq (find-class 'fol.compiler.collections:<dict>)
+            (first (sb-mop:method-specializers m))))
+    ;; The guard parameter, having no CLOS-representable specializer, is
+    ;; correctly still T -- only the type-specialized position changes.
+    (is (eq (find-class 't) (second (sb-mop:method-specializers m))))))
+
+(test compile-defmethod-around-registration-does-not-corrupt-later-calls
+  "Registering a simple :around method (REGISTERS-SIMPLE-AROUND-METHOD) used
+   to make EVERY later call site sharing that generic function's name --
+   anywhere in the same image, regardless of the actual argument's type --
+   get wrapped in (locally (declare (optimize (inline 3))) ...): a no-op
+   'hint' (INLINE is not a real CL optimize quality) that a later pass could
+   misparse as a call to a function named DECLARE, producing a spurious
+   \"no function named DECLARE\" error on an entirely unrelated compile.
+   Regression test: after registering such a method, compiling a plain call
+   to the same generic function name must not introduce a LOCALLY/DECLARE
+   wrapper."
+  (eval (fol.compiler:compilation-result-code
+         (fol.compiler:compile-form
+          (fol-form '(defmethod tc-around-regr :around
+                      #((g fol.compiler.collections:<dict>) (slot (= :items)) val)
+                      (call-next-method))))))
+  (is (fol.compiler::has-simple-around-methods-p 'tc-around-regr))
+  (let* ((result (fol.compiler:compile-form (fol-form '(tc-around-regr 1 2 3))))
+         (code (fol.compiler:compilation-result-code result)))
+    (is (null (fol.compiler:compilation-result-errors result)))
+    (is (not (find 'cl:locally (flatten-form code))))
+    (is (not (find 'cl:declare (flatten-form code))))))
+
+;;; ---------------------------------------------------------------------------
 ;;; Enhanced destructuring - :key
 ;;; ---------------------------------------------------------------------------
 

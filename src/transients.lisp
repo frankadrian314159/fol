@@ -177,6 +177,26 @@
   ts)
 
 ;;; ===========================================================================
+;;; CLOS-object (<persistent-object>) transients
+;;; ===========================================================================
+;;; Unlike dict/vector/set, <persistent-object> has no trie to edit-tag: the
+;;; underlying mechanism (persistence.lisp) is a per-instance thread-owner
+;;; flag checked by UPDATE-SLOT/UPDATE-SLOTS and the SLOT-VALUE-USING-CLASS
+;;; override, not a per-node edit token. TRANSIENT allocates a shallow copy
+;;; (native slots copied, any overflow vector shared by reference, exactly
+;;; UPDATE-SLOTS's own copy-on-write path) and marks it owned; ASSOC!/direct
+;;; slot writes then mutate that copy in place; PERSISTENT! clears ownership.
+
+(defmethod transient ((obj fol.compiler.persistent:<persistent-object>))
+  (fol.compiler.persistent::%persistent-object-transient obj))
+
+(defmethod persistent! ((obj fol.compiler.persistent:<persistent-object>))
+  (fol.compiler.persistent::%persistent-object-persistent! obj))
+
+(defmethod assoc! ((obj fol.compiler.persistent:<persistent-object>) key val)
+  (fol.compiler.persistent:update-slot obj key val))
+
+;;; ===========================================================================
 ;;; Legacy wrapper transients (RQ5 ablation only -- fol.compiler.collections:
 ;;; *wrapper-transients*; see TRANSIENT ((s <set>)) above. Never reached by
 ;;; normal builds.)

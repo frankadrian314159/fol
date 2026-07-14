@@ -4,35 +4,6 @@
 (DEFPACKAGE "DERIVED-VALUE-INVALIDATION"
   (:USE "FOL.CORE" "CL")
   (:SHADOWING-IMPORT-FROM :FOL.CORE
-                          "BIT-NAND"
-                          "LCM"
-                          "GCD"
-                          "COS"
-                          "DENOMINATOR"
-                          "ABS"
-                          "NUMERATOR"
-                          "BIT-NOR"
-                          "BIT-ANDC2"
-                          "BIT-ANDC1"
-                          "TANH"
-                          "ASINH"
-                          "GENSYM"
-                          "EXPT"
-                          "SIN"
-                          "SINH"
-                          "BIT-ORC1"
-                          "TAN"
-                          "ARRAY-DIMENSION"
-                          "ATAN"
-                          "ASIN"
-                          "SQRT"
-                          "ACOSH"
-                          "BIT-ORC2"
-                          "ACOS"
-                          "COSH"
-                          "SEQUENCE"
-                          "RATIONALIZE"
-                          "ATANH"
                           "+"
                           "-"
                           "*"
@@ -176,62 +147,103 @@
 
 (IN-PACKAGE "DERIVED-VALUE-INVALIDATION")
 
-(DEFCLASS <CART> (<PERSISTENT-OBJECT>)
-          ((ITEMS :INITARG :ITEMS :INITFORM (VECTOR))
+(DEFCLASS <CART> (FOL.COMPILER.PERSISTENT:<PERSISTENT-OBJECT>)
+          ((ITEMS :INITARG :ITEMS :INITFORM
+            (FOL.COMPILER.COLLECTION-FUNCTIONS:VECTOR))
            (_TOTAL :INITARG :_TOTAL :INITFORM NIL))
-          (:METACLASS PERSISTENT-CLASS))
+          (:METACLASS FOL.COMPILER.PERSISTENT:PERSISTENT-CLASS))
 
-(DEFUN FOL.CORE::MAKE-<CART> (&REST . #1=(FOL.COMPILER::%CTOR-ARGS))
-  (COMMON-LISP:APPLY #'%MAKE-PERSISTENT (LOAD-TIME-VALUE (FIND-CLASS '<CART>))
-                     . #1#))
+(DEFUN FOL.CORE::MAKE-<CART> (&KEY (ITEMS . #1=(NIL)) (_TOTAL . #1#))
+  (LET ((FOL.COMPILER::OBJ
+         (ALLOCATE-INSTANCE (LOAD-TIME-VALUE (FIND-CLASS '<CART>)))))
+    (LET ((FOL.COMPILER.PERSISTENT::*INITIALIZING-PERSISTENT-OBJECT* T))
+      (SETF (SLOT-VALUE FOL.COMPILER::OBJ 'ITEMS) ITEMS)
+      (SETF (SLOT-VALUE FOL.COMPILER::OBJ '_TOTAL) _TOTAL)
+      (SETF (FOL.COMPILER.PERSISTENT::%TRANSIENT-OWNER
+             . #2=(FOL.COMPILER::OBJ))
+              . #1#)
+      (SETF (FOL.COMPILER.PERSISTENT::%SCHEMA-VERSION . #2#)
+              (FOL.COMPILER.PERSISTENT::PERSISTENT-CLASS-VERSION-COUNTER
+               (CLASS-OF . #2#))))
+    . #2#))
 
 '<CART>
 
-(DEFMETHOD ASSOC :AROUND (CART SLOT VAL &REST #1=#:REST239)
-  (DECLARE (IGNORE #1#))
-  (COND
-   ((COMMON-LISP:AND (TYPEP CART '<CART>) (= SLOT :ITEMS))
-    (ASSOC (CALL-NEXT-METHOD) :_TOTAL NIL))
-   (T (CALL-NEXT-METHOD))))
+(FOL.COMPILER.SUMMARIES:CLEAR-INFERRED-SUMMARY 'ASSOC)
 
-(DEFUN ADD-ITEM (CART PRICE) (ASSOC CART :ITEMS (CONJ (GET CART :ITEMS) PRICE)))
+(PROG1
+    (DEFMETHOD ASSOC :AROUND ((CART <CART>) SLOT VAL &REST #1=#:REST237)
+      (DECLARE (IGNORE #1#))
+      (COND
+       ((= SLOT :ITEMS)
+        (FOL.COMPILER.COLLECTION-FUNCTIONS:ASSOC (CALL-NEXT-METHOD) :_TOTAL
+                                                 NIL))
+       (T (CALL-NEXT-METHOD))))
+  (FOL.COMPILER.WORLD:NOTE-REDEFINITION 'ASSOC))
 
-(DEFUN CART-TOTAL (CART)
-  (IF (TRUTHY? (NIL? (GET CART :_TOTAL)))
-      (REDUCE #'+ 0 (GET CART :ITEMS))
-      (GET CART :_TOTAL)))
+(FOL.COMPILER.SUMMARIES:CLEAR-INFERRED-SUMMARY 'ADD-ITEM)
 
-(DEFUN SUM-READS (CART N-READS)
-  (BLOCK LOOP-BLOCK-3
-    (LET ((J 0) (S 0))
-      (TAGBODY
-       LOOP-3
-        (LET ((RESULT-3
-               (PROGN
-                (IF (TRUTHY? (< J N-READS))
-                    (PROGN
-                     (PSETQ J (INC J)
-                            S (+ S (CART-TOTAL CART)))
-                     (GO LOOP-3))
-                    S))))
-          (RETURN-FROM LOOP-BLOCK-3 RESULT-3))))))
+(PROG1
+    (DEFUN ADD-ITEM (CART PRICE)
+      (FOL.COMPILER.COLLECTION-FUNCTIONS:ASSOC CART :ITEMS
+                                               (CONJ
+                                                (FOL.COMPILER.COLLECTIONS:GET
+                                                 CART :ITEMS)
+                                                PRICE)))
+  (FOL.COMPILER.WORLD:NOTE-REDEFINITION 'ADD-ITEM))
 
-(DEFUN RUN-BENCH (N-ITEMS READS-PER-ITEM)
-  (BLOCK LOOP-BLOCK-4
-    (LET ((I 0) (CART (MAKE '<CART>)) (TOTAL 0))
-      (TAGBODY
-       LOOP-4
-        (LET ((RESULT-4
-               (PROGN
-                (IF (TRUTHY? (< I N-ITEMS))
-                    (LET ((C1 (ADD-ITEM CART I)))
-                      (LET ((T1 (CART-TOTAL C1)))
-                        (LET ((C2 (ASSOC C1 :_TOTAL T1)))
-                          (LET ((READS (SUM-READS C2 READS-PER-ITEM)))
-                            (PROGN
-                             (PSETQ I (INC I)
-                                    CART C2
-                                    TOTAL (+ TOTAL READS))
-                             (GO LOOP-4))))))
-                    TOTAL))))
-          (RETURN-FROM LOOP-BLOCK-4 RESULT-4))))))
+(FOL.COMPILER.SUMMARIES:CLEAR-INFERRED-SUMMARY 'CART-TOTAL)
+
+(PROG1
+    (DEFUN CART-TOTAL (CART)
+      (IF (FOL.COMPILER.PRIMITIVES:TRUTHY?
+           (NIL? (FOL.COMPILER.COLLECTIONS:GET CART :_TOTAL)))
+          (REDUCE #'+ 0 (FOL.COMPILER.COLLECTIONS:GET CART :ITEMS))
+          (FOL.COMPILER.COLLECTIONS:GET CART :_TOTAL)))
+  (FOL.COMPILER.WORLD:NOTE-REDEFINITION 'CART-TOTAL))
+
+(FOL.COMPILER.SUMMARIES:CLEAR-INFERRED-SUMMARY 'SUM-READS)
+
+(PROG1
+    (DEFUN SUM-READS (CART N-READS)
+      (BLOCK LOOP-BLOCK-1
+        (LET ((J 0) (S 0))
+          (TAGBODY
+           LOOP-1
+            (LET ((RESULT-1
+                   (PROGN
+                    (IF (FOL.COMPILER.PRIMITIVES:TRUTHY? (< J N-READS))
+                        (PROGN
+                         (PSETQ J (INC J)
+                                S (+ S (CART-TOTAL CART)))
+                         (GO LOOP-1))
+                        S))))
+              (RETURN-FROM LOOP-BLOCK-1 RESULT-1))))))
+  (FOL.COMPILER.WORLD:NOTE-REDEFINITION 'SUM-READS))
+
+(FOL.COMPILER.SUMMARIES:CLEAR-INFERRED-SUMMARY 'RUN-BENCH)
+
+(PROG1
+    (DEFUN RUN-BENCH (N-ITEMS READS-PER-ITEM)
+      (BLOCK LOOP-BLOCK-2
+        (LET ((I 0) (CART (MAKE '<CART>)) (TOTAL 0))
+          (TAGBODY
+           LOOP-2
+            (LET ((RESULT-2
+                   (PROGN
+                    (IF (FOL.COMPILER.PRIMITIVES:TRUTHY? (< I N-ITEMS))
+                        (LET ((C1 (ADD-ITEM CART I)))
+                          (LET ((T1 (CART-TOTAL C1)))
+                            (LET ((C2
+                                   (FOL.COMPILER.COLLECTION-FUNCTIONS:ASSOC C1
+                                                                            :_TOTAL
+                                                                            T1)))
+                              (LET ((READS (SUM-READS C2 READS-PER-ITEM)))
+                                (PROGN
+                                 (PSETQ I (INC I)
+                                        CART C2
+                                        TOTAL (+ TOTAL READS))
+                                 (GO LOOP-2))))))
+                        TOTAL))))
+              (RETURN-FROM LOOP-BLOCK-2 RESULT-2))))))
+  (FOL.COMPILER.WORLD:NOTE-REDEFINITION 'RUN-BENCH))
