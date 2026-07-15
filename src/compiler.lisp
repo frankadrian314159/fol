@@ -1430,19 +1430,31 @@
    Example: (<op-add> → ((:left . left) (:right . right)))")
 
 (defun infer-type-from-constructor (node)
-  "Infer type from a make-<type> constructor call node.
+  "Infer type from a constructor call node: either MAKE-<TYPE> literal-call
+   syntax, or the (MAKE 'TYPE ...) EQL-specialized-generic call syntax.
    Returns the type name (symbol) if node is a constructor call, nil otherwise.
-   Example: (make-<op-add> :left ... :right ...) → <op-add>"
+   Examples: (make-<op-add> :left ... :right ...) → <op-add>
+             (make '<op-add> :left ... :right ...) → <op-add>"
   (when (and (fol.compiler.ast:call-node-p node)
              (fol.compiler.ast:symbol-ref-node-p (fol.compiler.ast:call-node-operator node)))
-    (let ((op-name (fol.compiler.ast:symbol-ref-node-name
-                    (fol.compiler.ast:call-node-operator node))))
-      (let ((name-str (cl:symbol-name op-name)))
-        (when (and (cl:>= (cl:length name-str) 5)
-                   (cl:string-equal (cl:subseq name-str 0 5) "MAKE-"))
-          ;; Constructor name is make-<TYPE>, extract TYPE
-          (let ((type-str (cl:subseq name-str 5)))
-            (cl:intern type-str (cl:symbol-package op-name))))))))
+    (let* ((op-name (fol.compiler.ast:symbol-ref-node-name
+                     (fol.compiler.ast:call-node-operator node)))
+           (name-str (cl:symbol-name op-name))
+           (args (fol.compiler.ast:call-node-args node)))
+      (cond
+        ;; Constructor name is make-<TYPE>, extract TYPE
+        ((and (cl:>= (cl:length name-str) 5)
+              (cl:string-equal (cl:subseq name-str 0 5) "MAKE-"))
+         (let ((type-str (cl:subseq name-str 5)))
+           (cl:intern type-str (cl:symbol-package op-name))))
+        ;; (make 'TYPE ...) -- MAKE's own dispatch is EQL-specialized on the
+        ;; class-name symbol, so a literal quoted symbol in operand position
+        ;; is exactly as much a constructor call as MAKE-<TYPE> is.
+        ((and (cl:string-equal name-str "MAKE")
+              args
+              (fol.compiler.ast:quote-node-p (first args))
+              (cl:symbolp (fol.compiler.ast:quote-node-value (first args))))
+         (fol.compiler.ast:quote-node-value (first args)))))))
 
 (defun get-slot-name-for-type (type-name keyword-key)
   "Look up slot name for a given type and keyword key using global registry.

@@ -1,0 +1,46 @@
+;; A fresh-construction, read-heavy companion to derived-value-invalidation:
+;; unlike DVI's cart (a loop-carried accumulator mutated via assoc across
+;; iterations), each <order> here is built once and read once, never
+;; threaded through recur. That difference is what lets the interprocedural
+;; parameter-type analysis (interprocedural-types.lisp) prove ORDER-TOTAL's
+;; parameter type from BUILD-ORDER's call site -- a literal MAKE-<ORDER>
+;; constructor call in tail position -- so its keyword-accessor reads compile
+;; to a world-guarded direct SLOT-VALUE instead of generic dispatch GET.
+;;
+;; Lives in fol.core directly (no custom package, unlike DVI): a class's
+;; auto-generated MAKE-<TYPE> constructor is always interned into fol.core
+;; regardless of which package the DEFCLASS itself was read in, so a custom
+;; package using the MAKE-<TYPE> literal-call spelling would need that
+;; symbol imported explicitly -- compile-file's package bookkeeping only
+;; imports symbols textually present in the IN-PACKAGE form itself, which a
+;; compiler-generated constructor name never is. Names below (<order>,
+;; build-order, order-total, sum-orders) are specific enough that collision
+;; with another benchmark loaded into the same image is unlikely; this
+;; sidesteps the packaging gap rather than working around it with MAKE's
+;; slower EQL-specialized-generic calling convention, (make 'TYPE ...),
+;; which would swap the benchmark's dominant cost from GET to MAKE's own
+;; CLOS dispatch and defeat the point of isolating the GET-bypass's win.
+
+(defclass <order> []
+  [[subtotal] [tax] [shipping]])
+
+;; Single-clause, plain constructor call in tail position: BUILD-ORDER's
+;; RETURNS-CLASS is provable.
+(defn build-order [i]
+  (make-<order> :subtotal (* i 3) :tax (* i 1) :shipping 5))
+
+;; ORDER-TOTAL's only call site (below) passes BUILD-ORDER's result directly,
+;; so its parameter's class is provable too -- both keyword-accessor reads
+;; below become direct slot reads.
+(defn order-total [o]
+  (+ (get o :subtotal) (+ (get o :tax) (get o :shipping))))
+
+;; Benchmark: N rounds of (construct one fresh order, read three fields,
+;; accumulate). The loop only ever carries a running total (a number); the
+;; <order> itself is born and read within a single iteration and never
+;; threaded through recur, unlike DVI's cart.
+(defn sum-orders [n]
+  (loop [i 0 total 0]
+    (if (< i n)
+      (recur (inc i) (+ total (order-total (build-order i))))
+      total)))

@@ -1,0 +1,28 @@
+;; Control for order-totals.fol: identical read pattern and identical loop
+;; shape, but BUILD-ORDER2 is written as a multi-clause DEFN. The
+;; interprocedural parameter-type analysis only tracks single-clause
+;; functions (matching %INFER-RETURNS-KIND's own existing precedent in
+;; escape-analysis.lisp -- multi-clause functions destructure per-clause
+;; synthetic params with no single stable positional-parameter identity to
+;; attach a fact to), so BUILD-ORDER2's return type is never proven even
+;; though the only clause actually reached here is identical to
+;; order-totals.fol's single one. ORDER2-TOTAL's parameter is therefore
+;; unprovable, and its keyword-accessor reads stay on the generic dispatch
+;; GET path. Isolates the interprocedural GET-bypass's own contribution:
+;; same amount of work, same loop shape, only provability differs.
+
+(defclass <order2> []
+  [[subtotal] [tax] [shipping]])
+
+(defn build-order2
+  ([i] (make-<order2> :subtotal (* i 3) :tax (* i 1) :shipping 5))
+  ([i unused] (make-<order2> :subtotal i :tax i :shipping i)))
+
+(defn order2-total [o]
+  (+ (get o :subtotal) (+ (get o :tax) (get o :shipping))))
+
+(defn sum-orders2 [n]
+  (loop [i 0 total 0]
+    (if (< i n)
+      (recur (inc i) (+ total (order2-total (build-order2 i))))
+      total)))

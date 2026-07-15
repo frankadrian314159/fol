@@ -10,7 +10,7 @@
 
 (in-package :fol.compiler.version)
 
-(defparameter *version* "0.4.21"
+(defparameter *version* "0.4.23"
   "The semantic version of FOL compiler.
    MAJOR: Incompatible API changes
    MINOR: Backwards-compatible new features

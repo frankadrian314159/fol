@@ -221,3 +221,94 @@
     (multiple-value-bind (val2)
         (ip-fol "(ip-d1-get-x (make-<ip-d1> :xrenamed 10 :y 20))")
       (is (null val2)))))
+
+;;; ============================================================================
+;;; (make 'TYPE ...) recognized alongside MAKE-<TYPE> ...) as a constructor
+;;; ============================================================================
+
+(test ip-quoted-make-recognized-by-infer-type-from-constructor
+  "INFER-TYPE-FROM-CONSTRUCTOR recognizes both constructor call spellings:
+   the MAKE-<TYPE> literal-call form and MAKE's own EQL-specialized-generic
+   (make 'TYPE ...) form, on the same class. Purely syntactic -- the class
+   need not exist for this recognition step itself."
+  (flet ((ctor-type (source)
+           (fol.compiler::infer-type-from-constructor
+            (fol.compiler::parse-form (first (ip-read-forms source))))))
+    (is (eq (ctor-type "(make-<ip-e1> :x 1 :y 2)") (intern "<IP-E1>" :fol.core)))
+    (is (eq (ctor-type "(make (quote <ip-e1>) :x 1 :y 2)") (intern "<IP-E1>" :fol.core)))
+    (is (eq (ctor-type "(make (quote <ip-e1>))") (intern "<IP-E1>" :fol.core)))
+    ;; Not a constructor call at all -- must stay NIL, not misfire.
+    (is (null (ctor-type "(make)")))
+    (is (null (ctor-type "(some-other-fn (quote <ip-e1>))")))))
+
+(test ip-quoted-make-direct-call-site-proves-param-type
+  "A direct call site passing (make 'TYPE ...) proves the callee's parameter
+   type exactly as a literal MAKE-<TYPE> call does, and the GET-bypass fires."
+  (let ((src "
+(defclass <ip-e2> [] [[x] [y]])
+(defn ip-e2-total [p] (+ (get p :x) (get p :y)))
+(ip-e2-total (make (quote <ip-e2>) :x 3 :y 4))"))
+    (multiple-value-bind (val codes) (ip-fol src)
+      (is (= val 7))
+      (is (ip-any-code-has codes "SLOT-VALUE")))))
+
+(test ip-quoted-make-wrapper-return-class-proven
+  "A wrapper/factory function whose tail expression is (make 'TYPE ...) gets
+   its RETURNS-CLASS proven, closing the same wrapper gap as MAKE-<TYPE>."
+  (let ((src "
+(defclass <ip-e3> [] [[x] [y]])
+(defn ip-e3-build [x y] (make (quote <ip-e3>) :x x :y y))
+(defn ip-e3-total [p] (+ (get p :x) (get p :y)))
+(ip-e3-total (ip-e3-build 5 6))"))
+    (ip-analyze src)
+    (is (eq (ip-returns-class (intern "IP-E3-BUILD" :fol.core)) (intern "<IP-E3>" :fol.core)))
+    (multiple-value-bind (val codes) (ip-fol src)
+      (is (= val 11))
+      (is (ip-any-code-has codes "SLOT-VALUE")))))
+
+;;; ============================================================================
+;;; End-to-end against the real order-totals benchmark files (not just a
+;;; miniature reproduction), mirroring how DVI's own obstacles were verified
+;;; against benchmarks/fol-code/derived-value-invalidation.fol directly.
+;;; ============================================================================
+
+(defun ip-compile-benchmark-file (relative-path)
+  "Compile a real benchmark .fol file (RELATIVE-PATH under the project root)
+   via FOL.COMPILER:COMPILE-FILE, to a scratch .lisp path, then LOAD the
+   resulting fasl. Returns the transpiled code as a string (for SLOT-VALUE/
+   GET presence checks)."
+  (let* ((source (asdf:system-relative-pathname
+                  :fol-compiler (concatenate 'string "../" relative-path)))
+         (out (merge-pathnames (make-pathname :type "lisp" :name (pathname-name source))
+                                (uiop:temporary-directory))))
+    (load (fol.compiler:compile-file source :output out))
+    (uiop:read-file-string out)))
+
+(test ip-order-totals-benchmark-slot-value-fires
+  "The real order-totals.fol benchmark file compiles ORDER-TOTAL's three
+   keyword-accessor reads to SLOT-VALUE (not generic GET), and SUM-ORDERS
+   produces the correct sum -- verified against the actual committed
+   benchmark file, not a miniature reproduction of its shape."
+  (let ((code (ip-compile-benchmark-file "benchmarks/fol-code/order-totals.fol")))
+    ;; SLOT-VALUE is the fast path; (GET O :SUBTOTAL) legitimately still
+    ;; appears too, as the guarded fallback for a redefined class -- both
+    ;; belong in the SAME dual-path (IF guard (SLOT-VALUE ...) (GET ...)).
+    (is (search "SLOT-VALUE" code))
+    (is (search "REGISTER-REGION" code))
+    (is (= (fol.core::sum-orders 100) (loop for i below 100 sum (+ (* i 3) (* i 1) 5))))))
+
+(test ip-order-totals-unprovable-benchmark-stays-generic-get
+  "The companion control file's multi-clause BUILD-ORDER2 is correctly
+   invisible to the analysis: ORDER2-TOTAL's reads stay on generic GET, and
+   SUM-ORDERS2 still produces the same correct sum as the provable variant."
+  (let* ((code (ip-compile-benchmark-file "benchmarks/fol-code/order-totals-unprovable.fol"))
+         ;; MAKE-<ORDER2>'s own constructor legitimately uses SLOT-VALUE
+         ;; internally (field initialization) regardless of the GET-bypass;
+         ;; isolate ORDER2-TOTAL's own body, which is what must stay generic.
+         (start (search "(DEFUN ORDER2-TOTAL" code))
+         (order2-total-body (subseq code start (+ start 200))))
+    (is (search "(GET O :SUBTOTAL)" order2-total-body))
+    (is (not (search "SLOT-VALUE" order2-total-body)))
+    (is (not (search "REGISTER-REGION" order2-total-body)))
+    (is (= (fol.core::sum-orders2 100) (loop for i below 100 sum (+ (* i 3) (* i 1) 5))))
+    (is (= (fol.core::sum-orders2 100) (fol.core::sum-orders 100)))))
