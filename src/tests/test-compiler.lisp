@@ -447,19 +447,27 @@
 ;;; ---------------------------------------------------------------------------
 
 (test compile-defmacro-simple
-  "(defmacro unless [test & body] ...) compiles to CL defmacro with &body."
+  "(defmacro unless [test & body] ...) compiles to CL defmacro with &body,
+   wrapped in a PROGN alongside a REGISTER-MACRO call (so the macro is also
+   visible to FOL's own parser-level macro expansion for later forms, not
+   just to SBCL's CL-level expansion of the final emitted code)."
   (let* ((result (fol.compiler:compile-form
                   (fol-form '(defmacro unless #(test & body)
                                (list 'if (list 'not test) (cons 'progn body))))))
          (code (fol.compiler:compilation-result-code result)))
     (is (null (fol.compiler:compilation-result-errors result)))
-    (is (eq 'defmacro (first code)))
-    (is (eq 'unless (second code)))
-    ;; Lambda list should have test and &body body
-    (let ((ll (third code)))
-      (is (eq 'test (first ll)))
-      (is (eq '&body (second ll)))
-      (is (eq 'body (third ll))))))
+    (is (eq 'cl:progn (first code)))
+    (let ((defmacro-form (second code)))
+      (is (eq 'defmacro (first defmacro-form)))
+      (is (eq 'unless (second defmacro-form)))
+      ;; Lambda list should have test and &body body
+      (let ((ll (third defmacro-form)))
+        (is (eq 'test (first ll)))
+        (is (eq '&body (second ll)))
+        (is (eq 'body (third ll)))))
+    ;; (third code) is (cl:eval-when (...) (fol.compiler:register-macro ...))
+    (is (eq 'cl:eval-when (first (third code))))
+    (is (eq 'fol.compiler:register-macro (first (third (third code)))))))
 
 (test compile-defmacro-with-destructuring
   "defmacro with vector destructuring in params."
@@ -468,13 +476,15 @@
                                (list 'let (list (list name value)) (cons 'progn body))))))
          (code (fol.compiler:compilation-result-code result)))
     (is (null (fol.compiler:compilation-result-errors result)))
-    (is (eq 'defmacro (first code)))
-    (is (eq 'my-bind (second code)))
-    ;; Lambda list should have nested destructuring
-    (let ((ll (third code)))
-      ;; First param is a destructured list (name value)
-      (is (listp (first ll)))
-      (is (equal '(name value) (first ll))))))
+    (is (eq 'cl:progn (first code)))
+    (let ((defmacro-form (second code)))
+      (is (eq 'defmacro (first defmacro-form)))
+      (is (eq 'my-bind (second defmacro-form)))
+      ;; Lambda list should have nested destructuring
+      (let ((ll (third defmacro-form)))
+        ;; First param is a destructured list (name value)
+        (is (listp (first ll)))
+        (is (equal '(name value) (first ll)))))))
 
 (test compile-defmacro-rejects-predicates
   "defmacro rejects predicate specializers with a compilation error."

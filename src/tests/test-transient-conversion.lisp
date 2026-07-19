@@ -1501,6 +1501,221 @@
         (eval (fol.compiler:compilation-result-code ctor-result))
         (is (null (search "TRANSIENT" code-str :test #'string-equal)))))))
 
+(test transient-loop-tier2-constructor-hijack-after-caching
+  "A loop initialized via a Tier-2-summarized 0-ary HELPER whose tail
+   position calls MAKE-<T> (not a direct (make 'X) at the loop's own init
+   position -- %PERSISTENT-OBJECT-MAKE-CLASS alone would never see this,
+   only %TIER2-CONSTRUCTOR-CLASS does) must still refuse conversion if MAKE
+   gets hijacked for that class AFTER the helper's Tier-2 summary was
+   already cached. *INFERRED-SUMMARIES* has no transitive invalidation
+   (redefining MAKE doesn't touch the HELPER's own cached entry, only one
+   literally named \"MAKE\"), so this is exactly the scenario FRESH-IF-
+   CLASSES-TRUSTED exists for: freshness through a constructor call is
+   never baked into a cached boolean, only ever re-verified live wherever
+   it's consulted (TRANSIENT-ELIGIBLE-INIT-P).
+
+   Sequence: define the class; compile (but deliberately never evaluate)
+   the helper, caching its Tier-2 summary -- evaluating it would clear that
+   very summary via NOTE-REDEFINITION, since a first definition looks
+   identical to a redefinition to that mechanism (see TRANSIENT-LOOP-
+   TIER2-FRESH-CONSTRUCTOR-INIT's docstring for the same gotcha; here it
+   matters doubly, since the summary must survive across BOTH loop
+   compilations, not just the first). Confirm a loop using the helper as
+   init converts; THEN hijack MAKE for this class with a customizing
+   :around method; confirm a freshly-compiled loop using the SAME
+   (still-cached, untouched) helper summary does NOT convert -- proof the
+   live re-check actually re-verifies trust, not a stale snapshot."
+  (let* ((class-src "(defclass <tc-tier2-hijack> []
+                        [[items :initarg :items :initform []]])")
+         ;; CTOR-FORM and LOOP-FORM are read with *PACKAGE* bound to
+         ;; :FOL.CORE (via the FOL readtable, for [] vector/<...> class-name
+         ;; syntax) rather than quoted CL literals in this file's own
+         ;; FOL.COMPILER.TESTS package: %TIER2-CONSTRUCTOR-CLASS interns the
+         ;; MAKE-<T>-stripped class name into the OPERATOR symbol's OWN
+         ;; package (mirroring INFER-TYPE-FROM-CONSTRUCTOR, compiler.lisp),
+         ;; and LOOKUP-SUMMARY's *INFERRED-SUMMARIES* cache is EQ-keyed on
+         ;; the DEFN's name symbol -- so the class (defined via
+         ;; COMPILE-EVAL-FOL-SOURCE-MULTI, which reads into :FOL.CORE), the
+         ;; ctor's own name, and the loop's call to it must all be the SAME
+         ;; symbol objects, not merely same-named symbols in different
+         ;; packages.
+         (ctor-form (let ((*package* (find-package :fol.core))
+                           (*readtable* fol.compiler.reader:*fol-readtable*))
+                      (read-from-string "(defn tc-tier2-hijack-make [] (make-<tc-tier2-hijack>))")))
+         (loop-form (let ((*package* (find-package :fol.core))
+                           (*readtable* fol.compiler.reader:*fol-readtable*))
+                      (read-from-string
+                       "(loop [acc (tc-tier2-hijack-make) i 0]
+                          (if (< i 20)
+                            (recur (fol.compiler.collection-functions:assoc acc :items i) (+ i 1))
+                            acc))")))
+         (class-name nil))
+    (compile-eval-fol-source-multi class-src)
+    (setf class-name (intern "<TC-TIER2-HIJACK>" :fol.core))
+    ;; Compile the ctor (caching its Tier-2 summary as a side effect) and
+    ;; the first loop; deliberately never EVAL the ctor's code -- see the
+    ;; docstring above.
+    (let* ((fol.compiler.escape-analysis:*transient-loops* t))
+      (fol.compiler:compile-form ctor-form)
+      (let* ((loop-result-1 (fol.compiler:compile-form loop-form))
+             (code-str-1 (write-to-string (fol.compiler:compilation-result-code loop-result-1))))
+        (is (search "TRANSIENT" code-str-1 :test #'string-equal))))
+    ;; Hijack MAKE for this class.
+    (eval `(defmethod fol.compiler.primitives:make :around ((c (eql ',class-name)) &rest args)
+             (apply #'call-next-method c args)))
+    (unwind-protect
+        ;; A freshly-compiled loop, using the SAME (untouched, still-cached)
+        ;; helper summary, must NOT convert now.
+        (let* ((fol.compiler.escape-analysis:*transient-loops* t)
+               (loop-result-2 (fol.compiler:compile-form loop-form))
+               (code-str-2 (write-to-string (fol.compiler:compilation-result-code loop-result-2))))
+          (is (null (search "TRANSIENT" code-str-2 :test #'string-equal))))
+      (let ((m (find-if (lambda (m)
+                           (let ((s (first (sb-mop:method-specializers m))))
+                             (and (typep s 'sb-mop:eql-specializer)
+                                  (eql (sb-mop:eql-specializer-object s) class-name))))
+                         (sb-mop:generic-function-methods #'fol.compiler.primitives:make))))
+        (when m (remove-method #'fol.compiler.primitives:make m))))))
+
+(defvar *tc-load-time-sentinel* 0
+  "Incremented by a test-only :AROUND method hijacking ASSOC on <DICT>,
+   used only by TRANSIENT-LOOP-LOAD-TIME-HIJACK-AFTER-COMPILE-CLOSES-GAP.")
+
+(test transient-loop-load-time-hijack-after-compile-closes-gap
+  "The gap a mathematician's-eye review of the paper's formal apparatus
+   found: TRUSTED is checked once, at compile time, inside INIT-SUPPORTS-P
+   -- but the world-guard's actual protection (REGISTER-REGION) only
+   starts at load time, a strictly later, separate phase (every
+   REGISTER-REGION call site is wrapped in CL:LOAD-TIME-VALUE). A hijack
+   introduced in that window is invisible to both: the compile-time
+   snapshot is already stale, and NOTE-REDEFINITION has nothing registered
+   yet to invalidate (no redefinition event fires for a method that
+   already existed by the time the region registers).
+   %REGISTER-REGION-TRUSTED-FORM/%KIND-TRUSTED-P close this by
+   re-verifying TRUSTED live, at load time, inside the very code
+   REGISTER-REGION's CL:LOAD-TIME-VALUE wraps.
+
+   Uses a DICT accumulator with ASSOC hijacked on <DICT> itself, not a
+   user-defined persistent-object class with a hijacked MAKE: a dict
+   literal init never calls a hijackable generic at all, so the hijack
+   cannot fire during initialization -- only during the loop *body*'s
+   ASSOC/ASSOC! calls -- and :DICT carries no ASSOC exemption the way
+   persistent-object's Approach-A dispatch-through does, so this isolates
+   the load-time re-check itself rather than interacting with that
+   already-separately-tested mechanism.
+
+   First confirms the positive case (no hijack -- fast path runs, sentinel
+   stays silent), then the gap-closing case (hijack introduced strictly
+   between compile and load -- slow path must run, sentinel must fire) on
+   a second, freshly-compiled instance of the identical loop, proving this
+   isn't a case where the fix simply always declines."
+  (let ((loop-form '(loop (acc (fol.compiler.collection-functions:dict) i 0)
+                      (if (< i 5)
+                          (recur (fol.compiler.collection-functions:assoc acc i i) (+ i 1))
+                          acc)))
+        (fol.compiler.escape-analysis:*transient-loops* t))
+    ;; Positive case: no hijack, compile immediately followed by eval.
+    (setf *tc-load-time-sentinel* 0)
+    (let ((result (fol.compiler:compile-form loop-form)))
+      (eval (fol.compiler:compilation-result-code result))
+      (is (= 0 *tc-load-time-sentinel*)))
+    ;; Gap-closing case: hijack ASSOC on <DICT>, strictly after compiling a
+    ;; FRESH instance of the same loop but before evaluating it.
+    (setf *tc-load-time-sentinel* 0)
+    (let ((result (fol.compiler:compile-form loop-form)))
+      (eval '(defmethod fol.compiler.collection-functions:assoc :around
+                 ((d fol.compiler.collections:<dict>) k v &rest kvs)
+               (declare (ignore kvs))
+               (incf *tc-load-time-sentinel*)
+               (call-next-method)))
+      (unwind-protect
+          (progn
+            (eval (fol.compiler:compilation-result-code result))
+            (is (> *tc-load-time-sentinel* 0)))
+        (let ((m (find-method #'fol.compiler.collection-functions:assoc '(:around)
+                               (list (find-class 'fol.compiler.collections:<dict>) t t)
+                               nil)))
+          (when m (remove-method #'fol.compiler.collection-functions:assoc m)))))))
+
+(test transient-reduce-load-time-hijack-after-compile-closes-gap
+  "The REDUCE-conversion counterpart of TRANSIENT-LOOP-LOAD-TIME-HIJACK-
+   AFTER-COMPILE-CLOSES-GAP: MAYBE-TRANSIENT-REDUCE (EMIT-CALL,
+   compiler.lisp) is the other of the two call sites that ever computes a
+   TRUSTED fact, and has its own, independent REGISTER-REGION/CL:LOAD-
+   TIME-VALUE wrapping -- this exercises that wiring specifically, not
+   just the LOOP path's."
+  (let ((reduce-form (fol-form
+                       '(fol.compiler.seq-functions:reduce
+                         (fn #(acc x) (fol.compiler.collection-functions:assoc acc x x))
+                         (fol.compiler.collection-functions:dict)
+                         (fol.compiler.collection-functions:vector 0 1 2 3 4))))
+        (fol.compiler.escape-analysis:*transient-loops* t))
+    ;; Positive case: no hijack.
+    (setf *tc-load-time-sentinel* 0)
+    (let ((result (fol.compiler:compile-form reduce-form)))
+      (eval (fol.compiler:compilation-result-code result))
+      (is (= 0 *tc-load-time-sentinel*)))
+    ;; Gap-closing case: hijack introduced strictly between compiling a
+    ;; fresh instance of the same reduce and evaluating it.
+    (setf *tc-load-time-sentinel* 0)
+    (let ((result (fol.compiler:compile-form reduce-form)))
+      (eval '(defmethod fol.compiler.collection-functions:assoc :around
+                 ((d fol.compiler.collections:<dict>) k v &rest kvs)
+               (declare (ignore kvs))
+               (incf *tc-load-time-sentinel*)
+               (call-next-method)))
+      (unwind-protect
+          (progn
+            (eval (fol.compiler:compilation-result-code result))
+            (is (> *tc-load-time-sentinel* 0)))
+        (let ((m (find-method #'fol.compiler.collection-functions:assoc '(:around)
+                               (list (find-class 'fol.compiler.collections:<dict>) t t)
+                               nil)))
+          (when m (remove-method #'fol.compiler.collection-functions:assoc m)))))))
+
+(test kind-trusted-p-preserves-persistent-object-assoc-exemption
+  "%KIND-TRUSTED-P (used by the load-time re-check above) must mirror
+   %PERSISTENT-OBJECT-INIT-SUPPORTS-P's Approach-A exemption exactly: a
+   customization on ASSOC alone does not make the representation
+   untrusted (dispatch-through covers it), only a customization on MAKE or
+   any other used op does. Neither of the two integration tests above
+   exercises this branch (both use :DICT, which has no such exemption), so
+   this checks it directly against a real class and a real :around method."
+  (let ((class-src "(defclass <tc-kind-trusted-assoc-only> []
+                       [[items :initarg :items :initform []]])")
+        (class-name nil))
+    (compile-eval-fol-source-multi class-src)
+    (setf class-name (intern "<TC-KIND-TRUSTED-ASSOC-ONLY>" :fol.core))
+    (let ((kind (cons :persistent-object class-name)))
+      ;; No customization at all: trusted.
+      (is (fol.compiler.escape-analysis:%kind-trusted-p kind '("MAKE" "ASSOC")))
+      ;; Customize ASSOC only.
+      (eval `(defmethod fol.compiler.collection-functions:assoc :around
+                 ((o ,class-name) k v &rest kvs)
+               (declare (ignore kvs))
+               (call-next-method)))
+      (unwind-protect
+          (progn
+            ;; ASSOC alone customized: still trusted (Approach A exemption).
+            (is (fol.compiler.escape-analysis:%kind-trusted-p kind '("MAKE" "ASSOC")))
+            ;; MAKE customized too (even if only checked, not called here):
+            ;; untrusted, since MAKE gets no exemption.
+            (eval `(defmethod fol.compiler.primitives:make :around
+                       ((c (eql ',class-name)) &rest args)
+                     (apply #'call-next-method c args)))
+            (unwind-protect
+                (is (not (fol.compiler.escape-analysis:%kind-trusted-p kind '("MAKE" "ASSOC"))))
+              (let ((m (find-if (lambda (m)
+                                   (let ((s (first (sb-mop:method-specializers m))))
+                                     (and (typep s 'sb-mop:eql-specializer)
+                                          (eql (sb-mop:eql-specializer-object s) class-name))))
+                                 (sb-mop:generic-function-methods #'fol.compiler.primitives:make))))
+                (when m (remove-method #'fol.compiler.primitives:make m)))))
+        (let ((m (find-method #'fol.compiler.collection-functions:assoc '(:around)
+                               (list (find-class class-name) t t)
+                               nil)))
+          (when m (remove-method #'fol.compiler.collection-functions:assoc m)))))))
+
 ;;; ============================================================================
 ;;; Independent accumulators, one via a nested reduce (chain-ops leak)
 ;;; ============================================================================

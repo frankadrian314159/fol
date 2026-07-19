@@ -1,0 +1,14 @@
+;; Second round of extended corpus search, targeting domains structurally
+;; closer to reitit's win (fixed-schema record built by iterating a small
+;; enumeration) rather than the numeric/geometry hypothesis that found
+;; nothing in round one: rule engines (explicit Token/Fact record types),
+;; an alternative router (same domain as reitit), date/time (fixed-field
+;; records), a datascript-like DB, and a state-machine library.
+
+{:repos
+ [{:name "clara-rules" :domain :language     :sha nil :url "https://github.com/cerner/clara-rules"}
+  {:name "bidi"        :domain :web          :sha nil :url "https://github.com/juxt/bidi"}
+  {:name "tick"        :domain :data-structures :sha nil :url "https://github.com/juxt/tick"}
+  {:name "datalevin"   :domain :data-structures :sha nil :url "https://github.com/juji-io/datalevin"}
+  {:name "automat"     :domain :language     :sha nil :url "https://github.com/ztellman/automat"}
+  {:name "yada"        :domain :web          :sha nil :url "https://github.com/juxt/yada"}]}

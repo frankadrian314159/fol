@@ -1,0 +1,26 @@
+{:fetched "2026-07-16T00:36:33.129002100Z",
+ :repos
+ [{:name "clojure2d",
+   :domain :graphics,
+   :url "https://github.com/Clojure2D/clojure2d",
+   :sha "67e9f6a113e0b8bd7614f887a124fc6fa7fa2e00"}
+  {:name "cljbox2d",
+   :domain :physics,
+   :url "https://github.com/floybix/cljbox2d",
+   :sha "01212a03d213f4b817db2ab84f08e1ecf33a0472"}
+  {:name "brute",
+   :domain :games,
+   :url "https://github.com/markmandel/brute",
+   :sha "a4a374231393da0a3c652c7af40de7c676101443"}
+  {:name "meander",
+   :domain :language,
+   :url "https://github.com/noprompt/meander",
+   :sha "74de6b1f651441092cc12d1c9012ef7086033040"}
+  {:name "instaparse",
+   :domain :language,
+   :url "https://github.com/Engelberg/instaparse",
+   :sha "da886e71a4afa80f8b83d1d67f058b2f02cdc0e3"}
+  {:name "clj-statecharts",
+   :domain :language,
+   :url "https://github.com/lucywang000/clj-statecharts",
+   :sha "c61362552295806dfd50ddbf40fa62fe7a1c3149"}]}

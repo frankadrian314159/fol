@@ -153,6 +153,11 @@
    (transient-vector-tv tv) val)
   tv)
 
+(defmethod assoc! ((tv <transient-vector>) key val)
+  (fol.compiler.collection-primitives:transient-%vec-t-assoc!
+   (transient-vector-tv tv) key val)
+  tv)
+
 (defmethod transient ((s <set>))
   (if *wrapper-transients*
       (let ((ts (%make-transient-set (make-hash-table :test 'equal))))

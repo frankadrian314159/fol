@@ -256,13 +256,29 @@
            :form form))
         (t (error "Cannot parse form: ~S" form))))))
 
+(defun %delistify (form)
+  "Recursively convert FOL <LIST> collection objects back into ordinary CL
+   conses. A macro's own expander body builds its expansion with FOL's
+   LIST/CONS, which (like every other FOL collection constructor) produces
+   a persistent <LIST> object, not a raw CL cons -- so MACROEXPAND-1's
+   result needs this before PARSE-FORM can walk it as code, exactly as it
+   walks a hand-written form. Raw macro arguments (T1, B1, ... below) are
+   always already CL conses straight from the reader and pass through
+   unchanged; only the expander's own <LIST>-typed wrapping, however
+   deeply nested, needs converting."
+  (cond
+    ((typep form 'fol.compiler.collections:<list>)
+     (mapcar #'%delistify (fol.compiler.collections:collection-seq form)))
+    ((consp form) (cons (%delistify (car form)) (%delistify (cdr form))))
+    (t form)))
+
 (defun parse-compound (form)
   "Parse a compound form (list) into an AST node.
    Dispatches on the operator to handle macros, special forms, and function calls."
   (cond
    ;; Check for macros first and expand them
    ((and (symbolp (car form)) (macro-p (car form)))
-     (let ((expanded (macroexpand-1 form)))
+     (let ((expanded (%delistify (macroexpand-1 form))))
        (parse-form expanded)))
    ;; Then check for special forms
    ((special-form-p (car form))
@@ -1497,19 +1513,53 @@
        (pushnew name *extra-special-vars*)
        name))))
 
+(defun %register-region-trusted-form (assumptions trust-checks)
+  "Wrap FOL.COMPILER.WORLD:REGISTER-REGION with a live re-verification of
+   TRUST-CHECKS -- a list of (KIND . USED-OPS) pairs, or NIL -- against
+   FOL.COMPILER.ESCAPE-ANALYSIS:%KIND-TRUSTED-P. Returns the form to place
+   inside the region's CL:LOAD-TIME-VALUE, so both the registration and the
+   trust re-check happen at the same moment: load time.
+
+   TRUSTED (the method-combination hazard check) was already run once, at
+   compile time, to decide whether to attempt conversion at all -- but a
+   :before/:after/:around method hijacking the representation, introduced
+   after that compile-time check but before this form actually loads, is
+   invisible to it: the snapshot is stale by the time load time arrives.
+   It's also invisible to NOTE-REDEFINITION, since no redefinition event
+   fires for a method that already existed. Re-running the same check here
+   closes that gap: the compile-time check becomes an optimization (avoid
+   emitting a dual path that would immediately register invalid), not the
+   soundness gate -- this re-check is.
+
+   No extra locking needed beyond REGISTER-REGION's own: the cell is
+   already inserted into the world's dependency table by the time this
+   runs, so a hijack racing with this exact moment is still caught by the
+   ordinary NOTE-REDEFINITION path; this only needs to catch what predates
+   registration entirely."
+  (if trust-checks
+      `(cl:let ((cell (fol.compiler.world:register-region ',assumptions)))
+         (cl:when (cl:and (cl:car cell)
+                          (cl:notevery
+                           (cl:lambda (ko)
+                             (fol.compiler.escape-analysis:%kind-trusted-p (cl:car ko) (cl:cdr ko)))
+                           ',trust-checks))
+           (cl:setf (cl:car cell) cl:nil))
+         cell)
+      `(fol.compiler.world:register-region ',assumptions)))
+
 (defun emit-call (node)
   "Emit a function call node.
    Special cases:
    - (:keyword dict) => (get dict :keyword)  ; keyword as accessor
    - (lexical-var ...) => runtime dispatch: funcall if function, get if collection
    - (symbol ...) => normal call with runtime collection fallback"
-  (multiple-value-bind (converted assumptions)
+  (multiple-value-bind (converted assumptions trust-checks)
       (fol.compiler.escape-analysis:maybe-transient-reduce node)
     (cond
       ((eq converted node) (emit-call-1 node))
       (fol.compiler.world:*sealed-world* (emit-node converted))
       (t `(cl:if (cl:car (cl:load-time-value
-                          (fol.compiler.world:register-region ',assumptions)
+                          ,(%register-region-trusted-form assumptions trust-checks)
                           cl:t))
                  ,(emit-node converted)
                  ,(emit-call-1 node))))))
@@ -2170,7 +2220,20 @@
 (defun emit-defmacro (node)
   "Emit a defmacro node as CL defmacro with destructured parameter list.
    Uses emit-macro-lambda-list for FOL-to-CL lambda list conversion.
-   Also emits metadata setting code if docstring is present."
+   Also emits metadata setting code if docstring is present.
+
+   Also registers the macro with FOL's own parser-level macro table
+   (REGISTER-MACRO, the same registry macros.lisp uses for built-ins like
+   COND-> and WHEN) so that PARSE-COMPOUND's macro-first check picks it up
+   for later forms too: without this, a user's own DEFMACRO produces a
+   real CL macro, but one invisible to every FOL-AST-level pass (scalar
+   replacement among them) until SBCL itself macroexpands the final
+   emitted code, by which point those passes have already run and seen
+   only an opaque, unrecognized call-node. EVAL-WHEN covers both the
+   sequential parse-compile-eval-per-form model this compiler actually
+   uses and a batch COMPILE-FILE-then-LOAD path, where a later top-level
+   form in the same file is parsed (and needs the registration) during
+   compilation, before the FASL is ever loaded."
   (let* ((name (fol.compiler.ast:defmacro-node-name node))
          (params (fol.compiler.ast:defmacro-node-params node))
          (body (fol.compiler.ast:defmacro-node-body node))
@@ -2179,15 +2242,15 @@
          (cl-lambda-list (fol.compiler.destructure:emit-macro-lambda-list param-list))
          (emitted-body (mapcar #'emit-node body)))
     (let ((defmacro-form `(cl:defmacro ,name ,cl-lambda-list ,@emitted-body))
+          (register-form `(cl:eval-when (:compile-toplevel :load-toplevel :execute)
+                             (fol.compiler:register-macro ',name (cl:macro-function ',name))))
           (metadata-form (when docstring
                                `(fol.compiler.metadata:alter-meta! (quote ,name)
                                                                    (fn [m] (fol.compiler.collection-functions:merge m
                                                                                                                     (fol.compiler.collection-functions:dict
                                                                                                                      :doc ,docstring
                                                                                                                      :name (quote ,name))))))))
-      (if metadata-form
-          `(cl:progn ,defmacro-form ,metadata-form)
-          defmacro-form))))
+      `(cl:progn ,defmacro-form ,register-form ,@(when metadata-form (list metadata-form))))))
 
 (defun emit-initform (value)
   "Convert a FOL initform value to a CL form that produces it.
@@ -2341,16 +2404,47 @@
                   ;; or silently corrupt objects from this path.
                   `(cl:defun ,constructor-name (&key ,@(loop for (sname initarg) in slot-infos
                                                              collect `(,sname nil)))
-                     (let ((obj (cl:allocate-instance
-                                 (cl:load-time-value (cl:find-class ',name)))))
-                       (let ((fol.compiler.persistent::*initializing-persistent-object* cl:t))
-                         ,@(loop for (sname initarg) in slot-infos
-                                 collect `(cl:setf (cl:slot-value obj ',sname) ,sname))
-                         (cl:setf (fol.compiler.persistent::%transient-owner obj) cl:nil)
-                         (cl:setf (fol.compiler.persistent::%schema-version obj)
-                                  (fol.compiler.persistent::persistent-class-version-counter
-                                   (cl:class-of obj))))
-                       obj))
+                     (cl:let ((%cls (cl:load-time-value (cl:find-class ',name))))
+                       ;; Overflow (wide, >+native-slot-limit+ TOTAL slots including
+                       ;; inherited ones -- not knowable from this defclass's own
+                       ;; SLOT-INFOS alone) classes need the persistent-vector trie
+                       ;; batch-built by the standard INITIALIZE-INSTANCE :AFTER
+                       ;; method (persistence.lisp); the hand-rolled fast path below
+                       ;; only fills native CLOS slots; a slot beyond the native
+                       ;; limit routes through SLOT-MISSING's SETF clause, which
+                       ;; needs %PERSISTENT-VECTOR to already be a real (even if
+                       ;; empty) vector, not just NIL. Rather than duplicate that
+                       ;; machinery here, wide classes fall back to MAKE-INSTANCE.
+                       ;; PERSISTENT-CLASS-SLOT-COUNT is only populated by
+                       ;; COMPUTE-SLOTS, which runs at class finalization -- not
+                       ;; guaranteed yet on this constructor's very first call
+                       ;; (FIND-CLASS alone doesn't finalize), so finalize first;
+                       ;; ENSURE-FINALIZED is a cheap no-op once already finalized.
+                       (closer-mop:ensure-finalized %cls)
+                       (cl:if (cl:> (fol.compiler.persistent::persistent-class-slot-count %cls)
+                                    fol.compiler.persistent::+native-slot-limit+)
+                              (cl:make-instance %cls
+                                ,@(loop for (sname initarg) in slot-infos
+                                        append (list initarg sname)))
+                              (cl:let ((obj (cl:allocate-instance %cls)))
+                                (cl:let ((fol.compiler.persistent::*initializing-persistent-object* cl:t))
+                                  ;; Must run BEFORE the slot-filling forms, not after:
+                                  ;; direct (setf slot-value) on a native persistent
+                                  ;; slot is intercepted by a guard that requires either
+                                  ;; *initializing-persistent-object* bound, or checks
+                                  ;; %transient-owner -- unbound on a bare
+                                  ;; allocate-instance, so it must be explicitly
+                                  ;; initialized here rather than left to a slot
+                                  ;; initform (allocate-instance runs no initforms) --
+                                  ;; and %schema-version is read by slot access /
+                                  ;; live-redefinition checks. Skipping either would
+                                  ;; error or silently corrupt objects from this path.
+                                  (cl:setf (fol.compiler.persistent::%transient-owner obj) cl:nil)
+                                  (cl:setf (fol.compiler.persistent::%schema-version obj)
+                                           (fol.compiler.persistent::persistent-class-version-counter %cls))
+                                  ,@(loop for (sname initarg) in slot-infos
+                                          collect `(cl:setf (cl:slot-value obj ',sname) ,sname)))
+                                obj))))
                   ;; Fallback path: original &rest constructor
                   `(cl:defun ,constructor-name (&rest %ctor-args)
                      (cl:apply #'fol.compiler.persistent::%make-persistent
@@ -3402,7 +3496,12 @@
 
 (defun %sr-register-defn (name clauses)
   "If NAME is a single-clause function whose body is one expression that peels
-   to a record constructor, record it as inlinable for scalar replacement."
+   to a record constructor -- directly, or via an IF/COND/CASE whose branches
+   EXPAND-ACC's own (already-general) recursive dispatch can attempt to
+   reconstruct -- record it as inlinable for scalar replacement. Branch
+   validity beyond this shape check is decided only when a specific loop
+   actually tries to inline the callee, not here: an unrecognized branch
+   safely aborts just that reconstruction."
   (when (and name (= 1 (length clauses)))
     (let* ((clause (first clauses))
            (params (%sr-param-list (car clause)))
@@ -3410,9 +3509,270 @@
       (when (and (%sr-symbol-list-p params)
                  (= 1 (length body))
                  (let ((core (%sr-peel-core (first body))))
-                   (and (fol.compiler.ast:call-node-p core)
-                        (infer-type-from-constructor core))))
+                   (or (and (fol.compiler.ast:call-node-p core)
+                            (infer-type-from-constructor core))
+                       (fol.compiler.ast:if-node-p core)
+                       (fol.compiler.ast:cond-node-p core)
+                       (fol.compiler.ast:case-node-p core))))
         (setf (gethash name *sr-inlinable-fns*) (cons params (first body)))))))
+
+;;; ----------------------------------------------------------------------
+;;; Reduce-over-literal-collection unrolling (*REDUCE-LITERAL-UNROLL*)
+;;; ----------------------------------------------------------------------
+;;; REDUCE's own iteration is opaque to every downstream pass -- it lives
+;;; inside COLLECTION-REDUCE's generic dispatch, not in code the compiler
+;;; can see. When COLL is a literal vector/set (or a name bound to one by a
+;;; top-level DEF), its element count and contents are known at compile
+;;; time, so the whole call can be unrolled into an ordinary straight-line
+;;; BIND chain instead: N sequential rebindings of the step function's own
+;;; accumulator/element parameter names (BIND is sequential, like Clojure's
+;;; let, so no renaming or substitution is needed -- each step just sees
+;;; the previous one's bindings). That chain is then just ordinary code:
+;;; scalar replacement, numeric specialization, or nothing at all can apply
+;;; to it exactly as if the user had written the unrolled form by hand.
+
+(defvar *def-literal-collections* (make-hash-table :test 'eq)
+  "Maps a top-level DEF name (symbol) to its value AST node, when that value
+   is a literal vector/set. Lets a REDUCE call elsewhere refer to the
+   collection by name (as real code almost always does, e.g. (def
+   http-methods #{...}) used later as (reduce f init http-methods)) and
+   still be recognized as reducing over a known, literal collection.")
+
+(defun %register-def-literal-collection (name value-node)
+  (when (and name value-node
+             (or (fol.compiler.ast:vector-node-p value-node)
+                 (fol.compiler.ast:set-node-p value-node)))
+    (setf (gethash name *def-literal-collections*) value-node)))
+
+(defun %literal-collection-elements (n)
+  "Element-node list when N is a literal vector/set, or a bare symbol
+   registered (via a top-level DEF) as one; else NIL."
+  (cond
+    ((fol.compiler.ast:vector-node-p n) (fol.compiler.ast:vector-node-elements n))
+    ((fol.compiler.ast:set-node-p n) (fol.compiler.ast:set-node-elements n))
+    ((fol.compiler.ast:symbol-ref-node-p n)
+     (let ((v (gethash (fol.compiler.ast:symbol-ref-node-name n) *def-literal-collections*)))
+       (and v (%literal-collection-elements v))))
+    (t nil)))
+
+(defun %rename-safe-body-p (n)
+  "True when N's subtree contains only node types %RENAME-REFS knows how to
+   recurse through (call/if/do/cond/case/symbol-ref/literal/quote) -- a
+   whitelist, not a blacklist, so an unfamiliar node type (a nested
+   bind/fn/loop that could shadow or capture a renamed name, or anything
+   else not accounted for) safely declines rather than being silently
+   skipped over."
+  (cond
+    ((or (fol.compiler.ast:symbol-ref-node-p n) (fol.compiler.ast:literal-node-p n)
+         (fol.compiler.ast:quote-node-p n))
+     t)
+    ((fol.compiler.ast:call-node-p n)
+     (and (%rename-safe-body-p (fol.compiler.ast:call-node-operator n))
+          (every #'%rename-safe-body-p (fol.compiler.ast:call-node-args n))))
+    ((fol.compiler.ast:if-node-p n)
+     (and (%rename-safe-body-p (fol.compiler.ast:if-node-test n))
+          (%rename-safe-body-p (fol.compiler.ast:if-node-then n))
+          (let ((e (fol.compiler.ast:if-node-else n)))
+            (or (null e) (%rename-safe-body-p (first e))))))
+    ((fol.compiler.ast:do-node-p n)
+     (every #'%rename-safe-body-p (fol.compiler.ast:do-node-body n)))
+    ((fol.compiler.ast:cond-node-p n)
+     (every (lambda (c)
+              (and (or (not (fol.compiler.ast:ast-node-p (car c))) (%rename-safe-body-p (car c)))
+                   (every #'%rename-safe-body-p (cdr c))))
+            (fol.compiler.ast:cond-node-clauses n)))
+    ((fol.compiler.ast:case-node-p n)
+     (and (%rename-safe-body-p (fol.compiler.ast:case-node-expr n))
+          (every (lambda (c) (every #'%rename-safe-body-p (cdr c)))
+                 (fol.compiler.ast:case-node-clauses n))))
+    (t nil)))
+
+(defun %rename-refs (n renames)
+  "Return N with every bare SYMBOL-REF-NODE named by a key in RENAMES (an
+   alist old-name -> new-name) replaced by a reference to the mapped name.
+   Only ever called on a body already passed %RENAME-SAFE-BODY-P, so every
+   node type below is exhaustive for what such a body can contain -- no
+   shadowing or capture is possible."
+  (cond
+    ((and (fol.compiler.ast:symbol-ref-node-p n)
+          (assoc (fol.compiler.ast:symbol-ref-node-name n) renames))
+     (fol.compiler.ast:make-symbol-ref-node
+      :name (cdr (assoc (fol.compiler.ast:symbol-ref-node-name n) renames))
+      :form (fol.compiler.ast:ast-node-form n)))
+    ((or (fol.compiler.ast:symbol-ref-node-p n) (fol.compiler.ast:literal-node-p n)
+         (fol.compiler.ast:quote-node-p n))
+     n)
+    ((fol.compiler.ast:call-node-p n)
+     (fol.compiler.ast:make-call-node
+      :operator (%rename-refs (fol.compiler.ast:call-node-operator n) renames)
+      :args (mapcar (lambda (a) (%rename-refs a renames)) (fol.compiler.ast:call-node-args n))
+      :form (fol.compiler.ast:ast-node-form n)))
+    ((fol.compiler.ast:if-node-p n)
+     (fol.compiler.ast:make-if-node
+      :test (%rename-refs (fol.compiler.ast:if-node-test n) renames)
+      :then (%rename-refs (fol.compiler.ast:if-node-then n) renames)
+      :else (let ((e (fol.compiler.ast:if-node-else n)))
+              (and e (list (%rename-refs (first e) renames))))
+      :form (fol.compiler.ast:ast-node-form n)))
+    ((fol.compiler.ast:do-node-p n)
+     (fol.compiler.ast:make-do-node
+      :body (mapcar (lambda (b) (%rename-refs b renames)) (fol.compiler.ast:do-node-body n))
+      :form (fol.compiler.ast:ast-node-form n)))
+    ((fol.compiler.ast:cond-node-p n)
+     (fol.compiler.ast:make-cond-node
+      :clauses (mapcar (lambda (c)
+                         (cons (if (fol.compiler.ast:ast-node-p (car c))
+                                   (%rename-refs (car c) renames)
+                                   (car c))
+                               (mapcar (lambda (b) (%rename-refs b renames)) (cdr c))))
+                       (fol.compiler.ast:cond-node-clauses n))
+      :form (fol.compiler.ast:ast-node-form n)))
+    ((fol.compiler.ast:case-node-p n)
+     (fol.compiler.ast:make-case-node
+      :expr (%rename-refs (fol.compiler.ast:case-node-expr n) renames)
+      :clauses (mapcar (lambda (c) (cons (car c) (mapcar (lambda (b) (%rename-refs b renames)) (cdr c))))
+                       (fol.compiler.ast:case-node-clauses n))
+      :form (fol.compiler.ast:ast-node-form n)))
+    (t n)))
+
+(defun %reduce-literal-call-p (n)
+  "When N is (reduce (fn [acc x] body) init coll) with a single-clause,
+   two-param literal FN (mirrors escape-analysis.lisp's
+   %LINEAR-REDUCE-LAMBDA shape check), a body %RENAME-SAFE-BODY-P accepts,
+   and COLL resolving to a literal vector/set, return (values acc-sym
+   elem-sym body-node init-node element-nodes); else NIL."
+  (when (and (fol.compiler.ast:call-node-p n)
+             (let ((op (fol.compiler.escape-analysis:operator-symbol n)))
+               (and op (string= (symbol-name op) "REDUCE")))
+             (= 3 (length (fol.compiler.ast:call-node-args n))))
+    (let* ((args (fol.compiler.ast:call-node-args n))
+           (f (first args))
+           (init (second args))
+           (coll (third args)))
+      (when (and (fol.compiler.ast:fn-node-p f)
+                 (= 1 (length (fol.compiler.ast:fn-node-clauses f))))
+        (let* ((clause (first (fol.compiler.ast:fn-node-clauses f)))
+               (params (%sr-param-list (car clause)))
+               (body (%sr-strip-docstring (cdr clause))))
+          (when (and (%sr-symbol-list-p params) (= 2 (length params))
+                     (= 1 (length body))
+                     (%rename-safe-body-p (first body)))
+            (let ((elements (%literal-collection-elements coll)))
+              (when elements
+                (values (first params) (second params) (first body) init elements)))))))))
+
+(defun %desugar-reduce-literal (n)
+  "If N is a reduce-over-literal-collection call recognized by
+   %REDUCE-LITERAL-CALL-P, return its unrolled BIND-chain equivalent; else
+   N unchanged. Each unrolled step gets its own fresh GENSYM accumulator
+   and element variable (never the step function's original parameter
+   names, reused via shadowing): a shadowed-name chain reads correctly
+   under ordinary evaluation, but was found to confuse the intra-bind
+   scalar-replacement pass's per-name field tracking into silently
+   computing a wrong value on the fast path (verified directly: the
+   shadowed-name version produced 9 instead of 6 on a 3-element chain).
+   Fresh names per step side-step that risk entirely."
+  (multiple-value-bind (acc-sym elem-sym body init elements) (%reduce-literal-call-p n)
+    (cond
+      ((null acc-sym) n)
+      ((null elements) init)
+      (t (let* ((idx 0)
+                ;; INTERN, not GENSYM: downstream (SR-INTRA-BIND-PASS's own
+                ;; SCAN-BINDINGS, and ASR's own fresh-field-var minting) derive
+                ;; further names via (INTERN ... (SYMBOL-PACKAGE this-name)),
+                ;; which needs a real package -- an uninterned GENSYM symbol's
+                ;; SYMBOL-PACKAGE is NIL and breaks that (confirmed directly:
+                ;; INTERN of "ACC_X" into package NIL signals
+                ;; PACKAGE-DOES-NOT-EXIST). A counter-suffixed interned name in
+                ;; ACC-SYM's own package gives the same per-step uniqueness
+                ;; without that hazard.
+                (fresh (lambda (base)
+                         (prog1 (intern (format nil "~A_~D" (symbol-name base) idx)
+                                        (symbol-package base))
+                           (incf idx))))
+                (bindings nil)
+                (cur-acc (funcall fresh acc-sym)))
+           (push (cons cur-acc init) bindings)
+           (dolist (e elements)
+             (let ((elem-var (funcall fresh elem-sym))
+                   (next-acc (funcall fresh acc-sym)))
+               (push (cons elem-var e) bindings)
+               (push (cons next-acc (%rename-refs body (list (cons acc-sym cur-acc)
+                                                              (cons elem-sym elem-var))))
+                     bindings)
+               (setf cur-acc next-acc)))
+           (fol.compiler.ast:make-bind-node
+            :bindings (nreverse bindings)
+            :body (list (fol.compiler.ast:make-symbol-ref-node :name cur-acc :form cur-acc))
+            :form (fol.compiler.ast:ast-node-form n)))))))
+
+(defun %reduce-desugar-peel (n)
+  "Peel single-form BIND/DO wrappers -- exactly %SR-PEEL-CORE's scope, no
+   IF/COND/CASE branch recognition in this v1 -- to find and desugar a
+   qualifying reduce-over-literal-collection call in tail position. Returns
+   N unchanged (recursively rebuilt around any inner rewrite) if none is
+   found."
+  (cond
+    ((and (fol.compiler.ast:bind-node-p n) (= 1 (length (fol.compiler.ast:bind-node-body n))))
+     (fol.compiler.ast:make-bind-node
+      :bindings (fol.compiler.ast:bind-node-bindings n)
+      :body (list (%reduce-desugar-peel (first (fol.compiler.ast:bind-node-body n))))
+      :form (fol.compiler.ast:ast-node-form n)))
+    ((and (fol.compiler.ast:do-node-p n) (fol.compiler.ast:do-node-body n))
+     (let ((body (fol.compiler.ast:do-node-body n)))
+       (fol.compiler.ast:make-do-node
+        :body (append (butlast body) (list (%reduce-desugar-peel (car (last body)))))
+        :form (fol.compiler.ast:ast-node-form n))))
+    (t (%desugar-reduce-literal n))))
+
+(defun %reduce-desugar-clauses (clauses)
+  "Rewrite each clause's tail (last) body form via %REDUCE-DESUGAR-PEEL,
+   leaving earlier body forms (and the parameter list) untouched."
+  (mapcar (lambda (clause)
+            (let ((body (cdr clause)))
+              (if body
+                  (cons (car clause)
+                        (append (butlast body) (list (%reduce-desugar-peel (car (last body))))))
+                  clause)))
+          clauses))
+
+(defun reduce-literal-desugar-toplevel (node)
+  "COMPILE-FORM hook: registers a top-level DEF's literal-collection value
+   (for later REDUCE call sites to resolve by name) and rewrites a
+   qualifying REDUCE-over-literal-collection call found in tail position of
+   a top-level defn/defn-private/definline body into its unrolled BIND
+   chain. Runs before SR-INTRA-BIND-PASS so the unrolled chain is visible
+   to scalar replacement like any other bind chain. Always returns a node
+   (possibly NODE itself, unchanged)."
+  (if (not fol.compiler.escape-analysis:*reduce-literal-unroll*)
+      node
+      (labels ((visit (n)
+                 (cond
+                   ((fol.compiler.ast:defn-node-p n)
+                    (fol.compiler.ast:make-defn-node
+                     :name (fol.compiler.ast:defn-node-name n)
+                     :clauses (%reduce-desugar-clauses (fol.compiler.ast:defn-node-clauses n))
+                     :form (fol.compiler.ast:ast-node-form n)))
+                   ((fol.compiler.ast:defn-private-node-p n)
+                    (fol.compiler.ast:make-defn-private-node
+                     :name (fol.compiler.ast:defn-private-node-name n)
+                     :clauses (%reduce-desugar-clauses (fol.compiler.ast:defn-private-node-clauses n))
+                     :form (fol.compiler.ast:ast-node-form n)))
+                   ((fol.compiler.ast:definline-node-p n)
+                    (fol.compiler.ast:make-definline-node
+                     :name (fol.compiler.ast:definline-node-name n)
+                     :clauses (%reduce-desugar-clauses (fol.compiler.ast:definline-node-clauses n))
+                     :form (fol.compiler.ast:ast-node-form n)))
+                   ((fol.compiler.ast:def-node-p n)
+                    (%register-def-literal-collection
+                     (fol.compiler.ast:def-node-name n) (fol.compiler.ast:def-node-value n))
+                    n)
+                   ((fol.compiler.ast:do-node-p n)
+                    (fol.compiler.ast:make-do-node
+                     :body (mapcar #'visit (fol.compiler.ast:do-node-body n))
+                     :form (fol.compiler.ast:ast-node-form n)))
+                   (t n))))
+        (visit node))))
 
 (defun tr-transform-toplevel (node)
   "COMPILE-FORM hook (transient-conversion mode). Registers helpers that
@@ -3479,120 +3839,303 @@
 ;;; Intra-bind Scalar Replacement (Original Proposal)
 ;;; ============================================================================
 
-(defun %sr-intra-bind-non-escaping-p (var-name body-nodes)
-  "Conservatively check if VAR-NAME escapes the scope of BODY-NODES.
-   An object is non-escaping if it's only used in `(get var-name :field)` calls
-   and does not appear in tail position or get passed to other functions."
-  (let ((tail-node (car (last body-nodes))))
-    ;; 1. Must not be the return value of the scope.
-    (when (%sr-refs-alias-p tail-node (list var-name))
-      (return-from %sr-intra-bind-non-escaping-p nil))
+(defun %sr-intra-bind-chain (pname fields ctor-fields ctor-op rest-bindings body-nodes &optional dict-p)
+  "Attempt to thread scalar replacement of PNAME's fields through
+   REST-BINDINGS (the bindings after PNAME's own, in original order) and
+   BODY-NODES (the enclosing bind's trailing body forms). PNAME's tracked
+   field state starts as CTOR-FIELDS (the alist :K -> value-node the
+   original constructor supplied) and is threaded forward through any
+   chain of `(bname (assoc alias :key val))` bindings, where ALIAS is
+   PNAME or an earlier such BNAME -- exactly the partial-reconstruction
+   shape the loop-carried pass's Reconstruct handles (Figure 2), applied
+   here to a straight-line bind chain instead of a recur argument. Any
+   other appearance of a tracked alias -- passed to a function, stored in
+   a literal, or a `(get alias :key)` whose key never entered the tracked
+   state -- aborts the WHOLE attempt via THROW, matching the loop-carried
+   pass's safe-by-abort discipline: the caller must see NIL and leave
+   PNAME's original binding untouched, not a half-rewritten chain.
+   (An earlier version of this function only ever inspected BODY-NODES for
+   escapes and never looked at REST-BINDINGS at all, so a chain like
+   `(bind [p (make-<t> ...) q (assoc p :k v)] q)` unboxed P's fields but
+   left `(assoc p ...)` referring to the now-nonexistent P unrewritten --
+   a real miscompilation, not merely a missed optimization.)
+   On success, returns (values NEW-REST-BINDINGS NEW-BODY USED-OPS):
+   NEW-REST-BINDINGS is REST-BINDINGS with every recognized chain-assoc
+   binding dropped (record mode: it becomes pure compile-time bookkeeping
+   -- its only meaning was the updated field state, now tracked directly)
+   or kept, rewritten to a fresh scalar binding (dict mode: see below);
+   every other binding is kept with its init rewritten. NEW-BODY resolves
+   every alias/field reference, re-materializing the record via CTOR-OP
+   (record mode) or as a dict literal (dict mode) if the chain's final
+   alias is returned bare in tail position (mirroring the loop pass's
+   tail re-box). USED-OPS is the list of Tier-1 operator name strings
+   actually touched ("GET"/"ASSOC"), needed by dict mode's caller for the
+   world-guard's live trust re-check (%KIND-TRUSTED-P); always NIL in
+   record mode, which needs no such check (see SR-INTRA-BIND-PASS).
 
-    ;; 2. Walk the body to check all other uses.
-    (labels ((scan (n)
-               (cond
-                 ;; A bare reference to the var is an escape.
-                 ((and (fol.compiler.ast:symbol-ref-node-p n)
-                       (eq (fol.compiler.ast:symbol-ref-node-name n) var-name))
-                  (return-from scan nil))
-
-                 ;; A call to (get var-name :field) is OK.
-                 ((and (fol.compiler.ast:call-node-p n)
-                       (let ((op (fol.compiler.escape-analysis:operator-symbol n))
-                             (args (fol.compiler.ast:call-node-args n)))
-                         (and op (string= (symbol-name op) "GET")
-                              (= 2 (length args))
-                              (fol.compiler.ast:symbol-ref-node-p (first args))
-                              (eq (fol.compiler.ast:symbol-ref-node-name (first args)) var-name)
-                              (fol.compiler.ast:literal-node-p (second args))
-                              (keywordp (fol.compiler.ast:literal-node-value (second args))))))
-                  t) ; This use is fine, don't recurse into its children.
-
-                 ;; For any other node, recurse. If any child fails, this fails.
-                 (t (every #'scan (fol.compiler.escape-analysis:node-children n))))))
-      (every #'scan body-nodes))))
-
-(defun %sr-intra-bind-rewrite-body (body-nodes var-name fields fvar)
-  "Rewrite the body, replacing (get var-name :field) with the scalar var."
-  (labels ((fvar-for (sk) (cdr (assoc sk fvar)))
-           (rw (n)
-             (cond
-               ;; (get var-name :field) -> scalar_var
-               ((and (fol.compiler.ast:call-node-p n)
-                     (let ((op (fol.compiler.escape-analysis:operator-symbol n))
-                           (args (fol.compiler.ast:call-node-args n)))
-                       (and op (string= (symbol-name op) "GET")
-                            (= 2 (length args))
-                            (fol.compiler.ast:symbol-ref-node-p (first args))
-                            (eq (fol.compiler.ast:symbol-ref-node-name (first args)) var-name))))
-                (let* ((key-node (second (fol.compiler.ast:call-node-args n)))
-                       (key (%sr-canon-key (fol.compiler.ast:literal-node-value key-node)))
-                       (scalar-var (fvar-for key)))
-                  (fol.compiler.ast:make-symbol-ref-node :name scalar-var :form (fol.compiler.ast:ast-node-form n))))
-
-               ;; Recursively rewrite children of other nodes.
-               (t (fol.compiler.ast:remake-node-with-children
-                   n (mapcar #'rw (fol.compiler.escape-analysis:node-children n)))))))
-    (mapcar #'rw body-nodes)))
+   DICT-P selects between two field-set sources. Record mode (DICT-P NIL,
+   the original design): FIELDS is a closed, pre-registered set from
+   *GLOBAL-TYPE-INFO*; CHAIN-ASSOC-TARGET only recognizes a KEY already in
+   that set, and every recognized chain-assoc binding is dropped (the
+   field's value is tracked directly, inlined at each read -- safe here
+   because a record's initial field values are, in every case reachable
+   from *GLOBAL-TYPE-INFO*-backed source, simple literals). Dict mode
+   (DICT-P T, FIELDS/CTOR-FIELDS/CTOR-OP unused/NIL): there is no
+   pre-registered set -- PNAME's `{}` init starts with zero fields, and
+   CHAIN-ASSOC-TARGET accepts any literal-keyword key, discovering the
+   field set from usage as the chain is walked. Because a dict field's
+   value can be an arbitrary expression (a real corpus example calls a
+   helper function per key, not a literal), inlining it at every
+   subsequent read would silently re-evaluate it -- so dict mode instead
+   mints a fresh scalar variable and KEEPS every chain-assoc binding
+   (rewritten to bind that scalar), and tracks a reference to it rather
+   than the raw value expression; a later read of the same key resolves
+   to that already-evaluated result exactly once, never re-run."
+  (let ((aliases (list (cons pname ctor-fields)))
+        (used-ops nil))
+    (labels
+        ((current-fields (alias) (cdr (assoc alias aliases)))
+         (alias-names () (mapcar #'car aliases))
+         (note-op (op) (pushnew op used-ops :test #'string=))
+         (rw (n)
+           (cond
+             ;; A bare reference to any tracked alias, anywhere other than
+             ;; the recognized shapes below, is an escape -- abort.
+             ((and (fol.compiler.ast:symbol-ref-node-p n)
+                   (assoc (fol.compiler.ast:symbol-ref-node-name n) aliases))
+              (throw 'sr-intra-bind-fail nil))
+             ;; (get alias :field) -> the field's current tracked value.
+             ((and (fol.compiler.ast:call-node-p n)
+                   (let ((op (fol.compiler.escape-analysis:operator-symbol n))
+                         (args (fol.compiler.ast:call-node-args n)))
+                     (and op (string= (symbol-name op) "GET")
+                          (= 2 (length args))
+                          (fol.compiler.ast:symbol-ref-node-p (first args))
+                          (assoc (fol.compiler.ast:symbol-ref-node-name (first args)) aliases)
+                          (fol.compiler.ast:literal-node-p (second args))
+                          (keywordp (fol.compiler.ast:literal-node-value (second args))))))
+              (let* ((args (fol.compiler.ast:call-node-args n))
+                     (alias (fol.compiler.ast:symbol-ref-node-name (first args)))
+                     (key (%sr-canon-key (fol.compiler.ast:literal-node-value (second args))))
+                     (hit (assoc key (current-fields alias))))
+                (if hit (progn (note-op "GET") (rw (cdr hit))) (throw 'sr-intra-bind-fail nil))))
+             ;; Any other node type: REMAKE-NODE-WITH-CHILDREN only has
+             ;; reconstruction methods for a handful of node types (call,
+             ;; if, do, bind, fn, defn, loop, recur); for everything else
+             ;; (notably VECTOR-NODE/DICT-NODE/SET-NODE) it silently
+             ;; returns the original node unchanged, discarding whatever
+             ;; RW would have computed for its children -- blindly
+             ;; rewrite-then-reconstruct here would then silently keep a
+             ;; stale reference to a dropped alias binding. So: recurse and
+             ;; reconstruct normally (matching prior behavior exactly, e.g.
+             ;; a plain call like `(inc (get p :x))` whose OUTER operator
+             ;; isn't GET/ASSOC still needs its child rewritten) only for
+             ;; the node types REMAKE-NODE-WITH-CHILDREN actually knows how
+             ;; to reconstruct; otherwise fall back to the loop-carried
+             ;; pass's own discipline (%SR-REWRITE-BODY's RW, ~line 4066):
+             ;; abort only if a tracked alias is actually reachable in this
+             ;; subtree, else pass the node through unchanged. (Checking
+             ;; applicability via FIND-METHOD/COMPUTE-APPLICABLE-METHODS
+             ;; would be more maintainable than this fixed list, but these
+             ;; AST nodes are DEFSTRUCTs -- structure-classes -- and SBCL's
+             ;; FIND-METHOD errors on a structure-class specializer, so an
+             ;; explicit list it is.)
+             ((or (fol.compiler.ast:call-node-p n) (fol.compiler.ast:if-node-p n)
+                  (fol.compiler.ast:do-node-p n) (fol.compiler.ast:bind-node-p n)
+                  (fol.compiler.ast:fn-node-p n) (fol.compiler.ast:defn-node-p n)
+                  (fol.compiler.ast:loop-node-p n) (fol.compiler.ast:recur-node-p n))
+              (fol.compiler.ast:remake-node-with-children
+               n (mapcar #'rw (fol.compiler.escape-analysis:node-children n))))
+             ((fol.compiler.escape-analysis:node-children n)
+              (if (%sr-refs-alias-p n (alias-names))
+                  (throw 'sr-intra-bind-fail nil)
+                  n))
+             (t n)))
+         (chain-assoc-target (init)
+           ;; (assoc alias :key val) with ALIAS tracked and (record mode)
+           ;; :key a known field, or (dict mode) any literal keyword ->
+           ;; (values alias key val), else NIL.
+           (when (fol.compiler.ast:call-node-p init)
+             (let ((op (fol.compiler.escape-analysis:operator-symbol init))
+                   (args (fol.compiler.ast:call-node-args init)))
+               (when (and op (string= (symbol-name op) "ASSOC")
+                          (= 3 (length args))
+                          (fol.compiler.ast:symbol-ref-node-p (first args))
+                          (assoc (fol.compiler.ast:symbol-ref-node-name (first args)) aliases)
+                          (fol.compiler.ast:literal-node-p (second args))
+                          (keywordp (fol.compiler.ast:literal-node-value (second args))))
+                 (let ((key (%sr-canon-key (fol.compiler.ast:literal-node-value (second args)))))
+                   (when (or dict-p (assoc key fields))
+                     (values (fol.compiler.ast:symbol-ref-node-name (first args)) key (third args))))))))
+         (process-bindings (bs)
+           (if (null bs)
+               nil
+               (let* ((b (car bs)) (bname (car b)) (init (cdr b)))
+                 (if (symbolp bname)
+                     (multiple-value-bind (alias key val) (chain-assoc-target init)
+                       (if alias
+                           (progn
+                             (note-op "ASSOC")
+                             (if dict-p
+                                 ;; Dict mode: always mint a fresh scalar and
+                                 ;; KEEP the binding (never inline the raw
+                                 ;; value expression) -- see docstring.
+                                 (let* ((scalar-var (intern (format nil "~A_~A" (symbol-name pname) (symbol-name key))
+                                                             (symbol-package pname)))
+                                        (new-val (rw val))
+                                        (ref (fol.compiler.ast:make-symbol-ref-node :name scalar-var :form scalar-var)))
+                                   (push (cons bname (cons (cons key ref)
+                                                            (remove key (current-fields alias) :key #'car)))
+                                         aliases)
+                                   (cons (cons scalar-var new-val) (process-bindings (cdr bs))))
+                                 ;; Record mode: pure bookkeeping, drop the binding.
+                                 (let ((new-val (rw val)))
+                                   (push (cons bname (cons (cons key new-val)
+                                                            (remove key (current-fields alias) :key #'car)))
+                                         aliases)
+                                   (process-bindings (cdr bs)))))
+                           (cons (cons bname (rw init)) (process-bindings (cdr bs)))))
+                     (if (%sr-refs-alias-p init (alias-names))
+                         (throw 'sr-intra-bind-fail nil)
+                         (cons (cons bname (rw init)) (process-bindings (cdr bs))))))))
+         (rebox (alias form)
+           (if dict-p
+               (fol.compiler.ast:make-dict-node
+                :entries (loop for (sk . vnode) in (current-fields alias)
+                               collect (cons (fol.compiler.ast:make-literal-node :value sk :form sk) vnode))
+                :form form)
+               (fol.compiler.ast:make-call-node
+                :operator ctor-op
+                :args (loop for (sk . sname) in fields
+                            append (list (fol.compiler.ast:make-literal-node :value sk :form sk)
+                                         (cdr (assoc sk (current-fields alias)))))
+                :form form))))
+      (catch 'sr-intra-bind-fail
+        (let* ((new-rest (process-bindings rest-bindings))
+               (new-body
+                 (loop for rem on body-nodes
+                       for form = (car rem)
+                       collect (if (and (null (cdr rem))
+                                         (fol.compiler.ast:symbol-ref-node-p form)
+                                         (assoc (fol.compiler.ast:symbol-ref-node-name form) aliases))
+                                   (rebox (fol.compiler.ast:symbol-ref-node-name form)
+                                          (fol.compiler.ast:ast-node-form form))
+                                   (rw form)))))
+          (values new-rest new-body used-ops))))))
 
 (defun sr-intra-bind-pass (node)
-  "AST-to-AST pass for intra-bind scalar replacement.
-   Walks the AST, finds qualifying bind nodes, and rewrites them."
-  (if (not fol.compiler.escape-analysis:*scalar-replacement*)
+  "AST-to-AST pass for intra-bind scalar replacement. Walks the AST, finds
+   qualifying bind nodes, and rewrites them. Returns (values NEW-NODE
+   ASSUMPTIONS TRUST-CHECKS): ASSUMPTIONS feeds REGISTER-REGION/
+   NOTE-REDEFINITION (a record class name in record mode, or the Tier-1 op
+   names actually used in dict mode -- a dict has no class to redefine, but
+   its GET/ASSOC are ordinary redefinable generics); TRUST-CHECKS is a list
+   of (KIND . USED-OPS) conses for %REGISTER-REGION-TRUSTED-FORM's live
+   load-time re-check, non-empty only in dict mode (record-mode ASR never
+   invokes a user-overridable generic on the accumulator -- direct
+   slot-value/assoc-with-known-target only -- so there is no
+   method-combination hazard to re-check, unlike dict GET/ASSOC, which
+   are)."
+  (if (not (or fol.compiler.escape-analysis:*scalar-replacement*
+               fol.compiler.escape-analysis:*dict-scalar-replacement*))
       (return-from sr-intra-bind-pass node))
 
-  (labels ((visit (n)
-             (cond
-               ((fol.compiler.ast:bind-node-p n)
-                (let* ((bindings (fol.compiler.ast:bind-node-bindings n))
-                       (body (fol.compiler.ast:bind-node-body n))
-                       (rewritten-body body)
-                       (assumptions nil)
-                       (processed-bindings
-                         (loop for b in bindings
-                               collect
-                               (let* ((pname (car b))
-                                      (init (cdr b))
-                                      (type (and (symbolp pname) (fol.compiler.ast:call-node-p init) (infer-type-from-constructor init)))
-                                      (fields (and type (gethash type *global-type-info*)))
-                                      (ctor-fields (and fields (%sr-ctor-fields init))))
-                                 (if (and fields ctor-fields (%sr-fields-match fields ctor-fields)
-                                          (%sr-intra-bind-non-escaping-p pname body))
-                                     ;; This binding qualifies. Rewrite it and the body.
-                                     (let* ((fvar (loop for (sk . sname) in fields
-                                                        collect (cons sk (intern (format nil "~A_~A" (symbol-name pname) (symbol-name sname)) (symbol-package pname)))))
-                                            (scalar-bindings (loop for (sk . sname) in fields
-                                                                   collect (cons (cdr (assoc sk fvar)) (cdr (assoc sk ctor-fields)))))
-                                            (assumed-type (string type)))
-                                       (setf rewritten-body (%sr-intra-bind-rewrite-body rewritten-body pname fields fvar))
-                                       (pushnew assumed-type assumptions :test #'string=)
-                                       scalar-bindings)
-                                     ;; Does not qualify, keep original binding.
-                                     (list b)))))
-                       (new-bindings (apply #'append processed-bindings)))
+  (labels ((scan-bindings (bindings body-nodes)
+             ;; Left to right: the first binding whose init is a matching
+             ;; record constructor, or (dict mode) a literal empty dict {},
+             ;; attempts %SR-INTRA-BIND-CHAIN over everything after it.
+             ;; Success splices in that binding's scalar fields plus the
+             ;; chain's result and stops -- a second, independent
+             ;; accumulator later in the same BIND is left unoptimized
+             ;; (rarer than a single chain, and still correct, just less
+             ;; optimized -- the same trade-off MAYBE-SCALAR-REPLACE-LOOP's
+             ;; fixpoint budget documents). Failure or a non-qualifying
+             ;; init keeps that one binding and recurses on the rest, so a
+             ;; LATER independent accumulator still gets a chance.
+             (if (null bindings)
+                 (values nil body-nodes nil nil)
+                 (let* ((b (car bindings)) (pname (car b)) (init (cdr b))
+                        (type (and (symbolp pname) (fol.compiler.ast:call-node-p init)
+                                   (infer-type-from-constructor init)))
+                        (fields (and type (gethash type *global-type-info*)))
+                        (ctor-fields (and fields (%sr-ctor-fields init))))
+                   (cond
+                     ((and fields ctor-fields (%sr-fields-match fields ctor-fields)
+                           fol.compiler.escape-analysis:*scalar-replacement*)
+                      (multiple-value-bind (chain-rest chain-body)
+                          (%sr-intra-bind-chain pname fields ctor-fields
+                                                 (fol.compiler.ast:call-node-operator init)
+                                                 (cdr bindings) body-nodes)
+                        (if chain-body
+                            (let* ((fvar (loop for (sk . sname) in fields
+                                               collect (cons sk (intern (format nil "~A_~A" (symbol-name pname) (symbol-name sname)) (symbol-package pname)))))
+                                   (scalar-bindings (loop for (sk . sname) in fields
+                                                          collect (cons (cdr (assoc sk fvar)) (cdr (assoc sk ctor-fields))))))
+                              (values (append scalar-bindings chain-rest) chain-body (list (string type)) nil))
+                            (multiple-value-bind (rest-b rest-body rest-a rest-tc) (scan-bindings (cdr bindings) body-nodes)
+                              (values (cons b rest-b) rest-body rest-a rest-tc)))))
+                     ((and fol.compiler.escape-analysis:*dict-scalar-replacement*
+                           (symbolp pname)
+                           (fol.compiler.ast:dict-node-p init)
+                           (null (fol.compiler.ast:dict-node-entries init)))
+                      (multiple-value-bind (chain-rest chain-body used-ops)
+                          (%sr-intra-bind-chain pname nil nil nil (cdr bindings) body-nodes t)
+                        (if (and chain-body used-ops)
+                            (values chain-rest chain-body used-ops (list (cons :dict used-ops)))
+                            (multiple-value-bind (rest-b rest-body rest-a rest-tc) (scan-bindings (cdr bindings) body-nodes)
+                              (values (cons b rest-b) rest-body rest-a rest-tc)))))
+                     (t (multiple-value-bind (rest-b rest-body rest-a rest-tc) (scan-bindings (cdr bindings) body-nodes)
+                          (values (cons b rest-b) rest-body rest-a rest-tc))))))))
+    (labels ((visit (n)
+               (cond
+                 ((fol.compiler.ast:bind-node-p n)
+                  (multiple-value-bind (new-bindings new-body assumptions trust-checks)
+                      (scan-bindings (fol.compiler.ast:bind-node-bindings n)
+                                     (fol.compiler.ast:bind-node-body n))
+                    (if assumptions
+                        (multiple-value-bind (new-body-visited body-assumptions body-tc)
+                            (visit-list new-body)
+                          (values (fol.compiler.ast:make-bind-node
+                                   :bindings new-bindings
+                                   :body new-body-visited
+                                   :form (fol.compiler.ast:ast-node-form n))
+                                  (append assumptions body-assumptions)
+                                  (append trust-checks body-tc)))
+                        (multiple-value-bind (rewritten-children child-assumptions child-tc)
+                            (visit-children n)
+                          (values (fol.compiler.ast:remake-node-with-children n rewritten-children)
+                                  child-assumptions child-tc)))))
 
-                  (if assumptions
-                      (values (fol.compiler.ast:make-bind-node
-                               :bindings new-bindings
-                               :body (mapcar #'visit rewritten-body)
-                               :form (fol.compiler.ast:ast-node-form n))
-                              assumptions)
-                      (multiple-value-bind (rewritten-children child-assumptions)
-                          (visit-children n)
-                        (values (fol.compiler.ast:remake-node-with-children n rewritten-children)
-                                child-assumptions)))))
-
-               (t (multiple-value-bind (rewritten-children child-assumptions)
-                      (visit-children n)
-                    (values (fol.compiler.ast:remake-node-with-children n rewritten-children)
-                            child-assumptions)))))
-           (visit-children (n)
-             ;; NOTE: mapcar only keeps each child's primary (rewritten-node)
-             ;; value; a nested qualifying bind's assumptions do not currently
-             ;; propagate to an enclosing non-bind-node. Only the top-level
-             ;; bind-node branch (above) accumulates and returns assumptions.
-             (values (mapcar #'visit (fol.compiler.escape-analysis:node-children n)) nil)))
-    (visit node)))
+                 (t (multiple-value-bind (rewritten-children child-assumptions child-tc)
+                        (visit-children n)
+                      (values (fol.compiler.ast:remake-node-with-children n rewritten-children)
+                              child-assumptions child-tc)))))
+             (visit-list (ns)
+               ;; VISIT each of NS, collecting the rewritten nodes plus
+               ;; every assumption/trust-check any of them produced.
+               (let ((all-assumptions nil) (all-tc nil))
+                 (values (mapcar (lambda (c)
+                                    (multiple-value-bind (rewritten a tc) (visit c)
+                                      (setf all-assumptions (append a all-assumptions))
+                                      (setf all-tc (append tc all-tc))
+                                      rewritten))
+                                  ns)
+                         all-assumptions all-tc)))
+             (visit-children (n)
+               ;; A nested qualifying BIND (e.g. a `defn`'s body, or any
+               ;; other non-bind ancestor) must still surface its
+               ;; assumptions to the top-level caller (COMPILE-FORM),
+               ;; which is what actually wraps the world-guard around the
+               ;; whole form -- an earlier version of this function
+               ;; discarded every child's assumptions via a plain MAPCAR,
+               ;; so a converted loop nested one level below the top-level
+               ;; form (the overwhelmingly common shape: a `defn` whose
+               ;; body is a `bind`) got scalar-replaced with NO world-guard
+               ;; at all, silently continuing to run the stale unboxed
+               ;; fast path forever after a class redefinition that should
+               ;; have invalidated it.
+               (visit-list (fol.compiler.escape-analysis:node-children n))))
+      (visit node))))
 
 (defun %sr-replace-one (node)
   "Unbox the first qualifying record accumulator in loop NODE. Returns
@@ -3693,6 +4236,16 @@
        (aliasp (n aliases)
          (and (fol.compiler.ast:symbol-ref-node-p n)
               (member (fol.compiler.ast:symbol-ref-node-name n) aliases)))
+       (field-node (alias sk overrides)
+         ;; The current value-expression for field SK of ALIAS: an override
+         ;; (an inlined callee's parameter bound to a reconstructed, non-
+         ;; passthrough record -- see the inlinable-callee case below) if one
+         ;; is in scope, else the shared scalar field variable.
+         (let ((ov (cdr (assoc alias overrides))))
+           (if ov
+               (cdr (assoc sk ov))
+               (fol.compiler.ast:make-symbol-ref-node
+                :name (fvar-for sk) :form (fvar-for sk)))))
        (rebox (form)
          ;; Re-materialize the record from the current field vars.
          (fol.compiler.ast:make-call-node
@@ -3713,6 +4266,22 @@
                       (keywordp (fol.compiler.ast:literal-node-value (second args))))
              (let ((k (%sr-canon-key (fol.compiler.ast:literal-node-value (second args)))))
                (if (assoc k fields) k (fail))))))
+       (assoc-alias-p (a aliases)
+         ;; True when A has shape (assoc X :k1 v1 ...) with X an alias and
+         ;; every key a literal keyword naming a real field. Side-effect-free
+         ;; (never FAILs) so it can be used to probe candidate arguments.
+         (and (fol.compiler.ast:call-node-p a)
+              (let ((op (fol.compiler.escape-analysis:operator-symbol a)))
+                (and op (string= (symbol-name op) "ASSOC")))
+              (aliasp (first (fol.compiler.ast:call-node-args a)) aliases)
+              (let ((kvs (rest (fol.compiler.ast:call-node-args a))))
+                (and (evenp (length kvs))
+                     (loop for (k v) on kvs by #'cddr
+                           always (and (fol.compiler.ast:literal-node-p k)
+                                       (keywordp (fol.compiler.ast:literal-node-value k))
+                                       (assoc (%sr-canon-key
+                                               (fol.compiler.ast:literal-node-value k))
+                                              fields)))))))
        (wrap-layers (inner layers)
          ;; LAYERS is a list of binding-lists, outermost first.
          (if (null layers)
@@ -3721,17 +4290,20 @@
               :bindings (first layers)
               :body (list (wrap-layers inner (rest layers)))
               :form (fol.compiler.ast:ast-node-form inner))))
-       (expand-acc (n aliases wrappers)
+       (expand-acc (n aliases wrappers overrides)
          ;; Return (values FIELD-VALUE-NODES WRAPPER-LAYERS) for a recur-position
          ;; reconstruction of the accumulator, or throw.
          (cond
            ;; passthrough: the accumulator itself
            ((aliasp n aliases)
             (values (loop for (sk . sname) in fields
-                          collect (fol.compiler.ast:make-symbol-ref-node
-                                   :name (fvar-for sk) :form (fvar-for sk)))
+                          collect (field-node (fol.compiler.ast:symbol-ref-node-name n)
+                                               sk overrides))
                     wrappers))
-           ;; inlinable object-returning callee: (f ... acc ...)
+           ;; inlinable object-returning callee: (f ... acc ...) or
+           ;; (f ... (assoc acc :k v ...) ...) -- the accumulator argument may
+           ;; be a bare alias (pure pass-through) or a single-level assoc
+           ;; reconstruction of one; every other argument must still be trivial.
            ((and (fol.compiler.ast:call-node-p n)
                  (let ((op (fol.compiler.escape-analysis:operator-symbol n)))
                    (and op (gethash op *sr-inlinable-fns*))))
@@ -3740,28 +4312,66 @@
                    (params (car entry))
                    (fbody (cdr entry))
                    (cargs (fol.compiler.ast:call-node-args n))
-                   (rec-idx (position-if (lambda (a) (aliasp a aliases)) cargs)))
-              (unless (and rec-idx
+                   (bare-idx (position-if (lambda (a) (aliasp a aliases)) cargs))
+                   (assoc-idx (position-if (lambda (a) (assoc-alias-p a aliases)) cargs))
+                   (acc-idx (or bare-idx assoc-idx)))
+              (unless (and acc-idx
                            (= (length params) (length cargs))
-                           (= 1 (count-if (lambda (a) (aliasp a aliases)) cargs))
+                           (= 1 (+ (count-if (lambda (a) (aliasp a aliases)) cargs)
+                                   (count-if (lambda (a) (assoc-alias-p a aliases)) cargs)))
                            (every (lambda (a) (or (fol.compiler.ast:symbol-ref-node-p a)
-                                                  (fol.compiler.ast:literal-node-p a)))
+                                                  (fol.compiler.ast:literal-node-p a)
+                                                  (assoc-alias-p a aliases)))
                                   cargs))
                 (fail))
-              (let* ((record-param (nth rec-idx params))
+              (let* ((record-param (nth acc-idx params))
+                     (acc-arg (nth acc-idx cargs))
                      (new-aliases (cons record-param aliases))
                      (param-layer (loop for p in params
                                         for a in cargs
                                         for i from 0
-                                        unless (= i rec-idx)
-                                        collect (cons p (rw a nil aliases)))))
+                                        unless (= i acc-idx)
+                                        collect (cons p (rw a nil aliases overrides nil)))))
                 ;; record-param must not collide with a scalar field var, or the
                 ;; get-rewrite would be ambiguous. (Colliding with an existing
                 ;; alias -- e.g. the callee's param is also named P -- is fine;
                 ;; it denotes the same accumulator.)
                 (when (rassoc record-param fvar) (fail))
-                (expand-acc fbody new-aliases
-                            (if param-layer (append wrappers (list param-layer)) wrappers)))))
+                (multiple-value-bind (new-wrappers new-overrides)
+                    (if bare-idx
+                        ;; pure pass-through: no override needed, falls back
+                        ;; to the shared field vars via field-node.
+                        (values wrappers overrides)
+                        ;; assoc-wrapped: reconstruct the inner fields and pin
+                        ;; any non-trivial one to a fresh, single-evaluation
+                        ;; scalar var so it can't be duplicated on reuse.
+                        (multiple-value-bind (inner-fields inner-wrappers)
+                            (expand-acc acc-arg aliases wrappers overrides)
+                          (let (fresh-bindings)
+                            (let ((field-ov
+                                    (loop for (sk . sname) in fields
+                                          for v in inner-fields
+                                          collect
+                                          (if (or (fol.compiler.ast:symbol-ref-node-p v)
+                                                  (fol.compiler.ast:literal-node-p v))
+                                              (cons sk v)
+                                              (let ((fresh
+                                                      (intern
+                                                       (format nil "~A_~A"
+                                                               (symbol-name record-param)
+                                                               (symbol-name sname))
+                                                       (symbol-package record-param))))
+                                                (push (cons fresh v) fresh-bindings)
+                                                (cons sk (fol.compiler.ast:make-symbol-ref-node
+                                                          :name fresh :form fresh)))))))
+                              (values (if fresh-bindings
+                                          (append inner-wrappers
+                                                  (list (nreverse fresh-bindings)))
+                                          inner-wrappers)
+                                      (cons (cons record-param field-ov) overrides))))))
+                  (expand-acc fbody new-aliases
+                              (if param-layer (append new-wrappers (list param-layer)) new-wrappers)
+                              new-overrides)))))
            ;; explicit constructor: make-<T> with all fields
            ((and (fol.compiler.ast:call-node-p n)
                  (fol.compiler.escape-analysis:operator-symbol n)
@@ -3770,14 +4380,16 @@
             (let ((cf (%sr-ctor-fields n)))
               (unless (and cf (%sr-fields-match fields cf)) (fail))
               (values (loop for (sk . sname) in fields
-                            collect (rw (cdr (assoc sk cf)) nil aliases))
+                            collect (rw (cdr (assoc sk cf)) nil aliases overrides nil))
                       wrappers)))
            ;; partial reconstruction via assoc: (assoc X :k1 v1 :k2 v2 ...)
            ((and (fol.compiler.ast:call-node-p n)
                  (let ((op (fol.compiler.escape-analysis:operator-symbol n)))
                    (and op (string= (symbol-name op) "ASSOC")))
                  (aliasp (first (fol.compiler.ast:call-node-args n)) aliases))
-            (let ((kvs (rest (fol.compiler.ast:call-node-args n))))
+            (let ((kvs (rest (fol.compiler.ast:call-node-args n)))
+                  (base-alias (fol.compiler.ast:symbol-ref-node-name
+                               (first (fol.compiler.ast:call-node-args n)))))
               (unless (evenp (length kvs)) (fail))
               (let ((updates
                       (loop for (k v) on kvs by #'cddr
@@ -3791,9 +4403,8 @@
                 (values (loop for (sk . sname) in fields
                               collect (let ((upd (assoc sk updates)))
                                         (if upd
-                                            (rw (cdr upd) nil aliases)
-                                            (fol.compiler.ast:make-symbol-ref-node
-                                             :name (fvar-for sk) :form (fvar-for sk)))))
+                                            (rw (cdr upd) nil aliases overrides nil)
+                                            (field-node base-alias sk overrides))))
                         wrappers))))
            ;; single-form bind/do wrapper around the reconstruction
            ((and (fol.compiler.ast:bind-node-p n)
@@ -3803,13 +4414,13 @@
                                             (rassoc (car b) fvar)
                                             (member (car b) aliases))
                                     (fail))
-                               collect (cons (car b) (rw (cdr b) nil aliases)))))
+                               collect (cons (car b) (rw (cdr b) nil aliases overrides nil)))))
               (expand-acc (first (fol.compiler.ast:bind-node-body n))
-                          aliases (append wrappers (list layer)))))
+                          aliases (append wrappers (list layer)) overrides)))
            ((and (fol.compiler.ast:do-node-p n)
                  (fol.compiler.ast:do-node-body n)
                  (= 1 (length (fol.compiler.ast:do-node-body n))))
-            (expand-acc (car (fol.compiler.ast:do-node-body n)) aliases wrappers))
+            (expand-acc (car (fol.compiler.ast:do-node-body n)) aliases wrappers overrides))
            ;; --- conditional reconstruction ---
            ((fol.compiler.ast:if-node-p n)
             (let* ((test-node (fol.compiler.ast:if-node-test n))
@@ -3818,9 +4429,11 @@
                                   (first (fol.compiler.ast:if-node-else n))
                                   ;; An implicit else is a pass-through of the accumulator
                                   (fol.compiler.ast:make-symbol-ref-node :name pname :form pname)))
-                   (rewritten-test (rw test-node nil aliases)))
-              (multiple-value-bind (then-scalars then-wrappers) (expand-acc then-node aliases wrappers)
-                (multiple-value-bind (else-scalars else-wrappers) (expand-acc else-node aliases wrappers)
+                   (rewritten-test (rw test-node nil aliases overrides nil)))
+              (multiple-value-bind (then-scalars then-wrappers)
+                  (expand-acc then-node aliases wrappers overrides)
+                (multiple-value-bind (else-scalars else-wrappers)
+                    (expand-acc else-node aliases wrappers overrides)
                   (when (or then-wrappers else-wrappers) (fail)) ; wrappers inside branches not yet supported
                   (values (loop for then-s in then-scalars
                                 for else-s in else-scalars
@@ -3834,14 +4447,15 @@
             (let ((clause-scalars-transposed
                    (mapcar (lambda (clause)
                              (multiple-value-bind (scalars clause-wrappers)
-                                 (expand-acc (first (cdr clause)) aliases wrappers)
+                                 (expand-acc (first (cdr clause)) aliases wrappers overrides)
                                (when clause-wrappers (fail)) ; wrappers inside branches not yet supported
                                scalars))
                            (fol.compiler.ast:cond-node-clauses n))))
               (values (loop for i from 0 below (length fields)
                             collect (fol.compiler.ast:make-cond-node
                                      :clauses (mapcar (lambda (clause-list clause-nodes)
-                                                        (cons (rw (car clause-nodes) nil aliases) (list (nth i clause-list))))
+                                                        (cons (rw (car clause-nodes) nil aliases overrides nil)
+                                                              (list (nth i clause-list))))
                                                       clause-scalars-transposed (fol.compiler.ast:cond-node-clauses n))
                                      :form (fol.compiler.ast:ast-node-form n)))
                       wrappers)))
@@ -3849,13 +4463,13 @@
             (let ((clause-scalars-transposed
                    (mapcar (lambda (clause)
                              (multiple-value-bind (scalars clause-wrappers)
-                                 (expand-acc (first (cdr clause)) aliases wrappers)
+                                 (expand-acc (first (cdr clause)) aliases wrappers overrides)
                                (when clause-wrappers (fail)) ; wrappers inside branches not yet supported
                                scalars))
                            (fol.compiler.ast:case-node-clauses n))))
               (values (loop for i from 0 below (length fields)
                             collect (fol.compiler.ast:make-case-node
-                                     :expr (rw (fol.compiler.ast:case-node-expr n) nil aliases)
+                                     :expr (rw (fol.compiler.ast:case-node-expr n) nil aliases overrides nil)
                                      ;; clause keys are literal match values, not
                                      ;; expressions -- unlike cond's tests, they
                                      ;; are carried through unrewritten.
@@ -3865,82 +4479,109 @@
                                      :form (fol.compiler.ast:ast-node-form n)))
                       wrappers)))
            (t (fail))))
-       (rw-list (ns tailp aliases)
+       (rw-list (ns tailp aliases overrides nested-p)
          (loop for rest on ns
-               collect (rw (car rest) (and tailp (null (cdr rest))) aliases)))
-       (rw (n tailp aliases)
+               collect (rw (car rest) (and tailp (null (cdr rest))) aliases overrides nested-p)))
+       (rw (n tailp aliases overrides nested-p)
          (cond
            ((null n) n)
-           ;; --- accumulator reference ---
+           ;; --- accumulator reference: NESTED-P forces FAIL regardless of
+           ;; tail position -- the accumulator escaping into or through a
+           ;; nested loop is out of scope; only reading its fields (the
+           ;; (get acc :k) case below) is supported there. ---
            ((and (fol.compiler.ast:symbol-ref-node-p n)
                  (member (fol.compiler.ast:symbol-ref-node-name n) aliases))
-            (if tailp (rebox (fol.compiler.ast:ast-node-form n)) (fail)))
+            (if (and tailp (not nested-p)) (rebox (fol.compiler.ast:ast-node-form n)) (fail)))
            ((fol.compiler.ast:symbol-ref-node-p n) n)
            ((fol.compiler.ast:literal-node-p n) n)
            ((fol.compiler.ast:quote-node-p n) n)
-           ;; --- recur: expand the accumulator position ---
-           ((fol.compiler.ast:recur-node-p n)
+           ;; --- recur: expand the accumulator position, UNLESS this recur
+           ;; targets a nested loop (NESTED-P), in which case it has nothing
+           ;; to do with the outer accumulator and is rewritten like an
+           ;; ordinary call. ---
+           ((and (fol.compiler.ast:recur-node-p n) (not nested-p))
             (let ((wrappers nil))
               (let ((new-args
                       (loop for arg in (fol.compiler.ast:recur-node-args n)
                             for i from 0
                             append (if (= i pos)
                                        (multiple-value-bind (fnodes w)
-                                           (expand-acc arg aliases nil)
+                                           (expand-acc arg aliases nil overrides)
                                          (setf wrappers w)
                                          fnodes)
-                                       (list (rw arg nil aliases))))))
+                                       (list (rw arg nil aliases overrides nested-p))))))
                 (wrap-layers
                  (fol.compiler.ast:make-recur-node
                   :args new-args :form (fol.compiler.ast:ast-node-form n))
                  wrappers))))
+           ((fol.compiler.ast:recur-node-p n)
+            (fol.compiler.ast:make-recur-node
+             :args (mapcar (lambda (a) (rw a nil aliases overrides nested-p))
+                           (fol.compiler.ast:recur-node-args n))
+             :form (fol.compiler.ast:ast-node-form n)))
+           ;; --- a nested loop: read-only access to the outer accumulator's
+           ;; fields is supported (via the (get acc :k) case, reached by
+           ;; recursing with NESTED-P true); a bare accumulator reference
+           ;; anywhere inside still FAILs via the case above. Binding inits
+           ;; are evaluated in the outer scope, so they keep the current
+           ;; NESTED-P unchanged. ---
+           ((fol.compiler.ast:loop-node-p n)
+            (dolist (b (fol.compiler.ast:loop-node-bindings n))
+              (when (and (symbolp (car b)) (member (car b) aliases)) (fail)))
+            (fol.compiler.ast:make-loop-node
+             :bindings (mapcar (lambda (b) (cons (car b) (rw (cdr b) nil aliases overrides nested-p)))
+                               (fol.compiler.ast:loop-node-bindings n))
+             :body (rw-list (fol.compiler.ast:loop-node-body n) t aliases overrides t)
+             :form (fol.compiler.ast:ast-node-form n)))
            ;; --- (get acc :k) field read ---
            ((and (fol.compiler.ast:call-node-p n) (get-of-alias n aliases))
-            (let ((sk (get-of-alias n aliases)))
-              (fol.compiler.ast:make-symbol-ref-node
-               :name (fvar-for sk) :form (fol.compiler.ast:ast-node-form n))))
+            (let* ((sk (get-of-alias n aliases))
+                   (alias-name (fol.compiler.ast:symbol-ref-node-name
+                                (first (fol.compiler.ast:call-node-args n)))))
+              (field-node alias-name sk overrides)))
            ;; --- general call: rewrite children (a bare alias arg fails) ---
            ((fol.compiler.ast:call-node-p n)
             (fol.compiler.ast:make-call-node
-             :operator (rw (fol.compiler.ast:call-node-operator n) nil aliases)
-             :args (mapcar (lambda (a) (rw a nil aliases)) (fol.compiler.ast:call-node-args n))
+             :operator (rw (fol.compiler.ast:call-node-operator n) nil aliases overrides nested-p)
+             :args (mapcar (lambda (a) (rw a nil aliases overrides nested-p))
+                           (fol.compiler.ast:call-node-args n))
              :form (fol.compiler.ast:ast-node-form n)))
            ((fol.compiler.ast:if-node-p n)
             (fol.compiler.ast:make-if-node
-             :test (rw (fol.compiler.ast:if-node-test n) nil aliases)
-             :then (rw (fol.compiler.ast:if-node-then n) tailp aliases)
-             :else (rw-list (fol.compiler.ast:if-node-else n) tailp aliases)
+             :test (rw (fol.compiler.ast:if-node-test n) nil aliases overrides nested-p)
+             :then (rw (fol.compiler.ast:if-node-then n) tailp aliases overrides nested-p)
+             :else (rw-list (fol.compiler.ast:if-node-else n) tailp aliases overrides nested-p)
              :form (fol.compiler.ast:ast-node-form n)))
            ((fol.compiler.ast:do-node-p n)
             (fol.compiler.ast:make-do-node
-             :body (rw-list (fol.compiler.ast:do-node-body n) tailp aliases)
+             :body (rw-list (fol.compiler.ast:do-node-body n) tailp aliases overrides nested-p)
              :form (fol.compiler.ast:ast-node-form n)))
            ((fol.compiler.ast:bind-node-p n)
             (dolist (b (fol.compiler.ast:bind-node-bindings n))
               (when (and (symbolp (car b)) (member (car b) aliases)) (fail)))
             (fol.compiler.ast:make-bind-node
-             :bindings (mapcar (lambda (b) (cons (car b) (rw (cdr b) nil aliases)))
+             :bindings (mapcar (lambda (b) (cons (car b) (rw (cdr b) nil aliases overrides nested-p)))
                                (fol.compiler.ast:bind-node-bindings n))
-             :body (rw-list (fol.compiler.ast:bind-node-body n) tailp aliases)
+             :body (rw-list (fol.compiler.ast:bind-node-body n) tailp aliases overrides nested-p)
              :form (fol.compiler.ast:ast-node-form n)))
            ((fol.compiler.ast:cond-node-p n)
             (fol.compiler.ast:make-cond-node
              :clauses (mapcar (lambda (c)
                                 (cons (if (fol.compiler.ast:ast-node-p (car c))
-                                          (rw (car c) nil aliases)
+                                          (rw (car c) nil aliases overrides nested-p)
                                           (car c))
-                                      (rw-list (cdr c) tailp aliases)))
+                                      (rw-list (cdr c) tailp aliases overrides nested-p)))
                               (fol.compiler.ast:cond-node-clauses n))
              :form (fol.compiler.ast:ast-node-form n)))
            ((fol.compiler.ast:case-node-p n)
             (fol.compiler.ast:make-case-node
-             :expr (rw (fol.compiler.ast:case-node-expr n) nil aliases)
-             :clauses (mapcar (lambda (c) (cons (car c) (rw-list (cdr c) tailp aliases)))
+             :expr (rw (fol.compiler.ast:case-node-expr n) nil aliases overrides nested-p)
+             :clauses (mapcar (lambda (c) (cons (car c) (rw-list (cdr c) tailp aliases overrides nested-p)))
                               (fol.compiler.ast:case-node-clauses n))
              :form (fol.compiler.ast:ast-node-form n)))
            ;; --- everything else: safe only if it never touches the accumulator ---
            (t (if (%sr-refs-alias-p n aliases) (fail) n)))))
-    (rw-list body-nodes t (list pname))))
+    (rw-list body-nodes t (list pname) nil nil)))
 
 (defun emit-loop (node)
   "Emit a loop node. Scalar replacement is tried first: when a record
@@ -3965,7 +4606,7 @@
                      ,(emit-loop-1 node))))) ; fallback
       ;; --- 2. Transient conversion ---
       (t
-       (multiple-value-bind (converted assumptions profit-check profit-binding)
+       (multiple-value-bind (converted assumptions profit-check profit-binding trust-checks)
            (fol.compiler.escape-analysis:maybe-transient-loop node)
          (cond
            ;; No conversion applicable
@@ -3974,7 +4615,7 @@
            (fol.compiler.world:*sealed-world* (emit-loop-1 converted))
            ;; Open world: emit dual path with world guard and profitability check
            (t (let* ((validity-check `(cl:car (cl:load-time-value
-                                               (fol.compiler.world:register-region ',assumptions)
+                                               ,(%register-region-trusted-form assumptions trust-checks)
                                                cl:t)))
                      (dual `(cl:if ,(if profit-check
                                         `(cl:and ,validity-check ,profit-check)
@@ -4651,8 +5292,8 @@
       ;; Tier-2: We need to infer summaries *before* emitting code that might
       ;; depend on them. We parse, then check if it's a function definition.
       ;; If so, we infer and cache its summary. Then we run scalar replacement.
-      (let ((parsed-ast (parse-form form)))
-        (multiple-value-bind (intra-bind-ast sr-assumptions)
+      (let ((parsed-ast (reduce-literal-desugar-toplevel (parse-form form))))
+        (multiple-value-bind (intra-bind-ast sr-assumptions sr-trust-checks)
             (sr-intra-bind-pass parsed-ast)
           (let ((ast (if fol.compiler.escape-analysis:*scalar-replacement*
                          (sr-transform-toplevel intra-bind-ast)
@@ -4675,7 +5316,8 @@
                                  (if (consp form) (first form) form) e))))
             (let* ((fast-path-code (emit-node ast))
                    (redef-name
-                     (when (and fol.compiler.escape-analysis:*transient-loops*
+                     (when (and (or fol.compiler.escape-analysis:*transient-loops*
+                                    fol.compiler.escape-analysis:*dict-scalar-replacement*)
                                 (not fol.compiler.world:*sealed-world*))
                        (typecase ast
                          (fol.compiler.ast:defn-node
@@ -4691,7 +5333,7 @@
                        ;; --- Intra-bind SR applied: emit dual path ---
                        ((and sr-assumptions (not fol.compiler.world:*sealed-world*))
                         (let ((validity-check `(cl:car (cl:load-time-value
-                                                        (fol.compiler.world:register-region ',sr-assumptions)
+                                                        ,(%register-region-trusted-form sr-assumptions sr-trust-checks)
                                                         cl:t)))
                               (fallback-code (emit-node parsed-ast)))
                           `(cl:if ,validity-check

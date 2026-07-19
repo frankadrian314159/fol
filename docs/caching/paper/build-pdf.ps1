@@ -14,7 +14,7 @@ param(
 
 # --- Configuration ---
 $project = $file_name
-$miktexRoot = "C:\Users\frank\AppData\Local\Programs\MiKTeX"
+$miktexRoot = Join-Path $env:LOCALAPPDATA "Programs\MiKTeX"
 
 # MiKTeX binaries are usually located in the \miktex\bin\x64 subdirectory of the install root
 $miktexBin = Join-Path $miktexRoot "miktex\bin\x64"

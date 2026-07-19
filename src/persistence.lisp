@@ -124,6 +124,7 @@ persistent vector trie.  See file header for threshold rationale.")
          (user-slots (remove-if (lambda (s)
                                   (member (closer-mop:slot-definition-name s)
                                           '(%persistent-vector %metadata %persistent-storage
+                                                               %transient-owner %transient-buffer
                                                                %schema-version)))
                          all-slots))
          (count (length user-slots))
@@ -167,6 +168,7 @@ persistent vector trie.  See file header for threshold rationale.")
             (remove-if-not (lambda (s)
                              (member (closer-mop:slot-definition-name s)
                                      '(%persistent-vector %metadata %persistent-storage
+                                                          %transient-owner %transient-buffer
                                                           %schema-version)))
                 all-slots))))))
 
@@ -441,16 +443,28 @@ Used to locate the correct starting point in the class version chain during mult
    Bypassing initialize-instance means slot initforms never run, so reserved
    persistent-object slots read outside this function (e.g. %transient-owner,
    checked by ASSOC/UPDATE-SLOTS) must be set explicitly here, not left to
-   their defclass initforms."
-  (let ((obj (allocate-instance class)))
-    (let ((*initializing-persistent-object* t))
-      (loop for (key val) on initargs by #'cddr
-            for slot-name = (slot-name-from-keyword class key)
-            when slot-name
-              do (setf (slot-value obj slot-name) val))
-      (setf (%transient-owner obj) nil)
-      (setf (%schema-version obj) (persistent-class-version-counter class)))
-    obj))
+   their defclass initforms.
+   Overflow (wide, >+native-slot-limit+ slots) classes need the
+   persistent-vector trie batch-built by the standard INITIALIZE-INSTANCE
+   :AFTER method; this fast path only fills native CLOS slots directly, so
+   wide classes fall back to MAKE-INSTANCE rather than duplicate that
+   machinery here.
+   PERSISTENT-CLASS-SLOT-COUNT is only populated by COMPUTE-SLOTS, which
+   runs at class finalization -- not guaranteed yet on this constructor's
+   very first call, so finalize first; ENSURE-FINALIZED is a cheap no-op
+   once already finalized."
+  (closer-mop:ensure-finalized class)
+  (if (> (persistent-class-slot-count class) +native-slot-limit+)
+      (apply #'make-instance class initargs)
+      (let ((obj (allocate-instance class)))
+        (let ((*initializing-persistent-object* t))
+          (setf (%transient-owner obj) nil)
+          (setf (%schema-version obj) (persistent-class-version-counter class))
+          (loop for (key val) on initargs by #'cddr
+                for slot-name = (slot-name-from-keyword class key)
+                when slot-name
+                  do (setf (slot-value obj slot-name) val)))
+        obj)))
 
 ;;; ============================================================================
 ;;; Functional Update API

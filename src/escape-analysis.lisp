@@ -1014,6 +1014,35 @@
   "When non-nil, enables scalar replacement of non-escaping persistent objects.
    Opt-in; sound under batch-compilation assumptions until world guards are fully integrated.")
 
+(defvar *dict-scalar-replacement* nil
+  "When non-nil, an intra-bind chain whose accumulator is a literal empty
+   dict {} (rather than a defclass record) is also scalar-replaced: its
+   fixed key set is discovered from usage -- every touch across the chain
+   must be a literal-keyword GET/ASSOC, never a dynamic key -- instead of
+   coming from a pre-registered *GLOBAL-TYPE-INFO* schema. Independent of
+   *SCALAR-REPLACEMENT* (which this flag does not require) so the two
+   mechanisms can be benchmarked/ablated separately. v1 scope: intra-bind
+   chains only (not loop accumulators), and only the flat ASSOC-chain
+   reconstruction shape (no if/cond/case branching, no helper inlining,
+   no dissoc/update/merge) -- see %SR-INTRA-BIND-CHAIN in compiler.lisp.")
+
+(defvar *reduce-literal-unroll* nil
+  "When non-nil, a (reduce (fn [acc x] body) init coll) call where COLL is a
+   literal vector/set -- written inline, or referenced by a top-level DEF
+   whose own initializer is one -- is unrolled at compile time into a
+   straight-line BIND chain over COLL's known elements, before scalar
+   replacement or any other pass sees the code. Reduce's own iteration is
+   otherwise opaque (hidden inside COLLECTION-REDUCE's generic dispatch),
+   so this is the only way ASR's loop/intra-bind machinery ever gets a
+   chance to see and unbox the accumulator. Independent of
+   *SCALAR-REPLACEMENT*: the unrolled chain is ordinary code regardless,
+   ASR just happens to be the pass that benefits most. v1 scope: the step
+   function must be a literal single-clause two-param FN (mirrors
+   %LINEAR-REDUCE-LAMBDA's shape), found in tail position of a top-level
+   defn/defn-private/definline body through single-form bind/do peeling
+   only (no if/cond/case branch recognition) -- see
+   REDUCE-LITERAL-DESUGAR-TOPLEVEL in compiler.lisp.")
+
 (defvar *numeric-specialization* nil
   "When non-nil, loops whose scalar variables have inferable numeric types get
    their generic arithmetic (+,-,*,/,inc,dec,<,>,...) rewritten to CL operators
@@ -1063,6 +1092,16 @@
      (fol.compiler.ast:literal-node-value node))
     (t nil)))
 
+(defun %persistent-object-class-p (class-sym)
+  "T when CLASS-SYM names an already-defined class deriving from
+   FOL.COMPILER.PERSISTENT:<PERSISTENT-OBJECT>. Shared by
+   %PERSISTENT-OBJECT-MAKE-CLASS and %TIER2-CONSTRUCTOR-CLASS."
+  (and class-sym
+       (let ((c (find-class class-sym nil)))
+         (and c (find-class 'fol.compiler.persistent:<persistent-object> nil)
+              (subtypep c (find-class 'fol.compiler.persistent:<persistent-object>))
+              t))))
+
 (defun %persistent-object-make-class (node)
   "When NODE is (make 'X) -- a call to FOL's MAKE generic with exactly one
    argument, a quoted class-name symbol, where X names a class deriving
@@ -1076,11 +1115,39 @@
           (args (fol.compiler.ast:call-node-args node)))
       (when (and op (string= (symbol-name op) "MAKE") (= 1 (length args)))
         (let ((class-sym (%quoted-symbol-value (first args))))
-          (when class-sym
-            (let ((c (find-class class-sym nil)))
-              (when (and c (find-class 'fol.compiler.persistent:<persistent-object> nil)
-                         (subtypep c (find-class 'fol.compiler.persistent:<persistent-object>)))
-                class-sym))))))))
+          (when (%persistent-object-class-p class-sym)
+            class-sym))))))
+
+(defun %tier2-constructor-class (node)
+  "When NODE is a constructor call for a <persistent-object> subclass --
+   either MAKE-<TYPE> literal-call syntax or (make 'TYPE ...) -- return
+   TYPE. NIL otherwise. Unlike %PERSISTENT-OBJECT-MAKE-CLASS (used at the
+   accumulator's own top-level init, where the op-gate check also needs
+   MAKE checked as a spine op), this is Tier-2's tail-position freshness
+   recognition: it only needs to know WHICH class's MAKE must later be
+   verified untrusted-checked (%FRESH-TAIL-VALUE-P records it in
+   FRESH-IF-CLASSES-TRUSTED; nothing here checks method-combination
+   trust itself -- see TIER1-METHODS-TRUSTED-P, always consulted live at
+   the point a summary carrying this fact is actually used). Mirrors
+   INFER-TYPE-FROM-CONSTRUCTOR's two-shape recognition (compiler.lisp) but
+   returns NIL rather than a bare type symbol for a class that isn't (yet)
+   a defined <persistent-object> subtype, since an unrecognized/undefined
+   class can't be given a freshness verdict at all here."
+  (when (fol.compiler.ast:call-node-p node)
+    (let ((op (operator-symbol node))
+          (args (fol.compiler.ast:call-node-args node)))
+      (when op
+        (let* ((name-str (symbol-name op))
+               (class-sym
+                 (cond
+                   ((and (>= (length name-str) 5)
+                         (string-equal (subseq name-str 0 5) "MAKE-"))
+                    (intern (subseq name-str 5) (symbol-package op)))
+                   ((and (string-equal name-str "MAKE") (= 1 (length args)))
+                    (%quoted-symbol-value (first args)))
+                   (t nil))))
+          (when (%persistent-object-class-p class-sym)
+            class-sym))))))
 
 (defun transient-eligible-init-p (node)
   "True when the loop init is guaranteed to produce a fresh, uniquely-owned
@@ -1098,13 +1165,30 @@
    representation the result is (needed for the op-gate check);
    INIT-SUPPORTS-P below handles that separately via RETURNS-KIND (or
    %PERSISTENT-OBJECT-MAKE-CLASS for the persistent-object case),
-   declining conversion when the kind is unknown."
+   declining conversion when the kind is unknown.
+
+   A summary whose RETURNS-FRESH-P is NIL may still qualify via
+   FRESH-IF-CLASSES-TRUSTED: freshness that transitively depends on a
+   constructor call inside a Tier-2-summarized helper (e.g. a 0-ary
+   function whose tail position calls MAKE-<T> for some T) is never
+   cached as a bare boolean -- TIER1-METHODS-TRUSTED-P is re-run live,
+   here, against each listed class's CURRENT method table every time this
+   function is consulted, since *INFERRED-SUMMARIES* has no transitive
+   invalidation (a helper's cached summary is not re-checked when MAKE is
+   later hijacked for a class it depends on -- see FRESH-IF-CLASSES-
+   TRUSTED's docstring, summaries.lisp)."
   (or (fol.compiler.ast:vector-node-p node)
       (fol.compiler.ast:dict-node-p node)
       (fol.compiler.ast:set-node-p node)
       (and (%persistent-object-make-class node) t)
       (let ((summary (%init-call-summary node)))
-        (and summary (fol.compiler.summaries:escape-summary-returns-fresh-p summary)))))
+        (and summary
+             (or (fol.compiler.summaries:escape-summary-returns-fresh-p summary)
+                 (let ((classes (fol.compiler.summaries:escape-summary-fresh-if-classes-trusted summary)))
+                   (and classes
+                        (every (lambda (cls)
+                                 (tier1-methods-trusted-p (cons :persistent-object cls) '("MAKE")))
+                               classes))))))))
 
 ;;; ============================================================================
 ;;; Method-combination trust check (Tier-1 soundness gap closed here)
@@ -1263,75 +1347,141 @@
    through the real ASSOC generic rather than the ASSOC! bypass, so the
    customization keeps firing (see *DISPATCH-THROUGH-NAMES* below).
    NIL (every other case, including the ordinary fully-trusted path) means
-   the fast bypass is safe, exactly as before this exception existed."
+   the fast bypass is safe, exactly as before this exception existed.
+
+   Third return value: (KIND . USED-OPS) when supported, NIL otherwise --
+   the facts %KIND-TRUSTED-P needs to re-derive this same trust verdict
+   live at load time (see its docstring for why the compile-time check
+   alone isn't sound)."
   (let ((used-ops (%used-ops chain-ops reads-p)))
     (cond
       ((fol.compiler.ast:dict-node-p init-node)
        (and (not (and reads-p (%reads-forbidden-p)))
             (subsetp chain-ops '("ASSOC" "DISSOC") :test #'string=)
-            (tier1-methods-trusted-p :dict used-ops)))
+            (tier1-methods-trusted-p :dict used-ops)
+            (values t nil (cons :dict used-ops))))
       ((fol.compiler.ast:vector-node-p init-node)
        (and (not (and reads-p (%reads-forbidden-p)))
             (subsetp chain-ops '("CONJ") :test #'string=)
-            (tier1-methods-trusted-p :vector used-ops)))
+            (tier1-methods-trusted-p :vector used-ops)
+            (values t nil (cons :vector used-ops))))
       ((fol.compiler.ast:set-node-p init-node)
        (and (not (and reads-p (%reads-forbidden-p)))
             (subsetp chain-ops '("CONJ" "DISJ") :test #'string=)
-            (tier1-methods-trusted-p :set used-ops)))
-      ;; (make 'X), X a <persistent-object> subclass: ASSOC is the only
-      ;; spine op (no DISSOC/CONJ/DISJ analogue for CLOS slots); reads are
-      ;; supported (GET on a persistent-object reads via plain SLOT-VALUE,
-      ;; which already sees in-place mutation once %TRANSIENT-OWNER is set
-      ;; -- no dirty-node traversal needed the way HAMT reads require).
-      ;; Freshness (TRANSIENT-ELIGIBLE-INIT-P) is purely structural, so
-      ;; MAKE itself must be checked here for a method-combination hazard,
-      ;; same as any spine/read op -- otherwise a customized MAKE could
-      ;; silently hand back something other than a fresh instance. Only
-      ;; FOL's own MAKE generic is checked; a raw CL:INITIALIZE-INSTANCE/
-      ;; CL:ALLOCATE-INSTANCE :around method bypassing it is a known,
-      ;; unhandled gap, the same kind already noted for EQL-specializers
-      ;; above.
-      ;;
-      ;; ASSOC gets a narrower exception than MAKE/reads (Approach A): a
-      ;; method-combination customization on ASSOC alone doesn't have to
-      ;; refuse conversion outright. ASSOC's own PRIMARY method for
-      ;; <persistent-object> (collection-functions.lisp) already calls
-      ;; UPDATE-SLOT, whose in-place fast path (persistence.lisp) already
-      ;; branches on %TRANSIENT-OWNER regardless of caller -- it's the
-      ;; general update primitive, not something built only for the
-      ;; transient bypass. So routing the rewritten call through the REAL
-      ;; ASSOC generic instead of the ASSOC! bypass costs only CLOS
-      ;; dispatch (measured ~10ns/call over the bypass), not the in-place
-      ;; mutation itself: the customization's :before/:after/:around
-      ;; methods fire via ordinary method combination, and CALL-NEXT-METHOD
-      ;; still reaches the same ownership-aware primary. The second return
-      ;; value signals this to MAYBE-TRANSIENT-LOOP, which routes the
-      ;; rewriter accordingly (see *DISPATCH-THROUGH-NAMES*). Every OTHER
-      ;; used op (MAKE, or any read op) must still be fully trusted -- this
-      ;; is not a blanket amnesty for the representation, only for ASSOC.
+            (tier1-methods-trusted-p :set used-ops)
+            (values t nil (cons :set used-ops))))
+      ;; (make 'X), X a <persistent-object> subclass -- see
+      ;; %PERSISTENT-OBJECT-INIT-SUPPORTS-P below for the full rationale.
       ((%persistent-object-make-class init-node)
-       (let* ((class-name (%persistent-object-make-class init-node))
-              (kind (cons :persistent-object class-name))
-              (all-used-ops (union used-ops '("MAKE") :test #'string=))
-              (non-assoc-used-ops (remove "ASSOC" all-used-ops :test #'string=)))
-         (and (subsetp chain-ops '("ASSOC") :test #'string=)
-              (notany (lambda (op) (tier1-op-customized-p op kind)) non-assoc-used-ops)
-              (values t (and (member "ASSOC" all-used-ops :test #'string=)
-                             (tier1-op-customized-p "ASSOC" kind)
-                             t)))))
+       (%persistent-object-init-supports-p
+        (%persistent-object-make-class init-node) chain-ops used-ops))
       (t (let* ((summary (%init-call-summary init-node))
-                (kind (and summary (fol.compiler.summaries:escape-summary-returns-kind summary))))
-           (case kind
-             (:dict (and (not (and reads-p (%reads-forbidden-p)))
-                         (subsetp chain-ops '("ASSOC" "DISSOC") :test #'string=)
-                         (tier1-methods-trusted-p :dict used-ops)))
-             (:vector (and (not (and reads-p (%reads-forbidden-p)))
-                           (subsetp chain-ops '("CONJ") :test #'string=)
-                           (tier1-methods-trusted-p :vector used-ops)))
-             (:set (and (not (and reads-p (%reads-forbidden-p)))
-                        (subsetp chain-ops '("CONJ" "DISJ") :test #'string=)
-                        (tier1-methods-trusted-p :set used-ops)))
+                (kind (and summary (fol.compiler.summaries:escape-summary-returns-kind summary)))
+                (fresh-classes (and summary (fol.compiler.summaries:escape-summary-fresh-if-classes-trusted summary))))
+           (cond
+             ((eq kind :dict)
+              (and (not (and reads-p (%reads-forbidden-p)))
+                   (subsetp chain-ops '("ASSOC" "DISSOC") :test #'string=)
+                   (tier1-methods-trusted-p :dict used-ops)
+                   (values t nil (cons :dict used-ops))))
+             ((eq kind :vector)
+              (and (not (and reads-p (%reads-forbidden-p)))
+                   (subsetp chain-ops '("CONJ") :test #'string=)
+                   (tier1-methods-trusted-p :vector used-ops)
+                   (values t nil (cons :vector used-ops))))
+             ((eq kind :set)
+              (and (not (and reads-p (%reads-forbidden-p)))
+                   (subsetp chain-ops '("CONJ" "DISJ") :test #'string=)
+                   (tier1-methods-trusted-p :set used-ops)
+                   (values t nil (cons :set used-ops))))
+             ;; A Tier-2-summarized 0-ary helper whose tail position calls
+             ;; MAKE-<T>/(make 'T): %INFER-RETURNS-KIND only recognizes a
+             ;; direct DICT/VECTOR/SET tail call, so KIND is NIL here even
+             ;; though TRANSIENT-ELIGIBLE-INIT-P already live-verified this
+             ;; class's MAKE is untrusted-checked. Declines if more than one
+             ;; distinct class is possible (e.g. an IF choosing between two
+             ;; different persistent-object constructors) -- op gates are
+             ;; per-representation, so there is no single consistent gate
+             ;; to check in that case.
+             ((and (null kind) fresh-classes (= 1 (length fresh-classes)))
+              (%persistent-object-init-supports-p (first fresh-classes) chain-ops used-ops))
              (t nil)))))))
+
+(defun %persistent-object-init-supports-p (class-name chain-ops used-ops)
+  "Shared by INIT-SUPPORTS-P's two persistent-object paths: a direct
+   (make 'X) init, and a Tier-2-summarized helper whose tail position
+   builds one. ASSOC is the only spine op (no DISSOC/CONJ/DISJ analogue for
+   CLOS slots); reads are supported (GET on a persistent-object reads via
+   plain SLOT-VALUE, which already sees in-place mutation once
+   %TRANSIENT-OWNER is set -- no dirty-node traversal needed the way HAMT
+   reads require). Freshness (TRANSIENT-ELIGIBLE-INIT-P) is purely
+   structural/live-checked, so MAKE itself must be checked here for a
+   method-combination hazard, same as any spine/read op -- otherwise a
+   customized MAKE could silently hand back something other than a fresh
+   instance. Only FOL's own MAKE generic is checked; a raw
+   CL:INITIALIZE-INSTANCE/CL:ALLOCATE-INSTANCE :around method bypassing it
+   is a known, unhandled gap, the same kind already noted for
+   EQL-specializers elsewhere.
+
+   ASSOC gets a narrower exception than MAKE/reads (Approach A): a
+   method-combination customization on ASSOC alone doesn't have to refuse
+   conversion outright. ASSOC's own PRIMARY method for <persistent-object>
+   (collection-functions.lisp) already calls UPDATE-SLOT, whose in-place
+   fast path (persistence.lisp) already branches on %TRANSIENT-OWNER
+   regardless of caller -- it's the general update primitive, not
+   something built only for the transient bypass. So routing the rewritten
+   call through the REAL ASSOC generic instead of the ASSOC! bypass costs
+   only CLOS dispatch (measured ~10ns/call over the bypass), not the
+   in-place mutation itself: the customization's :before/:after/:around
+   methods fire via ordinary method combination, and CALL-NEXT-METHOD
+   still reaches the same ownership-aware primary.
+
+   Second return value: T when conversion is supported only in
+   'dispatch-through' mode -- see INIT-SUPPORTS-P's docstring.
+
+   Third return value: (KIND . ALL-USED-OPS), the exact facts %KIND-
+   TRUSTED-P needs to re-derive this same trust verdict later, live, at
+   load time -- see that function's docstring for why a one-time
+   compile-time check alone isn't enough."
+  (let* ((kind (cons :persistent-object class-name))
+         (all-used-ops (union used-ops '("MAKE") :test #'string=))
+         (non-assoc-used-ops (remove "ASSOC" all-used-ops :test #'string=)))
+    (and (subsetp chain-ops '("ASSOC") :test #'string=)
+         (notany (lambda (op) (tier1-op-customized-p op kind)) non-assoc-used-ops)
+         (values t (and (member "ASSOC" all-used-ops :test #'string=)
+                        (tier1-op-customized-p "ASSOC" kind)
+                        t)
+                 (cons kind all-used-ops)))))
+
+(defun %kind-trusted-p (kind used-ops)
+  "Re-derive, from KIND and USED-OPS alone, exactly the method-combination
+   trust verdict INIT-SUPPORTS-P/%PERSISTENT-OBJECT-INIT-SUPPORTS-P
+   computed at compile time for this representation -- called again, live,
+   at load time (see REGISTER-REGION's call sites in compiler.lisp).
+
+   Why re-check at all: TRUSTED is checked via MOP introspection at
+   conversion time (compile time), but the world-guard's actual protection
+   (REGISTER-REGION) only starts at load time, a separate, later phase --
+   confirmed by every call site being wrapped in CL:LOAD-TIME-VALUE. A
+   :before/:after/:around method hijacking the representation, introduced
+   after the compile-time check but before load time, is invisible to
+   both: the compile-time snapshot is already stale, and NOTE-REDEFINITION
+   has nothing registered yet to invalidate (no redefinition event fires
+   for a method that already existed). Re-running the same check here, at
+   the moment protection actually begins, closes that gap.
+
+   Mirrors the two trust checks exactly, including persistent-object's
+   Approach-A ASSOC exemption (a customization on ASSOC alone doesn't
+   disqualify, since MAYBE-TRANSIENT-LOOP already routes it through
+   dispatch-through rather than the bypass) -- but omits the chain-ops/
+   reads-forbidden-p checks those functions also make: those are static
+   facts about the AST and the wrapper-transient ablation flag, fixed at
+   compile time, and cannot change between compile time and load time the
+   way a live method table can."
+  (if (and (consp kind) (eq (car kind) :persistent-object))
+      (notany (lambda (op) (tier1-op-customized-p op kind))
+              (remove "ASSOC" used-ops :test #'string=))
+      (tier1-methods-trusted-p kind used-ops)))
 
 (defun %init-call-name (init-node)
   "Operator name (string) of a constructor-call INIT-NODE, or NIL. Used to
@@ -1343,6 +1493,26 @@
   (and (fol.compiler.ast:call-node-p init-node)
        (let ((op (operator-symbol init-node)))
          (and op (symbol-name op)))))
+
+(defun %init-fresh-dependency-names (init-node)
+  "Extra assumed names a converted region's world-guard must depend on
+   beyond %INIT-CALL-NAME's own operator name. When INIT-NODE's freshness
+   was established unconditionally, or via a MAKE/MAKE-<T> call directly
+   at INIT-NODE's own position, %INIT-CALL-NAME already covers it (that
+   name IS \"MAKE\"/\"MAKE-<T>\"). But when freshness instead came from a
+   Tier-2 helper's FRESH-IF-CLASSES-TRUSTED -- a constructor call buried
+   inside the HELPER's own tail position, invisible to %INIT-CALL-NAME,
+   which only inspects INIT-NODE itself -- the region has no dependency on
+   \"MAKE\" at all today. Without this, a loop already compiled and
+   running would not be invalidated by a LATER MAKE hijack for the class
+   the helper's freshness claim depended on: TRANSIENT-ELIGIBLE-INIT-P's
+   live TIER1-METHODS-TRUSTED-P check only protects the COMPILE-TIME
+   decision for a region not yet emitted, not one already running."
+  (let ((summary (%init-call-summary init-node)))
+    (when (and summary
+               (not (fol.compiler.summaries:escape-summary-returns-fresh-p summary))
+               (fol.compiler.summaries:escape-summary-fresh-if-classes-trusted summary))
+      (list "MAKE"))))
 
 (defun %reads-present-p (uses)
   "Reads seen either directly in USES or collected from nested linear
@@ -1752,6 +1922,10 @@
   "When *TRANSIENT-LOOPS* is enabled and NODE is a convertible reduce call,
    return the transient-protocol rewrite; otherwise NODE. Called by emit-call.
    Second value: the summarized operator names the conversion assumed.
+   Third value: a singleton list, ((KIND . USED-OPS)), or NIL -- passed to
+   %KIND-TRUSTED-P at load time by the region's REGISTER-REGION call site
+   (see %KIND-TRUSTED-P's docstring for why the compile-time TRUSTED check
+   alone doesn't suffice).
    No recursion hazard: the rewritten reduce's init is a (transient ...) call,
    which fails the literal-init eligibility check on re-entry."
   (if (not (and *transient-loops* (%reduce-call-p node)))
@@ -1773,13 +1947,14 @@
                               (not (eq acc (second params)))
                               (not (%contains-recur-p f))))
                (supports-p nil)
-               (needs-dispatch-p nil))
+               (needs-dispatch-p nil)
+               (kind-and-ops nil))
           (when basic-ok
             (multiple-value-bind (ok uses) (reduce-acc-qualified-p acc (cdr clause))
               (when ok
-                (multiple-value-bind (sp ndp)
+                (multiple-value-bind (sp ndp ko)
                     (init-supports-p init *chain-ops* (%reads-present-p uses))
-                  (setf supports-p sp needs-dispatch-p ndp)))))
+                  (setf supports-p sp needs-dispatch-p ndp kind-and-ops ko)))))
           (if (not supports-p)
               node
               (progn
@@ -1804,9 +1979,11 @@
                    :form (fol.compiler.ast:ast-node-form node)))
                  (union (union (union (union *chain-ops* *read-ops* :test #'string=)
                                       (mapcar #'string *inlined-helpers*) :test #'string=)
-                               (let ((n (%init-call-name init))) (and n (list n)))
+                               (union (let ((n (%init-call-name init))) (and n (list n)))
+                                      (%init-fresh-dependency-names init) :test #'string=)
                                :test #'string=)
-                        (list "REDUCE") :test #'string=))))))))
+                        (list "REDUCE") :test #'string=)
+                 (and kind-and-ops (list kind-and-ops)))))))))
 
 ;;; --- Dynamic-extent closure client (step 5) --------------------------------
 ;;; (mapv (fn [x] ...) coll) allocates a fresh closure per call; when the
@@ -1847,14 +2024,20 @@
    otherwise return NODE unchanged. Called by emit-loop.
    Second value: the summarized operator names the conversion assumed.
    Third value: a profitability-check form to be emitted as a runtime guard,
-   or NIL if no check is needed."
+   or NIL if no check is needed.
+   Fifth value: a list of (KIND . USED-OPS) pairs, one per qualifying
+   accumulator (a loop may convert more than one at once) -- passed to
+   %KIND-TRUSTED-P at load time by the region's REGISTER-REGION call site
+   (see %KIND-TRUSTED-P's docstring for why the compile-time TRUSTED check
+   alone doesn't suffice)."
   (if (not *transient-loops*)
       node
       (let* ((bindings (fol.compiler.ast:loop-node-bindings node))
              (pos-names (make-array (length bindings) :initial-element nil))
              (qnames '())
              (dispatch-qnames '())
-             (assumptions '()))
+             (assumptions '())
+             (trust-checks '()))
         (loop for (pname . init) in bindings
               for i from 0
               for pos from 0
@@ -1865,16 +2048,18 @@
                           (*inlined-helpers* '())
                           (uses (classify-loop-param pname pos node)))
                      (when (eq :qualified (param-verdict uses))
-                       (multiple-value-bind (supports-p needs-dispatch-p)
+                       (multiple-value-bind (supports-p needs-dispatch-p kind-and-ops)
                            (init-supports-p init *chain-ops* (%reads-present-p uses))
                          (when supports-p
                            (push pname qnames)
                            (setf (aref pos-names pos) pname)
                            (when needs-dispatch-p (push pname dispatch-qnames))
+                           (when kind-and-ops (push kind-and-ops trust-checks))
                            (setf assumptions
                                  (union (union (union (union *chain-ops* *read-ops* :test #'string=)
                                                       (mapcar #'string *inlined-helpers*) :test #'string=)
-                                              (let ((n (%init-call-name init))) (and n (list n)))
+                                              (union (let ((n (%init-call-name init))) (and n (list n)))
+                                                     (%init-fresh-dependency-names init) :test #'string=)
                                               :test #'string=)
                                         assumptions :test #'string=))))))))
         (if (null qnames)
@@ -1927,7 +2112,8 @@
                  ;; accumulator by name, but the accumulator is bound only
                  ;; *inside* each loop. Return (name . init-node) so emit-loop
                  ;; can bind it in an outer LET that scopes the guard.
-                 (when profit-check (cons first-qname first-qinit)))))))))
+                 (when profit-check (cons first-qname first-qinit))
+                 trust-checks)))))))
 
 ;;; ============================================================================
 ;;; Tier-2 Summary Inference (step 6)
@@ -1958,6 +2144,92 @@
                     ((string= (symbol-name op) "SET") :set)))))
       (t nil))))
 
+(defun %fresh-tail-value-p (node params local-fresh-env)
+  "Two values: (FRESH-P DEPENDS-ON-CLASSES). Judges whether NODE, reached
+   in tail position, is guaranteed to evaluate to a fresh, uniquely-owned
+   value -- the recursive check %INFER-SUMMARY-SINGLE-PASS's RETURNS-FRESH-P
+   used to skip, relying instead on two narrow side-effect conditions (a
+   bare parameter returned, or a parameter marked :RETAINED) that leave a
+   free/global variable reference or a non-fresh call result in tail
+   position entirely unnoticed -- confirmed by direct evaluation: a 0-ary
+   function returning a global collection was inferred RETURNS-FRESH-P T.
+
+   PARAMS is this function's own parameter-name list (never fresh -- the
+   caller retains its own reference to whatever it passed in).
+   LOCAL-FRESH-ENV is an alist of BIND-local name -> (fresh-p . classes),
+   extended as bindings are walked, so a bind-local returned bare in tail
+   position (invisible to the old parameter-only check) resolves correctly.
+
+   DEPENDS-ON-CLASSES is never itself trusted here -- it only names which
+   classes' MAKE a *consumer* of the resulting summary must separately
+   verify live (see FRESH-IF-CLASSES-TRUSTED's docstring, summaries.lisp)."
+  (cond
+    ;; Literal/atomic tail values can't alias a pre-existing mutable root,
+    ;; so freshness is vacuously true for them -- includes numbers, strings,
+    ;; booleans, nil, keywords, and quoted data.
+    ((or (fol.compiler.ast:vector-node-p node)
+         (fol.compiler.ast:dict-node-p node)
+         (fol.compiler.ast:set-node-p node)
+         (fol.compiler.ast:literal-node-p node)
+         (fol.compiler.ast:quote-node-p node))
+     (values t nil))
+
+    ((fol.compiler.ast:symbol-ref-node-p node)
+     (let ((name (fol.compiler.ast:symbol-ref-node-name node)))
+       (cond
+         ((member name params :test #'eq) (values nil nil))
+         ((assoc name local-fresh-env :test #'eq)
+          (let ((entry (cdr (assoc name local-fresh-env :test #'eq))))
+            (values (car entry) (cdr entry))))
+         ;; A free/global variable reference: conservatively not fresh.
+         ;; This is the actual bug fix -- previously invisible entirely.
+         (t (values nil nil)))))
+
+    ((fol.compiler.ast:call-node-p node)
+     (let ((class (%tier2-constructor-class node)))
+       (if class
+           ;; NOT unconditionally fresh -- MAKE is a hijackable generic
+           ;; function. FRESH-P is NIL here deliberately: freshness holds
+           ;; only if CLASS's MAKE is later verified untrusted-checked live
+           ;; (TIER1-METHODS-TRUSTED-P), never cached as a bare T. See
+           ;; FRESH-IF-CLASSES-TRUSTED's docstring, summaries.lisp.
+           (values nil (list class))
+           (let ((summary (%init-call-summary node)))
+             (if summary
+                 (values (fol.compiler.summaries:escape-summary-returns-fresh-p summary)
+                         (fol.compiler.summaries:escape-summary-fresh-if-classes-trusted summary))
+                 (values nil nil))))))
+
+    ((fol.compiler.ast:if-node-p node)
+     (multiple-value-bind (then-fresh then-classes)
+         (%fresh-tail-value-p (fol.compiler.ast:if-node-then node) params local-fresh-env)
+       (let ((else-fresh t) (else-classes nil))
+         (dolist (form (fol.compiler.ast:if-node-else node))
+           (multiple-value-bind (f c) (%fresh-tail-value-p form params local-fresh-env)
+             (setf else-fresh (and else-fresh f)
+                   else-classes (union else-classes c))))
+         (values (and then-fresh else-fresh) (union then-classes else-classes)))))
+
+    ((fol.compiler.ast:do-node-p node)
+     (let ((body (fol.compiler.ast:do-node-body node)))
+       (if body
+           (%fresh-tail-value-p (car (last body)) params local-fresh-env)
+           (values t nil))))
+
+    ((fol.compiler.ast:bind-node-p node)
+     (let ((env local-fresh-env))
+       (dolist (b (fol.compiler.ast:bind-node-bindings node))
+         (when (symbolp (car b))
+           (multiple-value-bind (f c) (%fresh-tail-value-p (cdr b) params env)
+             (push (cons (car b) (cons f c)) env))))
+       (let ((body (fol.compiler.ast:bind-node-body node)))
+         (if body
+             (%fresh-tail-value-p (car (last body)) params env)
+             (values t nil)))))
+
+    ;; Unrecognized shape: conservative default.
+    (t (values nil nil))))
+
 (defun %infer-summary-single-pass (fn-node)
   "The core single-pass analysis for inferring a function's summary.
    This is called repeatedly by the fixed-point iterator."
@@ -1971,9 +2243,6 @@
          (params (%param-names (car clause)))
          (body (cdr clause))
          (param-effects (make-array (length params) :initial-element :none))
-         ;; A function returns a fresh (uniquely-owned) value unless it returns
-         ;; one of its parameters in tail position. Default T; cleared below.
-         (returns-fresh-p t)
          (barrier-p nil))
 
     (labels ((param-index (name)
@@ -1985,13 +2254,14 @@
              (walk (node tailp)
                (cond
                  ((null node) nil)
-                 ;; A parameter returned directly is :shared-with-result, and
-                 ;; means the function does not return a fresh value.
+                 ;; A parameter returned directly is :shared-with-result.
+                 ;; Freshness of the overall return value is judged
+                 ;; separately, after this walk, by %FRESH-TAIL-VALUE-P --
+                 ;; this clause only needs the param-effect side of things.
                  ((fol.compiler.ast:symbol-ref-node-p node)
                   (let ((idx (param-index (fol.compiler.ast:symbol-ref-node-name node))))
                     (when (and idx tailp)
-                      (update-effect idx :shared-with-result)
-                      (setf returns-fresh-p nil))))
+                      (update-effect idx :shared-with-result))))
 
                  ((fol.compiler.ast:call-node-p node)
                   (let* ((op (operator-symbol node))
@@ -2059,21 +2329,19 @@
             for lastp = (eq form (car (last body)))
             do (walk form (and lastp t))))
 
-    ;; If any parameter has a :retained effect, the function cannot guarantee
-    ;; freshness of its return value if it's derived from that parameter.
-    (loop for effect across param-effects
-          for i from 0
-          do (when (eq effect :retained)
-               (setf returns-fresh-p nil)))
-
-    (fol.compiler.summaries:make-escape-summary
-     :name (let ((n (fol.compiler.ast:fn-node-name fn-node)))
-             (if n (string n) "anonymous"))
-     :param-effects param-effects
-     :rest-effect nil ; Non-recursive version doesn't handle &rest
-     :returns-fresh-p returns-fresh-p
-     :returns-kind (%infer-returns-kind body)
-     :barrier-p barrier-p)))
+    (multiple-value-bind (returns-fresh-p fresh-if-classes-trusted)
+        (if body
+            (%fresh-tail-value-p (car (last body)) params nil)
+            (values t nil))
+      (fol.compiler.summaries:make-escape-summary
+       :name (let ((n (fol.compiler.ast:fn-node-name fn-node)))
+               (if n (string n) "anonymous"))
+       :param-effects param-effects
+       :rest-effect nil ; Non-recursive version doesn't handle &rest
+       :returns-fresh-p returns-fresh-p
+       :fresh-if-classes-trusted fresh-if-classes-trusted
+       :returns-kind (%infer-returns-kind body)
+       :barrier-p barrier-p))))
 
 
 (defun infer-summary (fn-node)

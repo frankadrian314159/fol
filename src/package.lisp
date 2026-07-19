@@ -81,6 +81,7 @@
    escape-summary-rest-effect
    escape-summary-returns-fresh-p
    escape-summary-returns-kind
+   escape-summary-fresh-if-classes-trusted
    escape-summary-barrier-p
    ;; Effect lattice
    +effect-order+
@@ -160,10 +161,14 @@
    ;; Transient loop conversion (step 3)
    *transient-loops*
    *scalar-replacement*
+   *dict-scalar-replacement*
+   *reduce-literal-unroll*
    *numeric-specialization*
    maybe-transient-loop
    maybe-transient-reduce
    transient-eligible-init-p
+   tier1-methods-trusted-p
+   %kind-trusted-p
    maybe-register-inlinable-helper
    *loops-converted*
    *params-converted*
@@ -411,7 +416,7 @@
    %make-hamt %make-hamt-node %make-hamt-leaf %make-hamt-collision
    api-transient-hamt hamt-assoc! hamt-dissoc! hamt-persistent! hamt-transfer-ownership!
    hamt-get-transient transient-hamt-count transient-hamt-p transient-hamt-token
-   transient-%vec-t transient-%vec-t-conj! transient-%vec-t-persistent!
+   transient-%vec-t transient-%vec-t-conj! transient-%vec-t-assoc! transient-%vec-t-persistent!
    transient-%vec-t-p trans-%vec-t-count trans-%vec-t-token %transient-vec-t-ref
    ;; Empty instances
    %empty-vec-f64 %empty-vec-f32 %empty-vec-t %empty-vec-fix64

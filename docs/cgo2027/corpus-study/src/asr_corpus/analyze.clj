@@ -228,12 +228,21 @@
           sites))
 
 (defn analyze-project [project domain dir]
+  ;; :loop and :reduce below are computed identically to before (REDS still
+  ;; collects reduce+reduce-kv+reductions combined) so the published 1,442/
+  ;; 8/3 headline numbers stay byte-reproducible. :reduce-plain/:reductions
+  ;; are new, purely additive fields that partition :reduce for a finer
+  ;; breakdown (reductions is a fundamentally different, escaping shape --
+  ;; see cgo2027.tex's corpus-study discussion -- so it is worth separating
+  ;; from reduce/reduce-kv, which are structurally closer to loop/recur).
   (let [files  (clj-files dir)
         parsed (mapv read-forms files)
         forms  (mapcat :forms parsed)
         {:keys [ctors names]} (record-defs forms)
-        loops  (volatile! [])
-        reds   (volatile! [])]
+        loops      (volatile! [])
+        reds       (volatile! [])
+        reds-plain (volatile! [])
+        redns      (volatile! [])]
     (doseq [{fs :forms} parsed, top fs]
       (walk-sites top
         (fn [f]
@@ -242,14 +251,20 @@
               (#{"loop" "loop*"} op)
               (when-let [bs (analyze-loop f ctors names)] (vswap! loops conj bs))
               (#{"reduce" "reduce-kv" "reductions"} op)
-              (when-let [b (analyze-reduce f ctors names)] (vswap! reds conj [b])))))))
-    {:project     project
-     :domain      domain
-     :files       (count files)
-     :read-errors (count (filter :read-error parsed))
-     :records     (count names)
-     :loop        (tally (map site-tags @loops))
-     :reduce      (tally (map site-tags @reds))}))
+              (when-let [b (analyze-reduce f ctors names)]
+                (vswap! reds conj [b])
+                (if (= op "reductions")
+                  (vswap! redns conj [b])
+                  (vswap! reds-plain conj [b]))))))))
+    {:project      project
+     :domain       domain
+     :files        (count files)
+     :read-errors  (count (filter :read-error parsed))
+     :records      (count names)
+     :loop         (tally (map site-tags @loops))
+     :reduce       (tally (map site-tags @reds))
+     :reduce-plain (tally (map site-tags @reds-plain))
+     :reductions   (tally (map site-tags @redns))}))
 
 (defn add-tallies [a b]
   (merge-with + a b))

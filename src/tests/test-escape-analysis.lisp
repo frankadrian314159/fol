@@ -438,8 +438,15 @@
     (is (not (fol.compiler.summaries:escape-summary-returns-fresh-p summary)))))
 
 (test infer-summary-mutually-recursive
-  "Handles mutually recursive functions by iterating to a fixed point."
-  ;; is-even? and is-odd? call each other.
+  "Handles mutually recursive functions by iterating to a fixed point.
+   is-even? and is-odd? call each other, but DO-INFER-SUMMARY invokes
+   INFER-SUMMARY on each independently (a separate top-level call per
+   function, not a shared fixed point over both at once), so whichever one
+   is inferred first sees the other as a callee with no summary registered
+   yet -- unlike genuine self-recursion or mutual recursion compiled
+   together in one file, where MAYBE-INFER-AND-CACHE-SUMMARY's ordinary
+   compile-time caching (compiler.lisp) makes a sibling's summary available
+   by the time it's needed."
   (let ((is-even-summary (do-infer-summary
                           '(defn is-even? #(n)
                              (if (= n 0) true (is-odd? (- n 1))))))
@@ -454,13 +461,25 @@
                 (fol.compiler.summaries:escape-summary-param-effects is-even-summary)))
     (is (equalp #(:none)
                 (fol.compiler.summaries:escape-summary-param-effects is-odd-summary)))
-    (is (fol.compiler.summaries:escape-summary-returns-fresh-p is-even-summary))
-    (is (fol.compiler.summaries:escape-summary-returns-fresh-p is-odd-summary))))
+    ;; RETURNS-FRESH-P is correctly NIL for both: each function's ELSE
+    ;; branch is a call to its sibling, whose summary is unavailable in
+    ;; this isolated-invocation test pattern (see docstring above), so
+    ;; %FRESH-TAIL-VALUE-P can't prove that branch fresh -- and IF requires
+    ;; EVERY tail-reachable branch to be fresh, so the whole function isn't
+    ;; either, even though its OTHER branch (a bare TRUE/FALSE literal) is.
+    ;; This is the conservatively correct answer for what this test
+    ;; actually establishes about each function in isolation; it was
+    ;; previously (incorrectly) T only because the old freshness check
+    ;; never inspected a tail-position call's own freshness at all.
+    (is (not (fol.compiler.summaries:escape-summary-returns-fresh-p is-even-summary)))
+    (is (not (fol.compiler.summaries:escape-summary-returns-fresh-p is-odd-summary)))))
 
 (test infer-summary-returns-kind-dict-constructor
   "A 0-ary constructor whose tail form directly calls DICT infers
-   RETURNS-KIND :DICT, alongside RETURNS-FRESH-P (trivially true: no
-   parameter exists to fail freshness). This is the summary fact
+   RETURNS-KIND :DICT, alongside RETURNS-FRESH-P T -- genuinely verified
+   via %FRESH-TAIL-VALUE-P's call-node case, which resolves DICT's own
+   Tier-1 summary (RETURNS-FRESH-P T), not merely defaulted because there
+   are no parameters to fail freshness. This is the summary fact
    TRANSIENT-ELIGIBLE-INIT-P/INIT-SUPPORTS-P consult to accept a
    constructor-call loop init in place of a literal (§sec:formal)."
   (let ((summary (do-infer-summary
@@ -480,16 +499,94 @@
 
 (test infer-summary-returns-kind-unknown-declines
   "A tail form that isn't a literal or a direct DICT/VECTOR/SET call --
-   here IDENTITY wrapping a dict -- infers RETURNS-KIND NIL (unknown), even
-   though RETURNS-FRESH-P is still true. Consumers must treat NIL as
-   \"can't tell\", not \"not a collection\"."
+   here IDENTITY wrapping a dict -- infers RETURNS-KIND NIL (unknown).
+   Consumers must treat NIL as \"can't tell\", not \"not a collection\".
+
+   RETURNS-FRESH-P is NIL here too, correctly: IDENTITY genuinely does
+   pass its argument through unchanged (so this call IS fresh in reality),
+   but IDENTITY's own Tier-1 entry (summaries.lisp) is not marked
+   RETURNS-FRESH-P T -- it's just :SHARED-WITH-RESULT, the same as any
+   other passthrough-shaped function. %FRESH-TAIL-VALUE-P's call-node case
+   correctly declines to credit a call whose own summary doesn't prove
+   freshness, closing the soundness gap where this used to default to T
+   merely because no parameter happened to be involved (see
+   %INFER-SUMMARY-SINGLE-PASS's docstring). Making IDENTITY/VEC/INTO
+   argument-freshness-conditional passthroughs is a separate, later
+   completeness improvement, not part of this fix."
   (let ((summary (do-infer-summary
                   '(defn make-mystery-cart #()
                      (fol.compiler.functional:identity
                       (fol.compiler.collection-functions:dict))))))
     (is (not (null summary)))
-    (is (fol.compiler.summaries:escape-summary-returns-fresh-p summary))
+    (is (not (fol.compiler.summaries:escape-summary-returns-fresh-p summary)))
     (is (null (fol.compiler.summaries:escape-summary-returns-kind summary)))))
+
+(test infer-summary-zero-param-global-capture-not-fresh
+  "A 0-ary function returning a free/global variable reference must NOT be
+   inferred RETURNS-FRESH-P T. Confirmed as a real, live bug via direct
+   evaluation before this fix: neither of %INFER-SUMMARY-SINGLE-PASS's old
+   two conditions (a bare parameter returned, or a parameter marked
+   :RETAINED) can ever fire when there are no parameters at all, so
+   RETURNS-FRESH-P defaulted to its optimistic seed value T unconditionally
+   -- a genuine soundness gap, not merely a missed optimization, since
+   TRANSIENT-ELIGIBLE-INIT-P licenses in-place mutation based on this fact."
+  (let ((summary (do-infer-summary
+                  '(defn get-shared-thing #() *some-global-dict*))))
+    (is (not (null summary)))
+    (is (not (fol.compiler.summaries:escape-summary-returns-fresh-p summary)))))
+
+(test infer-summary-n-param-global-capture-not-fresh
+  "The same gap with an (unused-for-freshness) parameter present: previously
+   a parameter's bare presence didn't matter unless it was itself returned
+   or marked :RETAINED, so this was equally unsound regardless of arity."
+  (let ((summary (do-infer-summary
+                  '(defn wrap-shared #(x)
+                     (fol.compiler.functional:identity *some-global-dict*)))))
+    (is (not (null summary)))
+    (is (not (fol.compiler.summaries:escape-summary-returns-fresh-p summary)))))
+
+(test infer-summary-bind-local-aliasing-param-not-fresh
+  "A BIND-local bound to a parameter and returned bare in tail position was
+   previously invisible to the freshness check entirely -- the old check's
+   PARAM-INDEX lookup only recognized bare parameter names, not BIND-locals
+   -- so aliasing through a named temporary silently escaped detection."
+  (let ((summary (do-infer-summary
+                  '(defn alias-through-bind #(x)
+                     (bind (y x) y)))))
+    (is (not (null summary)))
+    (is (not (fol.compiler.summaries:escape-summary-returns-fresh-p summary)))))
+
+(test infer-summary-bind-local-fresh-binding-is-fresh
+  "A BIND-local bound to a genuinely fresh expression and returned bare in
+   tail position IS fresh -- the alias-tracking must propagate freshness,
+   not just non-freshness, through a named temporary."
+  (let ((summary (do-infer-summary
+                  '(defn make-via-bind #()
+                     (bind (y (fol.compiler.collection-functions:dict)) y)))))
+    (is (not (null summary)))
+    (is (fol.compiler.summaries:escape-summary-returns-fresh-p summary))))
+
+(test infer-summary-if-one-branch-global-not-fresh
+  "IF must AND across every tail-reachable branch: one branch fresh, the
+   other a global reference, must NOT be credited fresh as a whole -- the
+   caller can't know statically which branch will run."
+  (let ((summary (do-infer-summary
+                  '(defn maybe-shared #(flag)
+                     (if flag
+                         (fol.compiler.collection-functions:dict)
+                         *some-global-dict*)))))
+    (is (not (null summary)))
+    (is (not (fol.compiler.summaries:escape-summary-returns-fresh-p summary)))))
+
+(test infer-summary-if-both-branches-fresh-is-fresh
+  "Both branches fresh -> the whole IF is fresh."
+  (let ((summary (do-infer-summary
+                  '(defn always-fresh #(flag)
+                     (if flag
+                         (fol.compiler.collection-functions:dict)
+                         (fol.compiler.collection-functions:vector))))))
+    (is (not (null summary)))
+    (is (fol.compiler.summaries:escape-summary-returns-fresh-p summary))))
 
 ;;; ============================================================================
 ;;; Run the suite

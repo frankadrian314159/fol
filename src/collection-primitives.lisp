@@ -73,6 +73,7 @@
 
          (api-transient (%pvec-mk-sym "TRANSIENT-~A" name))
          (api-transient-conj (%pvec-mk-sym "TRANSIENT-~A-CONJ!" name))
+         (api-transient-assoc (%pvec-mk-sym "TRANSIENT-~A-ASSOC!" name))
          (api-transient-persistent (%pvec-mk-sym "TRANSIENT-~A-PERSISTENT!" name))
          (push-tail (%pvec-mk-sym "~APUSH-TAIL" conc-name))
 
@@ -262,6 +263,45 @@
             (setf (,accessor (,trans-tail tv) tail-idx) val)
             (incf (,trans-count tv))
             tv)))
+
+      (defun ,api-transient-assoc (tv index new-val)
+        "In-place index-set on a transient trie. The tail is always a
+         freshly-allocated array private to this transient (API-TRANSIENT
+         copies it, line above), so an index landing there is mutated
+         directly. An index landing in the tree is updated by cloning only
+         the spine down to the target leaf -- the same discipline
+         API-TRANSIENT-CONJ's own tree-growth path already uses (PUSH-TAIL/
+         NEW-PATH clone rather than mutate), since interior nodes may still
+         be shared with the persistent structure this transient started
+         from or with other outstanding references; only the tail is
+         exclusively owned."
+        (declare (type fixnum index) ,@(when (not (eq element-type 't)) `((type ,element-type new-val))) (optimize (speed 3) (safety 0)))
+        (unless (eq (,trans-token tv) (bt:current-thread))
+          (error "Transient used in different thread or after persistent! call"))
+        (let ((cnt (,trans-count tv)))
+          (when (or (< index 0) (>= index cnt))
+            (error "Index ~D out of bounds for transient vector of count ~D" index cnt))
+          (if (>= index (if (< cnt 32) 0 (logand (1- cnt) -32)))
+              (progn
+                (setf (,accessor (,trans-tail tv) (logand index 31)) new-val)
+                tv)
+              (labels ((update (node level-shift)
+                         (if (= level-shift 0)
+                             (if (eql (,accessor node (logand index 31)) new-val)
+                                 node
+                                 (let ((new-leaf (,clone-leaf node)))
+                                   (setf (,accessor new-leaf (logand index 31)) new-val)
+                                   new-leaf))
+                             (let* ((child-idx (logand (ash index (- level-shift)) 31))
+                                    (child (svref node child-idx))
+                                    (new-child (update child (- level-shift 5))))
+                               (if (eq new-child child)
+                                   node
+                                   (let ((new-node (%clone-node node)))
+                                     (setf (svref new-node child-idx) new-child)
+                                     new-node))))))
+                (setf (,trans-root tv) (update (,trans-root tv) (,trans-shift tv)))
+                tv))))
 
       (defun ,api-transient-persistent (tv)
         (unless (eq (,trans-token tv) (bt:current-thread))

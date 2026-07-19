@@ -7,5 +7,13 @@
   :analyze {:main-opts ["-m" "asr-corpus.analyze"]}
   ;; clojure -M:hits <corpus-dir> [project ...] -- print source of strong hits
   :hits    {:main-opts ["-m" "asr-corpus.hits"]}
+  ;; clojure -M:weak-hits <corpus-dir> [project ...] -- print source of weak (helper-mediated) hits
+  :weak-hits {:main-opts ["-m" "asr-corpus.weak-hits"]}
+  ;; clojure -M:wide-hits <corpus-dir> [project ...] -- strong hits incl. threading-macro-wrapped
+  :wide-hits {:main-opts ["-m" "asr-corpus.wide-hits"]}
+  ;; clojure -M:defn-hits <corpus-dir> [project ...] -- record accumulators threaded via self-recursion, not loop/recur
+  :defn-hits {:main-opts ["-m" "asr-corpus.defn-hits"]}
+  ;; clojure -M:map-hits <corpus-dir> [project ...] -- fixed-schema PLAIN MAP accumulators (would-be records)
+  :map-hits {:main-opts ["-m" "asr-corpus.map-hits"]}
   ;; clojure -M:classify <corpus-dir> [manifest.edn] [out.edn]
   :classify {:main-opts ["-m" "asr-corpus.classify"]}}}

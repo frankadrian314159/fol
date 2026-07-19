@@ -30,7 +30,7 @@
   (merge-pathnames "fol-code/"
                    (make-pathname :directory (pathname-directory *load-pathname*))))
 (defparameter *iterations* 5000000 "Loop iterations per call.")
-(defparameter *trials*     5        "Independent timed trials per configuration.")
+(defparameter *trials*     20       "Independent timed trials per configuration.")
 
 ;;; --- GC accounting -------------------------------------------------------
 (defvar *gc-count* 0 "Incremented by an after-GC hook while trials run.")

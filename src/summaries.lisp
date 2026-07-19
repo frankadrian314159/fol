@@ -46,6 +46,19 @@
                              ; Qualification Rule's "constructor call" clause
                              ; (§sec:formal), not just RETURNS-FRESH-P alone,
                              ; since the op-gate check also needs the kind.
+  (fresh-if-classes-trusted nil) ; list of class-name symbols, or NIL. When
+                             ; non-NIL, the result is fresh PROVIDED each
+                             ; listed class's MAKE has no non-primary-
+                             ; qualified method -- re-checked live via
+                             ; TIER1-METHODS-TRUSTED-P wherever this summary
+                             ; is consulted, never cached as a bare boolean:
+                             ; *INFERRED-SUMMARIES* has no transitive
+                             ; invalidation (a helper's cached summary isn't
+                             ; re-evaluated when a function IT called is
+                             ; redefined), so baking a live MOP trust result
+                             ; into RETURNS-FRESH-P would go stale silently
+                             ; if MAKE were hijacked for that class after
+                             ; this summary was cached.
   (barrier-p nil))           ; may eval/redefine -> full barrier at call sites
 
 ;;; ============================================================================
@@ -100,7 +113,14 @@
            (escape-summary-returns-fresh-p new))
        ;; A consumer that saw no barrier assumed no barrier.
        (or (escape-summary-barrier-p old)
-           (not (escape-summary-barrier-p new)))))
+           (not (escape-summary-barrier-p new)))
+       ;; FRESH-IF-CLASSES-TRUSTED is never trusted from a cached copy --
+       ;; every consumer re-derives it from the CURRENT summary object and
+       ;; re-verifies each listed class live (see the field's docstring).
+       ;; So OLD's list carries no assumption that NEW could violate by
+       ;; itself; only OLD's RETURNS-FRESH-P=T (checked above) is a bare
+       ;; assumption a consumer could have taken without re-verifying.
+       t))
 
 (defun summary-join (s1 s2)
   "Least upper bound of two summaries (pointwise worst effects, fresh only if
@@ -118,20 +138,41 @@
                     (if (cl:< i (length (escape-summary-param-effects s2)))
                         (svref (escape-summary-param-effects s2) i)
                         :none))))
-    (make-escape-summary
-     :name (escape-summary-name s1)
-     :param-effects effects
-     :rest-effect (let ((r1 (escape-summary-rest-effect s1))
-                        (r2 (escape-summary-rest-effect s2)))
-                    (cond ((and r1 r2) (effect-join r1 r2))
-                          (t (or r1 r2))))
-     :returns-fresh-p (and (escape-summary-returns-fresh-p s1)
-                           (escape-summary-returns-fresh-p s2))
-     :returns-kind (and (eq (escape-summary-returns-kind s1)
-                            (escape-summary-returns-kind s2))
-                        (escape-summary-returns-kind s1))
-     :barrier-p (or (escape-summary-barrier-p s1)
-                    (escape-summary-barrier-p s2)))))
+    (multiple-value-bind (joined-fresh-p joined-classes)
+        ;; RETURNS-FRESH-P/FRESH-IF-CLASSES-TRUSTED are joined together
+        ;; (not independently) since a summary is fresh either
+        ;; unconditionally (RETURNS-FRESH-P) or conditionally (a non-NIL
+        ;; class list), never both -- see the field's docstring. Treat each
+        ;; side as a 3-way fact: unconditionally fresh, conditionally fresh
+        ;; pending trust of some classes, or never fresh. ANDing with a
+        ;; never-fresh side makes the whole join never-fresh regardless of
+        ;; the other side's classes; otherwise the join is conditional on
+        ;; the union of whichever sides are themselves conditional (an
+        ;; unconditionally-fresh side contributes no constraint).
+        (let* ((f1 (escape-summary-returns-fresh-p s1))
+               (f2 (escape-summary-returns-fresh-p s2))
+               (c1 (escape-summary-fresh-if-classes-trusted s1))
+               (c2 (escape-summary-fresh-if-classes-trusted s2))
+               (never1 (and (not f1) (not c1)))
+               (never2 (and (not f2) (not c2))))
+          (cond
+            ((or never1 never2) (values nil nil))
+            ((and f1 f2) (values t nil))
+            (t (values nil (union (if f1 nil c1) (if f2 nil c2))))))
+      (make-escape-summary
+       :name (escape-summary-name s1)
+       :param-effects effects
+       :rest-effect (let ((r1 (escape-summary-rest-effect s1))
+                          (r2 (escape-summary-rest-effect s2)))
+                      (cond ((and r1 r2) (effect-join r1 r2))
+                            (t (or r1 r2))))
+       :returns-fresh-p joined-fresh-p
+       :fresh-if-classes-trusted joined-classes
+       :returns-kind (and (eq (escape-summary-returns-kind s1)
+                              (escape-summary-returns-kind s2))
+                          (escape-summary-returns-kind s1))
+       :barrier-p (or (escape-summary-barrier-p s1)
+                      (escape-summary-barrier-p s2))))))
 
 ;;; ============================================================================
 ;;; Tier-1 table

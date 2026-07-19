@@ -1,0 +1,19 @@
+;; Third round of extended corpus search. Rounds one (numeric/geometry
+;; hypothesis) and two (rule engines, alternative router, date/time, DB,
+;; state machine -- domains structurally close to reitit's win) both
+;; converged on zero additional genuine hits. This round targets domains
+;; not yet sampled at all: graphics/pixel processing (fixed-schema
+;; color/pixel records, same author-community as fastmath), physics
+;; simulation (position/velocity body state), entity-component-system
+;; games (component records assembled per entity), term-rewriting/pattern
+;; matching (AST-node accumulators), a parser combinator library (parse
+;; tree node builders), and a second, independent statechart library
+;; (fixed-field state-config records).
+
+{:repos
+ [{:name "clojure2d"      :domain :graphics        :sha nil :url "https://github.com/Clojure2D/clojure2d"}
+  {:name "cljbox2d"       :domain :physics         :sha nil :url "https://github.com/floybix/cljbox2d"}
+  {:name "brute"          :domain :games           :sha nil :url "https://github.com/markmandel/brute"}
+  {:name "meander"        :domain :language        :sha nil :url "https://github.com/noprompt/meander"}
+  {:name "instaparse"     :domain :language        :sha nil :url "https://github.com/Engelberg/instaparse"}
+  {:name "clj-statecharts" :domain :language        :sha nil :url "https://github.com/lucywang000/clj-statecharts"}]}
