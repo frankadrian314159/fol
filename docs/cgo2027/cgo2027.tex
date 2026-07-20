@@ -1087,18 +1087,110 @@ programmer following Clojure's actual idiom for this shape now gets a
 real, verified speedup without first learning---or even knowing
 about---ASR's record-shaped precondition.
 
+\textbf{Portability: three further host languages.} The claim that our
+mechanisms---not FOL itself---transfer to other transpiled dynamic
+languages is not merely argued here: we built three further
+existence-proof ports, each independently reimplementing qualification
+and rewrite against that host's own AST and loop construct---CPython
+(reference-counted heap, no JIT), Erlang/BEAM (immutable-by-default,
+clause-dispatch tail recursion in place of \texttt{loop}/\texttt{recur}),
+and Julia (an LLVM-based JIT with its own escape analysis)---and ran the
+same two-pass corpus methodology used above (a syntactic Pass~1 upper
+bound, then a gate-faithful Pass~2 that runs each port's real, shipped
+transform as a black-box oracle, never a re-implementation that could
+drift) against each host's own real code. Appendix~\ref{sec:ports}
+reports full per-language corpora, methodology, and results
+(Table~\ref{tab:ports}); the headline findings:
+
+\emph{The mechanism transfers cleanly.} All three ports pass dedicated
+test suites exercising the shapes described in \S\ref{sec:algo}---direct
+reconstruction, interprocedural inlining, branch-shaped reconstruction,
+multi-accumulator fixpoints---plus, for CPython and Julia, direct field
+mutation of a non-frozen accumulator, a shape FOL's own always-immutable
+records never required.
+
+\emph{Payoff is conditioned on whether the host already does this.}
+Where no competing allocation-elimination exists---CPython, Erlang/BEAM,
+and FOL itself---synthetic benchmarks instantiating the same fourteen
+patterns as Table~\ref{tab:speedup} show real, substantial speedups:
+CPython 2.95$\times$--35.64$\times$, FOL 3.1$\times$--16.3$\times$
+(\S\ref{sec:eval}), BEAM 1.01$\times$--1.80$\times$. Julia is the
+exception: its JIT already performs SROA-style escape analysis, so 13 of
+14 ported benchmarks measure near 1.0$\times$---nothing is left to
+eliminate---and one (Kalman, the same coupled two-accumulator shape as
+this paper's own Table~\ref{tab:speedup} entry) measures a 0.87$\times$
+regression: ASR's own parallel-update staging costs more than the
+allocation it removes once the host compiler was going to remove that
+allocation anyway.
+
+\emph{Real-code incidence is low everywhere except where the host forces
+it.} Gate-faithful (not syntactic) qualifying rates: CPython 0 of 9 raw
+candidates (0.00\%) across 10{,}074 files/27 projects; Julia 1 of 247
+(0.4\%) across an \emph{exhaustive} scan of Julia's own standard library
+(365 files---not a sample); Erlang/BEAM 6 of 41 (14.6\%) across 30 files
+from one project family (Erlang/OTP), after six targeted fixes. BEAM's
+own outlier status is informative, not noise: Erlang has no mutation at
+all, so a loop-carried accumulator has nowhere to go but reconstruction,
+an opaque map, or a hand-optimized primitive---no third option. CPython
+and Julia both have a rich mutate-via-method-call idiom (Python's
+\texttt{line.append\_safe(...)}; Julia's \texttt{IOBuffer}/\texttt{write},
+\texttt{Ref}), and both real-world qualifying rates collapse toward zero
+even after each port added direct support for exactly that idiom---most
+hand-written Python classes' constructors are not the flat, inferrable
+shape either port's qualification requires, and Julia's own
+investigation, reading seven real declining sites directly rather than
+inferring from counts, found every one mutated through an opaque method
+on a data structure with no fixed field count (a buffer, an array), a
+shape no amount of interprocedural reach could ever flatten to scalars.
+The record-accumulator pattern is genuinely rare in both languages, for a
+reason with a real causal story, not a Pass-1 measurement artifact---the
+same reading \S\ref{sec:discussion}'s Clojure study already gave for the
+27:1 primitive-vs-record suppression ratio, now independently corroborated
+in two more languages by a different mechanism (opaque mutation, not
+hand-optimization).
+
+\emph{Two more negative results, two more distinct causes.} Beyond
+Julia's host-already-did-it regression, Erlang/BEAM's own corpus-derived
+real-code benchmark (\texttt{httpc:validate\_headers/3}, extracted
+verbatim, its full 39-field production record) regresses 2.5$\times$
+(0.40$\times$)---not because BEAM optimizes the allocation away, but
+because the loop itself is a short, bounded, two-hop normalization with
+no long inner loop to amortize ASR's own field-splice-and-rebox cost
+against; and Julia's one real, verbatim-qualifying site
+(\texttt{Sockets.listenany}, its full production retry loop) eliminates
+zero allocation despite qualifying and rewriting correctly, because its
+accumulator escapes into an opaque call \emph{inside} the loop body on
+every iteration, not just after it, so the rewrite must re-box a fresh
+value at that call site each time---the mechanism did exactly what it
+should given where the escape actually sits. Three structurally distinct
+reasons a correctly-qualifying, correctly-rewritten instance of this
+technique can still fail to pay off---host already did it, loop shape
+does not amortize the rewrite, escape point is mid-loop rather than at
+exit---none of them a defect in the mechanism itself, and none visible
+from qualification alone; only running the benchmark shows which applies.
+
 \textbf{Threats to validity.} External: FOL has no outside user base, and
 our fourteen benchmarks are authored microbenchmarks instantiating the
 target pattern, not corpus-sampled programs (\S\ref{sec:eval});
-the Clojure study is a proxy for incidence, not a measurement of FOL, and
-we argue the mechanisms transfer but do not yet demonstrate it in a
-second language. Internal: speedups are single-machine wall-clock
+the Clojure study is a proxy for incidence, not a measurement of FOL.
+We no longer argue mechanism transfer without demonstrating it: three
+further ports (above, Appendix~\ref{sec:ports}) confirm it in languages
+spanning reference-counted, clause-dispatch, and JIT-compiled runtimes.
+What remains open is narrower: FOL's own Clojure proxy still has no
+gate-faithful ASR-specific pass---only its syntactic upper bound is
+measured (\S\ref{sec:discussion}); the existing gate-faithful pass over
+that same corpus measures FOL's \emph{transient}-conversion mechanism,
+a different one. The Erlang corpus is a single project family (OTP's
+own house style), not independently-authored code the way the Python
+and Clojure corpora are; none of the four corpora are randomly sampled
+at web scale. Internal: speedups are single-machine wall-clock
 measurements whose baseline is GC-scheduling sensitive; we mitigate this
 with repeated trials and reported variance, but not by pinning the OS
 scheduler or sweeping microarchitectures. A corpus study over real FOL
-programs and a port to a second persistent-first language---small,
-being an emit-time syntactic rewrite rather than an IR pass---are
-the two experiments that would most strengthen the claims.
+programs and a gate-faithful ASR pass for the existing Clojure
+corpus---cheaper than a full new port, reusing the corpus already
+checked out---are the two experiments that would most strengthen the
+claims.
 
 \section{Related Work}
 \label{sec:related}
@@ -1230,5 +1322,202 @@ and a step toward open-world partial escape analysis.
 
 \bibliographystyle{ACM-Reference-Format}
 \bibliography{cgo2027}
+
+\appendix
+
+\section{Cross-Language Portability: Corpus Studies and Benchmarks}
+\label{sec:ports}
+
+This appendix reports the full methodology and results behind
+\S\ref{sec:discussion}'s portability findings: three further
+existence-proof ports of the mechanisms described in \S\ref{sec:algo},
+each an independent reimplementation against its host's own AST and
+loop construct, evaluated by the same two-pass corpus methodology as
+this paper's own Clojure study (\S\ref{sec:discussion}): a syntactic
+Pass~1 (an upper-bound proxy, matching a candidate's \emph{shape}
+without resolving types or running any code) followed by a
+gate-faithful Pass~2 that runs each port's real, shipped transform
+directly on every Pass~1 candidate as a black-box oracle---never a
+re-implementation of the qualification rules that could drift from
+what the transform actually does. Table~\ref{tab:ports} summarizes all
+four hosts, including this paper's own Clojure proxy for comparison.
+
+\begin{table}
+  \caption{Cross-language portability summary. ``Files'' and ``Sites''
+  are corpus size and loop/reduce site count (corpus composition---file
+  count, project count, and whether sampled or exhaustive---is given in
+  full in each host's own subsection below). ``Syntactic'' is the
+  Pass~1 upper bound (candidate positions as a fraction of loop/reduce
+  sites); ``Gate-faithful'' is the Pass~2 measured qualifying rate
+  under each host's own real, shipped transform. ``Speedup'' is the
+  range across each port's own set of benchmarks instantiating this
+  paper's fourteen target patterns (Table~\ref{tab:speedup}) in that
+  host language. $^\dagger$FOL's Clojure proxy corpus has no
+  gate-faithful ASR-specific pass: its own existing gate-faithful pass
+  (\S\ref{sec:discussion}) measures a different mechanism, transient
+  conversion. $^\ddagger$247 candidates split 160 (from an exhaustive
+  syntactic scan of Julia's two single-loop shapes, \texttt{while} and
+  \texttt{for}) plus 87 (a supplementary, non-exhaustive scan of
+  multi-loop functions); both are included in the gate-faithful
+  denominator.}
+  \label{tab:ports}
+  \footnotesize
+  \setlength{\tabcolsep}{3pt}
+  \begin{tabular}{lrrrrr}
+    \toprule
+    Host & Files & Sites & Syntactic & Gate-faithful & Speedup \\
+    \midrule
+    Clojure (proxy) & 2{,}905 & 1{,}442 & 8 (0.55\%) & ---$^\dagger$ & 3.1--16.3$\times$ \\
+    CPython & 10{,}074 & 2{,}811 & 142 (5.05\%) & 0/9 (0.00\%) & 2.95--35.64$\times$ \\
+    Erlang/BEAM & 30 & 345 & 41 (11.9\%) & 6/41 (14.6\%) & 1.01--1.80$\times$ \\
+    Julia & 365 & 1{,}809 & 247 (13.7\%)$^\ddagger$ & 1/247 (0.4\%) & 0.87--1.14$\times$ \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{CPython}
+
+A minimal AST-level port (\texttt{@asr} decorator, applied per function,
+plus an optional import-hook for automatic application to a whole
+package) recognizes two accumulator shapes: frozen dataclasses,
+rebuilt via full constructor call, \texttt{dataclasses.replace}, a
+one-level-inlinable helper, an \texttt{if}/\texttt{elif}/.../\texttt{else}
+chain, or a \texttt{match}/\texttt{case} block; and non-frozen
+dataclasses or plain classes, updated via direct field assignment
+(\texttt{p.x = p.x + 1.0})---a shape FOL's own always-immutable records
+never required, and the idiomatic style for a mutable Python object.
+The corpus (27 actively-maintained projects, 10{,}074 files, chosen to
+mirror the Clojure study's seven domains: numeric, graphics/games, data
+structures, language/compilers, web, tooling) finds the syntactic
+pattern more often than the Clojure proxy (5.05\% vs.\ 0.55\% of
+sites)---Python's own direct-mutation idiom accounts for 43\% of those
+sites, with zero using \texttt{dataclasses.replace}---but the
+gate-faithful pass, even after four rounds of targeted fixes
+(module-qualified construction, annotated self-assignment, interspersed
+attribute docstrings, defaulted constructor arguments), still finds
+zero of nine raw candidates qualifying. Sampling 53 record-accumulator
+classes across five of the largest projects found zero using
+\texttt{@dataclass}: every one is a hand-written class with its own
+\texttt{\_\_init\_\_}, and the port's field-inference only accepts an
+\texttt{\_\_init\_\_} body that is a flat, unconditional sequence of
+\texttt{self.<name> = <name>} assignments---real bodies routinely
+compute derived fields, coerce types, or call \texttt{super().\_\_init\_\_()},
+any of which aborts inference before mutability or escape analysis is
+even reached. Hand-tracing all nine candidates found a mix of the
+already-known aliased-reference limit (an accumulator passed bare to a
+function, e.g.\ \texttt{mypy}'s \texttt{class\_info}), a
+Python-specific analogue (a \emph{method} called on the accumulator
+rather than a field access---\texttt{black}'s
+\texttt{current\_line.append\_safe(...)}, since a Python object may
+have real behavior, not just data), and two newly-characterized
+structural limits with no Clojure analogue: an accumulator that changes
+class across iterations (\texttt{LibCST}'s \texttt{Name}$\to$\texttt{Attribute}
+rebuild), and a reconstruction that embeds the accumulator's own prior
+value as a field of its replacement (building a left-leaning tree,
+structurally incompatible with flattening to scalars regardless of
+analysis power). None of the nine sites port verbatim; five were
+adapted (faithful field count and shape, non-shape-relevant payload
+stubbed, matching this paper's own \texttt{reitit}-adjacent hand-ports)
+into working, independently measured benchmarks.
+
+\subsection{Erlang/BEAM}
+
+A \texttt{parse\_transform} port targets Erlang's only iteration
+construct, tail-self-recursive functions, recognizing a record
+constructed or updated at the tail call itself, reached across a
+helper-call boundary the same way, and branch-shaped (guarded
+multi-clause) reconstruction, which BEAM's own clause dispatch already
+provides for free---no new transform code was needed for the analogue
+of this paper's \texttt{if}/\texttt{cond}/\texttt{case}-branched
+reconstruction (\S\ref{sec:discussion}). The corpus (30 files, one per
+Erlang/OTP application, chosen for domain representativeness across
+$\sim$20 domains, not cherry-picked for hits) initially qualified zero
+of 41 record-shaped candidates; six targeted fixes across three
+iterations---record-declared-default support for an omitted
+constructor field, relaxing the base-case gate to allow the
+accumulator's one remaining bare occurrence anywhere in a clause rather
+than only in trailing position, a head-alias pattern that both binds
+the whole accumulator and destructures a field in the clause pattern,
+a literal-sub-pattern guard conversion, indirect entry construction
+(the accumulator arriving as an already-bound variable or update
+expression rather than a literal at the call site), and update-expression
+transparency in the general use-classifier---brought six of 41 (14.6\%)
+to qualifying. Every fix was independently verified by dedicated EUnit
+fixtures before being credited; real OTP functions this size (7--40
+clauses) routinely stack more than one qualification-blocking idiom at
+once, so a single fix rarely flips a whole function on its own (of
+eight candidates a single fix was expected to unlock, only one flipped
+immediately; the other five needed a second, independent fix; two
+remain out of scope---one a genuine multi-bare-use, one requiring real
+interprocedural purity analysis to verify a helper does not misuse the
+accumulator). Four of the six now-qualifying sites were extracted
+verbatim (full production records: a 40-field \texttt{\#xmerl\_scanner\{\}}
+for three xmerl scanning functions, a 39-field \texttt{\#http\_request\_h\{\}}
+for one httpc normalization) into independently measured benchmarks,
+surfacing a genuine rewrite bug the gate-faithful oracle's arity-only
+qualification check could not see (an embedded self-call inside a
+\texttt{case} branch was not updated to the function's new arity---fixed,
+with a regression fixture). Three of the four measure real speedups
+(1.13$\times$--3.90$\times$); the fourth, \texttt{validate\_headers/3},
+regresses 2.5$\times$ (0.40$\times$)---not a host-already-optimized
+result but a loop-shape mismatch: a short, bounded, two-hop
+normalization with no long inner loop to amortize the cost of splicing
+in one field-read expression per field (all 39, unconditionally, since
+this port's indirect-entry-construction support has no
+which-fields-are-actually-touched liveness analysis) against.
+
+\subsection{Julia}
+
+A macro-based port (\texttt{@asr function ... end}) recognizes both
+loop constructs Julia offers---\texttt{while} and, added after the
+corpus study below showed 86\% of loop-bearing functions were never
+even scanned for the pattern (Julia's own idiom overwhelmingly favors
+\texttt{for}, 81\% of all loop sites vs.\ 14\% \texttt{while}-only),
+\texttt{for}---plus interprocedural reach generalized from one level to
+a depth-bounded, memoized, cycle-safe recursive summary (closing a
+latent soundness gap the generalization itself surfaced: a callee that
+mutates a field, not just reads it, could otherwise have been wrongly
+verified safe by a check designed only for read-only pass-through), and
+direct field mutation on mutable structs. The corpus (Julia 1.10's
+entire standard library---\texttt{Base} plus 12 stdlib modules, 365
+files---scanned \emph{exhaustively}, not sampled, since it is small
+enough to cover completely) finds 247 syntactic candidates, of which
+exactly one qualifies under the real transform: \texttt{Sockets.listenany},
+a port-retry loop threading an \texttt{InetAddr} record. Getting even
+this one candidate to qualify took five extensions across the syntactic
+upper bound's own investigation---parametric struct support, a
+loop-body dispatch fix, and the interprocedural generalization above,
+each independently motivated and verified by real code, none moving
+the corpus's own qualifying count until the third closed the specific
+combination \texttt{Sockets.listenany} needed. The remaining 246
+candidates were investigated directly, not merely counted: seven real
+declining sites were read across every domain sampled (arrays, compiler
+internals, REPL, a parser, linear algebra), and all seven mutate
+through an opaque method call on a data structure with no fixed field
+count---an \texttt{IOBuffer} written a byte at a time, a parser state
+advanced by its own \texttt{parse!}, a \texttt{Ref} passed as a
+foreign-call out-parameter---never through direct field assignment, a
+finding independently confirmed corpus-wide (zero hits for the
+syntactic scanner's own mutation-shaped candidate category across
+272{,}688 lines). This is a shape no amount of interprocedural
+reach could flatten to scalars, since there is no fixed scalar field
+set to begin with. Running the fourteen ported synthetic benchmarks
+found 13 of 14 within measurement noise of $1.0\times$ and one
+regression (Kalman, the same coupled two-accumulator shape as this
+paper's own benchmark of that name, 0.87$\times$)---confirmed via
+\texttt{@allocated} to already be zero-allocation on both the baseline
+and transformed code, so this is pure rewrite overhead (parallel
+temp-then-assign staging) with no allocation win to offset it against,
+not a failed transformation. The one real, verbatim-qualifying site was
+independently benchmarked by re-parsing and transforming the installed
+Julia's own standard-library source directly, never hand-transcribed:
+it eliminates \emph{zero} allocation (1200 constructions measured on
+both the baseline and the transformed path, across 200 calls each
+forcing five retries) despite qualifying and rewriting correctly,
+because its accumulator escapes into the retry loop's own opaque guard
+call (\texttt{bind(sock, addr)}) on every iteration, not just once at
+exit, so the rewrite must re-box a fresh value at that call site each
+time---confirmed by instrumented counting, not assumed from reading the
+rewritten code.
 
 \end{document}
