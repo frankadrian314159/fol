@@ -1087,36 +1087,45 @@ programmer following Clojure's actual idiom for this shape now gets a
 real, verified speedup without first learning---or even knowing
 about---ASR's record-shaped precondition.
 
-\textbf{Portability: three further host languages.} The claim that our
+\textbf{Portability: four further host languages.} The claim that our
 mechanisms---not FOL itself---transfer to other transpiled dynamic
-languages is not merely argued here: we built three further
+languages is not merely argued here: we built four further
 existence-proof ports, each independently reimplementing qualification
 and rewrite against that host's own AST and loop construct---CPython
 (reference-counted heap, no JIT), Erlang/BEAM (immutable-by-default,
 clause-dispatch tail recursion in place of \texttt{loop}/\texttt{recur}),
-and Julia (an LLVM-based JIT with its own escape analysis)---and ran the
-same two-pass corpus methodology used above (a syntactic Pass~1 upper
-bound, then a gate-faithful Pass~2 that runs each port's real, shipped
-transform as a black-box oracle, never a re-implementation that could
-drift) against each host's own real code. Appendix~\ref{sec:ports}
-reports full per-language corpora, methodology, and results
-(Table~\ref{tab:ports}); the headline findings:
+Julia (an LLVM-based JIT with its own escape analysis), and Ruby (a
+mark-and-sweep-GC'd heap, no unparser for its own AST, and---uniquely
+among the five---two independent redefinition vectors requiring two
+separate guard-hook families)---and ran the same two-pass corpus
+methodology used above (a syntactic Pass~1 upper bound, then a
+gate-faithful Pass~2 that runs each port's real, shipped transform as a
+black-box oracle, never a re-implementation that could drift) against
+each host's own real code. Appendix~\ref{sec:ports} reports full
+per-language corpora, methodology, and results (Table~\ref{tab:ports});
+the headline findings:
 
-\emph{The mechanism transfers cleanly.} All three ports pass dedicated
+\emph{The mechanism transfers cleanly.} All four ports pass dedicated
 test suites exercising the shapes described in \S\ref{sec:algo}---direct
 reconstruction, interprocedural inlining, branch-shaped reconstruction,
 multi-accumulator fixpoints---plus, for CPython and Julia, direct field
 mutation of a non-frozen accumulator, a shape FOL's own always-immutable
-records never required.
+records never required. The world guard itself transfers unevenly: Julia
+needs none at all (struct redefinition is a hard compile-time error),
+CPython and BEAM each need one hook, and Ruby needs two independent ones
+(Appendix~\ref{sec:ports}'s Ruby subsection)---the guard's own
+complexity tracks each host's own redefinition surface, not the
+rewrite's.
 
 \emph{Payoff is conditioned on whether the host already does this.}
 Where no competing allocation-elimination exists---CPython, Erlang/BEAM,
-and FOL itself---synthetic benchmarks instantiating the same fourteen
-patterns as Table~\ref{tab:speedup} show real, substantial speedups:
-CPython 2.95$\times$--35.64$\times$, FOL 3.1$\times$--16.3$\times$
-(\S\ref{sec:eval}), BEAM 1.01$\times$--1.80$\times$. Julia is the
-exception: its JIT already performs SROA-style escape analysis, so 13 of
-14 ported benchmarks measure near 1.0$\times$---nothing is left to
+Ruby, and FOL itself---synthetic benchmarks instantiating the same
+fourteen patterns as Table~\ref{tab:speedup} show real, substantial
+speedups: CPython 2.95$\times$--35.64$\times$, FOL
+3.1$\times$--16.3$\times$ (\S\ref{sec:eval}), Ruby
+3.07$\times$--16.74$\times$, BEAM 1.01$\times$--1.80$\times$. Julia is
+the exception: its JIT already performs SROA-style escape analysis, so
+13 of 14 ported benchmarks measure near 1.0$\times$---nothing is left to
 eliminate---and one (Kalman, the same coupled two-accumulator shape as
 this paper's own Table~\ref{tab:speedup} entry) measures a 0.87$\times$
 regression: ASR's own parallel-update staging costs more than the
@@ -1127,27 +1136,35 @@ allocation anyway.
 it.} Gate-faithful (not syntactic) qualifying rates: CPython 0 of 9 raw
 candidates (0.00\%) across 10{,}074 files/27 projects; Julia 1 of 247
 (0.4\%) across an \emph{exhaustive} scan of Julia's own standard library
-(365 files---not a sample); Erlang/BEAM 6 of 41 (14.6\%) across 30 files
-from one project family (Erlang/OTP), after six targeted fixes. BEAM's
-own outlier status is informative, not noise: Erlang has no mutation at
-all, so a loop-carried accumulator has nowhere to go but reconstruction,
-an opaque map, or a hand-optimized primitive---no third option. CPython
-and Julia both have a rich mutate-via-method-call idiom (Python's
-\texttt{line.append\_safe(...)}; Julia's \texttt{IOBuffer}/\texttt{write},
-\texttt{Ref}), and both real-world qualifying rates collapse toward zero
-even after each port added direct support for exactly that idiom---most
-hand-written Python classes' constructors are not the flat, inferrable
-shape either port's qualification requires, and Julia's own
+(365 files---not a sample); Ruby 0 of 0 genuine candidates across 2{,}236
+files/18 projects---Pass~1 itself never surfaces a real
+\texttt{Struct}/\texttt{Data.define}-shaped candidate at all, the
+sharpest form of this finding yet; Erlang/BEAM 6 of 41 (14.6\%) across 30
+files from one project family (Erlang/OTP), after six targeted fixes.
+BEAM's own outlier status is informative, not noise: Erlang has no
+mutation at all, so a loop-carried accumulator has nowhere to go but
+reconstruction, an opaque map, or a hand-optimized primitive---no third
+option. CPython, Julia, and Ruby all have a rich mutate-via-method-call
+or hand-written-class idiom (Python's \texttt{line.append\_safe(...)};
+Julia's \texttt{IOBuffer}/\texttt{write}, \texttt{Ref}; Ruby's own
+overwhelming preference for a hand-written class with \texttt{attr\_}
+\texttt{accessor} over \texttt{Struct.new}/\texttt{Data.define}, even in
+projects that use the declared-fields style elsewhere), and every one of
+their real-world qualifying rates collapses toward zero even after
+CPython and Julia each added direct support for exactly that mutation
+idiom---most hand-written Python classes' constructors are not the flat,
+inferrable shape either port's qualification requires, and Julia's own
 investigation, reading seven real declining sites directly rather than
 inferring from counts, found every one mutated through an opaque method
 on a data structure with no fixed field count (a buffer, an array), a
 shape no amount of interprocedural reach could ever flatten to scalars.
-The record-accumulator pattern is genuinely rare in both languages, for a
-reason with a real causal story, not a Pass-1 measurement artifact---the
-same reading \S\ref{sec:discussion}'s Clojure study already gave for the
-27:1 primitive-vs-record suppression ratio, now independently corroborated
-in two more languages by a different mechanism (opaque mutation, not
-hand-optimization).
+The record-accumulator pattern is genuinely rare in all three languages,
+for a reason with a real causal story, not a Pass-1 measurement
+artifact---the same reading \S\ref{sec:discussion}'s Clojure study
+already gave for the 27:1 primitive-vs-record suppression ratio, now
+independently corroborated in three more languages, two by the same
+opaque-mutation mechanism and one (Ruby) by the declared-fields style
+simply never being chosen for a loop-threaded accumulator to begin with.
 
 \emph{Two more negative results, two more distinct causes.} Beyond
 Julia's host-already-did-it regression, Erlang/BEAM's own corpus-derived
@@ -1173,9 +1190,10 @@ from qualification alone; only running the benchmark shows which applies.
 our fourteen benchmarks are authored microbenchmarks instantiating the
 target pattern, not corpus-sampled programs (\S\ref{sec:eval});
 the Clojure study is a proxy for incidence, not a measurement of FOL.
-We no longer argue mechanism transfer without demonstrating it: three
+We no longer argue mechanism transfer without demonstrating it: four
 further ports (above, Appendix~\ref{sec:ports}) confirm it in languages
-spanning reference-counted, clause-dispatch, and JIT-compiled runtimes.
+spanning reference-counted, clause-dispatch, JIT-compiled, and
+mark-and-sweep-GC'd runtimes.
 What remains open is narrower: FOL's own Clojure proxy still has no
 gate-faithful ASR-specific pass---only its syntactic upper bound is
 measured (\S\ref{sec:discussion}); the existing gate-faithful pass over
@@ -1329,7 +1347,7 @@ and a step toward open-world partial escape analysis.
 \label{sec:ports}
 
 This appendix reports the full methodology and results behind
-\S\ref{sec:discussion}'s portability findings: three further
+\S\ref{sec:discussion}'s portability findings: four further
 existence-proof ports of the mechanisms described in \S\ref{sec:algo},
 each an independent reimplementation against its host's own AST and
 loop construct, evaluated by the same two-pass corpus methodology as
@@ -1340,7 +1358,7 @@ gate-faithful Pass~2 that runs each port's real, shipped transform
 directly on every Pass~1 candidate as a black-box oracle---never a
 re-implementation of the qualification rules that could drift from
 what the transform actually does. Table~\ref{tab:ports} summarizes all
-four hosts, including this paper's own Clojure proxy for comparison.
+five hosts, including this paper's own Clojure proxy for comparison.
 
 \begin{table}
   \caption{Cross-language portability summary. ``Files'' and ``Sites''
@@ -1359,7 +1377,13 @@ four hosts, including this paper's own Clojure proxy for comparison.
   syntactic scan of Julia's two single-loop shapes, \texttt{while} and
   \texttt{for}) plus 87 (a supplementary, non-exhaustive scan of
   multi-loop functions); both are included in the gate-faithful
-  denominator.}
+  denominator. $^\S$Ruby's syntactic scan counts any locally-defined
+  class as a candidate; its one hit is a confirmed same-project
+  class-name collision (Appendix~\ref{sec:ports}'s Ruby subsection), not
+  a \texttt{Struct}/\texttt{Data.define}-shaped type---the only kind
+  Ruby-asr's real gate can ever accept. Zero such types were found
+  threaded through a loop at all, so Pass~2 has no genuine candidate to
+  check.}
   \label{tab:ports}
   \footnotesize
   \setlength{\tabcolsep}{3pt}
@@ -1371,6 +1395,7 @@ four hosts, including this paper's own Clojure proxy for comparison.
     CPython & 10{,}074 & 2{,}811 & 142 (5.05\%) & 0/9 (0.00\%) & 2.95--35.64$\times$ \\
     Erlang/BEAM & 30 & 345 & 41 (11.9\%) & 6/41 (14.6\%) & 1.01--1.80$\times$ \\
     Julia & 365 & 1{,}809 & 247 (13.7\%)$^\ddagger$ & 1/247 (0.4\%) & 0.87--1.14$\times$ \\
+    Ruby & 2{,}236 & 266 & 1 (0.38\%) & 0/0 (0.00\%)$^\S$ & 3.07--16.74$\times$ \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -1519,5 +1544,113 @@ call (\texttt{bind(sock, addr)}) on every iteration, not just once at
 exit, so the rewrite must re-box a fresh value at that call site each
 time---confirmed by instrumented counting, not assumed from reading the
 rewritten code.
+
+\subsection{Ruby}
+
+A source-splicing port targets Ruby's own \texttt{Data.define}/
+\texttt{Struct.new} value types, recognizing direct or \texttt{\#with}
+reconstruction, one-level interprocedural inlining, branch-shaped
+(\texttt{if}/\texttt{elsif}/\texttt{else}) reconstruction, and---unlike
+any other port here---a genuine multi-accumulator fixpoint, threading
+two or more coupled accumulators (e.g.\ a Kalman filter's state and
+covariance) through the same loop and cross-substituting each other's
+field reads. Ruby's own parser (Prism) exposes no AST-to-source
+unparser at all, unlike Julia's \texttt{Expr} printing, Python's
+\texttt{ast.unparse}, or Erlang's Forms; every rewrite is instead a
+\texttt{(start\_offset, end\_offset, text)} edit queued against the
+\emph{original} source and applied highest-offset-first, so a statement
+that never touches the accumulator survives byte-for-byte---safer than
+a general unparser (correctness need only hold for the narrow shapes
+this pass edits) at the cost of building that machinery once, up front,
+that every other port gets for free from its host's own reflection.
+
+Ruby's world guard is the most involved of the five, for a real
+reason: Ruby has \emph{two independent} redefinition vectors, not one.
+Reopening a class (\texttt{class Point; def x; 999; end; end})
+retroactively changes an already-existing instance's behavior, since
+Ruby method dispatch is always late-bound on the live class
+object---the same vector FOL, CPython, and Julia each guard with a
+single hook. But reassigning the constant a class is bound to
+(\texttt{Point = Data.define(...)} again) silently rebinds the name to
+a brand-new class object \emph{without touching any existing instance
+at all}---a vector none of the other four ports have, since Ruby is the
+only one where a class's own name and its own identity are separably
+mutable. A single hook cannot see both: \texttt{method\_added}/
+\texttt{method\_removed}/\texttt{method\_undefined} on the tracked
+class's own singleton class catch the first; \texttt{const\_added} on
+its owning namespace catches the second, since the old class object is
+never itself touched by a constant reassignment. Both were confirmed
+necessary by direct construction before the guard was written, not
+assumed from the other ports' own designs, and a Ruby-specific
+correctness subtlety followed directly from testing it: after a
+constant reassignment, the guard's fallback path must reproduce the
+\emph{same} failure unmodified Ruby code would hit (Ruby's constant
+lookup is always late-bound, so even the untransformed method
+re-resolves the constant fresh on every call and fails identically)---
+the guard's job is matching what unmodified code does, not making code
+immune to a real semantic-breaking change.
+
+The corpus (18 actively-maintained projects, 2{,}236 files, five
+domains chosen to mirror the other ports' own domain coverage as
+closely as Ruby's ecosystem allows: data structures, web, language
+tooling, numeric/graphics, general tooling) finds 266
+\texttt{while}/\texttt{until} loop sites---the only loop shape
+Ruby-asr's transform recognizes---of which exactly one syntactically
+resembles a record accumulator (0.38\%), and that one is a confirmed
+false positive: an unqualified same-project class-name collision
+(\texttt{Dir.pwd} misclassified because an unrelated cop class
+elsewhere in the same 934-file project happens to be named
+\texttt{Dir} too), independently confirmed to decline both by
+inspection (no \texttt{.members}) and under the real gate-faithful
+oracle. Zero genuinely \texttt{Struct}/\texttt{Data.define}-shaped
+types were found threaded through a loop at all, even though the
+corpus's own projects define plenty elsewhere (rubocop alone declares
+25)---the sharpest form yet of this paper's recurring finding that
+idiomatic object-oriented code overwhelmingly prefers a hand-written
+class over a declared-fields type, sharper even than CPython's own 0-of-9
+result, since Ruby's Pass~1 does not surface a single genuine candidate
+to begin with. Pass~2 (\texttt{gate\_check.rb}) runs the real,
+unmodified \texttt{Asr::Transform.rewrite\_method\_source} as a
+black-box oracle, but never loads or executes a single line of corpus
+code: each candidate's declared field list is read from its own AST,
+then registered as a throwaway \texttt{Struct.new(*fields)} stub inside
+a fresh, per-file module, against which the real transform is invoked
+on the candidate's own extracted method source---gate-faithful without
+running untrusted code, possible only because Ruby-asr's own
+qualification depends solely on \texttt{klass.respond\_to?(:members)},
+never on a class's real behavior. This safety design has one
+documented blind spot, discovered by sanity-checking the harness
+against Ruby-asr's own known-qualifying benchmarks before trusting the
+corpus result: a candidate reconstructed through an interprocedurally
+inlined helper (\S\ref{sec:inline}) cannot be
+gate-checked at all, since resolving the helper requires it to be
+loaded in the running process, which the safety design deliberately
+never does---an honest undercount with no effect on this corpus's own
+zero-candidate result, but a real one. A secondary, descriptive-only
+metric puts the zero finding in context: 139
+\texttt{\#reduce}/\texttt{\#inject}/\texttt{\#each\_with\_object} call
+sites were found across the same corpus, more than half the
+\texttt{while}/\texttt{until} count, entirely outside what either pass
+can see, since Ruby's own iteration idiom leans heavily on block-based
+accumulation---an even sharper version of the gap Julia's own corpus
+study surfaced mid-investigation (\texttt{for} loops, added after the
+fact once found to dominate).
+
+Running the fourteen ported synthetic benchmarks found real speedups
+across the board, 3.07$\times$--16.74$\times$, with allocation reduced
+by four to five orders of magnitude (200,000 iterations down to a
+handful of objects per call)---MRI has no JIT and no competing
+allocation elimination, so this sits with CPython's and BEAM's own
+results rather than Julia's. Measuring that allocation reduction
+needed a Ruby-specific accommodation: wrapping the tracked class's own
+\texttt{.new}/\texttt{\#with} to count constructions directly (every
+other port's own approach) would itself redefine an instance method on
+that class, tripping the very world guard being measured and silently
+falling back to the slow path before the timed call even ran. The
+benchmark harness instead diffs \texttt{GC.stat(:total\_allocated\_}
+\texttt{objects)} around each call, needing no redefinition of
+anything---safe only because MRI represents \texttt{Float} values as
+unboxed flonums, so the only heap allocation in any of these loop
+bodies is the tracked \texttt{Data} instance itself.
 
 \end{document}
