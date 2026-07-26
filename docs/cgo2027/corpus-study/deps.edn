@@ -16,4 +16,6 @@
   ;; clojure -M:map-hits <corpus-dir> [project ...] -- fixed-schema PLAIN MAP accumulators (would-be records)
   :map-hits {:main-opts ["-m" "asr-corpus.map-hits"]}
   ;; clojure -M:classify <corpus-dir> [manifest.edn] [out.edn]
-  :classify {:main-opts ["-m" "asr-corpus.classify"]}}}
+  :classify {:main-opts ["-m" "asr-corpus.classify"]}
+  ;; clojure -M:classify-asr <corpus-dir> [manifest.edn] [out.edn]
+  :classify-asr {:main-opts ["-m" "asr-corpus.classify-asr"]}}}

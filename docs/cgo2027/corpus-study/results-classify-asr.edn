@@ -1,0 +1,2222 @@
+{:generated "2026-07-26T02:42:50.967698Z",
+ :projects
+ [{:project "aws-api",
+   :domain :tools,
+   :files 71,
+   :read-errors 3,
+   :record-types 0,
+   :binding-verdicts
+   [{:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}],
+   :form-verdicts
+   [{:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}]}
+  {:project "clj-kondo",
+   :domain :language,
+   :files 426,
+   :read-errors 12,
+   :record-types 38,
+   :binding-verdicts
+   [{:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}],
+   :form-verdicts
+   [{:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}]}
+  {:project "clojure-lsp",
+   :domain :tools,
+   :files 220,
+   :read-errors 7,
+   :record-types 8,
+   :binding-verdicts
+   [{:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}],
+   :form-verdicts
+   [{:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}]}
+  {:project "compojure",
+   :domain :web,
+   :files 12,
+   :read-errors 0,
+   :record-types 0,
+   :binding-verdicts
+   [{:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}],
+   :form-verdicts
+   [{:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}]}
+  {:project "core.async",
+   :domain :language,
+   :files 46,
+   :read-errors 1,
+   :record-types 31,
+   :binding-verdicts
+   [{:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}],
+   :form-verdicts
+   [{:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}]}
+  {:project "core.logic",
+   :domain :language,
+   :files 19,
+   :read-errors 4,
+   :record-types 17,
+   :binding-verdicts
+   [{:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}],
+   :form-verdicts
+   [{:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}]}
+  {:project "data.avl",
+   :domain :data-structures,
+   :files 9,
+   :read-errors 0,
+   :record-types 6,
+   :binding-verdicts
+   [{:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :usage-disqualified}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :usage-disqualified}],
+   :form-verdicts
+   [{:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :usage-disqualified}]}
+  {:project "data.priority-map",
+   :domain :data-structures,
+   :files 2,
+   :read-errors 0,
+   :record-types 1,
+   :binding-verdicts [],
+   :form-verdicts []}
+  {:project "datascript",
+   :domain :data-structures,
+   :files 68,
+   :read-errors 2,
+   :record-types 17,
+   :binding-verdicts
+   [{:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :field-mismatch}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :usage-disqualified}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}],
+   :form-verdicts
+   [{:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :field-mismatch}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}]}
+  {:project "fastmath",
+   :domain :numeric,
+   :files 92,
+   :read-errors 6,
+   :record-types 29,
+   :binding-verdicts
+   [{:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :usage-disqualified}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :qualified}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}],
+   :form-verdicts
+   [{:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :usage-disqualified}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? true, :reason :qualified}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}]}
+  {:project "geom",
+   :domain :graphics,
+   :files 120,
+   :read-errors 0,
+   :record-types 25,
+   :binding-verdicts
+   [{:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}],
+   :form-verdicts
+   [{:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}]}
+  {:project "incanter",
+   :domain :numeric,
+   :files 102,
+   :read-errors 0,
+   :record-types 14,
+   :binding-verdicts
+   [{:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}],
+   :form-verdicts
+   [{:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}]}
+  {:project "malli",
+   :domain :web,
+   :files 93,
+   :read-errors 26,
+   :record-types 6,
+   :binding-verdicts
+   [{:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}],
+   :form-verdicts
+   [{:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}]}
+  {:project "neanderthal",
+   :domain :numeric,
+   :files 75,
+   :read-errors 0,
+   :record-types 133,
+   :binding-verdicts
+   [{:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}],
+   :form-verdicts
+   [{:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}]}
+  {:project "next.jdbc",
+   :domain :web,
+   :files 44,
+   :read-errors 0,
+   :record-types 6,
+   :binding-verdicts
+   [{:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}],
+   :form-verdicts
+   [{:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}]}
+  {:project "ordered",
+   :domain :data-structures,
+   :files 10,
+   :read-errors 0,
+   :record-types 4,
+   :binding-verdicts [],
+   :form-verdicts []}
+  {:project "overtone",
+   :domain :graphics,
+   :files 302,
+   :read-errors 2,
+   :record-types 19,
+   :binding-verdicts
+   [{:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}],
+   :form-verdicts
+   [{:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}]}
+  {:project "pedestal",
+   :domain :web,
+   :files 246,
+   :read-errors 88,
+   :record-types 9,
+   :binding-verdicts
+   [{:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}],
+   :form-verdicts
+   [{:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}]}
+  {:project "play-cljc",
+   :domain :games,
+   :files 39,
+   :read-errors 12,
+   :record-types 6,
+   :binding-verdicts
+   [{:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}],
+   :form-verdicts
+   [{:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}]}
+  {:project "quil",
+   :domain :graphics,
+   :files 83,
+   :read-errors 1,
+   :record-types 0,
+   :binding-verdicts [{:verdict :no-record-init}],
+   :form-verdicts [{:qualified? false, :reason :no-record-init}]}
+  {:project "reitit",
+   :domain :web,
+   :files 170,
+   :read-errors 35,
+   :record-types 24,
+   :binding-verdicts
+   [{:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}],
+   :form-verdicts
+   [{:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}]}
+  {:project "ring",
+   :domain :web,
+   :files 81,
+   :read-errors 2,
+   :record-types 2,
+   :binding-verdicts
+   [{:verdict :no-record-init} {:verdict :no-record-init}],
+   :form-verdicts
+   [{:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}]}
+  {:project "sci",
+   :domain :language,
+   :files 98,
+   :read-errors 12,
+   :record-types 7,
+   :binding-verdicts
+   [{:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}],
+   :form-verdicts
+   [{:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}]}
+  {:project "tablecloth",
+   :domain :numeric,
+   :files 55,
+   :read-errors 0,
+   :record-types 0,
+   :binding-verdicts
+   [{:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}],
+   :form-verdicts
+   [{:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}]}
+  {:project "tech.ml.dataset",
+   :domain :numeric,
+   :files 109,
+   :read-errors 0,
+   :record-types 32,
+   :binding-verdicts
+   [{:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}],
+   :form-verdicts
+   [{:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}]}
+  {:project "tools.analyzer",
+   :domain :language,
+   :files 22,
+   :read-errors 0,
+   :record-types 0,
+   :binding-verdicts
+   [{:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}],
+   :form-verdicts
+   [{:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}]}
+  {:project "tools.cli",
+   :domain :tools,
+   :files 3,
+   :read-errors 0,
+   :record-types 0,
+   :binding-verdicts
+   [{:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}],
+   :form-verdicts
+   [{:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}]}
+  {:project "tools.reader",
+   :domain :language,
+   :files 25,
+   :read-errors 0,
+   :record-types 11,
+   :binding-verdicts
+   [{:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}],
+   :form-verdicts
+   [{:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}]}
+  {:project "xtdb",
+   :domain :web,
+   :files 263,
+   :read-errors 58,
+   :record-types 108,
+   :binding-verdicts
+   [{:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}
+    {:verdict :no-record-init}],
+   :form-verdicts
+   [{:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}
+    {:qualified? false, :reason :no-record-init}]}]}

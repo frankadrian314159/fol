@@ -900,6 +900,38 @@ performance-aware Clojure hand-writes the scalar form where it matters,
 this count is a lower bound on the pattern's true incidence---though, per
 the confounds above, we cannot confirm that premise from the corpus alone.
 
+A gate-faithful pass, ported from \texttt{src/compiler.lisp}'s actual
+candidate/reconstruction/escape gates (\S\ref{sec:cand}--\S\ref{sec:loop})
+the same way \S\ref{sec:discussion}'s own transient-conversion classifier
+ports \texttt{src/escape-analysis.lisp}'s, and run mechanically over the
+same 29-project corpus rather than by hand, confirms this reading exactly:
+of 678 \texttt{loop} sites (the pattern's construct; FOL's loop-carried ASR
+has no \texttt{reduce}-shaped analogue to port faithfully), \emph{one}
+qualifies---\texttt{fastmath}'s nested-loop \texttt{Vec2} read, the same site
+above, and no other. Finding only that one site mechanically, with nothing
+missed and nothing extra, confirms the hand-audit was complete for this
+corpus, not merely representative. The other two do not qualify, for two
+distinct, now corpus-verified reasons rather than an inspection guess:
+\texttt{fastmath}'s \texttt{reductions} case fails exactly as expected (no
+gate recognizes a \texttt{reductions}/\texttt{reduce} chain as a
+reconstruction); \texttt{datascript}'s pull-pattern accumulator turns out to
+fail \emph{earlier and more specifically} than "hidden behind a macro"
+suggested---its own \texttt{(defrecord PullPattern [attrs first-attr
+last-attr reverse-attrs wildcard?])} declares five fields, but the loop's
+own pre-loop init supplies only three, so the exact-field-set gate
+(\S\ref{sec:cand}) rejects it before the macro-hidden \texttt{assoc} update is
+ever reached---consistent with, not contradicting, this paper's own
+practice of hand-porting corpus sites to a field-complete shape rather than
+converting them verbatim (\S\ref{sec:discussion}, below). Two further
+sites the classifier also finds record-shaped correctly decline for reasons
+outside this pattern entirely: a pair of \texttt{data.avl} accumulators
+update via \texttt{assoc!} (in-place transient mutation, a different
+technique's territory, not a false negative here) and one
+\texttt{datascript} site reconstructs through a helper call, the same
+no-inlining limitation \S\ref{sec:discussion}'s transient classifier already
+documents. The gate-faithful rate---1 of 678, 0.15\%---replaces what was
+previously only a syntactic upper bound for this specific claim.
+
 \begin{figure}
 \begin{lstlisting}
 ;; fastmath/calculus.clj: Neville extrapolation (Vec3 accumulator)
@@ -1194,21 +1226,26 @@ We no longer argue mechanism transfer without demonstrating it: four
 further ports (above, Appendix~\ref{sec:ports}) confirm it in languages
 spanning reference-counted, clause-dispatch, JIT-compiled, and
 mark-and-sweep-GC'd runtimes.
-What remains open is narrower: FOL's own Clojure proxy still has no
-gate-faithful ASR-specific pass---only its syntactic upper bound is
-measured (\S\ref{sec:discussion}); the existing gate-faithful pass over
-that same corpus measures FOL's \emph{transient}-conversion mechanism,
-a different one. The Erlang corpus is a single project family (OTP's
+What remains open is narrower: FOL's own Clojure proxy now has a
+gate-faithful ASR-specific pass (\S\ref{sec:discussion}), ported from
+\texttt{src/compiler.lisp}'s own gates and run mechanically over the same
+29-project corpus---1 of 678 \texttt{loop} sites (0.15\%) qualify, the
+same single site the paper's own hand-audit already found, confirming
+that audit was complete rather than merely representative---but this
+measures \texttt{loop}/\texttt{recur} sites only; FOL's ASR pass has no
+\texttt{reduce}-shaped analogue to port, so \texttt{reduce}-carried record
+accumulators (like \texttt{reitit}'s own route builder, \S\ref{sec:discussion})
+remain a syntactic-only estimate for this specific corpus, not a
+gate-faithful one. The Erlang corpus is a single project family (OTP's
 own house style), not independently-authored code the way the Python
 and Clojure corpora are; none of the four corpora are randomly sampled
 at web scale. Internal: speedups are single-machine wall-clock
 measurements whose baseline is GC-scheduling sensitive; we mitigate this
 with repeated trials and reported variance, but not by pinning the OS
 scheduler or sweeping microarchitectures. A corpus study over real FOL
-programs and a gate-faithful ASR pass for the existing Clojure
-corpus---cheaper than a full new port, reusing the corpus already
-checked out---are the two experiments that would most strengthen the
-claims.
+programs---cheaper than a full new port, reusing the infrastructure
+already built for the Clojure proxy---is the experiment that would most
+strengthen the claims that remain.
 
 \section{Related Work}
 \label{sec:related}

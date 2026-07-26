@@ -188,3 +188,122 @@ here); the FOL-specific mechanisms this port omits (helper inlining, Tier-2
 constructor freshness) are exactly the mechanisms items 2–3 above describe,
 so the true FOL-side fraction likely sits somewhat above 8.75% but well
 below 34.6%.
+
+## A third, gate-faithful pass for ASR itself (`classify_asr.clj`) — for the CGO 2027 paper
+
+`classify.clj` above is gate-faithful for FOL's *transient*-conversion
+mechanism (map/vector/set accumulators) — a different technique from the
+one this paper is actually about. Until now, the CGO 2027 paper's own
+record-accumulator pattern had **no** gate-faithful pass of its own: only
+`analyze.clj`'s syntactic upper bound (8 of 1,442 sites, 0.55%) was
+measured, and the "3 strong hits" reported in the paper's Discussion section were
+hand-audited one at a time rather than gate-checked at corpus scale.
+`classify_asr.clj` closes that gap: it ports the *actual* gates
+`src/compiler.lisp`'s loop-carried ASR pass applies —
+`INFER-TYPE-FROM-CONSTRUCTOR`/`%SR-CTOR-FIELDS`/`%SR-FIELDS-MATCH` for
+candidate identification, `EXPAND-ACC`'s full reconstruction-shape
+dispatch (constructor / `assoc` / single-form `let`-or-`do` peel /
+`if`/`cond`/`case`-branched), and `RW`'s field-read/bare-escape/nested-
+loop/shadow rules — as closely as reader-level (non-macroexpanded)
+Clojure analysis allows. It is self-tested (`selftest/`
+`classify_asr_selftest.clj`, 21 hand-authored cases) against direct/
+`assoc`/branch-shaped/`let`-peeled reconstructions, dot-interop
+(`deftype`) and keyword-style field reads, nested-loop reads and
+shadowing, closure capture (including the two ways a `fn` literal
+mentioning the accumulator's name can be *safe* — shadowing and
+non-reference — vs. genuinely capturing it), and both disqualification
+shapes (`field-mismatch`, `no-record-init`).
+
+```bash
+clojure -M:classify-asr corpus manifest.edn results-classify-asr.edn
+```
+
+Run against the same locked corpus (29 projects, 2,905 files), scoped to
+`loop`/`loop*` forms only — FOL's loop-carried ASR pass hooks the
+`RECUR-NODE-P` case specifically and has no `reduce`-shaped analogue to
+port faithfully (unlike the transients technique, which has its own
+dedicated `REDUCE-ACC-QUALIFIED-P`), so `reduce`/`reduce-kv`/`reductions`
+forms are outside this pass's scope entirely, not scored:
+
+| granularity | sites | qualified |
+|---|---|---|
+| per loop **form** | 678 | 1 (0.15%) |
+| per accumulator **binding** (finer-grained) | 1,342 | 1 (0.07%) |
+
+**The one qualifying site is a real, already-known result, not a new
+find**: `fastmath/src/fastmath/fields/d.clj`'s `rr` (a `Vec2`)
+accumulator, read inside a nested `loop` via the dot-interop accessor
+`(.x rr)` — exactly the "nested-loop `Vec2` read" case
+the paper's Discussion section already reports independently hand-ported and measured
+(159× allocation reduction, 2.72× wall-time, Table `tab:reitit` row 3).
+Finding *only* this one site, and no others, when the real gates are run
+mechanically over the whole corpus rather than by hand, is a clean
+confirmation that the paper's own hand-audit was complete for this
+corpus, not merely representative.
+
+**The other two of the three hand-audited "strong" hits do not qualify
+under this pass, for two distinct, precise, corpus-verified reasons —
+not because the pass is being lenient or because they're out of scope:**
+
+- **`fastmath/src/fastmath/calculus.clj`'s Neville extrapolation**
+  (`f0+err+invc`, a `Vec3`) is `:usage-disqualified`: its own outer
+  `loop` reconstructs the accumulator via `(recur (m/inc i) nh minimal
+  res)`, where `minimal`/`res` come from a nested `reductions` call and a
+  `reduce` over its own result — neither a constructor call, an `assoc`,
+  nor any other `EXPAND-ACC`-recognized shape, so this is the
+  `reductions`-escapes fundamental limit Figure 1 in the paper's
+  Discussion section already documents, now confirmed by running the
+  real gate rather than asserted by inspection.
+- **`datascript/src/datascript/pull_parser.cljc`'s pull-pattern
+  accumulator** (`result`, a `PullPattern`) is `:field-mismatch`, a
+  **more precise finding than "hidden behind a macro" alone**: reading
+  the real `(defrecord PullPattern [attrs first-attr last-attr
+  reverse-attrs wildcard?])` declaration (5 fields) against the loop's
+  own pre-loop init, `(map->PullPattern {:attrs [] :reverse-attrs []
+  :wildcard? nil})`, shows the init supplies only 3 of 5 fields —
+  `%SR-FIELDS-MATCH`'s exact-field-set requirement would reject this
+  candidate at the very first gate, before the macro-hidden `assoc`
+  update (the limitation originally cited in the paper's Discussion
+  section) is ever reached.
+  This is consistent with, not contradicting, the paper's own
+  methodology note that none of the nine hand-ported sites (CPython
+  appendix) or these three (Clojure) port verbatim — the independently
+  measured 11.6× speedup used an *adapted*, field-complete shape, not
+  this exact call.
+
+**Two more sites qualify as record-shaped candidates but correctly
+disqualify for reasons unrelated to either finding above** (both
+`data.avl`'s `AVLTransientMap.`-initialized accumulators, in the
+`.clj` and `.cljs` sources of the same sorted-map-by builder): these use
+`assoc!` (transient, in-place mutation) to update, and return the
+accumulator wrapped in `(persistent! out)` rather than bare — genuinely a
+*transient*-technique accumulator that happens to be built from a
+`defrecord`-backed transient map type, not an ASR candidate at all, and
+correctly declined for that reason rather than a false positive needing
+explanation. And `datascript/src/datascript/query.cljc`'s `rel`
+(a `Relation`) reconstructs via a helper call (`sum-rel`), the same
+undercount-by-design "no interprocedural inlining" limitation
+`classify.clj` already documents for the transients side.
+
+**Read this number as faithful, not merely a lower bound**, with the
+scope cuts below all pushing toward undercount, same discipline as
+`classify.clj`'s own caveats:
+1. No macroexpansion (same constraint as `analyze.clj`/`classify.clj`).
+2. No interprocedural inlining — a loop reconstructing its accumulator
+   through a project-local helper call is `:usage-disqualified` here
+   exactly as an un-inlined FOL loop would be (confirmed live in this
+   corpus: `datascript`'s `query.cljc`, above).
+3. `map->Name` is only credited with a *literal* map argument supplying
+   exactly the declared field set; a non-literal argument cannot be
+   verified field-complete without running code.
+4. `loop`/`loop*` only (see above) — `reduce`-shaped record accumulators
+   remain a syntactic-only proxy via `analyze.clj`, since FOL's own ASR
+   pass has no `reduce`-specific hook to port.
+
+Combined with `analyze.clj`'s own syntactic upper bound (8 of 1,442
+sites, 0.55%; scoped to `loop`/`reduce` together, of which 678 are
+`loop`-only), the honest picture for ASR specifically, restricted to
+`loop`/`loop*` sites: **the real, gate-faithful qualifying rate is 1 of
+678 (0.15%)** — at the noise floor, exactly as the paper's Discussion
+section's own hand-audit already concluded, now measured rather than
+estimated from three manually-read examples.
