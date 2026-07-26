@@ -1218,6 +1218,97 @@ does not amortize the rewrite, escape point is mid-loop rather than at
 exit---none of them a defect in the mechanism itself, and none visible
 from qualification alone; only running the benchmark shows which applies.
 
+\textbf{Predictive criteria, stated before a sixth port.}
+\label{sec:predict}
+Five independent data points (FOL and four ports) are enough to ask a
+sharper question than ``does it transfer'': can we predict, for a
+language we have not yet ported to, both how often the pattern will
+qualify and whether qualifying will pay off---\emph{before} building
+anything, so a future port tests these criteria rather than merely adding
+another retrospective data point? Two independent axes, each grounded in
+evidence already reported above, answer this.
+
+\emph{Incidence is predicted by whether the host offers a cheaper
+alternative to reconstruction.} Every language whose gate-faithful rate
+collapsed toward zero (CPython 0.00\%, Julia 0.4\%, Ruby 0.00\%) has
+\emph{both} a low-cost, idiomatic in-place-mutation escape valve
+\emph{and} a programmer culture where hand-written classes/objects, not
+declared-fields record types, are the default vehicle for small
+structured values; the one language whose rate stayed non-trivial (BEAM,
+14.6\%) has \emph{neither}---no mutation at all, and records (Erlang's
+only aggregate with named fields) are the only alternative to an opaque
+map or a hand-flattened primitive. This predicts, for any host not yet
+ported: low real-world incidence if the host makes field mutation free
+and idiomatic, regardless of whether a declared-fields type exists;
+otherwise, incidence bounded above by how much of that host's own idiom
+favors declared-fields types over plain maps/hashes/tuples for
+loop-carried state at all---a second, independent filter Ruby's own 0-of-0
+result shows can suppress the pattern even where mutation is \emph{not}
+free (Ruby's \texttt{Data} is immutable, yet real code still prefers
+hand-written classes).
+
+\emph{Payoff magnitude is predicted by whether, and how, the host already
+eliminates the allocation.} Julia's near-1.0$\times$ result is the clean
+case: an AOT/JIT compiler with its own escape-analysis-based scalar
+replacement (\S\ref{sec:related}, partial escape analysis
+\cite{stadler2014partial}) already removes this exact allocation, so ASR
+has nothing left to contribute and only its own bookkeeping cost shows.
+Where no such elimination exists, magnitude still varies four-fold
+(CPython/FOL/Ruby's 3--36$\times$ vs.\ BEAM's 1.01--1.80$\times$) by the
+same logic in reverse: BEAM's per-process, bump-pointer, generational heap
+makes a small tuple's baseline allocation cost cheap to begin with, so
+removing it removes a smaller absolute (and relative) share of each
+iteration's total cost than removing a reference-counted, header-carrying
+CPython object, a method-dispatching Ruby \texttt{Data} instance, or a
+CLOS-instance FOL record. This predicts: a host with a mature
+escape-analysis-capable optimizer should show near-1.0$\times$
+\emph{only} where that optimizer's own analysis actually covers the
+loop-carried shape end to end; where it does not (bails out on
+polymorphism, a call crossing a deopt boundary, or an object shape it
+cannot prove monomorphic), ASR's static, syntax-driven walk should still
+show real payoff on exactly those cases, since it is insensitive to the
+runtime conditions that defeat a JIT's own speculation.
+
+\emph{A concrete, falsifiable pair of predictions.} We have not built
+either of the following ports; both predictions are stated here, in
+advance, as a pre-registration this paper's own reviewers---or a future
+port---can check directly, rather than a retrodiction fitted after the
+fact.
+\begin{itemize}
+\item \textbf{JavaScript (V8).} TurboFan's own escape analysis elides
+  non-escaping object allocations, but is well documented to bail out
+  under polymorphism and hidden-class transitions far more readily than
+  an AOT compiler's whole-function analysis. Incidence prediction: low,
+  by the mutation criterion above---\texttt{obj.x = obj.x + 1} is free
+  and idiomatic, and JavaScript has no mandatory declared-fields type (a
+  \texttt{class} is optional sugar over the same mutable-object
+  substrate). Payoff prediction, on the minority of loops that do
+  qualify: moderate, not near-zero---closer to CPython's range than to
+  Julia's, because V8's escape analysis, unlike Julia's LLVM-based SROA,
+  is known to give up on exactly the loop shapes with a real function
+  call inside the loop body that this paper's own benchmarks (and
+  BEAM's/Julia's real corpus-derived regressions, above) already show
+  are common.
+\item \textbf{Java.} The JVM's own C2/Graal escape analysis
+  \cite{stadler2014partial} is the same class of mechanism Julia's LLVM
+  backend provides, but this paper's own Related Work (\S\ref{sec:related})
+  already notes industry judged it insufficiently reliable to skip a
+  language change (Valhalla's opt-in \texttt{value class}
+  \cite{goetz2021valhalla})---evidence, independent of this paper, that
+  stock JIT escape analysis alone does not subsume this allocation on the
+  JVM the way it does on Julia's AOT path. Payoff prediction: real,
+  non-trivial speedup on qualifying loops, closer to BEAM's end of the
+  range than CPython's (the JVM's TLAB bump-pointer allocation is itself
+  cheap, similar in kind to BEAM's per-process heap, though not identical
+  in mechanism). Incidence prediction: bimodal by construction---near-zero
+  among ordinary mutable classes (mutation is free and is the language's
+  own default idiom, predating \texttt{record} by two decades), but
+  meaningfully higher restricted to Java 16+'s own \texttt{record} type
+  specifically, since a \texttt{record} is immutable by construction and
+  offers no mutation escape valve at all---structurally the same
+  ``no third option'' dynamic driving BEAM's own outlier incidence.
+\end{itemize}
+
 \textbf{Threats to validity.} External: FOL has no outside user base, and
 our fourteen benchmarks are authored microbenchmarks instantiating the
 target pattern, not corpus-sampled programs (\S\ref{sec:eval});
@@ -1245,7 +1336,9 @@ with repeated trials and reported variance, but not by pinning the OS
 scheduler or sweeping microarchitectures. A corpus study over real FOL
 programs---cheaper than a full new port, reusing the infrastructure
 already built for the Clojure proxy---is the experiment that would most
-strengthen the claims that remain.
+strengthen the claims that remain; a sixth port, chosen to test
+\S\ref{sec:predict}'s own pre-registered predictions (JavaScript or Java)
+rather than merely add a data point, is the second.
 
 \section{Related Work}
 \label{sec:related}
